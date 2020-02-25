@@ -520,7 +520,8 @@ class Shardus extends EventEmitter {
 
   async shutdown (exitProcess = true) {
     try {
-      await this.exitHandler.exitCleanly(exitProcess)
+      // await this.exitHandler.exitCleanly(exitProcess)
+      await this.exitHandler.exitUncleanly()
     } catch (e) {
       throw e
     }
@@ -712,7 +713,8 @@ class Shardus extends EventEmitter {
     const logFatalAndExit = (err) => {
       console.log('Encountered a fatal error. Check fatal log for details.')
       this.fatalLogger.fatal('unhandledRejection: ' + err.stack)
-      this.exitHandler.exitCleanly()
+      // this.exitHandler.exitCleanly()
+      this.exitHandler.exitUncleanly()
     }
     process.on('uncaughtException', (err) => {
       logFatalAndExit(err)
