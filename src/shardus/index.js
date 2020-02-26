@@ -202,6 +202,7 @@ class Shardus extends EventEmitter {
       console.log(e.message + ' at ' + e.stack)
       this.mainLogger.debug('shardus.start() ' + e.message + ' at ' + e.stack)
       this.fatalLogger.fatal('shardus.start() ' + e.message + ' at ' + e.stack)
+      this.p2p.initApoptosis()
       throw new Error(e)
     })
     this.p2p.on('initialized', async () => {
@@ -713,6 +714,7 @@ class Shardus extends EventEmitter {
     const logFatalAndExit = (err) => {
       console.log('Encountered a fatal error. Check fatal log for details.')
       this.fatalLogger.fatal('unhandledRejection: ' + err.stack)
+      this.p2p.initApoptosis()
       // this.exitHandler.exitCleanly()
       this.exitHandler.exitUncleanly()
     }
