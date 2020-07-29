@@ -74,7 +74,7 @@ class ShardFunctions2 {
 
     storedPartitions.homeRange = ShardFunctions2.partitionToAddressRange2(shardGlobals, homePartition)
     // test if we will cover the full range by default
-    if (shardGlobals.numPartitions / 2 <= shardGlobals.nodesPerConsenusGroup) {
+    if (shardGlobals.numPartitions <= shardGlobals.nodesPerConsenusGroup + (shardGlobals.nodesPerEdge * 2)) {
       storedPartitions.rangeIsSplit = false
       storedPartitions.partitionStart = 0
       storedPartitions.partitionEnd = shardGlobals.numPartitions - 1
@@ -83,7 +83,7 @@ class ShardFunctions2 {
       return storedPartitions
     }
 
-    let x = shardGlobals.nodesPerConsenusGroup
+    let x = shardGlobals.consensusRadius + shardGlobals.nodesPerEdge //shardGlobals.nodesPerConsenusGroup
     let n = homePartition
     storedPartitions.x = x // for debug
     storedPartitions.n = n
@@ -101,7 +101,8 @@ class ShardFunctions2 {
    * @param {StoredPartition2} storedPartitions
    */
   static calculateStoredPartitions2Ranges (shardGlobals: ShardGlobals2, storedPartitions: StoredPartition2) {
-    storedPartitions.partitionRangeVector = { start: storedPartitions.partitionStart, dist: 2 * shardGlobals.nodesPerConsenusGroup, end: storedPartitions.partitionEnd }
+
+    storedPartitions.partitionRangeVector = { start: storedPartitions.partitionStart, dist: shardGlobals.nodesPerConsenusGroup + (2 * shardGlobals.nodesPerEdge), end: storedPartitions.partitionEnd }
     storedPartitions.rangeIsSplit = false
 
     storedPartitions.partitionsCovered = 0
@@ -627,8 +628,12 @@ class ShardFunctions2 {
         }
       }
 
-      // this list is a temporary list that counts as 2c range.  Stored nodes are the merged max of 2c range (2r on each side) and node in the 2c partition range
-      nodeShardData.c2NodeForOurNode = ShardFunctions2.getNeigborNodesInRange(nodeShardData.ourNodeIndex, 2 * shardGlobals.consensusRadius, exclude, activeNodes)
+      // // this list is a temporary list that counts as 2c range.  Stored nodes are the merged max of 2c range (2r on each side) and node in the 2c partition range
+      // nodeShardData.c2NodeForOurNode = ShardFunctions2.getNeigborNodesInRange(nodeShardData.ourNodeIndex, 2 * shardGlobals.consensusRadius, exclude, activeNodes)
+
+      // C2 range is not replaced with  consenus radius + node edge radius
+      nodeShardData.c2NodeForOurNode = ShardFunctions2.getNeigborNodesInRange(nodeShardData.ourNodeIndex, shardGlobals.consensusRadius + shardGlobals.nodesPerEdge, exclude, activeNodes)
+
 
       let [results, extras] = ShardFunctions2.mergeNodeLists(nodeShardData.nodeThatStoreOurParition, nodeShardData.c2NodeForOurNode)
 

@@ -578,6 +578,7 @@ declare namespace Shardus {
     sharding?: {
       /** The nodesPerConsensusGroup parameter defines how many nodes will be contained within a shard */
       nodesPerConsensusGroup?: number
+      nodesPerEdge?: number
     }
   }
 

@@ -102,8 +102,8 @@ let useHardcodenodes = true
 //c25
 //let hardcodeNodes = ["0ac8x88ef1","21f7x6483c","6f96xae48b","796fxf7e39","8134x3d98c","833ax8a51b","851cxab703","9d26x9011c","c4c2x62e22","d085xb50f6","d49ax34fec","e172xb3af1","ed8fx77d71","fc4bx4d28e"]
 //let hardcodeNodes = ["008cx3f9d4","2f28x55213","3c3ax5395e","4480x93b0c","5d98xe3f67","a314x7b0ba","d5d7x603d3","e23cx83629","eb91x7dfc6","f06axd2445"] 
-let hardcodeNodes = ["33e4x18d90","776cx08287","a22ax45b79","a3b4xe0801","e160x14237"] 
-
+//let hardcodeNodes = ["33e4x18d90","776cx08287","a22ax45b79","a3b4xe0801","e160x14237"] 
+let hardcodeNodes = ["1737x971eb","181dx2d296","2222xd9f94","561ex7fe3c","672bx68604","67e6xb68ee","812fxd0e12","a8e1xf978a","ccdax7bba0","f3cfxd219c"]
 
 
 let hardcodeNodes2 = null
@@ -114,7 +114,7 @@ if (useHardcodenodes) {
 if (hardcodeNodes2) {
   numNodes2 = hardcodeNodes2.length
 }
-let debugStartsWith = '33e4' // 21f7 851c '8bc4' // '33d7' //'0692' // '23d5' // 'f211' //'147d' // '2054' // '2512'  // '7459' // '5c42' // '37ae' // '37ae' '6eb5' // 97da 5d07 'dc16'  '0683'  'ed93' ac3c 3d28
+let debugStartsWith = '1737' // 21f7 851c '8bc4' // '33d7' //'0692' // '23d5' // 'f211' //'147d' // '2054' // '2512'  // '7459' // '5c42' // '37ae' // '37ae' '6eb5' // 97da 5d07 'dc16'  '0683'  'ed93' ac3c 3d28
 let debugID = debugStartsWith.slice(0, 4) + '7'.repeat(64 - 4)
 let debugAccount = '44dc' + '3'.repeat(60) // 5c43 386e 60b1  60b1 c173
 let debugNode = null
@@ -123,7 +123,7 @@ let debugNode = null
 for (let i = 0; i < testIterations; i++) {
   testCounter++
 
-  let nodesPerConsenusGroup = 50
+  let nodesPerConsenusGroup = 3
   let activeNodes
   let activeNodes2
   // @ts-ignore the error below make no sense!
@@ -148,7 +148,8 @@ for (let i = 0; i < testIterations; i++) {
     innerLoopCount = numNodes
   }
 
-  let shardGlobals = ShardFunctions2.calculateShardGlobals(numNodes, nodesPerConsenusGroup)
+  let nodesPerEdge = 1
+  let shardGlobals = ShardFunctions2.calculateShardGlobals(numNodes, nodesPerConsenusGroup, nodesPerEdge)
 
   let totalPartitions = numNodes
 

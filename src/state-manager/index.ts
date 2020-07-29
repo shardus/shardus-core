@@ -382,8 +382,9 @@ class StateManager extends EventEmitter {
       cycleShardData.timestamp = cycle.start * 1000
     }
 
-    let edgeNodes = this.config.sharding.nodesPerConsensusGroup as number
-
+    // ok if this is null or undefined it will get estimated in calculateShardGlobals to match the consensus radius
+    let edgeNodes = this.config.sharding.nodesPerEdge as number
+    
     // save this per cycle?
     cycleShardData.shardGlobals = ShardFunctions.calculateShardGlobals(cycleShardData.activeNodes.length, this.config.sharding.nodesPerConsensusGroup as number, edgeNodes)
 
