@@ -6,7 +6,7 @@ import {
   propComparator,
   propComparator2,
 } from '../utils'
-import { crypto, logger } from './Context'
+import { crypto, logger,config } from './Context'
 import * as CycleChain from './CycleChain'
 import { JoinedConsensor } from './Join'
 import { id } from './Self'
@@ -180,6 +180,15 @@ export function createNode(joined: JoinedConsensor) {
 
   return node
 }
+
+export function allowTransactions() {
+return activeByIdOrder.length >= config.p2p.minNodesToAllowTxs
+}
+
+export function allowSet() {
+  return activeByIdOrder.length === 1
+}
+
 
 export function ipPort(ip: string, port: number) {
   return ip + ':' + port

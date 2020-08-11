@@ -101,11 +101,10 @@ class StateManager extends EventEmitter {
 
     combinedAccountData: Shardus.WrappedData[];
 
-  constructor (verboseLogs: boolean, profiler: Profiler, app: Shardus.App, consensus: Consensus, logger: Logger, storage : Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
+  constructor (verboseLogs: boolean, profiler: Profiler, app: Shardus.App, consensus: Consensus, logger: Logger, storage : Storage, crypto: Crypto, config: Shardus.ShardusConfiguration) {
     super()
     this.verboseLogs = verboseLogs
 
-    this.p2p = p2p
     this.crypto = crypto
     this.storage = storage
     this.app = app

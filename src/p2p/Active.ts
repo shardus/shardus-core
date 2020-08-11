@@ -205,6 +205,14 @@ function createActiveRequest(): ActiveRequest {
   return request
 }
 
+export function goActive() {
+  const activePromise = new Promise((resolve, reject) => {
+    Self.emitter.on('active', () => resolve())
+  })
+  requestActive()
+  return activePromise
+}
+
 function addActiveTx(request: SignedActiveRequest) {
   if (!request) return false
   if (!validateActiveRequest(request)) return false

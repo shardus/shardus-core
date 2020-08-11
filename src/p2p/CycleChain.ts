@@ -82,6 +82,13 @@ export function getCycleChain(start, end = start + 100) {
   return cycles.slice(relStart, relEnd + 1)
 }
 
+export function getLatestCycles(amount) {
+  if (cycles.length < amount) {
+    return cycles
+  }
+  return cycles.slice(0 - amount)
+}
+
 export function prune(keep: number) {
   const drop = cycles.length - keep
   if (drop <= 0) return
