@@ -27,6 +27,7 @@ import * as CycleCreator from '../p2p/CycleCreator'
 import * as NodeList from '../p2p/NodeList'
 import * as Self from '../p2p/Self'
 import * as Comms from '../p2p/Comms'
+import * as Utils from '../p2p/Utils'
 import * as Apoptosis from '../p2p/Apoptosis'
 import Storage from "../storage"
 import Crypto from "../crypto"
@@ -1250,7 +1251,7 @@ class StateManager extends EventEmitter {
     let result
     let winners
     try {
-      [result, winners] = await Comms.robustQuery(nodes, queryFn, equalFn, 3, false)
+      [result, winners] = await Utils.robustQuery(nodes, queryFn, equalFn, 3, false)
 
       if(result.ready === false){
         this.mainLogger.debug(`DATASYNC: getRobustGlobalReport results not ready wait 10 seconds and try again `)
@@ -1336,7 +1337,7 @@ class StateManager extends EventEmitter {
       let result
       let winners
       try {
-        [result, winners] = await Comms.robustQuery(nodes, queryFn, equalFn, 3, false)
+        [result, winners] = await Utils.robustQuery(nodes, queryFn, equalFn, 3, false)
       } catch (ex) {
         this.mainLogger.debug('syncStateTableData: robustQuery ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
         this.fatalLogger.fatal('syncStateTableData: robustQuery ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
@@ -2760,7 +2761,7 @@ class StateManager extends EventEmitter {
   //     if (nodes.length === 0) {
   //       return // nothing to do
   //     }
-  //     let [result, winners] = await Comms.robustQuery(nodes, queryFn, equalFn, 3)
+  //     let [result, winners] = await Utils.robustQuery(nodes, queryFn, equalFn, 3)
   //     if (result && result.stateHash) {
   //       let stateHash = await this.getAccountsStateHash(accountStart, accountEnd, startTime, endTime)
   //       if (stateHash === result.stateHash) {
@@ -6218,7 +6219,7 @@ class StateManager extends EventEmitter {
     // get node ID from signing.
     // obj.sign = { owner: pk, sig }
     let signingNode = topResult.sign.owner
-    let allNodes = NodeList.getActiveNodes(Self.id) // todo convert to a versio of this: this.getActiveNodesInRange(lowAddress, highAddress) //
+    let allNodes = NodeList.getActiveNodes(true) // todo convert to a versio of this: this.getActiveNodesInRange(lowAddress, highAddress) //
     let nodeToContact
 
     if (!allNodes) {
