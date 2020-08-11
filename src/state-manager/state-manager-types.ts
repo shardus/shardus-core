@@ -168,7 +168,6 @@ type PartitionObject = {
     Partition_id: number;
     Partitions: number;
     Cycle_number: number;
-    Cycle_marker: string;
     Txids: string[];
     Status: number[];
     States: string[];

@@ -1,5 +1,7 @@
 import { start } from 'repl'
 import { Certificate } from 'crypto'
+import * as NodeList from '../p2p/NodeList'
+import { CycleRecord } from '../p2p/CycleCreator'
 //import { RequestHandler } from "express"; //express was causing problems.
 
 type RequestHandler = any
@@ -685,36 +687,12 @@ declare namespace Shardus {
     }
   }
 
-  export interface Node {
-    id: string
-    publicKey: string
-    cycleJoined: number
-    internalIp: string
-    externalIp: string
-    internalPort: number
-    externalPort: number
-    joinRequestTimestamp: number
-    address: string
-    status: string
-  }
+  export interface Node extends NodeList.Node {
 
-  export interface Cycle {
-    counter: number
-    certificate: any // todo proper definition of certificate!
-    previous: string
-    marker: string
-    start: number
-    duration: number
-    active: number
-    desired: number
-    expired: number
-    joined: string[]
-    activated: string[]
-    removed: string[]
-    returned: string[]
-    lost: string[]
-    refuted: string[]
-    apoptosized: string[]
+  } 
+
+  export interface Cycle extends CycleRecord {
+    
   }
 
   export interface AcceptedTx {

@@ -21,6 +21,13 @@ const cHashSetDataStepSize = 2
 import Consensus from "../consensus"
 import Profiler from "../utils/profiler"
 import { P2PModuleContext as P2P } from "../p2p/Context"
+import * as Active from '../p2p/Active'
+import * as CycleChain from '../p2p/CycleChain'
+import * as CycleCreator from '../p2p/CycleCreator'
+import * as NodeList from '../p2p/NodeList'
+import * as Self from '../p2p/Self'
+import * as Comms from '../p2p/Comms'
+import * as Apoptosis from '../p2p/Apoptosis'
 import Storage from "../storage"
 import Crypto from "../crypto"
 import Logger from "../logger"
@@ -214,13 +221,6 @@ class StateManager extends EventEmitter {
 
     this.globalAccountMap = new Map()
 
-
-
-    // debug hack
-    if (p2p == null) {
-      return
-    }
-
     this.mainLogger = logger.getLogger('main')
     this.fatalLogger = logger.getLogger('fatal')
     this.shardLogger = logger.getLogger('shardDump')
@@ -354,7 +354,7 @@ class StateManager extends EventEmitter {
     cycleShardData.nodeShardDataMap = new Map()
     cycleShardData.parititionShardDataMap = new Map()
 
-    cycleShardData.activeNodes = this.p2p.state.getActiveNodes(null)
+    cycleShardData.activeNodes = NodeList.getActiveNodes(null)
     // cycleShardData.activeNodes.sort(utils.sort_id_Asc) // function (a, b) { return a.id === b.id ? 0 : a.id < b.id ? -1 : 1 })
 
     cycleShardData.cycleNumber = cycleNumber
@@ -362,7 +362,7 @@ class StateManager extends EventEmitter {
     cycleShardData.partitionsToSkip = new Map()
 
     try {
-      cycleShardData.ourNode = this.p2p.state.getNode(this.p2p.id) // ugh, I bet there is a nicer way to get our node
+      cycleShardData.ourNode = NodeList.nodes.get(Self.id) // ugh, I bet there is a nicer way to get our node
     } catch (ex) {
       this.logger.playbackLogNote('shrd_sync_notactive', `${cycleNumber}`, `  `)
       return
@@ -376,7 +376,7 @@ class StateManager extends EventEmitter {
       throw new Error("this.config.sharding == null")
     }
 
-    let cycle = this.p2p.state.getLastCycle()
+    let cycle = CycleChain.newest
     if(cycle != null){
       cycleShardData.timestamp = cycle.start * 1000
     }
@@ -415,7 +415,7 @@ class StateManager extends EventEmitter {
 
       // calculate if there are any nearby nodes that are syncing right now.
       if (this.verboseLogs) this.mainLogger.debug(`updateShardValues: getOrderedSyncingNeighbors`)
-      cycleShardData.syncingNeighbors = this.p2p.state.getOrderedSyncingNeighbors(cycleShardData.ourNode)
+      cycleShardData.syncingNeighbors = NodeList.getOrderedSyncingNeighbors(cycleShardData.ourNode)
 
       if (cycleShardData.syncingNeighbors.length > 0) {
         cycleShardData.syncingNeighborsTxGroup = [...cycleShardData.syncingNeighbors]
@@ -578,7 +578,7 @@ class StateManager extends EventEmitter {
 
   getCurrentCycleShardData (): CycleShardData | null {
     if (this.currentCycleShardData === null) {
-      let cycle = this.p2p.state.getLastCycle()
+      let cycle = CycleChain.newest
       if (cycle == null) {
         return null
       }
@@ -612,7 +612,7 @@ class StateManager extends EventEmitter {
 
   // todo need a faster more scalable version of this if we get past afew hundred nodes.
   // getActiveNodesInRange (lowAddress: string, highAddress: string, exclude = []): Shardus.Node[] {
-  //   let allNodes = this.p2p.state.getActiveNodes(this.p2p.id) as Shardus.Node[]
+  //   let allNodes = NodeList.getActiveNodes(Self.id) as Shardus.Node[]
   //   this.lastActiveNodeCount = allNodes.length
   //   let results = [] as Shardus.Node[]
   //   let count = allNodes.length
@@ -631,7 +631,7 @@ class StateManager extends EventEmitter {
 
   // todo refactor: move to p2p?
   getRandomNodesInRange (count: number, lowAddress: string, highAddress: string, exclude: string[]): Shardus.Node[] {
-    let allNodes = this.p2p.state.getActiveNodes(this.p2p.id)
+    let allNodes = NodeList.getActiveNodes(true)
     this.lastActiveNodeCount = allNodes.length
     this.shuffleArray(allNodes)
     let results = [] as Shardus.Node[]
@@ -768,7 +768,7 @@ class StateManager extends EventEmitter {
   // The last step catch up on the acceptedTx queue
   async syncStateData (requiredNodeCount: number) {
     // Dont sync if first node
-    if (this.p2p.isFirstSeed) {
+    if (Self.isFirst) {
       this.dataSyncMainPhaseComplete = true
 
       this.readyforTXs = true
@@ -1126,7 +1126,7 @@ class StateManager extends EventEmitter {
         //this.combinedAccountData = []
         
         let message = { accountIds: remainingAccountsToSync }
-        let result = await this.p2p.ask(this.dataSourceNode, 'get_account_data_by_list', message)
+        let result = await Comms.ask(this.dataSourceNode, 'get_account_data_by_list', message)
         if (result === false) { this.mainLogger.error('ASK FAIL 4') }
     
         //{ accountData: Shardus.WrappedData[] | null }
@@ -1229,20 +1229,19 @@ class StateManager extends EventEmitter {
 
   async getRobustGlobalReport(): Promise<GlobalAccountReportResp> {
 
-      // this.p2p.registerInternal('get_globalaccountreport', async (payload:any, respond: (arg0: GlobalAccountReportResp) => any) => {
+      // Comms.registerInternal('get_globalaccountreport', async (payload:any, respond: (arg0: GlobalAccountReportResp) => any) => {
       //   let result = {combinedHash:"", accounts:[]} as GlobalAccountReportResp
 
     let equalFn = (a:GlobalAccountReportResp, b:GlobalAccountReportResp) => {
       return a.combinedHash === b.combinedHash
     }
     let queryFn = async (node: Shardus.Node) => {
-      let result = await this.p2p.ask(node, 'get_globalaccountreport', {})
+      let result = await Comms.ask(node, 'get_globalaccountreport', {})
       if (result === false) { this.mainLogger.error('ASK FAIL 1') }
       return result
     }
     //can ask any active nodes for global data.
     let nodes:Shardus.Node[] = this.currentCycleShardData.activeNodes
-    // let nodes = this.getActiveNodesInRange(lowAddress, highAddress) // this.p2p.state.getActiveNodes(this.p2p.id)
     if (nodes.length === 0) {
       this.mainLogger.debug(`no nodes available`)
       return // nothing to do
@@ -1251,7 +1250,7 @@ class StateManager extends EventEmitter {
     let result
     let winners
     try {
-      [result, winners] = await this.p2p.robustQuery(nodes, queryFn, equalFn, 3, false)
+      [result, winners] = await Comms.robustQuery(nodes, queryFn, equalFn, 3, false)
 
       if(result.ready === false){
         this.mainLogger.debug(`DATASYNC: getRobustGlobalReport results not ready wait 10 seconds and try again `)
@@ -1316,7 +1315,7 @@ class StateManager extends EventEmitter {
         return a.stateHash === b.stateHash
       }
       let queryFn = async (node: Shardus.Node) => {
-        let result = await this.p2p.ask(node, 'get_account_state_hash', message)
+        let result = await Comms.ask(node, 'get_account_state_hash', message)
         if (result === false) { this.mainLogger.error('ASK FAIL 1') }
         return result
       }
@@ -1327,9 +1326,8 @@ class StateManager extends EventEmitter {
         return
       }
       
-      let nodes:Shardus.Node[] = ShardFunctions.getNodesByProximity(this.currentCycleShardData.shardGlobals, this.currentCycleShardData.activeNodes, centerNode.ourNodeIndex, this.p2p.id, 40)
+      let nodes:Shardus.Node[] = ShardFunctions.getNodesByProximity(this.currentCycleShardData.shardGlobals, this.currentCycleShardData.activeNodes, centerNode.ourNodeIndex, Self.id, 40)
 
-      // let nodes = this.getActiveNodesInRange(lowAddress, highAddress) // this.p2p.state.getActiveNodes(this.p2p.id)
       if (nodes.length === 0) {
         this.mainLogger.debug(`no nodes available`)
         return // nothing to do
@@ -1338,7 +1336,7 @@ class StateManager extends EventEmitter {
       let result
       let winners
       try {
-        [result, winners] = await this.p2p.robustQuery(nodes, queryFn, equalFn, 3, false)
+        [result, winners] = await Comms.robustQuery(nodes, queryFn, equalFn, 3, false)
       } catch (ex) {
         this.mainLogger.debug('syncStateTableData: robustQuery ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
         this.fatalLogger.fatal('syncStateTableData: robustQuery ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
@@ -1370,7 +1368,7 @@ class StateManager extends EventEmitter {
       // this loop is required since after the first query we may have to adjust the address range and re-request to get the next N data entries.
       while (moreDataRemaining) {
         let message = { accountStart: queryLow, accountEnd: queryHigh, tsStart: lowTimeQuery, tsEnd: endTime }
-        let result = await this.p2p.ask(this.dataSourceNode, 'get_account_state', message)
+        let result = await Comms.ask(this.dataSourceNode, 'get_account_state', message)
         if (result === false) { this.mainLogger.error('ASK FAIL 2') }
 
         let accountStateData = result.accountStates
@@ -1457,7 +1455,7 @@ class StateManager extends EventEmitter {
     while (moreDataRemaining) {
       // max records artificially low to make testing coverage better.  todo refactor: make it a config or calculate based on data size
       let message = { accountStart: queryLow, accountEnd: queryHigh, tsStart: startTime, maxRecords: this.config.stateManager.accountBucketSize }
-      let r:GetAccountData3Resp | boolean = await this.p2p.ask(this.dataSourceNode, 'get_account_data3', message) // need the repeatable form... possibly one that calls apply to allow for datasets larger than memory
+      let r:GetAccountData3Resp | boolean = await Comms.ask(this.dataSourceNode, 'get_account_data3', message) // need the repeatable form... possibly one that calls apply to allow for datasets larger than memory
       if (r === false) { this.mainLogger.error('ASK FAIL 3') }
       // TSConversion need to consider better error handling here!
       let result:GetAccountData3Resp = r as GetAccountData3Resp
@@ -1541,7 +1539,7 @@ class StateManager extends EventEmitter {
     }
   }
 
-  // this.p2p.registerInternal('get_account_data2', async (payload, respond) => {
+  // Comms.registerInternal('get_account_data2', async (payload, respond) => {
 
   async failandRestart () {
     this.mainLogger.debug(`DATASYNC: failandRestart`)
@@ -1773,7 +1771,7 @@ class StateManager extends EventEmitter {
       failedAccountsById[hash] = true
     }
 
-    const lastCycle = this.p2p.state.getLastCycle()
+    const lastCycle = CycleChain.newest
     let cycleNumber = lastCycle.counter
     let accountCopies:AccountCopy[] = []
     for (let accountEntry of goodAccounts) {
@@ -1828,7 +1826,7 @@ class StateManager extends EventEmitter {
     this.mainLogger.debug(`DATASYNC: syncFailedAcccounts requesting data for failed hashes ${utils.stringifyReduce(addressList)}`)
 
     let message = { accountIds: addressList }
-    let result = await this.p2p.ask(this.dataSourceNode, 'get_account_data_by_list', message)
+    let result = await Comms.ask(this.dataSourceNode, 'get_account_data_by_list', message)
     if (result === false) { this.mainLogger.error('ASK FAIL 4') }
 
     this.combinedAccountData = this.combinedAccountData.concat(result.accountData)
@@ -1935,11 +1933,11 @@ class StateManager extends EventEmitter {
     //   Record Joined timestamp
     //   Even a syncing node will receive accepted transactions
     //   Starts receiving accepted transaction and saving them to Accepted Tx Table
-    this.p2p.registerGossipHandler('acceptedTx', async (acceptedTX:AcceptedTx, sender:Shardus.Node, tracker:string) => {
+    Comms.registerGossipHandler('acceptedTx', async (acceptedTX:AcceptedTx, sender:Shardus.Node, tracker:string) => {
       // docs mention putting this in a table but it seems so far that an in memory queue should be ok
       // should we filter, or instead rely on gossip in to only give us TXs that matter to us?
 
-      this.p2p.sendGossipIn('acceptedTx', acceptedTX, tracker, sender)
+      Comms.sendGossip('acceptedTx', acceptedTX, tracker, sender)
 
       let noConsensus = false // this can only be true for a set command which will never come from an endpoint
       this.routeAndQueueAcceptedTransaction(acceptedTX,/*sendGossip*/ false, sender, /*globalModification*/ false, noConsensus)
@@ -1953,7 +1951,7 @@ class StateManager extends EventEmitter {
     // Ts_end - get data older than this timestamp
     // Returns a single hash of the data from the Account State Table determined by the input parameters; sort by Tx_ts  then Tx_id before taking the hash
     // Updated names:  accountStart , accountEnd, tsStart, tsEnd
-    this.p2p.registerInternal('get_account_state_hash', async (payload:AccountStateHashReq, respond: (arg0: AccountStateHashResp) => any) => {
+    Comms.registerInternal('get_account_state_hash', async (payload:AccountStateHashReq, respond: (arg0: AccountStateHashResp) => any) => {
       let result = {} as AccountStateHashResp
 
       // yikes need to potentially hash only N records at a time and return an array of hashes
@@ -1970,7 +1968,7 @@ class StateManager extends EventEmitter {
     // Ts_end - get data older than this timestamp
     // Returns data from the Account State Table determined by the input parameters; limits result to 1000 records (as configured)
     // Updated names:  accountStart , accountEnd, tsStart, tsEnd
-    this.p2p.registerInternal('get_account_state', async (payload:GetAccountStateReq, respond: (arg0: { accountStates: Shardus.StateTableObject[] }) => any) => {
+    Comms.registerInternal('get_account_state', async (payload:GetAccountStateReq, respond: (arg0: { accountStates: Shardus.StateTableObject[] }) => any) => {
       let result = {} as {accountStates: Shardus.StateTableObject[] }
 
       if(this.config.stateManager == null){
@@ -1989,7 +1987,7 @@ class StateManager extends EventEmitter {
     // Ts_end - get data older than this timestamp
     // Returns data from the Accepted Tx Table starting with Ts_start; limits result to 500 records (as configured)
     // Updated names: tsStart, tsEnd
-    this.p2p.registerInternal('get_accepted_transactions', async (payload:AcceptedTransactionsReq, respond: (arg0: { transactions: Shardus.AcceptedTx[] }) => any) => {
+    Comms.registerInternal('get_accepted_transactions', async (payload:AcceptedTransactionsReq, respond: (arg0: { transactions: Shardus.AcceptedTx[] }) => any) => {
       let result = {} as {transactions: Shardus.AcceptedTx[] }
 
       if (!payload.limit) {
@@ -2007,7 +2005,7 @@ class StateManager extends EventEmitter {
     // For applications with multiple “Account” tables the returned data is grouped by table name.
     // For example: [ {Acc_id, State_after, Acc_data}, { … }, ….. ]
     // Updated names:  accountStart , accountEnd
-    this.p2p.registerInternal('get_account_data', async (payload:GetAccountDataReq, respond: (arg0: { accountData: Shardus.WrappedData[] | null }) => any) => {
+    Comms.registerInternal('get_account_data', async (payload:GetAccountDataReq, respond: (arg0: { accountData: Shardus.WrappedData[] | null }) => any) => {
       
       throw new Error('get_account_data endpoint retired')
       
@@ -2026,7 +2024,7 @@ class StateManager extends EventEmitter {
       // await respond(result)
     })
 
-    this.p2p.registerInternal('get_account_data2', async (payload:GetAccountData2Req, respond: (arg0: { accountData: Shardus.WrappedData[] | null }) => any) => {
+    Comms.registerInternal('get_account_data2', async (payload:GetAccountData2Req, respond: (arg0: { accountData: Shardus.WrappedData[] | null }) => any) => {
       let result = {} as {accountData: Shardus.WrappedData[] | null}//TSConversion  This is complicated !!
       let accountData = null
       let ourLockID = -1
@@ -2042,7 +2040,7 @@ class StateManager extends EventEmitter {
       await respond(result)
     })
 
-    this.p2p.registerInternal('get_account_data3', async (payload:GetAccountData3Req, respond: (arg0: { data: GetAccountDataByRangeSmart }) => any) => {
+    Comms.registerInternal('get_account_data3', async (payload:GetAccountData3Req, respond: (arg0: { data: GetAccountDataByRangeSmart }) => any) => {
       let result = {} as {data: GetAccountDataByRangeSmart } //TSConversion  This is complicated !!(due to app wrapping)  as {data: Shardus.AccountData[] | null}
       let accountData:GetAccountDataByRangeSmart | null = null
       let ourLockID = -1
@@ -2070,7 +2068,7 @@ class StateManager extends EventEmitter {
     // For applications with multiple “Account” tables the returned data is grouped by table name.
     // For example: [ {Acc_id, State_after, Acc_data}, { … }, ….. ]
     // Updated names:  accountIds, max records
-    this.p2p.registerInternal('get_account_data_by_list', async (payload: { accountIds: any }, respond: (arg0: { accountData: Shardus.WrappedData[] | null }) => any) => {
+    Comms.registerInternal('get_account_data_by_list', async (payload: { accountIds: any }, respond: (arg0: { accountData: Shardus.WrappedData[] | null }) => any) => {
       let result = {} as {accountData: Shardus.WrappedData[] | null}
       let accountData = null
       let ourLockID = -1
@@ -2090,7 +2088,7 @@ class StateManager extends EventEmitter {
     //   Partition_results - array of objects with the fields {Partition_id, Cycle_number, Partition_hash, Node_id, Node_sign}
     //   Returns nothing
 
-    this.p2p.registerInternal('post_partition_results',
+    Comms.registerInternal('post_partition_results',
       /**
       * This is how to typedef a callback!
      * @param {{ partitionResults: PartitionResult[]; Cycle_number: number; }} payload
@@ -2240,7 +2238,7 @@ class StateManager extends EventEmitter {
                 }
 
                 if (this.verboseLogs) this.mainLogger.debug(this.dataPhaseTag + ` _repair post_partition_results: tryGeneratePartitionReciept failed start repair process 1 ${utils.stringifyReduce(receiptResults)}`)
-                let cycle = this.p2p.state.getCycleByCounter(payload.Cycle_number)
+                let cycle = CycleChain.getCycleByCounter(payload.Cycle_number)
                 await this.startRepairProcess(cycle, topResult, partitionId, ourResult.Partition_hash)
               } else if (partitionReceipt) {
               // if (this.verboseLogs) this.mainLogger.debug(this.dataPhaseTag + ` _repair post_partition_results: success store partition receipt`)
@@ -2265,7 +2263,7 @@ class StateManager extends EventEmitter {
     //   Partition_results - array of objects with the fields {Partition_id, Cycle_number, Partition_hash, Node_id, Node_sign}
     //   Returns nothing
 
-    // this.p2p.registerInternal('post_partition_receipt',
+    // Comms.registerInternal('post_partition_receipt',
     //   /**
     //   * This is how to typedef a callback!
     //  * @param {PartitionReceipt} payload
@@ -2297,7 +2295,7 @@ class StateManager extends EventEmitter {
     // /get_transactions_by_list (Tx_ids)
     //   Tx_ids - array of transaction ids
     //   Returns data from the Transactions Table for just the given transaction ids
-    this.p2p.registerInternal('get_transactions_by_list', async (payload: GetTransactionsByListReq, respond: (arg0: Shardus.AcceptedTx[]) => any) => {
+    Comms.registerInternal('get_transactions_by_list', async (payload: GetTransactionsByListReq, respond: (arg0: Shardus.AcceptedTx[]) => any) => {
       let result = [] as AcceptedTx[]
       try {
         result = await this.storage.queryAcceptedTransactionsByIds(payload.Tx_ids)
@@ -2306,7 +2304,7 @@ class StateManager extends EventEmitter {
       await respond(result)
     })
 
-    this.p2p.registerInternal('get_transactions_by_partition_index', async (payload: TransactionsByPartitionReq, respond: (arg0: TransactionsByPartitionResp) => any) => {
+    Comms.registerInternal('get_transactions_by_partition_index', async (payload: TransactionsByPartitionReq, respond: (arg0: TransactionsByPartitionResp) => any) => {
       // let result = {}
 
       let passFailList = []
@@ -2404,7 +2402,7 @@ class StateManager extends EventEmitter {
     //   Partition_id
     //   Cycle_number
     //   Returns the partition object which contains the txids along with the status
-    this.p2p.registerInternal('get_partition_txids', async (payload: GetPartitionTxidsReq, respond: (arg0: {}) => any) => {
+    Comms.registerInternal('get_partition_txids', async (payload: GetPartitionTxidsReq, respond: (arg0: {}) => any) => {
       let result = {}
       try {
         let id = payload.Partition_id
@@ -2422,7 +2420,7 @@ class StateManager extends EventEmitter {
     })
 
     // // p2p TELL
-    // this.p2p.registerInternal('route_to_home_node', async (payload: RouteToHomeNodeReq, respond: any) => {
+    // Comms.registerInternal('route_to_home_node', async (payload: RouteToHomeNodeReq, respond: any) => {
     //   // gossip 'spread_tx_to_group' to transaction group
     //   // Place tx in queue (if younger than m)
 
@@ -2439,7 +2437,7 @@ class StateManager extends EventEmitter {
     // })
 
     // p2p ASK
-    this.p2p.registerInternal('request_state_for_tx', async (payload: RequestStateForTxReq, respond: (arg0: RequestStateForTxResp) => any) => {
+    Comms.registerInternal('request_state_for_tx', async (payload: RequestStateForTxReq, respond: (arg0: RequestStateForTxResp) => any) => {
       let response:RequestStateForTxResp = { stateList: [] , note: ""}
       // app.getRelevantData(accountId, tx) -> wrappedAccountState  for local accounts
       let queueEntry = this.getQueueEntrySafe(payload.txid)// , payload.timestamp)
@@ -2465,10 +2463,10 @@ class StateManager extends EventEmitter {
     })
 
     // p2p TELL
-    this.p2p.registerInternal('broadcast_state', async (payload: { txid: string; stateList: any[] }, respond: any) => {
+    Comms.registerInternal('broadcast_state', async (payload: { txid: string; stateList: any[] }, respond: any) => {
       // Save the wrappedAccountState with the rest our queue data
       // let message = { stateList: datas, txid: queueEntry.acceptedTX.id }
-      // this.p2p.tell([correspondingEdgeNode], 'broadcast_state', message)
+      // Comms.tell([correspondingEdgeNode], 'broadcast_state', message)
 
       // make sure we have it
       let queueEntry = this.getQueueEntrySafe(payload.txid)// , payload.timestamp)
@@ -2489,7 +2487,7 @@ class StateManager extends EventEmitter {
       }
     })
 
-    this.p2p.registerGossipHandler('spread_tx_to_group', async (payload, sender, tracker) => {
+    Comms.registerGossipHandler('spread_tx_to_group', async (payload, sender, tracker) => {
       //  gossip 'spread_tx_to_group' to transaction group
       // Place tx in queue (if younger than m)
 
@@ -2554,15 +2552,15 @@ class StateManager extends EventEmitter {
       if (transactionGroup.length > 1) {
 
         this.debugNodeGroup(queueEntry.acceptedTx.id, queueEntry.acceptedTx.timestamp, `gossip to neighbors`, transactionGroup) 
-        this.p2p.sendGossipIn('spread_tx_to_group', payload, tracker, sender, transactionGroup)
+        Comms.sendGossip('spread_tx_to_group', payload, tracker, sender, transactionGroup)
       }
 
       // await this.routeAndQueueAcceptedTransaction(acceptedTX, false, sender)
     })
 
     // TODO STATESHARDING4 ENDPOINTS ok, I changed this to tell, but we still need to check sender!
-    //this.p2p.registerGossipHandler('spread_appliedVote', async (payload, sender, tracker) => {
-    this.p2p.registerInternal('spread_appliedVote', async (payload: AppliedVote, respond: any) => {
+    //Comms.registerGossipHandler('spread_appliedVote', async (payload, sender, tracker) => {
+    Comms.registerInternal('spread_appliedVote', async (payload: AppliedVote, respond: any) => {
       let queueEntry = this.getQueueEntrySafe(payload.txid)// , payload.timestamp)
       if (queueEntry == null) {
         return
@@ -2577,7 +2575,7 @@ class StateManager extends EventEmitter {
       }
     })
 
-    this.p2p.registerGossipHandler('spread_appliedReceipt', async (payload, sender, tracker) => {
+    Comms.registerGossipHandler('spread_appliedReceipt', async (payload, sender, tracker) => {
 
       let appliedReceipt = payload as AppliedReceipt      
       let queueEntry = this.getQueueEntrySafe(appliedReceipt.txid)// , payload.timestamp)
@@ -2604,7 +2602,7 @@ class StateManager extends EventEmitter {
         if (consensusGroup.length > 1) {
           // should consider only forwarding in some cases?
           this.debugNodeGroup(queueEntry.acceptedTx.id, queueEntry.acceptedTx.timestamp, `share appliedReceipt to neighbors`, consensusGroup) 
-          this.p2p.sendGossipIn('spread_appliedReceipt',appliedReceipt , tracker, sender, consensusGroup)
+          Comms.sendGossip('spread_appliedReceipt',appliedReceipt , tracker, sender, consensusGroup)
         }
       } else {
         this.mainLogger.debug(`spread_appliedReceipt skipped ${utils.stringifyReduce(queueEntry.acceptedTx.id)} receiptNotNull:${receiptNotNull}`)
@@ -2617,7 +2615,7 @@ class StateManager extends EventEmitter {
 
 
 
-    this.p2p.registerInternal('get_account_data_with_queue_hints', async (payload: { accountIds: string[] }, respond: (arg0: GetAccountDataWithQueueHintsResp) => any) => {
+    Comms.registerInternal('get_account_data_with_queue_hints', async (payload: { accountIds: string[] }, respond: (arg0: GetAccountDataWithQueueHintsResp) => any) => {
       let result = {} as GetAccountDataWithQueueHintsResp //TSConversion  This is complicated !! check app for details.
       let accountData = null
       let ourLockID = -1
@@ -2648,7 +2646,7 @@ class StateManager extends EventEmitter {
       await respond(result)
     })
   
-    this.p2p.registerInternal('get_globalaccountreport', async (payload:any, respond: (arg0: GlobalAccountReportResp) => any) => {
+    Comms.registerInternal('get_globalaccountreport', async (payload:any, respond: (arg0: GlobalAccountReportResp) => any) => {
       let result = {combinedHash:"", accounts:[], ready: this.appFinishedSyncing} as GlobalAccountReportResp
 
       //type GlobalAccountReportResp = {combinedHash:string, accounts:{id:string, hash:string, timestamp:number }[]  }
@@ -2708,25 +2706,25 @@ class StateManager extends EventEmitter {
   }
 
   _unregisterEndpoints () {
-    this.p2p.unregisterGossipHandler('acceptedTx')
-    this.p2p.unregisterInternal('get_account_state_hash')
-    this.p2p.unregisterInternal('get_account_state')
-    this.p2p.unregisterInternal('get_accepted_transactions')
-    this.p2p.unregisterInternal('get_account_data')
-    this.p2p.unregisterInternal('get_account_data2')
-    this.p2p.unregisterInternal('get_account_data3')
-    this.p2p.unregisterInternal('get_account_data_by_list')
-    this.p2p.unregisterInternal('post_partition_results')
-    this.p2p.unregisterInternal('get_transactions_by_list')
-    this.p2p.unregisterInternal('get_transactions_by_partition_index')
-    this.p2p.unregisterInternal('get_partition_txids')
+    Comms.unregisterGossipHandler('acceptedTx')
+    Comms.unregisterInternal('get_account_state_hash')
+    Comms.unregisterInternal('get_account_state')
+    Comms.unregisterInternal('get_accepted_transactions')
+    Comms.unregisterInternal('get_account_data')
+    Comms.unregisterInternal('get_account_data2')
+    Comms.unregisterInternal('get_account_data3')
+    Comms.unregisterInternal('get_account_data_by_list')
+    Comms.unregisterInternal('post_partition_results')
+    Comms.unregisterInternal('get_transactions_by_list')
+    Comms.unregisterInternal('get_transactions_by_partition_index')
+    Comms.unregisterInternal('get_partition_txids')
     // new shard endpoints:
-    // this.p2p.unregisterInternal('route_to_home_node')
-    this.p2p.unregisterInternal('request_state_for_tx')
-    this.p2p.unregisterInternal('broadcast_state')
-    this.p2p.unregisterGossipHandler('spread_tx_to_group')
-    this.p2p.unregisterInternal('get_account_data_with_queue_hints')
-    this.p2p.unregisterInternal('get_globalaccountreport')
+    // Comms.unregisterInternal('route_to_home_node')
+    Comms.unregisterInternal('request_state_for_tx')
+    Comms.unregisterInternal('broadcast_state')
+    Comms.unregisterGossipHandler('spread_tx_to_group')
+    Comms.unregisterInternal('get_account_data_with_queue_hints')
+    Comms.unregisterInternal('get_globalaccountreport')
   }
 
   // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2753,16 +2751,16 @@ class StateManager extends EventEmitter {
   //       return a.stateHash === b.stateHash
   //     }
   //     let queryFn = async (node: Shardus.Node) => {
-  //       let result = await this.p2p.ask(node, 'get_account_state_hash', message)
+  //       let result = await Comms.ask(node, 'get_account_state_hash', message)
   //       if (result === false) { this.mainLogger.error('ASK FAIL 5') }
   //       return result
   //     }
-  //     // let nodes = this.p2p.state.getAllNodes(this.p2p.id)
+  //     // let nodes = this.p2p.state.getAllNodes(Self.id)
   //     let nodes = this.getRandomNodesInRange(100, accountStart, accountEnd, [])
   //     if (nodes.length === 0) {
   //       return // nothing to do
   //     }
-  //     let [result, winners] = await this.p2p.robustQuery(nodes, queryFn, equalFn, 3)
+  //     let [result, winners] = await Comms.robustQuery(nodes, queryFn, equalFn, 3)
   //     if (result && result.stateHash) {
   //       let stateHash = await this.getAccountsStateHash(accountStart, accountEnd, startTime, endTime)
   //       if (stateHash === result.stateHash) {
@@ -2782,7 +2780,7 @@ class StateManager extends EventEmitter {
   //   let helper = nodes[0]
 
   //   let message = { tsStart: timeStart, tsEnd: timeEnd, limit: 10000 }
-  //   let result = await this.p2p.ask(helper, 'get_accepted_transactions', message) // todo perf, could await these in parallel
+  //   let result = await Comms.ask(helper, 'get_accepted_transactions', message) // todo perf, could await these in parallel
   //   if (result === false) { this.mainLogger.error('ASK FAIL 6') }
   //   let acceptedTXs = result.transactions
 
@@ -2848,7 +2846,7 @@ class StateManager extends EventEmitter {
   //   let helper = nodes[0]
 
   //   let message = { accountStart: accountStart, accountEnd: accountEnd, tsStart: timeStart, tsEnd: timeEnd }
-  //   let remoteAccountStates = await this.p2p.ask(helper, 'get_account_state', message) // todo perf, could await these in parallel
+  //   let remoteAccountStates = await Comms.ask(helper, 'get_account_state', message) // todo perf, could await these in parallel
   //   if (remoteAccountStates === false) { this.mainLogger.error('ASK FAIL 7') }
   //   let accountStates = await this.storage.queryAccountStateTable(accountStart, accountEnd, timeStart, timeEnd, 100000000)
 
@@ -2875,7 +2873,7 @@ class StateManager extends EventEmitter {
   //   }
 
   //   let message2 = { accountIds: accountsToPatch }
-  //   let accountData = await this.p2p.ask(this.dataSourceNode, 'get_account_data_by_list', message2)
+  //   let accountData = await Comms.ask(this.dataSourceNode, 'get_account_data_by_list', message2)
   //   if (accountData === false) { this.mainLogger.error('ASK FAIL 8') }
 
   //   if (accountData) {
@@ -3242,10 +3240,10 @@ class StateManager extends EventEmitter {
       
 
       //WOW this was not good!  had acceptedTX.transactionGroup[0].id
-      //if (this.p2p.getNodeId() === acceptedTX.transactionGroup[0].id) {
+      //if (Self.id === acceptedTX.transactionGroup[0].id) {
       
       let queueEntry:QueueEntry | null = this.getQueueEntry(acceptedTX.id )
-      if (queueEntry != null && queueEntry.transactionGroup != null && this.p2p.getNodeId() === queueEntry.transactionGroup[0].id) {  
+      if (queueEntry != null && queueEntry.transactionGroup != null && Self.id === queueEntry.transactionGroup[0].id) {  
         this.emit('txProcessed')
       }
 
@@ -3483,10 +3481,10 @@ class StateManager extends EventEmitter {
       
 
       //WOW this was not good!  had acceptedTX.transactionGroup[0].id
-      //if (this.p2p.getNodeId() === acceptedTX.transactionGroup[0].id) {
+      //if (Self.id === acceptedTX.transactionGroup[0].id) {
       
       let queueEntry:QueueEntry | null = this.getQueueEntry(acceptedTX.id )
-      if (queueEntry != null && queueEntry.transactionGroup != null && this.p2p.getNodeId() === queueEntry.transactionGroup[0].id) {  
+      if (queueEntry != null && queueEntry.transactionGroup != null && Self.id === queueEntry.transactionGroup[0].id) {  
         this.emit('txProcessed')
       }
 
@@ -3775,7 +3773,7 @@ class StateManager extends EventEmitter {
             if (transactionGroup.length > 1) {
               // should consider only forwarding in some cases?
               this.debugNodeGroup(txId, timestamp, `share to neighbors`, transactionGroup) 
-              this.p2p.sendGossipIn('spread_tx_to_group', acceptedTx, '', sender, transactionGroup)
+              Comms.sendGossip('spread_tx_to_group', acceptedTx, '', sender, transactionGroup)
             }
           // this.logger.playbackLogNote('tx_homeGossip', `${txId}`, `AcceptedTransaction: ${acceptedTX}`)
           } catch (ex) {
@@ -3793,7 +3791,7 @@ class StateManager extends EventEmitter {
           } else {
             // let tempList =  // can be returned by the function below
             if (this.verboseLogs) this.mainLogger.debug(`routeAndQueueAcceptedTransaction: getOrderedSyncingNeighbors`)
-            this.p2p.state.getOrderedSyncingNeighbors(this.currentCycleShardData.ourNode)
+            NodeList.getOrderedSyncingNeighbors(this.currentCycleShardData.ourNode)
             // TODO: globalaccounts 
             // globalModification  TODO pass on to syncing nodes.   (make it pass on the flag too)
             // possibly need to send proof to the syncing node or there could be a huge security loophole.  should share the receipt as an extra parameter
@@ -3802,7 +3800,7 @@ class StateManager extends EventEmitter {
               if( txQueueEntry.globalModification === false){
                 this.logger.playbackLogNote('shrd_sync_tx', `${txId}`, `txts: ${timestamp} nodes:${utils.stringifyReduce(this.currentCycleShardData.syncingNeighborsTxGroup.map(x => x.id))}`)
                 this.debugNodeGroup(txId, timestamp, `share to syncing neighbors`, this.currentCycleShardData.syncingNeighborsTxGroup) 
-                this.p2p.sendGossipAll('spread_tx_to_group', acceptedTx, '', sender, this.currentCycleShardData.syncingNeighborsTxGroup)
+                Comms.sendGossipAll('spread_tx_to_group', acceptedTx, '', sender, this.currentCycleShardData.syncingNeighborsTxGroup)
                 //This was using sendGossipAll, but changed it for a work around.  maybe this just needs to be a tell.                
               } else {
                 if (this.verboseLogs) this.mainLogger.debug(`routeAndQueueAcceptedTransaction: bugfix detected. avoid forwarding txs where globalModification == true`)
@@ -3995,7 +3993,7 @@ class StateManager extends EventEmitter {
         this.logger.playbackLogNote('shrd_queueEntryRequestMissingData_ask', `${utils.makeShortHash(queueEntry.acceptedTx.id)}`, `r:${relationString}   asking: ${utils.makeShortHash(node.id)} qId: ${queueEntry.entryID} AccountsMissing:${utils.stringifyReduce(allKeys)}`)
 
         let message = { keys: allKeys, txid: queueEntry.acceptedTx.id, timestamp: queueEntry.acceptedTx.timestamp }
-        let result = await this.p2p.ask(node, 'request_state_for_tx', message) // not sure if we should await this.
+        let result = await Comms.ask(node, 'request_state_for_tx', message) // not sure if we should await this.
         if (result === false) { this.mainLogger.error('ASK FAIL 9') }
         let dataCountReturned = 0
         let accountIdsReturned = []
@@ -4344,7 +4342,7 @@ class StateManager extends EventEmitter {
               let remoteRelation = ShardFunctions.getNodeRelation(remoteHomeNode, this.currentCycleShardData.ourNode.id)
               let localRelation = ShardFunctions.getNodeRelation(localHomeNode, this.currentCycleShardData.ourNode.id)
               this.logger.playbackLogNote('shrd_tellCorrespondingNodes', `${queueEntry.acceptedTx.id}`, `remoteRel: ${remoteRelation} localrel: ${localRelation} qId: ${queueEntry.entryID} AccountBeingShared: ${utils.makeShortHash(key)} EdgeNodes:${utils.stringifyReduce(edgeNodeIds)} ConsesusNodes${utils.stringifyReduce(consensusNodeIds)}`)
-              this.p2p.tell(correspondingAccNodes, 'broadcast_state', message)
+              Comms.tell(correspondingAccNodes, 'broadcast_state', message)
             }
           }
         }
@@ -4863,7 +4861,7 @@ class StateManager extends EventEmitter {
             //   if (this.currentCycleShardData.syncingNeighbors.length > 0) {
             //     let message = { stateList: dataToSend, txid: queueEntry.acceptedTx.id }
             //     this.logger.playbackLogNote('shrd_sync_dataTell', `${queueEntry.acceptedTx.id}`, ` qId: ${queueEntry.entryID} AccountBeingShared: ${utils.stringifyReduce(queueEntry.txKeys.allKeys)} txid: ${utils.makeShortHash(message.txid)} nodes:${utils.stringifyReduce(this.currentCycleShardData.syncingNeighbors.map(x => x.id))}`)
-            //     this.p2p.tell(this.currentCycleShardData.syncingNeighbors, 'broadcast_state', message)
+            //     Comms.tell(this.currentCycleShardData.syncingNeighbors, 'broadcast_state', message)
             //   }
             // }
           }          
@@ -4903,7 +4901,7 @@ class StateManager extends EventEmitter {
     if (consensusGroup.length > 1) {
       // should consider only forwarding in some cases?
       this.debugNodeGroup(queueEntry.acceptedTx.id, queueEntry.acceptedTx.timestamp, `share appliedReceipt to neighbors`, consensusGroup) 
-      this.p2p.sendGossipIn('spread_appliedReceipt',appliedReceipt , '', sender, consensusGroup)
+      Comms.sendGossip('spread_appliedReceipt',appliedReceipt , '', sender, consensusGroup)
     }
 
   }
@@ -5074,12 +5072,12 @@ class StateManager extends EventEmitter {
       // should consider only forwarding in some cases?
       this.debugNodeGroup(queueEntry.acceptedTx.id, queueEntry.acceptedTx.timestamp, `share tx vote to neighbors`, consensusGroup) 
       // TODO STATESHARDING4 ENDPOINTS this needs to change from gossip to a tell
-      //this.p2p.sendGossipIn('spread_appliedVote', ourVote, '', sender, consensusGroup)
+      //Comms.sendGossip('spread_appliedVote', ourVote, '', sender, consensusGroup)
 
       this.mainLogger.debug(`createAndShareVote numNodes: ${consensusGroup.length} ourVote: ${utils.stringifyReduce(ourVote)} `)
       this.logger.playbackLogNote('createAndShareVote', `${queueEntry.acceptedTx.id}`, `numNodes: ${consensusGroup.length} ourVote: ${utils.stringifyReduce(ourVote)} `)
 
-      this.p2p.tell(consensusGroup, 'spread_appliedVote', ourVote )
+      Comms.tell(consensusGroup, 'spread_appliedVote', ourVote )
     }
   }
 
@@ -5293,7 +5291,7 @@ class StateManager extends EventEmitter {
         throw new Error(`getLocalOrRemoteAccount: no home node found`)
       }
       let message = { accountIds: [address] }
-      let r:GetAccountDataWithQueueHintsResp | boolean = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
+      let r:GetAccountDataWithQueueHintsResp | boolean = await Comms.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
       if (r === false) { this.mainLogger.error('ASK FAIL 10') }
       let result = r as GetAccountDataWithQueueHintsResp
       if (result != null && result.accountData != null && result.accountData.length > 0) {
@@ -5365,7 +5363,7 @@ class StateManager extends EventEmitter {
       throw new Error(`getRemoteAccount: no home node found`)
     }
     let message = { accountIds: [address] }
-    let result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
+    let result = await Comms.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
     if (result === false) { this.mainLogger.error('ASK FAIL 11') }
     if (result != null && result.accountData != null && result.accountData.length > 0) {
       wrappedAccount = result.accountData[0]
@@ -5411,7 +5409,7 @@ class StateManager extends EventEmitter {
   }
   getClosestNodesGlobal (hash:string, count:number) {
     let hashNumber = parseInt(hash.slice(0, 7), 16)
-    let nodes = this.p2p.state.getActiveNodes()
+    let nodes = NodeList.getActiveNodes()
     let nodeDistMap:{id:string, distance:number}[] = nodes.map(node => ({ id: node.id, distance: Math.abs(hashNumber - parseInt(node.id.slice(0, 7), 16)) }))
     nodeDistMap.sort(this._distanceSortAsc)////(a, b) => a.distance < b.distance)
     console.log('SORTED NODES BY DISTANCE', nodes)
@@ -5792,7 +5790,6 @@ class StateManager extends EventEmitter {
       Partition_id: partitionId,
       Partitions: 1,
       Cycle_number: lastCycle.counter,
-      Cycle_marker: lastCycle.marker,
       Txids: txSourceData.hashes, // txid1, txid2, …],  - ordered from oldest to recent
       Status: txSourceData.passed, // [1,0, …],      - ordered corresponding to Txids; 1 for applied; 0 for failed
       States: txSourceData.states, // array of array of states
@@ -5997,7 +5994,7 @@ class StateManager extends EventEmitter {
       if (!success) {
         if (this.verboseLogs) this.mainLogger.debug(this.dataPhaseTag + ` _repair startRepairProcess success==false starting repair again in 3 seconds! ${debugKey}`)
 
-        let cycle = this.p2p.state.getCycleByCounter(cycleNumber)
+        let cycle = CycleChain.getCycleByCounter(cycleNumber)
 
         await utils.sleep(3000) // wait a second.. also when to give up
         await this.startRepairProcess(cycle, topResult2, partitionId, ourResult.Partition_hash)
@@ -6074,7 +6071,7 @@ class StateManager extends EventEmitter {
                   } else {
                     if (this.verboseLogs) this.mainLogger.debug(this.dataPhaseTag + ` _repair startRepairProcess awaitWinningHash:true and we have a top result so start reparing! ${debugKey}`)
                     if (this.verboseLogs) this.mainLogger.debug(this.dataPhaseTag + ` _repair startRepairProcess: tryGeneratePartitionReciept failed start repair process 2 ${debugKey}  ${utils.stringifyReduce(receiptResults)}`)
-                    let cycle = this.p2p.state.getCycleByCounter(cycleNumber)
+                    let cycle = CycleChain.getCycleByCounter(cycleNumber)
                     await utils.sleep(1000)
                     await this.startRepairProcess(cycle, topResult3, partitionId, ourResult.Partition_hash)
                     return // we are correcting to another hash.  don't bother sending our hash out
@@ -6191,7 +6188,7 @@ class StateManager extends EventEmitter {
         } else {
           if (this.verboseLogs) this.mainLogger.debug(this.dataPhaseTag + ` _repair checkForGoodPartitionReciept awaitWinningHash:true and we have a top result so start reparing! ${debugKey}`)
           if (this.verboseLogs) this.mainLogger.debug(this.dataPhaseTag + ` _repair checkForGoodPartitionReciept: tryGeneratePartitionReciept failed start repair process 3 ${debugKey} ${utils.stringifyReduce(receiptResults)}`)
-          let cycle = this.p2p.state.getCycleByCounter(cycleNumber)
+          let cycle = CycleChain.getCycleByCounter(cycleNumber)
           await utils.sleep(1000)
           await this.startRepairProcess(cycle, topResult3, partitionId, ourResult.Partition_hash)
           // we are correcting to another hash.  don't bother sending our hash out
@@ -6221,7 +6218,7 @@ class StateManager extends EventEmitter {
     // get node ID from signing.
     // obj.sign = { owner: pk, sig }
     let signingNode = topResult.sign.owner
-    let allNodes = this.p2p.state.getActiveNodes(this.p2p.id) // todo convert to a versio of this: this.getActiveNodesInRange(lowAddress, highAddress) //
+    let allNodes = NodeList.getActiveNodes(Self.id) // todo convert to a versio of this: this.getActiveNodesInRange(lowAddress, highAddress) //
     let nodeToContact
 
     if (!allNodes) {
@@ -6245,7 +6242,7 @@ class StateManager extends EventEmitter {
     // get the list of tx ids for a partition?..
     let payload = { Cycle_number: topResult.Cycle_number, Partition_id: topResult.Partition_id }
     /** @type {PartitionObject} */
-    let partitionObject = await this.p2p.ask(nodeToContact, 'get_partition_txids', payload)
+    let partitionObject = await Comms.ask(nodeToContact, 'get_partition_txids', payload)
     // @ts-ignore This will get fixed when we go to throwing exceptions!
     if (partitionObject === false) { this.mainLogger.error('ASK FAIL 12') }
 
@@ -6344,13 +6341,13 @@ class StateManager extends EventEmitter {
 
     // ask for missing txs of other node
     let payload2 = { Tx_ids: missingAcceptedTxIDs }
-    let txs = await this.p2p.ask(nodeToContact, 'get_transactions_by_list', payload2)
+    let txs = await Comms.ask(nodeToContact, 'get_transactions_by_list', payload2)
     if (txs === false) { this.mainLogger.error('ASK FAIL 13') }
     repairTracker.newPendingTXs = txs // ?
 
     // get failed txs that we are missing
     payload2 = { Tx_ids: missingFailedTXs }
-    txs = await this.p2p.ask(nodeToContact, 'get_transactions_by_list', payload2)
+    txs = await Comms.ask(nodeToContact, 'get_transactions_by_list', payload2)
     if (txs === false) { this.mainLogger.error('ASK FAIL 14') }
     repairTracker.newFailedTXs = txs
     // this.storage.addAcceptedTransactions(txs) // commit the failed TXs to our db. not sure if this is strictly necessary
@@ -6553,7 +6550,7 @@ class StateManager extends EventEmitter {
       this.mainLogger.error(this.dataPhaseTag + `_mergeRepairDataIntoLocalState2 c  Exception when applying solution. going apoptosis. solutionIndex: ${solutionIndex}  ourCounter: ${ourCounter} ourHashSet: ${hashSet}`)
 
       if (this.verboseLogs) this.mainLogger.error('failnugget2:' + stringify({ txList, repairTracker, ourHashSet }))
-      this.p2p.initApoptosis()
+      Apoptosis.apoptosizeSelf()
       throw new Error('aborting data repair. starting apoptosis')
     }
 
@@ -6599,7 +6596,7 @@ class StateManager extends EventEmitter {
     console.log('initApoptosisAndQuitSyncing ' + utils.getTime('s'))
     this.mainLogger.error(this.dataPhaseTag + `initApoptosisAndQuitSyncing `)
     this.failAndDontRestartSync()
-    this.p2p.initApoptosis()
+    Apoptosis.apoptosizeSelf()
   }
 
   /**
@@ -6751,12 +6748,12 @@ class StateManager extends EventEmitter {
         if (this.extendedRepairLogging) console.log(`requestsByHost[i].stateSnippets ${debugKey} ${utils.stringifyReduce(requestsByHost[i].stateSnippets)} `)
         if (hashSetList[i].owners.length > 0) {
           // not sure how that worked!!
-          // let nodeToContact = this.p2p.state.getNodeByPubKey(hashSetList[i].owners[0])
+          // let nodeToContact = NodeList.getNodeByPubKey(hashSetList[i].owners[0])
 
           //  need to make this use the requestsByHost
-          let nodeToContact = this.p2p.state.getNodeByPubKey(hashSetList[i].owners[0])
+          let nodeToContact = NodeList.getNodeByPubKey(hashSetList[i].owners[0])
 
-          let r:TransactionsByPartitionResp | boolean = await this.p2p.ask(nodeToContact, 'get_transactions_by_partition_index', payload)
+          let r:TransactionsByPartitionResp | boolean = await Comms.ask(nodeToContact, 'get_transactions_by_partition_index', payload)
           //TSConversion kinda funky way to handle an ask result that can also be false
           if (r === false) { this.mainLogger.error('ASK FAIL 15') }
           let result:TransactionsByPartitionResp = r as TransactionsByPartitionResp
@@ -7186,7 +7183,7 @@ class StateManager extends EventEmitter {
               this.fatalLogger.fatal(this.dataPhaseTag + ' testAccountTime failed. calling apoptosis. mergeAndApplyTXRepairs' + utils.stringifyReduce(tx))
 
               // return
-              this.p2p.initApoptosis() // todo turn this back on
+              Apoptosis.apoptosizeSelf() // todo turn this back on
               // // return { success: false, reason: 'testAccountTime failed' }
               break
             }
@@ -7511,7 +7508,7 @@ class StateManager extends EventEmitter {
             this.fatalLogger.fatal(this.dataPhaseTag + ' testAccountTime failed. calling apoptosis. applyAllPreparedRepairs' + utils.stringifyReduce(tx))
 
             // return
-            this.p2p.initApoptosis() // todo turn this back on
+            Apoptosis.apoptosizeSelf() // todo turn this back on
             // // return { success: false, reason: 'testAccountTime failed' }
             break
           }
@@ -7646,7 +7643,7 @@ class StateManager extends EventEmitter {
    * @param {number} cycleNumber
    */
   async _revertAccounts (accountIDs:string[], cycleNumber:number) {
-    let cycle = this.p2p.state.getCycleByCounter(cycleNumber)
+    let cycle = CycleChain.getCycleByCounter(cycleNumber)
     let cycleEnd = (cycle.start + cycle.duration) * 1000
     let cycleStart = cycle.start * 1000
     cycleEnd -= this.syncSettleTime // adjust by sync settle time
@@ -8070,7 +8067,7 @@ class StateManager extends EventEmitter {
       let shorthash = utils.makeShortHash(partitionResultsToSend.node.id)
       let toNodeStr = shorthash + ':' + partitionResultsToSend.node.externalPort
       this.logger.playbackLogNote('broadcastPartitionResults', `${cycleNumber}`, `to ${toNodeStr} ${partitionResultsToSend.debugStr} `)
-      let promise = this.p2p.tell([partitionResultsToSend.node], 'post_partition_results', payload)
+      let promise = Comms.tell([partitionResultsToSend.node], 'post_partition_results', payload)
       promises.push(promise)
     }
 
@@ -8127,12 +8124,11 @@ class StateManager extends EventEmitter {
   // }
 
   startShardCalculations () {
-    //this.p2p.state.on('cycle_q1_start', async (lastCycle, time) => {
-    this._registerListener(this.p2p.state, 'cycle_q1_start', async (lastCycle: Shardus.Cycle, time:number) => {
+    this._registerListener(Self.emitter, 'cycle_q1_start', async (lastCycle: Shardus.Cycle, time:number) => {
       this.emit('set_queue_partition_gossip')  
-      lastCycle = this.p2p.state.getLastCycle()
+      lastCycle = CycleChain.newest
       if (lastCycle) {
-        let ourNode = this.p2p.state.getNode(this.p2p.id)
+        let ourNode = NodeList.nodes.get(Self.id)
 
         if(ourNode == null){
           //dont attempt more calculations we may be shutting down
@@ -8145,11 +8141,11 @@ class StateManager extends EventEmitter {
       }
     })
 
-    this._registerListener(this.p2p.state, 'cycle_q3_start', async (lastCycle: Shardus.Cycle, time:number) => {
+    this._registerListener(Self.emitter, 'cycle_q3_start', async (lastCycle: Shardus.Cycle, time:number) => {
       if (this.currentCycleShardData && this.currentCycleShardData.ourNode.status === 'active') {
         this.calculateChangeInCoverage()
       }
-      lastCycle = this.p2p.state.getLastCycle()
+      lastCycle = CycleChain.newest
       if (lastCycle == null) {
         return
       }
@@ -8172,15 +8168,9 @@ class StateManager extends EventEmitter {
   }
 
   async startSyncPartitions () {
-    // await this.createInitialAccountBackups() // nm this is now part of regular data sync
-    // register our handlers
 
-    // this._registerListener(this.p2p.state, 'cycle_q1_start', async (lastCycle, time) => {
-    //   this.updateShardValues(lastCycle.counter)
-    // })
-
-    this._registerListener(this.p2p.state, 'cycle_q2_start', async (lastCycle: Shardus.Cycle, time: number) => {
-      lastCycle = this.p2p.state.getLastCycle()
+    this._registerListener(Self.emitter, 'cycle_q2_start', async (lastCycle: Shardus.Cycle, time: number) => {
+      lastCycle = CycleChain.newest
       if (lastCycle == null) {
         return
       }
@@ -8236,11 +8226,11 @@ class StateManager extends EventEmitter {
   async updateAccountsCopyTable (accountDataList: Shardus.AccountData[], repairing: boolean, txTimestamp: number) {
     let cycleNumber = -1
 
-    let cycle = this.p2p.state.getCycleByTimestamp(txTimestamp + this.syncSettleTime)
+    let cycle = CycleChain.getCycleByTimestamp(txTimestamp + this.syncSettleTime)
     let cycleOffset = 0
     // todo review this assumption. seems ok at the moment.  are there times cycle could be null and getting the last cycle is not a valid answer?
     if (cycle == null) {
-      cycle = this.p2p.state.getLastCycle()
+      cycle = CycleChain.newest
       // if (this.verboseLogs) this.mainLogger.error(this.dataPhaseTag + `updateAccountsCopyTable error getting cycle by timestamp: ${accountDataList[0].timestamp} offsetTime: ${this.syncSettleTime} cycle returned:${cycle.counter} `)
       cycleOffset = 1
     }
@@ -8532,7 +8522,7 @@ class StateManager extends EventEmitter {
 
     // get the cycle that this tx timestamp would belong to.
     // add in syncSettleTime when selecting which bucket to put a transaction in
-    const cycle = this.p2p.state.getCycleByTimestamp(txTS + this.syncSettleTime)
+    const cycle = CycleChain.getCycleByTimestamp(txTS + this.syncSettleTime)
 
     if (!cycle) {
       this.mainLogger.error('_repair Failed to find cycle that would contain this timestamp')
@@ -9807,7 +9797,7 @@ class StateManager extends EventEmitter {
         let isGlobal = this.isGlobalAccount(accountId)
   
         // Maybe don't try to calculate the cycle number....
-        // const cycle = this.p2p.state.getCycleByTimestamp(timestamp + this.syncSettleTime)
+        // const cycle = CycleChain.getCycleByTimestamp(timestamp + this.syncSettleTime)
         // // find the correct cycle based on timetamp
         // if (!cycle) {
         //   this.mainLogger.error(`_commitAccountCopies failed to get cycle for timestamp ${timestamp} accountId:${utils.makeShortHash(accountId)}`)

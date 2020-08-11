@@ -89,6 +89,28 @@ export function getLatestCycles(amount) {
   return cycles.slice(0 - amount)
 }
 
+export function getCycleByTimestamp(timestamp) {
+  let secondsTs = Math.floor(timestamp * 0.001)
+  // search from end, to improve normal case perf
+  for (let i = cycles.length - 1; i >= 0; i--) {
+    let cycle = cycles[i]
+    if (cycle.start <= secondsTs && cycle.start + cycle.duration > secondsTs) {
+      return cycle
+    }
+  }
+  return null
+}
+
+export function getCycleByCounter(counter) {
+  for (let i = cycles.length - 1; i >= 0; i--) {
+    let cycle = cycles[i]
+    if (cycle.counter === counter) {
+      return cycle
+    }
+  }
+  return null
+}
+
 export function prune(keep: number) {
   const drop = cycles.length - keep
   if (drop <= 0) return
