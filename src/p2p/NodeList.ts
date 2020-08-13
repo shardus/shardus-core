@@ -48,7 +48,6 @@ export let activeByIdOrder: Node[]
 export let activeOthersByIdOrder: Node[]
 
 const VERBOSE = false    // Use to dump complete NodeList and CycleChain data
-const  mainLogger = logger.getLogger('main')
 
 reset()
 
@@ -191,84 +190,15 @@ export function getActiveNodes(selfExclude = false) {
 export function getNodeByPubKey(publicKey) {
   const node = byPubKey.get(publicKey)
   if (!node) {
-    mainLogger.debug(`Node not found for given public key: ${publicKey}...`)
+    info(`Node not found for given public key: ${publicKey}...`)
     return null
   }
   return node
 }
 
 export function getOrderedSyncingNeighbors(node) {
-  let index = this._getNodeAddressOrderedIndex(node)
-  let results = []
-
-  try {
-    if (index === false) {
-      console.log(`getOrderedSyncingNeighbors failed to find ${stringifyReduce(node.id)}`)
-
-      if (nodes != null && othersByIdOrder != null) {
-        const ordered = othersByIdOrder
-        let orderedString = `---orderedNodes ${stringifyReduce(ordered.map((a) => a.id))}`
-        console.log(orderedString)
-
-        mainLogger.error(`getOrderedSyncingNeighbors failed to find ${stringifyReduce(node.id)} nodeList:${orderedString} stack: ${new Error().stack}`)
-      } else {
-        mainLogger.error(`getOrderedSyncingNeighbors failed to find ${stringifyReduce(node.id)} nodeList: not available stack: ${new Error().stack}`)
-      }
-      return results
-    }
-  } catch (err) {
-    console.log(err.stack)
-  }
-  // cycleShardData.activeNodes.sort(function (a, b) { return a.id === b.id ? 0 : a.id < b.id ? -1 : 1 })
-  // console.log(`getOrderedSyncingNeighbors find: ${utils.stringifyReduce(node.id)} index: ${index} all:  ${utils.stringifyReduce(othersByIdOrder.map(node => utils.makeShortHash(node.id) + ':' + node.externalPort))}`)
-
-  // @ts-ignore
-  let leftIndex = index - 1
-  // @ts-ignore
-  let rightIndex = index + 1
-
-  if (leftIndex < 0) {
-    leftIndex = othersByIdOrder.length - 1
-  }
-  if (rightIndex >= othersByIdOrder.length) {
-    rightIndex = 0
-  }
-
-  if (leftIndex !== index) {
-    let node = othersByIdOrder[leftIndex]
-    while (node.status === 'syncing') {
-      results.push(node)
-      leftIndex--
-      if (leftIndex < 0) {
-        leftIndex = othersByIdOrder.length - 1
-      }
-      if (leftIndex === index) {
-        break
-      }
-      node = othersByIdOrder[leftIndex]
-    }
-  }
-  if (rightIndex !== index) {
-    let node = othersByIdOrder[rightIndex]
-    while (node.status === 'syncing') {
-      results.push(node)
-      rightIndex++
-      if (rightIndex >= othersByIdOrder.length) {
-        rightIndex = 0
-      }
-      if (rightIndex === index) {
-        break
-      }
-      node = othersByIdOrder[rightIndex]
-    }
-  }
-
-  // if (results.length > 0) {
-  //   console.log(`getOrderedSyncingNeighbors find: our node: ${utils.stringifyReduce(node.id)} syncing neighbors:  ${utils.stringifyReduce(results.map(node => utils.makeShortHash(node.id) + ':' + node.externalPort))}`)
-  // }
-
-  // todo what about two nodes syncing next to each other.  should we keep expanding to catch runs of syncing nodes.
-  return results
+  const nodes = othersByIdOrder.filter(e => e.status === 'syncing') // remove syncing nodes
+  return nodes
 }
 
 export function allowTransactions() {

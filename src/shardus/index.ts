@@ -924,7 +924,7 @@ class Shardus extends EventEmitter {
   }
 
   /**
-   * Checks if this node is the first in the network
+   * Checks if this node is the first node in the network
    */
   isFirst() {
     return Self.isFirst
