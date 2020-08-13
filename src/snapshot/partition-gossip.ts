@@ -3,6 +3,7 @@ import { registerGossipHandler } from '../p2p/Comms'
 import { AddressRange } from '../state-manager/shardFunctionTypes'
 import { PartitionHashes } from './index'
 import * as Comm from '../p2p/Comms'
+import { CycleShardData } from '../state-manager/state-manager-types'
 
 /** TYPES */
 

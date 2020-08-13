@@ -7,6 +7,7 @@ import * as CycleCreator from './CycleCreator'
 import { CycleRecord as Cycle } from './CycleCreator'
 import * as CycleParser from './CycleParser'
 import { validateTypes } from '../utils'
+import { SignedObject } from '../state-manager/state-manager-types'
 
 /** TYPES */
 

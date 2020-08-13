@@ -14,6 +14,7 @@ import ShardFunctions from '../state-manager/shardFunctions'
 import * as shardFunctionTypes from '../state-manager/shardFunctionTypes'
 import * as utils from '../utils'
 import * as partitionGossip from './partition-gossip'
+import { CycleShardData } from '../state-manager/state-manager-types'
 
 /** TYPES */
 interface Account {

@@ -924,6 +924,13 @@ class Shardus extends EventEmitter {
   }
 
   /**
+   * Checks if this node is the first in the network
+   */
+  isFirst() {
+    return Self.isFirst
+  }
+
+  /**
    * Shutdown this node in the network
    * @param {boolean} exitProcess Exit the process when shutting down
    */

@@ -1,7 +1,7 @@
 import { start } from 'repl'
 import { Certificate } from 'crypto'
 import * as NodeList from '../p2p/NodeList'
-import { CycleRecord } from '../p2p/CycleCreator'
+import { CycleRecord, CycleData } from '../p2p/CycleCreator'
 //import { RequestHandler } from "express"; //express was causing problems.
 
 type RequestHandler = any
@@ -152,7 +152,7 @@ declare namespace Shardus {
      * A function responsible for validation the incoming transaction fields
      */
     validateTxnFields: (
-      inTx: Shardus.OpaqueTransaction // it is better to not use IncomingTransaction 
+      inTx: Shardus.OpaqueTransaction // it is better to not use IncomingTransaction
     ) => Shardus.IncomingTransactionResult
     /**
      * A function responsible for applying an accepted transaction
@@ -289,7 +289,7 @@ declare namespace Shardus {
     cycleNumber: number
     data: any
     timestamp: number
-    hash: string,
+    hash: string
     isGlobal: boolean
   }
 
@@ -345,9 +345,9 @@ declare namespace Shardus {
     /** Account hash */
     hash: string
     /** Account data */
-    accountData: any
+    accountData: never
     /** localCache */
-    localCache: any
+    localCache: unknown
   }
 
   // createWrappedResponse (accountId, accountCreated, hash, timestamp, fullData) {
@@ -687,13 +687,9 @@ declare namespace Shardus {
     }
   }
 
-  export interface Node extends NodeList.Node {
+  export type Node = NodeList.Node
 
-  } 
-
-  export interface Cycle extends CycleRecord {
-    
-  }
+  export type Cycle = CycleRecord
 
   export interface AcceptedTx {
     id: string
@@ -715,5 +711,5 @@ declare namespace Shardus {
   /**
    * OpaqueTransaction is the way shardus should see transactions internally. it should not be able to mess with parameters individually
    */
-  export interface OpaqueTransaction extends ObjectAlias {}
+  export type OpaqueTransaction = ObjectAlias
 }

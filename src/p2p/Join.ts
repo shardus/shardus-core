@@ -13,6 +13,7 @@ import * as Self from './Self'
 import * as Types from './Types'
 import { robustQuery } from './Utils'
 import { validateTypes } from '../utils'
+import { Sign } from '../state-manager/state-manager-types'
 
 /** TYPES */
 
