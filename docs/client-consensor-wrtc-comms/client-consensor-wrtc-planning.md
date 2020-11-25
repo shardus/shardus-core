@@ -4,19 +4,19 @@
 
 Archiver
 
-  Needs to host a peer-js server
-  Needs to include peerIds of consensors in nodelist 
+* Needs to host a peer-js server  
+* Needs to include peerIds of consensors in nodelist  
 
 Consensor (shardus-global-server)
 
-  Connects to peer-js server hosted by Archiver and listens for connections
-  Needs to pass its peerId to Archiver (possibly include in join request?)
+* Connects to peer-js server hosted by Archiver and listens for connections
+* Needs to pass its peerId to Archiver (possibly include in join request?)
 
 Client (liberdus-web-client)
 
-  Connects to peer-js server hosted by Archiver
-  Connects to consensors using their peerIds
-  Passes txs to consensors through peer connection
+* Connects to peer-js server hosted by Archiver
+* Connects to consensors using their peerIds
+* Passes txs to consensors through peer connection
 
 ## Data Model
 
