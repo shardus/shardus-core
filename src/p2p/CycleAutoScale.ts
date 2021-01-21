@@ -255,6 +255,7 @@ async function _checkScaling () {
   let changed = false
 
   console.log('Scale up reqeust length', getScaleUpRequests().length)
+  console.log('Scale down reqeust length', getScaleDownRequests().length)
 
   if (approvedScalingType === ScaleType.UP) {
     warn('Already set to scale up this cycle. No need to scale up anymore.')
