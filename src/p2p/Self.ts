@@ -67,17 +67,19 @@ export async function startup(): Promise<boolean> {
   emitter.emit('joining', publicKey)
 
   let firstTime = true
+  let activeNodeCount = 0
   do {
     try {
       // Get active nodes from Archiver
       const activeNodes = await contactArchiver()
-
       // Start in witness mode if conditions are met
       if (await witnessConditionsMet(activeNodes)) {
         info('Emitting `witnessing` event.')
         emitter.emit('witnessing', publicKey)
         return true
       }
+
+      activeNodeCount = activeNodes.length
 
       // Otherwise, try to join the network
       ;({ isFirst, id } = await joinNetwork(activeNodes, firstTime))
@@ -98,6 +100,11 @@ export async function startup(): Promise<boolean> {
 
   // Sync cycle chain from network
   await syncCycleChain()
+
+  if(activeNodeCount > 10){
+    info('More than 10 nodes. debug hack: wait one cycle')
+    await utils.sleep(Context.config.p2p.cycleDuration * 1000 + 500)     
+  }
 
   // Enable internal routes
   Comms.setAcceptInternal(true)
