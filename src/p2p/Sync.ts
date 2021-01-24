@@ -323,8 +323,8 @@ async function getCycles(
     activeNodeCount = NodeList.activeByIdOrder.length
   }
   if(activeNodeCount >= 10){
-    info('More than 10 nodes. getCycles hack wait 10 seconds to mimic large network')
-    await utils.sleep(10 * 1000)     
+    info('More than 10 nodes. getCycles hack wait 30 seconds to mimic large network')
+    await utils.sleep(30 * 1000)     
   }
 
   const { result } = await sequentialQuery(activeNodes, queryFn)
