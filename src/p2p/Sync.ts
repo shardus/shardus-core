@@ -10,6 +10,7 @@ import * as NodeList from './NodeList'
 import * as Self from './Self'
 import { Route } from './Types'
 import { robustQuery, sequentialQuery } from './Utils'
+import * as utils from '../utils'
 
 /** TYPES */
 
@@ -316,6 +317,16 @@ async function getCycles(
     })
     return resp
   }
+
+  let activeNodeCount = 0
+  if(NodeList.activeByIdOrder != null){
+    activeNodeCount = NodeList.activeByIdOrder.length
+  }
+  if(activeNodeCount >= 10){
+    info('More than 10 nodes. getCycles hack wait 10 seconds to mimic large network')
+    await utils.sleep(10 * 1000)     
+  }
+
   const { result } = await sequentialQuery(activeNodes, queryFn)
   // [TODO] Validate whatever came in
   const cycles = result as CycleCreator.CycleRecord[]

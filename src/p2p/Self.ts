@@ -79,8 +79,6 @@ export async function startup(): Promise<boolean> {
         return true
       }
 
-      activeNodeCount = activeNodes.length
-
       // Otherwise, try to join the network
       ;({ isFirst, id } = await joinNetwork(activeNodes, firstTime))
     } catch (err) {
@@ -101,7 +99,10 @@ export async function startup(): Promise<boolean> {
   // Sync cycle chain from network
   await syncCycleChain()
 
-  if(activeNodeCount > 10){
+  if(NodeList.activeByIdOrder != null){
+    activeNodeCount = NodeList.activeByIdOrder.length
+  }
+  if(activeNodeCount >= 10){
     info('More than 10 nodes. debug hack: wait one cycle')
     await utils.sleep(Context.config.p2p.cycleDuration * 1000 + 500)     
   }
