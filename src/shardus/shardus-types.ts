@@ -540,8 +540,10 @@ declare namespace Shardus {
       maxJoinedPerCycle?: number
       /** The maxSyncingPerCycle parameter is an Integer specifying the maximum number of nodes that can be in the syncing phase each cycle. */
       maxSyncingPerCycle?: number
-      /** The maxRotatedPerCycle parameter is an Integer specifying the maximum number of nodes that can that can be rotated out of the network each cycle. */
-      maxRotatedPerCycle?: number
+      /** The rotateNodes parameter is a boolean specifying whether or not nodes will be rotated out of the network on every cycle. */
+      rotateNodes?: boolean
+      /** The maxRemovedPerCycle parameter is an Integer specifying the maximum number of nodes that can that can be removed from the network per cycle. */
+      maxRemovedPerCycle?: number
 
       /** The maxPercentOfDelta parameter is an Integer specifying the percent out of 100 that additional nodes can be accepted to the network. */
       maxPercentOfDelta?: number

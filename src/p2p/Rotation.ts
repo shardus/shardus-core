@@ -123,21 +123,27 @@ function getExpiredRemoved(start: CycleRecord['start']) {
   let expireTimestamp = (start - config.p2p.nodeExpiryAge) * 1000
   if (expireTimestamp < 0) expireTimestamp = 0
 
-  let maxRemove = config.p2p.maxRotatedPerCycle
+  let maxRemove = config.p2p.maxRemovedPerCycle
   if (maxRemove > active - desired) maxRemove = active - desired
 
-  // Oldest node has index 0
-  for (const node of NodeList.byJoinOrder) {
-    // Don't count syncing nodes in your expired count
-    if (node.status === 'syncing') continue
-    // Once you hit the first node that's not expired, stop
-    if (node.joinRequestTimestamp > expireTimestamp) break
-    // Count the expired node
-    expired++
-    // Add it to removed if it isn't full
-    if (removed.length < maxRemove) {
-      insertSorted(removed, node.id)
-      node.status = Types.NodeStatus.REMOVED
+  /**
+   * Expire and remove nodes on every cycle if rotation is enabled.
+   * Otherwise only do it when active is > than desired.
+   */
+  if (config.p2p.rotateNodes || active > desired) {
+    // Oldest node has index 0
+    for (const node of NodeList.byJoinOrder) {
+      // Don't count syncing nodes in your expired count
+      if (node.status === 'syncing') continue
+      // Once you hit the first node that's not expired, stop
+      if (node.joinRequestTimestamp > expireTimestamp) break
+      // Count the expired node
+      expired++
+      // Add it to removed if it isn't full
+      if (removed.length < maxRemove) {
+        insertSorted(removed, node.id)
+        node.status = Types.NodeStatus.REMOVED
+      }
     }
   }
 

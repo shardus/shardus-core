@@ -171,7 +171,7 @@ function calculateToAccept() {
   }
 
   // If rotation is on, add expired to needed
-  if (config.p2p.maxRotatedPerCycle > 0) {
+  if (config.p2p.rotateNodes && config.p2p.maxRemovedPerCycle > 0) {
     needed += expired
   }
 
