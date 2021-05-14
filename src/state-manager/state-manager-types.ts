@@ -137,6 +137,7 @@ export type CycleShardData = {
     activeNodes: Shardus.Node[];
     syncingNeighbors: Shardus.Node[];
     syncingNeighborsTxGroup: Shardus.Node[];
+
     hasSyncingNeighbors: boolean;
 
     partitionsToSkip: Map<number, boolean>
