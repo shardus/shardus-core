@@ -15,6 +15,7 @@ import { json } from 'sequelize/types'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { potentiallyRemoved } from '../p2p/NodeList'
 import { QueueEntry, AppliedVote, AccountHashCache, RequestStateForTxResp, AppliedReceipt, RequestTxResp, RequestReceiptForTxResp } from './state-manager-types'
+import * as CycleChain from '../p2p/CycleChain'
 
 class TransactionRepair {
   app: Shardus.App
@@ -519,7 +520,8 @@ class TransactionRepair {
 
       let keysResponse = this.app.getKeyFromTransaction(txRequestResult.acceptedTX.data)
       allKeys = keysResponse.allKeys
-      cycleToRecordOn = this.stateManager.getCycleNumberFromTimestamp(timestamp)
+      //cycleToRecordOn = this.stateManager.getCycleNumberFromTimestamp(timestamp)
+      cycleToRecordOn = CycleChain.getCycleNumberFromTimestamp(timestamp)
 
       let originalData = txRequestResult.originalData
 

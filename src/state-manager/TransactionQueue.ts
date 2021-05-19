@@ -8,12 +8,13 @@ import Profiler from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
-import Logger, {logFlags} from '../logger'
+import Logger, { logFlags } from '../logger'
 import ShardFunctions from './shardFunctions.js'
 import { time } from 'console'
 import StateManager from '.'
 import { potentiallyRemoved } from '../p2p/NodeList'
 import { QueueEntry, RequestStateForTxReq, RequestStateForTxResp, PreApplyAcceptedTransactionResult, CommitConsensedTransactionResult, AccountFilter, AcceptedTx, StringBoolObjectMap, RequestReceiptForTxResp, StringNodeObjectMap, SeenAccounts } from './state-manager-types'
+import * as CycleChain from '../p2p/CycleChain'
 
 const http = require('../http')
 const allZeroes64 = '0'.repeat(64)
@@ -23,7 +24,7 @@ class TransactionQueue {
   crypto: Crypto
   config: Shardus.ShardusConfiguration
   profiler: Profiler
-  
+
   logger: Logger
   p2p: P2P
   storage: Storage
@@ -53,8 +54,7 @@ class TransactionQueue {
   processingLastRunTime: number
   processingMinRunBreak: number
 
-  constructor(stateManager: StateManager,  profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
-    
+  constructor(stateManager: StateManager, profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
     this.crypto = crypto
     this.app = app
     this.logger = logger
@@ -247,9 +247,9 @@ class TransactionQueue {
    * call into the app code to apply a transaction on our in memory copies of data.
    * the results will be used for voting/consensus (if non-global)
    * when a receipt is formed commitConsensedTransaction will actually commit a the data
-   * @param queueEntry 
+   * @param queueEntry
    */
-  async preApplyTransaction(queueEntry:QueueEntry): Promise<PreApplyAcceptedTransactionResult> {
+  async preApplyTransaction(queueEntry: QueueEntry): Promise<PreApplyAcceptedTransactionResult> {
     if (this.queueStopped) return
 
     let acceptedTX = queueEntry.acceptedTx
@@ -263,7 +263,7 @@ class TransactionQueue {
     let ourLockID = -1
     let ourAccountLocks = null
     let applyResponse: Shardus.ApplyResponse | null = null
-    let isGlobalModifyingTX = (queueEntry.globalModification === true)
+    let isGlobalModifyingTX = queueEntry.globalModification === true
     let passedApply: boolean = false
     let applyResult: string
 
@@ -284,9 +284,9 @@ class TransactionQueue {
         wrappedState.timestamp = updatedTimestamp
 
         // check if current account timestamp is too new for this TX
-        if(wrappedState.timestamp >= timestamp){
+        if (wrappedState.timestamp >= timestamp) {
           accountTimestampsAreOK = false
-          break;
+          break
         }
       }
     }
@@ -308,33 +308,31 @@ class TransactionQueue {
 
       // TODO ARCH REVIEW:  review use of fifo lock of accountModification and account keys.
       // I think we need to consider adding reader-writer lock support so that a non written to global account is a "reader" lock: check but dont aquire
-      // consider if it is safe to axe the use of fifolock accountModification.  
-      
+      // consider if it is safe to axe the use of fifolock accountModification.
+
       if (logFlags.verbose && this.stateManager.extendedRepairLogging) this.mainLogger.debug(` preApplyTransaction FIFO lock outer: ${utils.stringifyReduce(uniqueKeys)} `)
       ourAccountLocks = await this.stateManager.bulkFifoLockAccounts(uniqueKeys)
       if (logFlags.verbose && this.stateManager.extendedRepairLogging) this.mainLogger.debug(` preApplyTransaction FIFO lock inner: ${utils.stringifyReduce(uniqueKeys)} ourLocks: ${utils.stringifyReduce(ourAccountLocks)}`)
-    
+
       ourLockID = await this.stateManager.fifoLock('accountModification')
 
       applyResponse = this.app.apply(tx as Shardus.IncomingTransaction, wrappedStates)
-      if(applyResponse == null){
+      if (applyResponse == null) {
         throw Error('null response from app.apply')
       }
       passedApply = true
       applyResult = 'applied'
 
       if (logFlags.verbose) this.mainLogger.debug(`preApplyTransaction  post apply wrappedStates: ${utils.stringifyReduce(wrappedStates)}`)
-
     } catch (ex) {
-      if(logFlags.error) if (logFlags.error) this.mainLogger.error(`preApplyTransaction failed id:${utils.makeShortHash(acceptedTX.id)}: ` + ex.name + ': ' + ex.message + ' at ' + ex.stack)
-      if(logFlags.error) if (logFlags.error) this.mainLogger.error(`preApplyTransaction failed id:${utils.makeShortHash(acceptedTX.id)}  ${utils.stringifyReduce(acceptedTX)}`)
+      if (logFlags.error) if (logFlags.error) this.mainLogger.error(`preApplyTransaction failed id:${utils.makeShortHash(acceptedTX.id)}: ` + ex.name + ': ' + ex.message + ' at ' + ex.stack)
+      if (logFlags.error) if (logFlags.error) this.mainLogger.error(`preApplyTransaction failed id:${utils.makeShortHash(acceptedTX.id)}  ${utils.stringifyReduce(acceptedTX)}`)
 
       passedApply = false
       applyResult = ex.message
-
     } finally {
       this.stateManager.fifoUnlock('accountModification', ourLockID)
-      
+
       if (ourAccountLocks != null) {
         this.stateManager.bulkFifoUnlockAccounts(uniqueKeys, ourAccountLocks)
       }
@@ -342,19 +340,19 @@ class TransactionQueue {
     }
 
     if (logFlags.playback) this.logger.playbackLogNote('tx_preapplied', `${acceptedTX.id}`, `preApplyTransaction ${timestamp} `)
-    if (logFlags.verbose) this.mainLogger.debug(`preApplyTransaction ${timestamp }`)
+    if (logFlags.verbose) this.mainLogger.debug(`preApplyTransaction ${timestamp}`)
 
     return { applied: true, passed: passedApply, applyResult: applyResult, reason: 'apply result', applyResponse: applyResponse }
   }
 
-/**
- * commitConsensedTransaction
- * This works with our in memory copies of data that have had a TX applied.
- * This calls into the app to save data and also updates:
- *    acceptedTransactions, stateTableData and accountsCopies DB tables
- *    accountCache and accountStats
- * @param queueEntry 
- */
+  /**
+   * commitConsensedTransaction
+   * This works with our in memory copies of data that have had a TX applied.
+   * This calls into the app to save data and also updates:
+   *    acceptedTransactions, stateTableData and accountsCopies DB tables
+   *    accountCache and accountStats
+   * @param queueEntry
+   */
   async commitConsensedTransaction(queueEntry: QueueEntry): Promise<CommitConsensedTransactionResult> {
     let ourLockID = -1
     let accountDataList
@@ -366,10 +364,10 @@ class TransactionQueue {
     let keysResponse = queueEntry.txKeys
     let { timestamp, sourceKeys, targetKeys, debugInfo } = keysResponse
     let applyResponse = queueEntry.preApplyTXResult.applyResponse
-    let isGlobalModifyingTX = (queueEntry.globalModification === true)
+    let isGlobalModifyingTX = queueEntry.globalModification === true
     let savedSomething = false
     try {
-      if (logFlags.verbose){
+      if (logFlags.verbose) {
         this.mainLogger.debug(`commitConsensedTransaction  ts:${timestamp} isGlobalModifyingTX:${isGlobalModifyingTX}  Applying! debugInfo: ${debugInfo}`)
         this.mainLogger.debug(`commitConsensedTransaction  filter: ${utils.stringifyReduce(queueEntry.localKeys)}`)
         this.mainLogger.debug(`commitConsensedTransaction  acceptedTX: ${utils.stringifyReduce(acceptedTX)}`)
@@ -377,13 +375,12 @@ class TransactionQueue {
         this.mainLogger.debug(`commitConsensedTransaction  localCachedData: ${utils.stringifyReduce(localCachedData)}`)
       }
       // TODO ARCH REVIEW:  review use of fifo lock of accountModification and account keys. (more notes in tryPreApplyTransaction() above )
-      
+
       uniqueKeys = queueEntry.uniqueKeys
 
       if (logFlags.verbose && this.stateManager.extendedRepairLogging) this.mainLogger.debug(`commitConsensedTransaction FIFO lock outer: ${utils.stringifyReduce(uniqueKeys)} `)
       ourAccountLocks = await this.stateManager.bulkFifoLockAccounts(uniqueKeys)
       if (logFlags.verbose && this.stateManager.extendedRepairLogging) this.mainLogger.debug(`commitConsensedTransaction FIFO lock inner: ${utils.stringifyReduce(uniqueKeys)} ourLocks: ${utils.stringifyReduce(ourAccountLocks)}`)
-    
 
       ourLockID = await this.stateManager.fifoLock('accountModification')
 
@@ -432,7 +429,7 @@ class TransactionQueue {
       return { success: false }
     } finally {
       this.stateManager.fifoUnlock('accountModification', ourLockID)
-      
+
       if (ourAccountLocks != null) {
         this.stateManager.bulkFifoUnlockAccounts(uniqueKeys, ourAccountLocks)
       }
@@ -589,7 +586,7 @@ class TransactionQueue {
         localCachedData: {},
         syncCounter: 0,
         didSync: false,
-        queuedBeforeMainSyncComplete:false,
+        queuedBeforeMainSyncComplete: false,
         didWakeup: false,
         syncKeys: [],
         logstate: '',
@@ -685,14 +682,16 @@ class TransactionQueue {
         this.updateHomeInformation(txQueueEntry)
 
         // calculate information needed for receiptmap
-        txQueueEntry.cycleToRecordOn = this.stateManager.getCycleNumberFromTimestamp(timestamp)
+        //txQueueEntry.cycleToRecordOn = this.stateManager.getCycleNumberFromTimestamp(timestamp)
+        txQueueEntry.cycleToRecordOn = CycleChain.getCycleNumberFromTimestamp(timestamp)
+        console.log('Cycle number from timestamp', timestamp, txQueueEntry.cycleToRecordOn)
         if (txQueueEntry.cycleToRecordOn < 0) {
           nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'caused Enqueue fail')
           if (logFlags.verbose) if (logFlags.error) this.mainLogger.error(`routeAndQueueAcceptedTransaction failed to calculate cycle ${timestamp} error code:${txQueueEntry.cycleToRecordOn}`)
           return false
         }
-        if(txQueueEntry.cycleToRecordOn == null){
-          this.statemanager_fatal(`routeAndQueueAcceptedTransaction cycleToRecordOn==null`, `routeAndQueueAcceptedTransaction cycleToRecordOn==null  ${txQueueEntry.logID} ${timestamp}` )
+        if (txQueueEntry.cycleToRecordOn == null) {
+          this.statemanager_fatal(`routeAndQueueAcceptedTransaction cycleToRecordOn==null`, `routeAndQueueAcceptedTransaction cycleToRecordOn==null  ${txQueueEntry.logID} ${timestamp}`)
         }
 
         if (logFlags.playback) this.logger.playbackLogNote('shrd_queueInsertion_start', txQueueEntry.logID, `${txQueueEntry.logID} ${utils.stringifyReduce(txQueueEntry.txKeys)} cycleToRecordOn:${txQueueEntry.cycleToRecordOn}`)
@@ -719,7 +718,7 @@ class TransactionQueue {
         // and just a simple check to see if this was queued before the main sync phase.
         // for now, just used for more detailed logging so we can sort out if problem TXs were from shortly before we were fully done
         // but after a sync range was finished, (used shortly below in the age check)
-        txQueueEntry.queuedBeforeMainSyncComplete = this.stateManager.accountSync.dataSyncMainPhaseComplete 
+        txQueueEntry.queuedBeforeMainSyncComplete = this.stateManager.accountSync.dataSyncMainPhaseComplete
 
         // Check to see if any keys are inside of a syncing range.
         // If it is a global key in a non-globalModification TX then we dont care about it
@@ -730,15 +729,15 @@ class TransactionQueue {
 
           // todo take another look at this condition and syncTracker.globalAddressMap
           if (syncTracker != null && (syncTracker.isGlobalSyncTracker === false || txQueueEntry.globalModification === true)) {
-            if(this.stateManager.accountSync.softSync_noSyncDelay === true){
+            if (this.stateManager.accountSync.softSync_noSyncDelay === true) {
               //no delay means that don't pause the TX in state = 'syncing'
             } else {
               txQueueEntry.state = 'syncing'
-              txQueueEntry.syncCounter++    
-              syncTracker.queueEntries.push(txQueueEntry) // same tx may get pushed in multiple times. that's ok.    
-              syncTracker.keys[key] = true  //mark this key for fast testing later              
+              txQueueEntry.syncCounter++
+              syncTracker.queueEntries.push(txQueueEntry) // same tx may get pushed in multiple times. that's ok.
+              syncTracker.keys[key] = true //mark this key for fast testing later
             }
-             
+
             txQueueEntry.didSync = true // mark that this tx had to sync, this flag should never be cleared, we will use it later to not through stuff away.
             txQueueEntry.syncKeys.push(key) // used later to instruct what local data we should JIT load
             txQueueEntry.localKeys[key] = true // used for the filter
@@ -747,11 +746,11 @@ class TransactionQueue {
         }
 
         if (age > this.stateManager.queueSitTime * 0.9) {
-          if(txQueueEntry.didSync === true){
+          if (txQueueEntry.didSync === true) {
             nestedCountersInstance.countEvent('stateManager', `enqueue old TX didSync === true queuedBeforeMainSyncComplete:${txQueueEntry.queuedBeforeMainSyncComplete}`)
           } else {
             nestedCountersInstance.countEvent('stateManager', `enqueue old TX didSync === false queuedBeforeMainSyncComplete:${txQueueEntry.queuedBeforeMainSyncComplete}`)
-            if(txQueueEntry.queuedBeforeMainSyncComplete){
+            if (txQueueEntry.queuedBeforeMainSyncComplete) {
               //only a fatal if it was after the main sync phase was complete.
               this.statemanager_fatal(`routeAndQueueAcceptedTransaction_olderTX`, 'routeAndQueueAcceptedTransaction working on older tx ' + timestamp + ' age: ' + age)
               // TODO consider throwing this out.  right now it is just a warning
@@ -949,7 +948,7 @@ class TransactionQueue {
     if (logFlags.playback) this.logger.playbackLogNote('shrd_addData', `${utils.makeShortHash(queueEntry.acceptedTx.id)}`, `key ${utils.makeShortHash(data.accountId)} hash: ${utils.makeShortHash(data.stateId)} hasAll:${queueEntry.hasAll} collected:${queueEntry.dataCollected}  ${queueEntry.acceptedTx.timestamp}`)
   }
 
-  queueEntryHasAllData(queueEntry: QueueEntry) : boolean {
+  queueEntryHasAllData(queueEntry: QueueEntry): boolean {
     if (queueEntry.hasAll === true) {
       return true
     }
@@ -975,7 +974,7 @@ class TransactionQueue {
       return
     }
 
-    if(queueEntry.pendingDataRequest === true){
+    if (queueEntry.pendingDataRequest === true) {
       return
     }
     queueEntry.pendingDataRequest = true
@@ -1299,7 +1298,7 @@ class TransactionQueue {
       // TODO STATESHARDING4 is this next block even needed:
       // HOMENODEMATHS need to patch in nodes that would cover this partition!
       // TODO PERF make an optimized version of this in ShardFunctions that is smarter about which node range to check and saves off the calculation
-      // TODO PERF Update.  this will scale badly with 100s or 1000s of nodes. need a faster solution that can use the list of accounts to 
+      // TODO PERF Update.  this will scale badly with 100s or 1000s of nodes. need a faster solution that can use the list of accounts to
       //                    build a list of nodes.
       // maybe this could go on the partitions.
       let { homePartition } = ShardFunctions.addressToPartition(this.stateManager.currentCycleShardData.shardGlobals, key)
@@ -1620,7 +1619,7 @@ class TransactionQueue {
     //compact the queue entry before we push it!
     queueEntry.ourVote = null
     queueEntry.collectedVotes = null
-    
+
     // coalesce the receipts into applied receipt. maybe not as descriptive, but save memory.
     queueEntry.appliedReceipt = queueEntry.appliedReceipt ?? queueEntry.recievedAppliedReceipt ?? queueEntry.appliedReceiptForRepair ?? queueEntry.appliedReceiptFinal
     queueEntry.recievedAppliedReceipt = null
@@ -1633,7 +1632,6 @@ class TransactionQueue {
 
     delete queueEntry.preApplyTXResult
 
-
     this.archivedQueueEntries.push(queueEntry)
 
     this.archivedQueueEntriesByID.set(queueEntry.acceptedTx.id, queueEntry)
@@ -1644,13 +1642,8 @@ class TransactionQueue {
     }
   }
 
-  setState(queueEntry:QueueEntry, newState:string){
-
-  }
-  setHigherState(queueEntry:QueueEntry, newState:string){
-
-  }
-
+  setState(queueEntry: QueueEntry, newState: string) {}
+  setHigherState(queueEntry: QueueEntry, newState: string) {}
 
   /***
    *    ########  ########   #######   ######  ########  ######   ######
@@ -1661,7 +1654,7 @@ class TransactionQueue {
    *    ##        ##    ##  ##     ## ##    ## ##       ##    ## ##    ##
    *    ##        ##     ##  #######   ######  ########  ######   ######
    */
-  async processAcceptedTxQueue(firstTime:boolean = false) {
+  async processAcceptedTxQueue(firstTime: boolean = false) {
     let seenAccounts: SeenAccounts
     seenAccounts = {}
     let pushedProfilerTag = null
@@ -1674,8 +1667,8 @@ class TransactionQueue {
 
       // ensure there is some rest between processing loops
       let timeSinceLastRun = startTime - this.processingLastRunTime
-      if(timeSinceLastRun < this.processingMinRunBreak){
-        let sleepTime = Math.max(5, this.processingMinRunBreak - timeSinceLastRun )
+      if (timeSinceLastRun < this.processingMinRunBreak) {
+        let sleepTime = Math.max(5, this.processingMinRunBreak - timeSinceLastRun)
         await utils.sleep(sleepTime)
         nestedCountersInstance.countEvent('processing', 'resting')
       }
@@ -1708,11 +1701,10 @@ class TransactionQueue {
       // process any new queue entries that were added to the temporary list
       if (this.newAcceptedTxQueueTempInjest.length > 0) {
         for (let txQueueEntry of this.newAcceptedTxQueueTempInjest) {
-
-          if(this.txWillChangeLocalData(txQueueEntry) === true){
-            nestedCountersInstance.countEvent('stateManager', 'processAcceptedTxQueue injest: kept TX' )
+          if (this.txWillChangeLocalData(txQueueEntry) === true) {
+            nestedCountersInstance.countEvent('stateManager', 'processAcceptedTxQueue injest: kept TX')
           } else {
-            nestedCountersInstance.countEvent('stateManager', 'processAcceptedTxQueue injest: discard TX' )
+            nestedCountersInstance.countEvent('stateManager', 'processAcceptedTxQueue injest: discard TX')
             continue
           }
 
@@ -1766,19 +1758,19 @@ class TransactionQueue {
         // update current time with each pass through the loop
         currentTime = Date.now()
 
-        if(currentTime - lastRest > 1000){
+        if (currentTime - lastRest > 1000) {
           //add a brief sleep if we have been in this loop for a long time
-          nestedCountersInstance.countEvent('processing','forcedSleep')
+          nestedCountersInstance.countEvent('processing', 'forcedSleep')
           await utils.sleep(5) //5ms sleep
           lastRest = currentTime
 
-          if(currentTime - this.stateManager.currentCycleShardData.calculationTime > ((this.config.p2p.cycleDuration * 1000) + 5000)){
-            nestedCountersInstance.countEvent('processing','old cycle data >5s past due')
-          }       
-          if(currentTime - this.stateManager.currentCycleShardData.calculationTime > ((this.config.p2p.cycleDuration * 1000) + 11000)){
-            nestedCountersInstance.countEvent('processing','very old cycle data >11s past due')
+          if (currentTime - this.stateManager.currentCycleShardData.calculationTime > this.config.p2p.cycleDuration * 1000 + 5000) {
+            nestedCountersInstance.countEvent('processing', 'old cycle data >5s past due')
+          }
+          if (currentTime - this.stateManager.currentCycleShardData.calculationTime > this.config.p2p.cycleDuration * 1000 + 11000) {
+            nestedCountersInstance.countEvent('processing', 'very old cycle data >11s past due')
             return //loop will restart.
-          }    
+          }
         }
 
         //Handle an odd case where the finally did not catch exiting scope.
@@ -1813,7 +1805,7 @@ class TransactionQueue {
 
         // on the off chance we are here with a pass of fail state remove this from the queue.
         // log fatal because we do not want to get to this situation.
-        if(queueEntry.state === 'pass' || queueEntry.state === 'fail'){
+        if (queueEntry.state === 'pass' || queueEntry.state === 'fail') {
           this.statemanager_fatal(`pass or fail entry should not be in queue`, `txid: ${shortID} state: ${queueEntry.state} receiptEverRequested:${queueEntry.receiptEverRequested} age:${txAge}`)
           this.removeFromQueue(queueEntry, currentIndex)
           continue
@@ -1826,19 +1818,19 @@ class TransactionQueue {
 
           // didSync: refers to the syncing process.  True is for TXs that we were notified of
           //          but had to delay action on because the initial or a runtime thread was busy syncing on.
-          
+
           // For normal didSync===false TXs we are expiring them after M3*2
           //     This gives a bit of room to attempt a repair.
-          //     if a repair or reciept process fails there are cases below to expire the the 
+          //     if a repair or reciept process fails there are cases below to expire the the
           //     tx as early as time > M3
           if (txAge > timeM3 * 2 && queueEntry.didSync == false) {
             //this.statistics.incrementCounter('txExpired')
 
             this.statemanager_fatal(`txExpired1 > M3 * 2. NormalTX Timed out.`, `txExpired txAge > timeM3*2 && queueEntry.didSync == false. ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} hasReceivedApplyReceiptForRepair:${hasReceivedApplyReceiptForRepair} receiptEverRequested:${queueEntry.receiptEverRequested} age:${txAge} ${utils.stringifyReduce(queueEntry.uniqueWritableKeys)}`)
-            if(queueEntry.receiptEverRequested && queueEntry.globalModification === false){
+            if (queueEntry.receiptEverRequested && queueEntry.globalModification === false) {
               this.statemanager_fatal(`txExpired1 > M3 * 2 -!receiptEverRequested`, `txExpired txAge > timeM3*2 && queueEntry.didSync == false. !receiptEverRequested ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} hasReceivedApplyReceiptForRepair:${hasReceivedApplyReceiptForRepair} receiptEverRequested:${queueEntry.receiptEverRequested} age:${txAge}`)
             }
-            if(queueEntry.globalModification){
+            if (queueEntry.globalModification) {
               this.statemanager_fatal(`txExpired1 > M3 * 2 -GlobalModification!!`, `txExpired txAge > timeM3*2 && queueEntry.didSync == false. !receiptEverRequested ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} hasReceivedApplyReceiptForRepair:${hasReceivedApplyReceiptForRepair} receiptEverRequested:${queueEntry.receiptEverRequested} age:${txAge}`)
             }
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
@@ -1846,7 +1838,7 @@ class TransactionQueue {
 
             nestedCountersInstance.countEvent('txExpired', `> M3 * 2. NormalTX Timed out. didSync == false. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
-            this.removeFromQueue(queueEntry, currentIndex)            
+            this.removeFromQueue(queueEntry, currentIndex)
             continue
           }
 
@@ -1855,15 +1847,15 @@ class TransactionQueue {
             //this.statistics.incrementCounter('txExpired')
 
             this.statemanager_fatal(`txExpired2 > M3 * 50. SyncedTX Timed out.`, `txExpired txAge > timeM3 * 50 && queueEntry.didSync == true. ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} hasReceivedApplyReceiptForRepair:${hasReceivedApplyReceiptForRepair} receiptEverRequested:${queueEntry.receiptEverRequested} age:${txAge} syncCounter${queueEntry.syncCounter} ${utils.stringifyReduce(queueEntry.uniqueWritableKeys)}`)
-            if(queueEntry.globalModification){
+            if (queueEntry.globalModification) {
               this.statemanager_fatal(`txExpired2 > M3 * 50. SyncedTX -GlobalModification!!`, `txExpired txAge > timeM3*2 && queueEntry.didSync == false. !receiptEverRequested ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} hasReceivedApplyReceiptForRepair:${hasReceivedApplyReceiptForRepair} receiptEverRequested:${queueEntry.receiptEverRequested} age:${txAge}`)
             }
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired 2  ${utils.stringifyReduce(queueEntry.acceptedTx)} ${queueEntry.didWakeup}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt 2: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
-            
+
             nestedCountersInstance.countEvent('txExpired', `> M3 * 50. SyncedTX Timed out. didSync == true. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
-            this.removeFromQueue(queueEntry, currentIndex)            
+            this.removeFromQueue(queueEntry, currentIndex)
             continue
           }
 
@@ -1874,10 +1866,10 @@ class TransactionQueue {
             this.statemanager_fatal(`txExpired3 > M3. receiptRequestFail after Timed Out`, `txExpired txAge > timeM3 && queueEntry.requestingReceiptFailed ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} age:${txAge}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired 3 requestingReceiptFailed  ${utils.stringifyReduce(queueEntry.acceptedTx)} ${queueEntry.didWakeup}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt 3 requestingReceiptFailed: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
-            
+
             nestedCountersInstance.countEvent('txExpired', `> M3. receiptRequestFail after Timed Out. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
-            this.removeFromQueue(queueEntry, currentIndex)            
+            this.removeFromQueue(queueEntry, currentIndex)
             continue
           }
 
@@ -1890,24 +1882,24 @@ class TransactionQueue {
             this.statemanager_fatal(`txExpired3 > M3. repairFailed after Timed Out`, `txExpired txAge > timeM3 && queueEntry.repairFailed ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} age:${txAge}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired 3 repairFailed  ${utils.stringifyReduce(queueEntry.acceptedTx)} ${queueEntry.didWakeup}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt 3 repairFailed: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
-            
+
             nestedCountersInstance.countEvent('txExpired', `> M3. repairFailed after Timed Out. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
-            this.removeFromQueue(queueEntry, currentIndex)            
+            this.removeFromQueue(queueEntry, currentIndex)
             continue
           }
 
           // a few cases to wait for a receipt or request a receipt
-          if(queueEntry.state != 'await repair' && queueEntry.state != 'commiting'){
+          if (queueEntry.state != 'await repair' && queueEntry.state != 'commiting') {
             //Not yet expired case: getting close to expire so just move to consensing and wait.
             //Just wait for receipt only if we are awaiting data and it is getting late
             if (txAge > timeM2_5 && queueEntry.m2TimeoutReached === false && queueEntry.globalModification === false && queueEntry.requestingReceipt === false) {
-              if(queueEntry.state == 'awaiting data'){
+              if (queueEntry.state == 'awaiting data') {
                 // no receipt yet, and state not committing
                 if (queueEntry.recievedAppliedReceipt == null && queueEntry.appliedReceipt == null) {
                   if (logFlags.verbose) if (logFlags.error) this.mainLogger.error(`Wait for reciept only: txAge > timeM2_5 txid:${shortID} `)
                   if (logFlags.playback) this.logger.playbackLogNote('txMissingReceipt3', `${shortID}`, `processAcceptedTxQueue ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} age:${txAge}`)
-                  
+
                   nestedCountersInstance.countEvent('txMissingReceipt', `Wait for reciept only: txAge > timeM2.5. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
                   queueEntry.waitForReceiptOnly = true
                   queueEntry.m2TimeoutReached = true
@@ -1946,10 +1938,10 @@ class TransactionQueue {
             this.statemanager_fatal(`txExpired4`, `Still on inital syncing.  txExpired txAge > timeM3 * 50. ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} age:${txAge}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired 4  ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt 4: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
-            
+
             nestedCountersInstance.countEvent('txExpired', `txExpired txAge > timeM3 * 50. still syncing. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
-            this.removeFromQueue(queueEntry, currentIndex)            
+            this.removeFromQueue(queueEntry, currentIndex)
             continue
           }
         }
@@ -1961,7 +1953,7 @@ class TransactionQueue {
 
           if (queueEntry.state === 'syncing') {
             ///////////////////////////////////////////////--syncing--////////////////////////////////////////////////////////////
-            // a queueEntry will be put in syncing state if it is queue up while we are doing initial syncing or if 
+            // a queueEntry will be put in syncing state if it is queue up while we are doing initial syncing or if
             // we are syncing a range of new edge partition data.
             // we hold it in limbo until the syncing operation is complete.  When complete all of these TXs are popped
             // and put back into the queue.  If it has been too long they will go into a repair to receipt mode.
@@ -1975,7 +1967,6 @@ class TransactionQueue {
               queueEntry.waitForReceiptOnly = true
               queueEntry.state = 'consensing'
             }
-
 
             this.processQueue_markAccountsSeen(seenAccounts, queueEntry)
           } else if (queueEntry.state === 'aging') {
@@ -2008,15 +1999,15 @@ class TransactionQueue {
           } else if (queueEntry.state === 'awaiting data') {
             ///////////////////////////////////////--awaiting data--////////////////////////////////////////////////////////////////////
 
-            // Wait for all data to be aquired. 
+            // Wait for all data to be aquired.
             // Once we have all the data we need we can move to consensing phase.
             // IF this is a global account it will go strait to commiting phase since the data was shared by other means.
 
             // catch all in case we get waiting for data
-            if(txAge > timeM2_5){
+            if (txAge > timeM2_5) {
               this.processQueue_markAccountsSeen(seenAccounts, queueEntry)
               nestedCountersInstance.countEvent('processing', `awaiting data txAge > m2.5 set to consensing hasAll:${queueEntry.hasAll} hasReceivedApplyReceipt:${hasReceivedApplyReceipt}`)
-              
+
               queueEntry.waitForReceiptOnly = true
               queueEntry.state = 'consensing'
               continue
@@ -2026,7 +2017,7 @@ class TransactionQueue {
             if (queueEntry.hasAll === false && txAge > timeM2) {
               this.processQueue_markAccountsSeen(seenAccounts, queueEntry)
 
-              if(queueEntry.pendingDataRequest === true){
+              if (queueEntry.pendingDataRequest === true) {
                 //early out after marking seen, because we are already asking for data
                 continue
               }
@@ -2074,19 +2065,19 @@ class TransactionQueue {
                     queueEntry.preApplyTXResult = txResult
 
                     // make sure our data wrappers are upt to date with the correct hash and timstamp
-                    for(let key of Object.keys(queueEntry.collectedData))  {
+                    for (let key of Object.keys(queueEntry.collectedData)) {
                       let wrappedAccount = queueEntry.collectedData[key]
-                      let {timestamp, hash} = this.app.getTimestampAndHashFromAccount(wrappedAccount.data)
-                      if(wrappedAccount.timestamp != timestamp){
+                      let { timestamp, hash } = this.app.getTimestampAndHashFromAccount(wrappedAccount.data)
+                      if (wrappedAccount.timestamp != timestamp) {
                         wrappedAccount.timestamp = timestamp
                         nestedCountersInstance.countEvent('transactionQueue', 'correctedTimestamp')
                       }
-                      if(wrappedAccount.stateId != hash){
+                      if (wrappedAccount.stateId != hash) {
                         wrappedAccount.stateId = hash
                         nestedCountersInstance.countEvent('transactionQueue', 'correctedHash')
                       }
-                    } 
-            
+                    }
+
                     //Broadcast our vote
                     if (queueEntry.noConsensus === true) {
                       // not sure about how to share or generate an applied receipt though for a no consensus step
@@ -2202,7 +2193,7 @@ class TransactionQueue {
                 queueEntry.state = 'fail'
               }
               // most remove from queue at the end because it compacts the queue entry
-              this.removeFromQueue(queueEntry, currentIndex)              
+              this.removeFromQueue(queueEntry, currentIndex)
             }
           } else if (queueEntry.state === 'commiting') {
             ///////////////////////////////////////////--commiting--////////////////////////////////////////////////////////////////
@@ -2261,10 +2252,10 @@ class TransactionQueue {
 
                   //try {
                   this.profiler.profileSectionStart('commit')
-                  
+
                   let commitResult = await this.commitConsensedTransaction(queueEntry)
 
-                  if(queueEntry.repairFinished){
+                  if (queueEntry.repairFinished) {
                     // saw a TODO comment above and befor I axe it want to confirm what is happening after we repair a receipt.
                     // shouldn't get here putting this in to catch if we do
                     this.statemanager_fatal(`processAcceptedTxQueue_commitingRepairedReceipt`, `${shortID} `)
@@ -2272,7 +2263,7 @@ class TransactionQueue {
                   }
 
                   nestedCountersInstance.countEvent('stateManager', 'committed tx')
-                  if(queueEntry.hasValidFinalData === false){
+                  if (queueEntry.hasValidFinalData === false) {
                     nestedCountersInstance.countEvent('stateManager', 'commit state fix FinalDataFlag')
                     queueEntry.hasValidFinalData = true
                   }
@@ -2284,7 +2275,6 @@ class TransactionQueue {
                   if (commitResult != null && commitResult.success) {
                   }
                 } else {
-
                 }
                 if (hasReceiptFail) {
                   // endpoint to allow dapp to execute something that depends on a transaction failing
@@ -2298,7 +2288,7 @@ class TransactionQueue {
                 this.statemanager_fatal(`processAcceptedTxQueue2b_ex`, 'processAcceptedTxQueue2 commiting Transaction:' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
               } finally {
                 this.processQueue_clearAccountsSeen(seenAccounts, queueEntry)
-                
+
                 if (queueEntry.noConsensus === true) {
                   // dont have a receipt for a non consensus TX. not even sure if we want to keep that!
                   if (queueEntry.preApplyTXResult.passed === true) {
@@ -2377,17 +2367,14 @@ class TransactionQueue {
       }
 
       let processTime = Date.now() - startTime
-      if(processTime > 10000){
+      if (processTime > 10000) {
         nestedCountersInstance.countEvent('stateManager', 'processTime > 10s')
-        this.statemanager_fatal(`processAcceptedTxQueue excceded time ${processTime/1000} firstTime:${firstTime}`, `processAcceptedTxQueue excceded time ${processTime/1000} firstTime:${firstTime}`)
-      }
-      else if(processTime > 5000){
+        this.statemanager_fatal(`processAcceptedTxQueue excceded time ${processTime / 1000} firstTime:${firstTime}`, `processAcceptedTxQueue excceded time ${processTime / 1000} firstTime:${firstTime}`)
+      } else if (processTime > 5000) {
         nestedCountersInstance.countEvent('stateManager', 'processTime > 5s')
-      }      
-      else if(processTime > 2000){
+      } else if (processTime > 2000) {
         nestedCountersInstance.countEvent('stateManager', 'processTime > 2s')
-      }
-      else if(processTime > 1000){
+      } else if (processTime > 1000) {
         nestedCountersInstance.countEvent('stateManager', 'processTime > 1s')
       }
 
@@ -2405,7 +2392,6 @@ class TransactionQueue {
       this.profiler.profileSectionEnd('processQ')
     }
   }
-
 
   processQueue_accountSeen(seenAccounts: SeenAccounts, queueEntry: QueueEntry): boolean {
     if (queueEntry.uniqueKeys == null) {
@@ -2444,7 +2430,7 @@ class TransactionQueue {
       }
     }
   }
-  
+
   processQueue_debugAccountData(queueEntry: QueueEntry, app: Shardus.App): string {
     let debugStr = ''
     //if (logFlags.verbose) { //this function is always verbose
@@ -2459,17 +2445,16 @@ class TransactionQueue {
     }
     //}
     return debugStr
-  }  
+  }
 
-  txWillChangeLocalData(queueEntry:QueueEntry) : boolean{
-    if(queueEntry.globalModification){
+  txWillChangeLocalData(queueEntry: QueueEntry): boolean {
+    if (queueEntry.globalModification) {
       return true
     }
     let timestamp = queueEntry.acceptedTx.timestamp
     let ourNodeData = this.stateManager.currentCycleShardData.nodeShardData
-    for(let key of queueEntry.uniqueWritableKeys){
-
-      if(this.stateManager.accountGlobals.isGlobalAccount(key)){
+    for (let key of queueEntry.uniqueWritableKeys) {
+      if (this.stateManager.accountGlobals.isGlobalAccount(key)) {
         //ignore globals in non global mod tx.
         continue
       }
@@ -2483,25 +2468,21 @@ class TransactionQueue {
       hasKey = nodeStoresThisPartition
 
       //if(queueEntry.localKeys[key] === true){
-      if(hasKey){
+      if (hasKey) {
         let accountHash = this.stateManager.accountCache.getAccountHash(key)
-        if(accountHash != null){
+        if (accountHash != null) {
           // if the timestamp of the TX is newer than any local writeable keys then this tx will change local data
-          if(timestamp > accountHash.t){
+          if (timestamp > accountHash.t) {
             return true
-          }          
+          }
         } else {
           //no cache entry means it will do something
           return true
         }
-
       }
     }
     return false
   }
-
-
-
 }
 
 export default TransactionQueue
