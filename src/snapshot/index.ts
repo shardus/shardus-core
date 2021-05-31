@@ -21,35 +21,14 @@ import * as partitionGossip from './partition-gossip'
 import * as SnapshotFunctions from './snapshotFunctions'
 import {logFlags} from '../logger'
 import { Cycle, ReceiptMapResult, StatsClump, CycleShardData, MainHashResults } from '../state-manager/state-manager-types'
+import { NetworkHash, StateHashes, ReceiptHashes, SummaryHashes } from '../p2p/StateParser'
 
 /** TYPES */
-
-export interface NetworkHash {
-  cycle: number
-  hash: string
-}
 
 export interface Record {
   networkDataHash: NetworkHash[]
   networkReceiptHash: NetworkHash[]
   networkSummaryHash: NetworkHash[]
-}
-
-export interface StateHashes {
-  counter: Cycle['counter']
-  partitionHashes: object
-  networkHash: NetworkStateHash
-}
-
-export interface ReceiptHashes {
-  counter: Cycle['counter']
-  receiptMapHashes: object
-  networkReceiptHash: NetworkReceiptHash
-}
-export interface SummaryHashes {
-  counter: Cycle['counter']
-  summaryHashes: object
-  networkSummaryHash: NetworkSummarytHash
 }
 
 interface Account {
@@ -77,11 +56,6 @@ export type ReceiptMapHashes = Map<
   string
 >
 
-export interface SummaryBlob {
-  cycle: number
-  partition: number
-  blob: unknown
-}
 
 export type NetworkStateHash = string
 export type NetworkReceiptHash = string

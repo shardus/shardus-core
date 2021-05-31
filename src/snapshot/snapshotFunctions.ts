@@ -15,13 +15,14 @@ import ShardFunctions from '../state-manager/shardFunctions'
 import * as shardFunctionTypes from '../state-manager/shardFunctionTypes'
 import * as utils from '../utils'
 import * as partitionGossip from './partition-gossip'
-import { snapshotLogger, safetyModeVals, StateHashes, ReceiptHashes, SummaryHashes, NetworkSummarytHash, SummaryBlob } from './index'
+import { snapshotLogger, safetyModeVals, NetworkSummarytHash } from './index'
 import { hashMap } from './partition-gossip'
 import got from 'got'
 import stream from 'stream'
 import zlib from 'zlib'
 import {logFlags} from '../logger'
 import { Cycle, CycleShardData } from '../state-manager/state-manager-types'
+import { StateHashes, ReceiptHashes, SummaryHashes, SummaryBlob } from '../p2p/StateParser'
 
 const { Transform } = require('stream')
 /** TYPES */

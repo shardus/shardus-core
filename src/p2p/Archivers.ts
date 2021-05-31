@@ -3,11 +3,8 @@ import Crypto from '../crypto'
 import * as http from '../http'
 import {
   getStateHashes,
-  StateHashes,
-  ReceiptHashes,
   getReceiptHashes,
   getSummaryHashes,
-  SummaryHashes,
   getReceiptMap,
   getSummaryBlob,
 } from '../snapshot'
@@ -18,28 +15,11 @@ import { getCycleChain, computeCycleMarker, getNewest } from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import { CycleRecord as Cycle } from './CycleCreator'
 import * as CycleParser from './CycleParser'
-import {logFlags} from '../logger'
+import { logFlags } from '../logger'
 import { SignedObject } from './Types'
+import { StateMetaData, TypeNames, DataRequest } from './StateParser'
 
 /** TYPES */
-
-export interface Transaction {
-  id: string
-}
-
-export interface StateMetaData {
-  counter: Cycle['counter']
-  stateHashes: StateHashes[]
-  receiptHashes: ReceiptHashes[]
-  summaryHashes: SummaryHashes[]
-}
-
-export type ValidTypes = Cycle | StateMetaData
-
-export enum TypeNames {
-  CYCLE = 'CYCLE',
-  STATE_METADATA = 'STATE_METADATA',
-}
 
 export enum RequestTypes {
   JOIN = 'JOIN',
@@ -49,18 +29,6 @@ export enum RequestTypes {
 interface NamesToTypes {
   CYCLE: Cycle
   STATE_METADATA: StateMetaData
-}
-
-export type TypeName<T extends ValidTypes> = T extends Cycle
-  ? TypeNames.CYCLE
-  : TypeNames.STATE_METADATA
-
-export type TypeIndex<T extends ValidTypes> = T extends Cycle
-  ? Cycle['counter']
-  : StateMetaData['counter']
-export interface DataRequest<T extends ValidTypes> {
-  type: TypeName<T>
-  lastData: TypeIndex<T>
 }
 
 interface DataResponse {
@@ -130,12 +98,13 @@ export function reset() {
 export function getTxs(): Txs {
   // [IMPORTANT] Must return a copy to avoid mutation
   const requestsCopy = deepmerge({}, [...joinRequests, ...leaveRequests])
-  if(logFlags.console) console.log(
-    `getTxs: Cycle ${CycleCreator.currentQuarter}, Quarter: ${CycleCreator.currentQuarter}`,
-    {
-      archivers: requestsCopy,
-    }
-  )
+  if (logFlags.console)
+    console.log(
+      `getTxs: Cycle ${CycleCreator.currentQuarter}, Quarter: ${CycleCreator.currentQuarter}`,
+      {
+        archivers: requestsCopy,
+      }
+    )
 
   return {
     archivers: requestsCopy,
@@ -168,11 +137,12 @@ export function updateRecord(txs: Txs, record: CycleCreator.CycleRecord) {
     .filter((request) => request.requestType === RequestTypes.LEAVE)
     .map((leaveRequest) => leaveRequest.nodeInfo)
 
-    if(logFlags.console) console.log(
-    `Archiver before updating record: Cycle ${CycleCreator.currentQuarter}, Quarter: ${CycleCreator.currentQuarter}`,
-    joinedArchivers,
-    leavingArchivers
-  )
+  if (logFlags.console)
+    console.log(
+      `Archiver before updating record: Cycle ${CycleCreator.currentQuarter}, Quarter: ${CycleCreator.currentQuarter}`,
+      joinedArchivers,
+      leavingArchivers
+    )
 
   record.joinedArchivers = joinedArchivers.sort(
     (a: JoinedArchiver, b: JoinedArchiver) =>
@@ -185,10 +155,11 @@ export function updateRecord(txs: Txs, record: CycleCreator.CycleRecord) {
       )
     )
   )
-  if(logFlags.console) console.log(
-    `Archiver after updating record: Cycle ${CycleCreator.currentQuarter}, Quarter: ${CycleCreator.currentQuarter}`,
-    record
-  )
+  if (logFlags.console)
+    console.log(
+      `Archiver after updating record: Cycle ${CycleCreator.currentQuarter}, Quarter: ${CycleCreator.currentQuarter}`,
+      record
+    )
 
   resetLeaveRequests()
 }
@@ -250,10 +221,11 @@ export function addJoinRequest(joinRequest, tracker?, gossip = true) {
     return false
   }
   joinRequests.push(joinRequest)
-  if(logFlags.console) console.log(
-    `Join request added in cycle ${CycleCreator.currentCycle}, quarter ${CycleCreator.currentQuarter}`,
-    joinRequest
-  )
+  if (logFlags.console)
+    console.log(
+      `Join request added in cycle ${CycleCreator.currentCycle}, quarter ${CycleCreator.currentQuarter}`,
+      joinRequest
+    )
   if (gossip === true) {
     Comms.sendGossip('joinarchiver', joinRequest, tracker)
   }
@@ -288,7 +260,7 @@ export function addLeaveRequest(request, tracker?, gossip = true) {
   }
 
   leaveRequests.push(request)
-  if(logFlags.console) console.log('adding leave requests', leaveRequests)
+  if (logFlags.console) console.log('adding leave requests', leaveRequests)
   if (gossip === true) {
     Comms.sendGossip('leavingarchiver', request, tracker)
   }
@@ -314,29 +286,30 @@ export function addDataRecipient(
   nodeInfo: JoinedArchiver,
   dataRequests: DataRequest<Cycle | StateMetaData>[]
 ) {
-  if(logFlags.console) console.log('Adding data recipient..')
+  if (logFlags.console) console.log('Adding data recipient..')
   const recipient = {
     nodeInfo,
     // TODO: dataRequest should be an array
     dataRequests: dataRequests,
     curvePk: crypto.convertPublicKeyToCurve(nodeInfo.publicKey),
   }
-  if(logFlags.console) console.log('dataRequests: ', recipient.dataRequests)
+  if (logFlags.console) console.log('dataRequests: ', recipient.dataRequests)
   recipients.set(nodeInfo.publicKey, recipient)
 }
 
 export function removeDataRecipient(publicKey) {
   if (recipients.has(publicKey)) {
-    if(logFlags.console) console.log('Removing data recipient', publicKey)
+    if (logFlags.console) console.log('Removing data recipient', publicKey)
     recipients.delete(publicKey)
   } else {
-    if(logFlags.console) console.log(`Data recipient ${publicKey} is already removed`)
+    if (logFlags.console)
+      console.log(`Data recipient ${publicKey} is already removed`)
   }
 }
 
 export function sendData() {
-  if(logFlags.console) console.log('Recient List before sending data')
-  if(logFlags.console) console.log(recipients)
+  if (logFlags.console) console.log('Recient List before sending data')
+  if (logFlags.console) console.log(recipients)
   for (const [publicKey, recipient] of recipients) {
     const recipientUrl = `http://${recipient.nodeInfo.ip}:${recipient.nodeInfo.port}/newdata`
 
@@ -370,7 +343,8 @@ export function sendData() {
           const typedRequest = request as DataRequest<
             NamesToTypes['STATE_METADATA']
           >
-          if(logFlags.console) console.log('STATE_METADATA typedRequest', typedRequest)
+          if (logFlags.console)
+            console.log('STATE_METADATA typedRequest', typedRequest)
           // Get latest state hash data since lastData
           const stateHashes = getStateHashes(typedRequest.lastData + 1)
           const receiptHashes = getReceiptHashes(typedRequest.lastData + 1)
@@ -409,7 +383,7 @@ export function sendData() {
       crypto.getPublicKey()
     )
 
-    if(logFlags.console) {
+    if (logFlags.console) {
       console.log(
         `Sending data for cycle ${
           getNewest().counter
@@ -448,12 +422,13 @@ export function registerRoutes() {
     }
 
     const joinRequest = req.body
-    if(logFlags.p2pNonFatal) info(`Archiver join request received: ${JSON.stringify(joinRequest)}`)
+    if (logFlags.p2pNonFatal)
+      info(`Archiver join request received: ${JSON.stringify(joinRequest)}`)
     res.json({ success: true })
 
     const accepted = await addJoinRequest(joinRequest)
     if (!accepted) return warn('Archiver join request not accepted.')
-    if(logFlags.p2pNonFatal) info('Archiver join request accepted!')
+    if (logFlags.p2pNonFatal) info('Archiver join request accepted!')
   })
 
   network.registerExternalPost('leavingarchivers', async (req, res) => {
@@ -464,31 +439,36 @@ export function registerRoutes() {
     }
 
     const leaveRequest = req.body
-    if(logFlags.p2pNonFatal) info(`Archiver leave request received: ${JSON.stringify(leaveRequest)}`)
+    if (logFlags.p2pNonFatal)
+      info(`Archiver leave request received: ${JSON.stringify(leaveRequest)}`)
     res.json({ success: true })
 
     const accepted = await addLeaveRequest(leaveRequest)
     if (!accepted) return warn('Archiver leave request not accepted.')
-    if(logFlags.p2pNonFatal) info('Archiver leave request accepted!')
+    if (logFlags.p2pNonFatal) info('Archiver leave request accepted!')
   })
   Comms.registerGossipHandler(
     'joinarchiver',
     async (payload, sender, tracker) => {
-      if(logFlags.console) console.log('Join request gossip received:', payload)
+      if (logFlags.console)
+        console.log('Join request gossip received:', payload)
       const existingJoinRequest = joinRequests.find(
         (j) => j.nodeInfo.publicKey === payload.nodeInfo.publicKey
       )
       if (!existingJoinRequest) {
-        const accepted = await addJoinRequest(payload, tracker, false)    
-        if(logFlags.console) {
-          console.log('This join request is new. Should forward the join request')
+        const accepted = await addJoinRequest(payload, tracker, false)
+        if (logFlags.console) {
+          console.log(
+            'This join request is new. Should forward the join request'
+          )
           console.log('join request gossip accepted', accepted)
         }
         if (!accepted) return warn('Archiver join request not accepted.')
-        if(logFlags.p2pNonFatal) info('Archiver join request accepted!')
+        if (logFlags.p2pNonFatal) info('Archiver join request accepted!')
         Comms.sendGossip('joinarchiver', payload, tracker)
       } else {
-        if(logFlags.console) console.log('Already received archiver join gossip for this node')
+        if (logFlags.console)
+          console.log('Already received archiver join gossip for this node')
       }
     }
   )
@@ -496,17 +476,19 @@ export function registerRoutes() {
   Comms.registerGossipHandler(
     'leavingarchiver',
     async (payload, sender, tracker) => {
-      if(logFlags.console) console.log('Leave request gossip received:', payload)
+      if (logFlags.console)
+        console.log('Leave request gossip received:', payload)
       const existingLeaveRequest = leaveRequests.find(
         (j) => j.nodeInfo.publicKey === payload.nodeInfo.publicKey
       )
       if (!existingLeaveRequest) {
         const accepted = await addLeaveRequest(payload, tracker, false)
         if (!accepted) return warn('Archiver leave request not accepted.')
-        if(logFlags.p2pNonFatal) info('Archiver leave request accepted!')
+        if (logFlags.p2pNonFatal) info('Archiver leave request accepted!')
         Comms.sendGossip('leavingarchiver', payload, tracker)
       } else {
-        if(logFlags.console) console.log('Already received archiver leave gossip for this node')
+        if (logFlags.console)
+          console.log('Already received archiver leave gossip for this node')
       }
     }
   )
@@ -529,7 +511,8 @@ export function registerRoutes() {
     // [TODO] Authenticate tag
 
     const dataRequest = req.body
-    if(logFlags.p2pNonFatal) info('dataRequest received', JSON.stringify(dataRequest))
+    if (logFlags.p2pNonFatal)
+      info('dataRequest received', JSON.stringify(dataRequest))
     /*
     const invalidTagErr = 'Tag is invalid'
     if (!crypto.authenticate(dataRequest, crypto.getCurvePublicKey(dataRequest.publicKey))) {
@@ -583,7 +566,8 @@ export function registerRoutes() {
     // [TODO] Authenticate tag
 
     const queryRequest = req.body
-    if(logFlags.p2pNonFatal) info('queryRequest received', JSON.stringify(queryRequest))
+    if (logFlags.p2pNonFatal)
+      info('queryRequest received', JSON.stringify(queryRequest))
 
     const nodeInfo = archivers.get(queryRequest.publicKey)
     // if (!nodeInfo) {
