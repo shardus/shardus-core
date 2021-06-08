@@ -1,6 +1,6 @@
 /** TYPES */
 
-import { Cycle } from "../state-manager/state-manager-types"
+import { CycleRecord as Cycle } from "../shared-types/Cycle/CycleCreatorTypes"
 
 export type NetworkStateHash = string
 export type NetworkReceiptHash = string
