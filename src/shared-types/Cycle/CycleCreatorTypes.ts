@@ -8,7 +8,7 @@ import * as Lost from './LostTypes';
 import * as Refresh from './RefreshTypes';
 import * as Rotation from './RotationTypes';
 import * as SafetyMode from './SafetyModeTypes';
-import { SignedObject } from '../P2PTypes';
+import { SignedObject } from './P2PTypes';
 
 /** TYPES */
 
@@ -18,6 +18,7 @@ export interface CycleCert extends SignedObject {
   marker: CycleMarker;
   score?: number;
 }
+
 export interface BaseRecord {
   networkId: string;
   counter: number;

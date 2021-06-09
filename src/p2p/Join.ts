@@ -4,19 +4,20 @@ import { isDeepStrictEqual } from 'util'
 import { version } from '../../package.json'
 import * as http from '../http'
 import * as utils from '../utils'
-import { validateTypes } from '../utils'
+import { validateTypes, getRandom } from '..//shared-functions/Utils'
 import * as Comms from './Comms'
 import { config, crypto, logger, network } from './Context'
 import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
-import { Change } from './CycleParser'
+import { Change } from '../shared-functions/Cycle'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import * as Types from '../shared-types/P2PTypes'
-import { robustQuery } from './Utils'
+import * as Types from '../shared-types/Cycle/P2PTypes'
+import { robustQuery } from '../shared-functions/P2PUtils'
 import {logFlags} from '../logger'
 import { JoinRequest, Txs, Record } from '../shared-types/Cycle/JoinTypes'
 import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes'
+import { Node } from '../shared-types/Cycle/NodeListTypes'
 
 /** STATE */
 
@@ -62,12 +63,12 @@ const joinedRoute: Types.Route<Handler> = {
   name: 'joined/:publicKey',
   handler: (req, res) => {
     // Respond with id if node's join request was accepted, otherwise undefined
-    let err = utils.validateTypes(req, { params: 'o' })
+    let err = validateTypes(req, { params: 'o' })
     if (err) {
       warn('joined/:publicKey bad req ' + err)
       res.json()
     }
-    err = utils.validateTypes(req.params, { publicKey: 's' })
+    err = validateTypes(req.params, { publicKey: 's' })
     if (err) {
       warn('joined/:publicKey bad req.params ' + err)
       res.json()
@@ -78,7 +79,7 @@ const joinedRoute: Types.Route<Handler> = {
   },
 }
 
-const gossipJoinRoute: Types.GossipHandler<JoinRequest, NodeList.Node['id']> = (
+const gossipJoinRoute: Types.GossipHandler<JoinRequest, Node['id']> = (
   payload,
   _sender
 ) => {
@@ -262,7 +263,7 @@ export async function createJoinRequest(
 
 export function addJoinRequest(joinRequest: JoinRequest) {
   //  Validate joinReq
-  let err = utils.validateTypes(joinRequest, {
+  let err = validateTypes(joinRequest, {
     cycleMarker: 's',
     nodeInfo: 'o',
     sign: 'o',
@@ -271,7 +272,7 @@ export function addJoinRequest(joinRequest: JoinRequest) {
     warn('join bad joinRequest ' + err)
     return false
   }
-  err = utils.validateTypes(joinRequest.nodeInfo, {
+  err = validateTypes(joinRequest.nodeInfo, {
     activeTimestamp: 'n',
     address: 's',
     externalIp: 's',
@@ -285,7 +286,7 @@ export function addJoinRequest(joinRequest: JoinRequest) {
     warn('join bad joinRequest.nodeInfo ' + err)
     return false
   }
-  err = utils.validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
+  err = validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
   if (err) {
     warn('join bad joinRequest.sign ' + err)
     return false
@@ -415,7 +416,7 @@ export async function submitJoin(
   joinRequest: JoinRequest & Types.SignedObject
 ) {
   // Send the join request to a handful of the active node all at once:w
-  const selectedNodes = utils.getRandom(nodes, Math.min(nodes.length, 5))
+  const selectedNodes = getRandom(nodes, Math.min(nodes.length, 5))
   const promises = []
   if(logFlags.p2pNonFatal) info(
     `Sending join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`
@@ -450,7 +451,7 @@ export async function fetchJoined(activeNodes) {
     const {topResult:response, winningNodes:_responders} = await robustQuery(activeNodes, queryFn)
     if (!response) return
     if (!response.node) return
-    let err = utils.validateTypes(response, { node: 'o' })
+    let err = validateTypes(response, { node: 'o' })
     if (err) {
       warn('fetchJoined invalid response response.node' + err)
       return
@@ -460,7 +461,7 @@ export async function fetchJoined(activeNodes) {
       warn('fetchJoined invalid response response.node.id' + err)
       return
     }
-    const node = response.node as NodeList.Node
+    const node = response.node as Node
     return node.id
   } catch (err) {
     warn('Self: fetchNodeId: robustQuery failed: ', err)

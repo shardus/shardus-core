@@ -1,5 +1,5 @@
 import * as CycleCreator from './CycleCreatorTypes';
-import * as Types from '../P2PTypes';
+import * as Types from './P2PTypes';
 import { Sign } from '../../state-manager/state-manager-types';
 
 /**

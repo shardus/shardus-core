@@ -20,16 +20,16 @@ of a particular node, the node is removed from the node list.
 */
 import * as Sequelize from 'sequelize'
 import { Handler, request } from 'express'
-import { GossipHandler, InternalHandler, LooseObject, Route } from '../shared-types/P2PTypes'
+import { GossipHandler, InternalHandler, LooseObject, Route } from '../shared-types/Cycle/P2PTypes'
 import * as Comms from './Comms'
 import * as Self from './Self'
-import { Change } from './CycleParser'
+import { Change } from '../shared-functions/Cycle'
 import {logger, network, crypto } from './Context'
-import * as Types from '../shared-types/P2PTypes'
+import * as Types from '../shared-types/Cycle/P2PTypes'
 import { nodes, removeNode, byPubKey, activeByIdOrder } from './NodeList'
 import { currentQuarter, currentCycle } from './CycleCreator'
-import { sleep, validateTypes } from '../utils'
-import { robustQuery } from './Utils'
+import { validateTypes } from '../shared-functions/Utils'
+import { robustQuery } from '../shared-functions/P2PUtils'
 import { SignedApoptosisProposal, Txs, Record } from '../shared-types/Cycle/ApoptosisTypes'
 
 /** STATE */

@@ -10,21 +10,21 @@ import * as NodeList from '../p2p/NodeList'
 import * as Self from '../p2p/Self'
 import * as Sync from '../p2p/Sync'
 import * as ShardusTypes from '../shardus/shardus-types'
-import * as Types from '../shared-types/P2PTypes'
+import * as Types from '../shared-types/Cycle/P2PTypes'
 import * as shardusTypes from '../shardus/shardus-types'
 import ShardFunctions from '../state-manager/shardFunctions'
 import * as shardFunctionTypes from '../state-manager/shardFunctionTypes'
 import * as utils from '../utils'
 import * as partitionGossip from './partition-gossip'
 import { snapshotLogger, safetyModeVals } from './index'
-import { NetworkSummarytHash } from "../shared-types/Cycle/SnapshotTypes"
 import { hashMap } from './partition-gossip'
 import got from 'got'
 import stream from 'stream'
 import zlib from 'zlib'
 import {logFlags} from '../logger'
 import { Cycle, CycleShardData } from '../state-manager/state-manager-types'
-import { StateHashes, ReceiptHashes, SummaryHashes, SummaryBlob } from '../p2p/StateParser'
+import { StateHashes, ReceiptHashes, SummaryHashes,  NetworkStateHash, NetworkReceiptHash, NetworkSummarytHash } from '../shared-types/State'
+import { PartitionNum } from '../shared-types/Cycle/SnapshotTypes';
 
 const { Transform } = require('stream')
 /** TYPES */
@@ -41,33 +41,30 @@ interface PartitionBlock {
   partitionId: PartitionNum
   receiptMap: ReceiptMap
 }
-interface Account {
-  accountId: string
-  hash: string
-}
+// interface Account {
+//   accountId: string
+//   hash: string
+// }
 
-type PartitionRanges = Map<
-  shardFunctionTypes.AddressRange['partition'],
-  shardFunctionTypes.AddressRange
->
+// type PartitionRanges = Map<
+//   shardFunctionTypes.AddressRange['partition'],
+//   shardFunctionTypes.AddressRange
+// >
 
-type PartitionAccounts = Map<
-  shardFunctionTypes.AddressRange['partition'],
-  Account[]
->
+// type PartitionAccounts = Map<
+//   shardFunctionTypes.AddressRange['partition'],
+//   Account[]
+// >
 
-export type NetworkStateHash = string
-export type NetworkReceiptHash = string
-export type NetworkSummaryHash = string
 
-type PartitionNum = number
+// type PartitionNum = number
 
-enum offerResponse {
-  needed = 'needed',
-  notNeeded = 'not_needed',
-  tryLater = 'try_later',
-  sendTo = 'send_to',
-}
+// enum offerResponse {
+//   needed = 'needed',
+//   notNeeded = 'not_needed',
+//   tryLater = 'try_later',
+//   sendTo = 'send_to',
+// }
 
 let fakeReceipMap = new Map()
 

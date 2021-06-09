@@ -1,5 +1,5 @@
 import * as Archivers from './ArchiversTypes';
-import * as NodeList from '../../p2p/NodeList';
+import * as NodeList from './NodeListTypes';
 
 /** TYPES */
 

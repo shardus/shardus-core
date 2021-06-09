@@ -11,17 +11,18 @@
 
 import deepmerge from 'deepmerge'
 import { Logger } from 'log4js'
-import { propComparator, propComparator2, reversed, validateTypes } from '../utils'
+import { propComparator, propComparator2 } from '../utils'
 import * as Archivers from './Archivers'
 import { logger } from './Context'
 import { cycles, newest } from './CycleChain'
 import * as CycleCreator from './CycleCreator'
-import * as CycleParser from './CycleParser'
+import * as CycleParser from '../shared-functions/Cycle'
 import * as NodeList from './NodeList'
 import { activeNodeCount, totalNodeCount, showNodeCount } from './Sync'
 import { Txs, Record } from '../shared-types/Cycle/RefreshTypes'
-import * as Types from '../shared-types/P2PTypes'
-import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes'
+import * as Types from '../shared-types/Cycle/P2PTypes'
+import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes';
+import { validateTypes, reversed } from '../shared-functions/Utils'
 
 /** STATE */
 

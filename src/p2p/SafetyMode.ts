@@ -3,11 +3,11 @@ import * as Snapshot from '../snapshot'
 import * as Comms from './Comms'
 import * as Context from './Context'
 import * as CycleCreator from './CycleCreator'
-import * as CycleParser from './CycleParser'
+import * as CycleParser from '../shared-functions/Cycle'
 import * as Self from './Self'
 import { Txs, Record } from '../shared-types/Cycle/SafetyModeTypes'
-import * as Types from '../shared-types/P2PTypes'
-import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes'
+import * as Types from '../shared-types/Cycle/P2PTypes'
+import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes';
 
 /** STATE */
 

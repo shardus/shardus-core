@@ -1,5 +1,5 @@
 import * as shardFunctionTypes from '../../state-manager/shardFunctionTypes';
-import { NetworkHash } from '../../p2p/StateParser';
+import { NetworkHash } from '../State';
 
 /** TYPES */
 
@@ -8,15 +8,17 @@ export interface Record {
   networkReceiptHash: NetworkHash[];
   networkSummaryHash: NetworkHash[];
 }
-interface Account {
+export interface Account {
   accountId: string;
   hash: string;
 }
+
 export type PartitionRanges = Map<
   shardFunctionTypes.AddressRange['partition'],
   shardFunctionTypes.AddressRange
 >;
-type PartitionAccounts = Map<
+
+export type PartitionAccounts = Map<
   shardFunctionTypes.AddressRange['partition'],
   Account[]
 >;
@@ -31,11 +33,8 @@ export type ReceiptMapHashes = Map<
   string
 >;
 
-
-export type NetworkStateHash = string;
-export type NetworkReceiptHash = string;
-export type NetworkSummarytHash = string;
 export type PartitionNum = number;
+
 export enum offerResponse {
   needed = 'needed',
   notNeeded = 'not_needed',

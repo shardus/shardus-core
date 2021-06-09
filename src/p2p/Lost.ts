@@ -10,15 +10,16 @@ internal documents.
 import { CycleRecord } from "../shared-types/Cycle/CycleCreatorTypes"
 import { Handler, request } from 'express'
 import * as http from '../http'
-import { GossipHandler, InternalHandler, LooseObject, Route } from '../shared-types/P2PTypes'
+import { GossipHandler, InternalHandler, LooseObject, Route } from '../shared-types/Cycle/P2PTypes'
 import * as Comms from './Comms'
 import * as Self from './Self'
-import { Change } from './CycleParser'
+import { Change } from '../shared-functions/Cycle'
 import {logger, network, crypto } from './Context'
-import * as Types from '../shared-types/P2PTypes'
+import * as Types from '../shared-types/Cycle/P2PTypes'
 import { nodes, removeNode, byPubKey, activeByIdOrder } from './NodeList'
 import { currentQuarter, currentCycle } from './CycleCreator'
-import { sleep, binarySearch, validateTypes } from '../utils'
+import { sleep, binarySearch } from '../utils'
+import { validateTypes } from '../shared-functions/Utils'
 import Logger, {logFlags} from '../logger'
 import { LostRecord, SignedLostReport, SignedDownGossipMessage, SignedUpGossipMessage, Txs, Record, LostReport } from "../shared-types/Cycle/LostTypes"
 

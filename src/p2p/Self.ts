@@ -14,11 +14,11 @@ import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
-import * as Types from '../shared-types/P2PTypes'
+import * as Types from '../shared-types/Cycle/P2PTypes'
 import { readOldCycleRecord } from '../snapshot/snapshotFunctions'
 import { calcIncomingTimes } from './CycleCreator'
-import { logFlags } from '../logger'
-import * as ArchiversTypes from '../shared-types/Cycle/ArchiversTypes'
+import {logFlags} from '../logger'
+import * as ArchiversTypes from '../shared-types/Cycle/ArchiversTypes';
 
 /** TYPES */
 

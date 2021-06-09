@@ -9,10 +9,11 @@ import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import * as Utils from './Utils'
+import * as Utils from '../shared-functions/P2PUtils'
 import {logFlags} from '../logger'
 import {getNodeRequestingJoin} from './Join'
-import { P2PNode } from '../shared-types/P2PTypes'
+import { P2PNode } from '../shared-types/Cycle/P2PTypes'
+import { Node } from '../shared-types/Cycle/NodeListTypes'
 
 /* p2p functions */
 
@@ -40,14 +41,14 @@ class P2P extends EventEmitter {
     payload: any,
     tracker?: string,
     sender?: any,
-    inpNodes?: NodeList.Node[]
+    inpNodes?: Node[]
   ) => Promise<void>
   sendGossipAll: (
     type: any,
     payload: any,
     tracker?: string,
     sender?: any,
-    inpNodes?: NodeList.Node[]
+    inpNodes?: Node[]
   ) => Promise<void>
 
   robustQuery: any

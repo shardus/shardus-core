@@ -11,7 +11,8 @@ import Logger, {logFlags} from '../logger'
 import ShardFunctions from './shardFunctions.js'
 import AccountCache from './AccountCache'
 import StateManager from '.'
-import { SummaryBlob, SummaryBlobCollection, AccountHashCache, QueueEntry, CycleShardData, StatsClump } from './state-manager-types'
+import { AccountHashCache, QueueEntry, CycleShardData } from './state-manager-types'
+import { SummaryBlob, SummaryBlobCollection, StatsClump } from '../shared-types/State'
 
 class PartitionStats {
   app: Shardus.App

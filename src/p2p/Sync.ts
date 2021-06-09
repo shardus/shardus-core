@@ -2,16 +2,18 @@ import { Handler } from 'express'
 import { Logger } from 'log4js'
 import util from 'util'
 import * as http from '../http'
-import { reversed, validateTypes } from '../utils'
+import { reversed, validateTypes } from '../shared-functions/Utils'
 import { logger, network } from './Context'
 import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
-import { Change, ChangeSquasher, parse } from './CycleParser'
+import { parse } from './CycleParser'
+import { Change, ChangeSquasher } from '../shared-functions/Cycle'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { Route } from '../shared-types/P2PTypes'
-import { robustQuery } from './Utils'
-import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes'
+import { Route } from '../shared-types/Cycle/P2PTypes'
+import { robustQuery } from '../shared-functions/P2PUtils'
+import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes';
+import { Node } from '../shared-types/Cycle/NodeListTypes'
 
 /** TYPES */
 
@@ -201,7 +203,7 @@ export async function sync(activeNodes: ActiveNode[]) {
 
 type SyncNode = Partial<
   Pick<ActiveNode, 'ip' | 'port'> &
-    Pick<NodeList.Node, 'externalIp' | 'externalPort'>
+    Pick<Node, 'externalIp' | 'externalPort'>
 >
 
 export async function syncNewCycles(activeNodes: SyncNode[]) {

@@ -1,6 +1,6 @@
 import util from 'util'
-import * as utils from '../utils'
-import FastRandomIterator from '../utils/FastRandomIterator'
+import * as utils from './Utils'
+import FastRandomIterator from './FastRandomIterator'
 import {logFlags} from '../logger'
 
 export type QueryFunction<Node, Response> = (node: Node) => Promise<Response>

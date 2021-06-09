@@ -137,7 +137,6 @@ export type CycleShardData = {
     activeNodes: Shardus.Node[];
     syncingNeighbors: Shardus.Node[];
     syncingNeighborsTxGroup: Shardus.Node[];
-
     hasSyncingNeighbors: boolean;
 
     partitionsToSkip: Map<number, boolean>
@@ -677,43 +676,6 @@ export type StringStringObjectMap = {[key:string]:string}
 export type FifoWaitingEntry = { id: number }
 export type FifoLock = { fifoName:string, queueCounter: number, waitingList: FifoWaitingEntry[], lastServed: number, queueLocked: boolean, lockOwner: number }
 export type FifoLockObjectMap = {[lockID:string]:FifoLock}
-
-export type ReceiptMap = {[txId:string] : string[]  }
-
-export type ReceiptMapResult = {
-    cycle:number;
-    partition:number;
-    receiptMap:ReceiptMap;
-    txCount:number
-}
-
-export type OpaqueBlob = any //Shardus is not supposed to know about the details of this, it is up to the dapp to define
-
-//Shardus wrapper for a summary blob.  Has information that is needed for the reduce algorithm
-export type SummaryBlob = {
-    latestCycle: number; //The highest cycle that was used in this summary.  
-    counter:number; 
-    errorNull:number; 
-    partition:number; 
-    opaqueBlob:OpaqueBlob;
-}
-
-//A collection of blobs that share the same cycle.  For TX summaries
-export type SummaryBlobCollection = {
-    cycle:number; 
-    blobsByPartition:Map<number, SummaryBlob>;
-}
-
-// Stats collected for a cycle
-export type StatsClump = {
-    error:boolean; 
-    cycle:number; 
-    dataStats:SummaryBlob[]; 
-    txStats:SummaryBlob[]; 
-    covered:number[];
-    coveredParititionCount:number;
-    skippedParitionCount:number; 
-}
 
 // cache 
 // export type AccountMemoryCache = {

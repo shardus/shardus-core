@@ -1,7 +1,7 @@
 import { start } from 'repl'
 import { Certificate } from 'crypto'
-export { Node } from '../p2p/NodeList'
-export {CycleRecord as Cycle} from "../shared-types/Cycle/CycleCreatorTypes"
+import * as NodeList from '../shared-types/Cycle/NodeListTypes'
+import * as CycleMarker from "../shared-types/Cycle/CycleCreatorTypes"
 //import { RequestHandler } from "express"; //express was causing problems.
 
 type RequestHandler = any
@@ -739,6 +739,10 @@ export interface LogsConfiguration {
     }
   }
 }
+
+export interface Node extends NodeList.Node {}
+export interface Cycle extends CycleMarker.CycleRecord {}
+
 
 export interface StorageConfiguration {
   database?: string

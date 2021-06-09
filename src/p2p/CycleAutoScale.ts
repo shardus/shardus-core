@@ -2,26 +2,20 @@ import { Logger } from 'log4js'
 import { crypto, logger, config, network } from './Context'
 import * as CycleCreator from './CycleCreator'
 import * as CycleChain from './CycleChain'
-import * as CycleParser from './CycleParser'
+import * as CycleParser from '../shared-functions/Cycle'
 import * as Rotation from './Rotation'
 import * as Self from './Self'
 import * as NodeList from './NodeList'
-import { LooseObject } from '../shared-types/P2PTypes'
-import * as Types from '../shared-types/P2PTypes'
-import { validateTypes, sleep } from '../utils'
+import { LooseObject } from '../shared-types/Cycle/P2PTypes'
+import * as Types from '../shared-types/Cycle/P2PTypes'
+import { validateTypes, sleep } from '../shared-functions/Utils'
 import * as Comms from './Comms'
-import * as Utils from './Utils'
+import * as Utils from '../shared-functions/P2PUtils'
 import * as Network from '../network'
 import deepmerge from 'deepmerge'
 import { request } from 'express'
 import { logFlags } from '../logger'
-import {
-  ScaleRequest,
-  SignedScaleRequest,
-  ScaleType,
-  Txs,
-  Record,
-} from '../shared-types/Cycle/CycleAutoScaleTypes'
+import { ScaleRequest, SignedScaleRequest, ScaleType, Txs, Record } from '../shared-types/Cycle/CycleAutoScaleTypes'
 import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes'
 
 /** STATE */
@@ -317,7 +311,9 @@ export function updateRecord(txs: Txs, record: CycleRecord) {
   reset()
 }
 
-export function parseRecord(record: CycleRecord): CycleParser.Change {
+export function parseRecord(
+  record: CycleRecord
+): CycleParser.Change {
   // Since we don't touch the NodeList, return an empty Change
   return {
     added: [],

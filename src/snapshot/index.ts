@@ -12,17 +12,18 @@ import * as CycleChain from '../p2p/CycleChain'
 import * as NodeList from '../p2p/NodeList'
 import * as Self from '../p2p/Self'
 import * as Sync from '../p2p/Sync'
-import * as Types from '../shared-types/P2PTypes'
 import * as ShardusTypes from '../shardus/shardus-types'
+import * as Types from '../shared-types/Cycle/P2PTypes'
 import ShardFunctions from '../state-manager/shardFunctions'
 import * as shardFunctionTypes from '../state-manager/shardFunctionTypes'
 import * as utils from '../utils'
 import * as partitionGossip from './partition-gossip'
 import * as SnapshotFunctions from './snapshotFunctions'
 import {logFlags} from '../logger'
-import { Cycle, ReceiptMapResult, StatsClump, CycleShardData, MainHashResults } from '../state-manager/state-manager-types'
-import { StateHashes, ReceiptHashes, SummaryHashes } from '../p2p/StateParser'
+import { Cycle, CycleShardData, MainHashResults } from '../state-manager/state-manager-types'
+import { StateHashes, ReceiptHashes, SummaryHashes, ReceiptMapResult, StatsClump } from '../shared-types/State'
 import { PartitionNum, PartitionRanges, offerResponse } from '../shared-types/Cycle/SnapshotTypes'
+import { validateTypes } from '../shared-functions/Utils'
 
 /** STATE */
 
@@ -752,7 +753,7 @@ function registerSnapshotRoutes() {
     method: 'POST',
     name: 'snapshot-data-offer',
     handler: async (req, res) => {
-      const err = utils.validateTypes(req, { body: 'o' })
+      const err = validateTypes(req, { body: 'o' })
       if (err) {
         log('snapshot-data-offer bad req ' + err)
         res.json([])
@@ -790,7 +791,7 @@ function registerSnapshotRoutes() {
     method: 'POST',
     name: 'snapshot-witness-data',
     handler: (req, res) => {
-      const err = utils.validateTypes(req, { body: 'o' })
+      const err = validateTypes(req, { body: 'o' })
       if (err) {
         log('snapshot-witness-data bad req ' + err)
         res.json([])

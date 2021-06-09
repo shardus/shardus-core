@@ -16,6 +16,7 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import { potentiallyRemoved } from '../p2p/NodeList'
 import { QueueEntry, AppliedVote, AccountHashCache, RequestStateForTxResp, AppliedReceipt, RequestTxResp, RequestReceiptForTxResp } from './state-manager-types'
 import * as CycleChain from '../p2p/CycleChain'
+import { shuffleArray } from '../shared-functions/Utils'
 
 class TransactionRepair {
   app: Shardus.App
@@ -90,7 +91,7 @@ class TransactionRepair {
       let appliedVotes = queueEntry.appliedReceiptForRepair.appliedVotes
 
       //shuffle the array
-      utils.shuffleArray(appliedVotes)
+      shuffleArray(appliedVotes)
 
 
 
@@ -563,7 +564,7 @@ class TransactionRepair {
       let appliedVotes = receipt.appliedVotes
 
       //shuffle the array
-      utils.shuffleArray(appliedVotes)
+      shuffleArray(appliedVotes)
 
       if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_note2', `${shortHash}`, `appliedVotes ${utils.stringifyReduce(appliedVotes)}  `)
       if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_note2', `${shortHash}`, `queueEntry.uniqueKeys ${utils.stringifyReduce(uniqueKeys)}`)

@@ -19,8 +19,10 @@ import * as Rotation from './Rotation'
 import * as SafetyMode from './SafetyMode'
 import * as Self from './Self'
 import * as Sync from './Sync'
-import { GossipHandler, InternalHandler } from '../shared-types/P2PTypes'
-import { compareQuery, Comparison } from './Utils'
+import { GossipHandler, InternalHandler } from '../shared-types/Cycle/P2PTypes'
+import { Node } from '../shared-types/Cycle/NodeListTypes'
+import { compareQuery, Comparison } from '../shared-functions/P2PUtils'
+import { validateTypes, shuffleArray, getRandom } from '../shared-functions/Utils'
 
 /** CONSTANTS */
 
@@ -106,12 +108,12 @@ const compareMarkerRoute: InternalHandler<
 const compareCertRoute: InternalHandler<
   CompareCertReq,
   CompareCertRes,
-  NodeList.Node['id']
+  Node['id']
 > = (payload, respond, sender) => {
   respond(compareCycleCertEndpoint(payload, sender))
 }
 
-const gossipCertRoute: GossipHandler<CompareCertReq, NodeList.Node['id']> = (
+const gossipCertRoute: GossipHandler<CompareCertReq, Node['id']> = (
   payload,
   sender
 ) => {
@@ -503,7 +505,7 @@ async function compareCycleMarkers(myC: number, myQ: number, desired: number) {
 
   // Get random nodes
   // [TODO] Use a randomShifted array
-  const nodes = utils.getRandom(NodeList.activeOthersByIdOrder, 2 * desired)
+  const nodes = getRandom(NodeList.activeOthersByIdOrder, 2 * desired)
 
   for (const node of nodes) {
     // Send marker, txs to /compare-marker endpoint of another node
@@ -729,7 +731,7 @@ function scoreCert(cert: CycleCert): number {
   }
 }
 
-function validateCertSign(certs: CycleCert[], sender: NodeList.Node['id']) {
+function validateCertSign(certs: CycleCert[], sender: Node['id']) {
   for (const cert of certs) {
     const cleanCert: CycleCert = {
       marker: cert.marker,
@@ -819,24 +821,24 @@ function validateCerts(certs: CycleCert[], record, sender) {
 }
 
 function validateCertsRecordTypes(inp, caller) {
-  let err = utils.validateTypes(inp, { certs: 'a', record: 'o' })
+  let err = validateTypes(inp, { certs: 'a', record: 'o' })
   if (err) {
     warn(caller + ' bad input: ' + err + ' ' + JSON.stringify(inp))
     return false
   }
   for (const cert of inp.certs) {
-    err = utils.validateTypes(cert, { marker: 's', score: 'n', sign: 'o' })
+    err = validateTypes(cert, { marker: 's', score: 'n', sign: 'o' })
     if (err) {
       warn(caller + ' bad input.certs: ' + err)
       return false
     }
-    err = utils.validateTypes(cert.sign, { owner: 's', sig: 's' })
+    err = validateTypes(cert.sign, { owner: 's', sig: 's' })
     if (err) {
       warn(caller + ' bad input.sign: ' + err)
       return false
     }
   }
-  err = utils.validateTypes(inp.record, {
+  err = validateTypes(inp.record, {
     activated: 'a',
     activatedPublicKeys: 'a',
     active: 'n',
@@ -967,8 +969,8 @@ function compareCycleCertEndpoint(inp: CompareCertReq, sender) {
 
 async function compareCycleCert(myC: number, myQ: number, matches: number) {
   const queryFn = async (
-    node: NodeList.Node
-  ): Promise<[CompareCertRes, NodeList.Node]> => {
+    node: Node
+  ): Promise<[CompareCertRes, Node]> => {
     const req: CompareCertReq = {
       certs: bestCycleCert.get(bestMarker),
       record: bestRecord,
@@ -1017,12 +1019,12 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
    */
   // We shuffle to spread out the network load of cert comparison
   const nodesToAsk = [...NodeList.activeOthersByIdOrder]
-  utils.shuffleArray(nodesToAsk)
+  shuffleArray(nodesToAsk)
 
   // If anything compares better than us, compareQuery starts over
   const errors = await compareQuery<
-    NodeList.Node,
-    [CompareCertRes, NodeList.Node]
+    Node,
+    [CompareCertRes, Node]
   >(NodeList.activeOthersByIdOrder, queryFn, compareFn, matches)
 
   if (errors.length > 0) {
@@ -1050,7 +1052,7 @@ async function gossipMyCycleCert() {
 
 function gossipHandlerCycleCert(
   inp: CompareCertReq,
-  sender: NodeList.Node['id']
+  sender: Node['id']
 ) {
   if (!validateCertsRecordTypes(inp, 'gossipHandlerCycleCert')) return
   // [TODO] - submodules need to validate their part of the record

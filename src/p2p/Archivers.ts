@@ -8,16 +8,16 @@ import {
   getReceiptMap,
   getSummaryBlob,
 } from '../snapshot'
-import { validateTypes } from '../utils'
+import { validateTypes } from '../shared-functions/Utils'
 import * as Comms from './Comms'
 import { crypto, logger, network, io } from './Context'
 import { getCycleChain, computeCycleMarker, getNewest } from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import { CycleRecord as Cycle, CycleRecord } from "../shared-types/Cycle/CycleCreatorTypes"
-import * as CycleParser from './CycleParser'
-import { logFlags } from '../logger'
-import { StateMetaData, TypeNames, DataRequest } from './StateParser'
-import { JoinedArchiver, DataRecipient, Request, Txs, Record, RequestTypes, DataResponse, NamesToTypes } from '../shared-types/Cycle/ArchiversTypes'
+import * as CycleParser from '../shared-functions/Cycle'
+import {logFlags} from '../logger'
+import { StateMetaData } from '../shared-types/State'
+import { JoinedArchiver, DataRecipient, Request, Txs, Record, RequestTypes, DataResponse, NamesToTypes, TypeNames, DataRequest } from '../shared-types/Cycle/ArchiversTypes'
 
 /** STATE */
 

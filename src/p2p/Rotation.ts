@@ -1,14 +1,15 @@
 import { Logger } from 'log4js'
-import { insertSorted, validateTypes } from '../utils'
+import { insertSorted } from '../utils'
 import * as Comms from './Comms'
 import { config, logger } from './Context'
 import { CycleRecord } from "../shared-types/Cycle/CycleCreatorTypes"
-import { Change } from './CycleParser'
+import { Change } from '../shared-functions/Cycle'
 import { getDesiredCount } from './CycleAutoScale'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import * as Types from '../shared-types/P2PTypes'
+import * as Types from '../shared-types/Cycle/P2PTypes'
 import { Txs, Record } from '../shared-types/Cycle/RotationTypes'
+import { validateTypes } from '../shared-functions/Utils'
 
 /** STATE */
 
