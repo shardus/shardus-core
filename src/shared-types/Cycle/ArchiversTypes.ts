@@ -1,5 +1,5 @@
 import { CycleRecord as Cycle } from "./CycleCreatorTypes";
-import { SignedObject } from '../Cycle/P2PTypes';
+import { SignedObject } from './P2PTypes';
 import { StateMetaData } from "../State";
 
 /** TYPES */

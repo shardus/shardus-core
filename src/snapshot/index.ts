@@ -22,7 +22,7 @@ import * as SnapshotFunctions from './snapshotFunctions'
 import {logFlags} from '../logger'
 import { Cycle, CycleShardData, MainHashResults } from '../state-manager/state-manager-types'
 import { StateHashes, ReceiptHashes, SummaryHashes, ReceiptMapResult, StatsClump } from '../shared-types/State'
-import { PartitionNum, PartitionRanges, offerResponse } from '../shared-types/Cycle/SnapshotTypes'
+import { PartitionNum, PartitionRanges, offerResponse } from './snapshotFunctions'
 import { validateTypes } from '../shared-functions/Utils'
 
 /** STATE */

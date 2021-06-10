@@ -24,7 +24,6 @@ import zlib from 'zlib'
 import {logFlags} from '../logger'
 import { Cycle, CycleShardData } from '../state-manager/state-manager-types'
 import { StateHashes, ReceiptHashes, SummaryHashes,  NetworkStateHash, NetworkReceiptHash, NetworkSummarytHash } from '../shared-types/State'
-import { PartitionNum } from '../shared-types/Cycle/SnapshotTypes';
 
 const { Transform } = require('stream')
 /** TYPES */
@@ -41,30 +40,30 @@ interface PartitionBlock {
   partitionId: PartitionNum
   receiptMap: ReceiptMap
 }
-// interface Account {
-//   accountId: string
-//   hash: string
-// }
+interface Account {
+  accountId: string
+  hash: string
+}
 
-// type PartitionRanges = Map<
-//   shardFunctionTypes.AddressRange['partition'],
-//   shardFunctionTypes.AddressRange
-// >
+export type PartitionRanges = Map<
+  shardFunctionTypes.AddressRange['partition'],
+  shardFunctionTypes.AddressRange
+>
 
-// type PartitionAccounts = Map<
-//   shardFunctionTypes.AddressRange['partition'],
-//   Account[]
-// >
+type PartitionAccounts = Map<
+  shardFunctionTypes.AddressRange['partition'],
+  Account[]
+>
 
 
-// type PartitionNum = number
+export type PartitionNum = number
 
-// enum offerResponse {
-//   needed = 'needed',
-//   notNeeded = 'not_needed',
-//   tryLater = 'try_later',
-//   sendTo = 'send_to',
-// }
+export enum offerResponse {
+  needed = 'needed',
+  notNeeded = 'not_needed',
+  tryLater = 'try_later',
+  sendTo = 'send_to',
+}
 
 let fakeReceipMap = new Map()
 
