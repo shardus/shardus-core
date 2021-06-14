@@ -3,11 +3,8 @@ import * as Snapshot from '../snapshot'
 import * as Comms from './Comms'
 import * as Context from './Context'
 import * as CycleCreator from './CycleCreator'
-import * as CycleParser from '../shared-functions/Cycle'
 import * as Self from './Self'
-import { Txs, Record } from '../shared-types/Cycle/SafetyModeTypes'
-import * as Types from '../shared-types/Cycle/P2PTypes'
-import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes';
+import { SafetyModeTypes, P2PTypes, CycleCreatorTypes, Changer } from 'shardus-parser'
 
 /** STATE */
 
@@ -15,7 +12,7 @@ let p2pLogger: Logger
 
 /** ROUTES */
 
-const gossipRoute: Types.GossipHandler = (payload) => {}
+const gossipRoute: P2PTypes.GossipHandler = (payload) => {}
 
 const routes = {
   internal: {},
@@ -55,11 +52,11 @@ export function init() {
 
 export function reset() {}
 
-export function getTxs(): Txs {
+export function getTxs(): SafetyModeTypes.Txs {
   return
 }
 
-export function dropInvalidTxs(txs: Txs): Txs {
+export function dropInvalidTxs(txs: SafetyModeTypes.Txs): SafetyModeTypes.Txs {
   return
 }
 
@@ -67,9 +64,9 @@ export function dropInvalidTxs(txs: Txs): Txs {
 Given the txs and prev cycle record mutate the referenced record
 */
 export function updateRecord(
-  txs: Txs,
-  record: CycleRecord,
-  prev: CycleRecord
+  txs: SafetyModeTypes.Txs,
+  record: CycleCreatorTypes.CycleRecord,
+  prev: CycleCreatorTypes.CycleRecord
 ) {
   // If you're the first node
   if (Self.isFirst) {
@@ -142,14 +139,14 @@ export function updateRecord(
   }
 }
 
-export function validateRecordTypes(rec: Record): string {
+export function validateRecordTypes(rec: SafetyModeTypes.Record): string {
   // [TODO] Implement actual validation
   return ''
 }
 
 export function parseRecord(
-  record: CycleRecord
-): CycleParser.Change {
+  record: CycleCreatorTypes.CycleRecord
+): Changer.Change {
   return {
     added: [],
     removed: [],

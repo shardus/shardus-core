@@ -1,7 +1,9 @@
 import { start } from 'repl'
 import { Certificate } from 'crypto'
-import * as NodeList from '../shared-types/Cycle/NodeListTypes'
-import * as CycleMarker from "../shared-types/Cycle/CycleCreatorTypes"
+import { CycleCreatorTypes, NodeListTypes } from 'shardus-parser'
+// import {NodeListTypes, CycleCreatorTypes} from 'shardus-parser'
+// import * as NodeList from '../shared-types/Cycle/NodeListTypes'
+// import * as CycleCreator from "../shared-types/Cycle/CycleCreatorTypes"
 //import { RequestHandler } from "express"; //express was causing problems.
 
 type RequestHandler = any
@@ -740,10 +742,6 @@ export interface LogsConfiguration {
   }
 }
 
-export interface Node extends NodeList.Node {}
-export interface Cycle extends CycleMarker.CycleRecord {}
-
-
 export interface StorageConfiguration {
   database?: string
   username?: string
@@ -766,6 +764,9 @@ export interface StorageConfiguration {
     memoryFile?: false
   }
 }
+
+export interface Node extends NodeListTypes.Node {}
+export interface Cycle extends CycleCreatorTypes.CycleRecord {}
 
 export interface AcceptedTx {
   id: string

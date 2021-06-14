@@ -10,7 +10,6 @@ import * as Comms from './Comms'
 import { config, crypto, logger, storage } from './Context'
 import * as CycleAutoScale from './CycleAutoScale'
 import * as CycleChain from './CycleChain'
-import { CycleTxs, CycleRecord, CycleMarker, CycleCert, CycleData, BaseRecord } from '../shared-types/Cycle/CycleCreatorTypes'
 import * as Join from './Join'
 import * as Lost from './Lost'
 import * as NodeList from './NodeList'
@@ -19,10 +18,7 @@ import * as Rotation from './Rotation'
 import * as SafetyMode from './SafetyMode'
 import * as Self from './Self'
 import * as Sync from './Sync'
-import { GossipHandler, InternalHandler } from '../shared-types/Cycle/P2PTypes'
-import { Node } from '../shared-types/Cycle/NodeListTypes'
-import { compareQuery, Comparison } from '../shared-functions/P2PUtils'
-import { validateTypes, shuffleArray, getRandom } from '../shared-functions/Utils'
+import { P2PTypes, NodeListTypes, CycleCreatorTypes, Utils, P2PUtils } from 'shardus-parser'
 
 /** CONSTANTS */
 
@@ -58,20 +54,20 @@ let madeCycle = false // True if we successfully created the last cycle record, 
 // not used anymore
 //let madeCert = false // set to True after we make our own cert and try to gossip it
 
-let txs: CycleTxs
-let record: CycleRecord
-let marker: CycleMarker
-let cert: CycleCert
+let txs: CycleCreatorTypes.CycleTxs
+let record: CycleCreatorTypes.CycleRecord
+let marker: CycleCreatorTypes.CycleMarker
+let cert: CycleCreatorTypes.CycleCert
 
-let bestRecord: CycleRecord
-let bestMarker: CycleMarker
-let bestCycleCert: Map<CycleMarker, CycleCert[]>
-let bestCertScore: Map<CycleMarker, number>
+let bestRecord: CycleCreatorTypes.CycleRecord
+let bestMarker: CycleCreatorTypes.CycleMarker
+let bestCycleCert: Map<CycleCreatorTypes.CycleMarker, CycleCreatorTypes.CycleCert[]>
+let bestCertScore: Map<CycleCreatorTypes.CycleMarker, number>
 
 const timers = {}
 
 // Keeps track of the last saved record in the DB in order to update it
-let lastSavedData: CycleRecord
+let lastSavedData: CycleCreatorTypes.CycleRecord
 
 // Keeps track of consecutive fetchLatestCycle fails to initiate apoptosis if it happens too many times
 let fetchLatestRecordFails = 0
@@ -80,24 +76,24 @@ const maxFetchLatestRecordFails = 5
 /** ROUTES */
 
 interface CompareMarkerReq {
-  marker: CycleMarker
-  txs: CycleTxs
+  marker: CycleCreatorTypes.CycleMarker
+  txs: CycleCreatorTypes.CycleTxs
 }
 interface CompareMarkerRes {
-  marker: CycleMarker
-  txs?: CycleTxs
+  marker: CycleCreatorTypes.CycleMarker
+  txs?: CycleCreatorTypes.CycleTxs
 }
 
 interface CompareCertReq {
-  certs: CycleCert[]
-  record: CycleRecord
+  certs: CycleCreatorTypes.CycleCert[]
+  record: CycleCreatorTypes.CycleRecord
 }
 interface CompareCertRes {
-  certs: CycleCert[]
-  record: CycleRecord
+  certs: CycleCreatorTypes.CycleCert[]
+  record: CycleCreatorTypes.CycleRecord
 }
 
-const compareMarkerRoute: InternalHandler<
+const compareMarkerRoute: P2PTypes.InternalHandler<
   CompareMarkerReq,
   CompareMarkerRes
 > = (payload, respond, sender) => {
@@ -105,15 +101,15 @@ const compareMarkerRoute: InternalHandler<
   respond(compareCycleMarkersEndpoint(req))
 }
 
-const compareCertRoute: InternalHandler<
+const compareCertRoute: P2PTypes.InternalHandler<
   CompareCertReq,
   CompareCertRes,
-  Node['id']
+  NodeListTypes.Node['id']
 > = (payload, respond, sender) => {
   respond(compareCycleCertEndpoint(payload, sender))
 }
 
-const gossipCertRoute: GossipHandler<CompareCertReq, Node['id']> = (
+const gossipCertRoute: P2PTypes.GossipHandler<CompareCertReq, NodeListTypes.Node['id']> = (
   payload,
   sender
 ) => {
@@ -238,7 +234,7 @@ async function cycleCreator() {
   // Save the previous record to the DB
   const marker = makeCycleMarker(prevRecord)
   const certificate = makeCycleCert(marker)
-  const data: CycleData = { ...prevRecord, marker, certificate }
+  const data: CycleCreatorTypes.CycleData = { ...prevRecord, marker, certificate }
   if (lastSavedData) {
     await storage.updateCycle({ networkId: lastSavedData.networkId }, data)
     lastSavedData = data
@@ -442,29 +438,29 @@ async function runQ4() {
 
 /** HELPER FUNCTIONS */
 
-export function makeRecordZero(): CycleRecord {
+export function makeRecordZero(): CycleCreatorTypes.CycleRecord {
   const txs = collectCycleTxs()
   return makeCycleRecord(txs)
 }
 
-function makeCycleData(txs: CycleTxs, prevRecord?: CycleRecord) {
+function makeCycleData(txs: CycleCreatorTypes.CycleTxs, prevRecord?: CycleCreatorTypes.CycleRecord) {
   const record = makeCycleRecord(txs, prevRecord)
   const marker = makeCycleMarker(record)
   const cert = makeCycleCert(marker)
   return { record, marker, cert }
 }
 
-function collectCycleTxs(): CycleTxs {
+function collectCycleTxs(): CycleCreatorTypes.CycleTxs {
   // Collect cycle txs from all submodules
   const txs = submodules.map((submodule) => submodule.getTxs())
   return Object.assign({}, ...txs)
 }
 
 function makeCycleRecord(
-  cycleTxs: CycleTxs,
-  prevRecord?: CycleRecord
-): CycleRecord {
-  const baseRecord: BaseRecord = {
+  cycleTxs: CycleCreatorTypes.CycleTxs,
+  prevRecord?: CycleCreatorTypes.CycleRecord
+): CycleCreatorTypes.CycleRecord {
+  const baseRecord: CycleCreatorTypes.BaseRecord = {
     networkId: crypto.hash({ rand: Math.floor(Math.random() * 1000000) }),
     counter: prevRecord ? prevRecord.counter + 1 : 0,
     previous: prevRecord ? makeCycleMarker(prevRecord) : '0'.repeat(64),
@@ -480,7 +476,7 @@ function makeCycleRecord(
     lost: [],
     refuted: [],
     apoptosized: [],
-  }) as CycleRecord
+  }) as CycleCreatorTypes.CycleRecord
 
   submodules.map((submodule) =>
     submodule.updateRecord(cycleTxs, cycleRecord, prevRecord)
@@ -489,11 +485,11 @@ function makeCycleRecord(
   return cycleRecord
 }
 
-export function makeCycleMarker(record: CycleRecord) {
+export function makeCycleMarker(record: CycleCreatorTypes.CycleRecord) {
   return crypto.hash(record)
 }
 
-function makeCycleCert(marker: CycleMarker): CycleCert {
+function makeCycleCert(marker: CycleCreatorTypes.CycleMarker): CycleCreatorTypes.CycleCert {
   return crypto.sign({ marker })
 }
 
@@ -505,7 +501,7 @@ async function compareCycleMarkers(myC: number, myQ: number, desired: number) {
 
   // Get random nodes
   // [TODO] Use a randomShifted array
-  const nodes = getRandom(NodeList.activeOthersByIdOrder, 2 * desired)
+  const nodes = Utils.getRandom(NodeList.activeOthersByIdOrder, 2 * desired)
 
   for (const node of nodes) {
     // Send marker, txs to /compare-marker endpoint of another node
@@ -527,7 +523,7 @@ async function compareCycleMarkers(myC: number, myQ: number, desired: number) {
           return true
         }
       } else if (resp.txs) {
-        // Otherwise, Get missed CycleTxs
+        // Otherwise, Get missed CycleCreatorTypes.CycleTxs
         const unseen = unseenTxs(txs, resp.txs)
         const validUnseen = dropInvalidTxs(unseen)
 
@@ -570,8 +566,8 @@ function compareCycleMarkersEndpoint(req: CompareMarkerReq): CompareMarkerRes {
   return { marker, txs }
 }
 
-function unseenTxs(ours: CycleTxs, theirs: CycleTxs) {
-  const unseen: Partial<CycleTxs> = {}
+function unseenTxs(ours: CycleCreatorTypes.CycleTxs, theirs: CycleCreatorTypes.CycleTxs) {
+  const unseen: Partial<CycleCreatorTypes.CycleTxs> = {}
 
   for (const field in theirs) {
     if (theirs[field] && ours[field]) {
@@ -595,8 +591,8 @@ function unseenTxs(ours: CycleTxs, theirs: CycleTxs) {
   return unseen
 }
 
-function dropInvalidTxs(txs: Partial<CycleTxs>) {
-  // [TODO] Call into each module to validate its relevant CycleTxs
+function dropInvalidTxs(txs: Partial<CycleCreatorTypes.CycleTxs>) {
+  // [TODO] Call into each module to validate its relevant CycleCreatorTypes.CycleTxs
   return txs
 }
 
@@ -604,7 +600,7 @@ function dropInvalidTxs(txs: Partial<CycleTxs>) {
  * Syncs the CycleChain to the newest cycle record of the network, and returns
  * the newest cycle record.
  */
-async function fetchLatestRecord(): Promise<CycleRecord> {
+async function fetchLatestRecord(): Promise<CycleCreatorTypes.CycleRecord> {
   try {
     const oldCounter = CycleChain.newest.counter
     await Sync.syncNewCycles(NodeList.activeOthersByIdOrder)
@@ -631,9 +627,9 @@ async function fetchLatestRecord(): Promise<CycleRecord> {
  * Returns what the current cycle counter and quarter would be from the given
  * cycle record.
  *
- * @param record CycleRecord
+ * @param record CycleCreatorTypes.CycleRecord
  */
-function currentCycleQuarterByTime(record: CycleRecord) {
+function currentCycleQuarterByTime(record: CycleCreatorTypes.CycleRecord) {
   const SECOND = 1000
   const cycleDuration = record.duration * SECOND
   const quarterDuration = cycleDuration / 4
@@ -652,9 +648,9 @@ function currentCycleQuarterByTime(record: CycleRecord) {
  * Returns the timestamp of each quarter and the timestamp of the end of the
  * cycle record AFTER the given cycle record.
  *
- * @param record CycleRecord
+ * @param record CycleCreatorTypes.CycleRecord
  */
-export function calcIncomingTimes(record: CycleRecord) {
+export function calcIncomingTimes(record: CycleCreatorTypes.CycleRecord) {
   const cycleDuration = record.duration * SECOND
   const quarterDuration = cycleDuration / 4
   const start = record.start * SECOND + cycleDuration
@@ -719,7 +715,7 @@ function cycleQuarterChanged(cycle: number, quarter: number) {
   return cycle !== currentCycle || quarter !== currentQuarter
 }
 
-function scoreCert(cert: CycleCert): number {
+function scoreCert(cert: CycleCreatorTypes.CycleCert): number {
   try {
     const id = NodeList.byPubKey.get(cert.sign.owner).id // get node id from cert pub key
     const hid = crypto.hash({ id }) // Omar - use hash of id so the cert is not made by nodes that are near based on node id
@@ -731,9 +727,9 @@ function scoreCert(cert: CycleCert): number {
   }
 }
 
-function validateCertSign(certs: CycleCert[], sender: Node['id']) {
+function validateCertSign(certs: CycleCreatorTypes.CycleCert[], sender: NodeListTypes.Node['id']) {
   for (const cert of certs) {
-    const cleanCert: CycleCert = {
+    const cleanCert: CycleCreatorTypes.CycleCert = {
       marker: cert.marker,
       sign: cert.sign,
     }
@@ -749,7 +745,7 @@ function validateCertSign(certs: CycleCert[], sender: Node['id']) {
   return true
 }
 
-function validateCerts(certs: CycleCert[], record, sender) {
+function validateCerts(certs: CycleCreatorTypes.CycleCert[], record, sender) {
   if (!certs || !Array.isArray(certs) || certs.length <= 0) {
     warn('validateCerts: bad certificate format')
     warn(
@@ -821,24 +817,24 @@ function validateCerts(certs: CycleCert[], record, sender) {
 }
 
 function validateCertsRecordTypes(inp, caller) {
-  let err = validateTypes(inp, { certs: 'a', record: 'o' })
+  let err = Utils.validateTypes(inp, { certs: 'a', record: 'o' })
   if (err) {
     warn(caller + ' bad input: ' + err + ' ' + JSON.stringify(inp))
     return false
   }
   for (const cert of inp.certs) {
-    err = validateTypes(cert, { marker: 's', score: 'n', sign: 'o' })
+    err = Utils.validateTypes(cert, { marker: 's', score: 'n', sign: 'o' })
     if (err) {
       warn(caller + ' bad input.certs: ' + err)
       return false
     }
-    err = validateTypes(cert.sign, { owner: 's', sig: 's' })
+    err = Utils.validateTypes(cert.sign, { owner: 's', sig: 's' })
     if (err) {
       warn(caller + ' bad input.sign: ' + err)
       return false
     }
   }
-  err = validateTypes(inp.record, {
+  err = Utils.validateTypes(inp.record, {
     activated: 'a',
     activatedPublicKeys: 'a',
     active: 'n',
@@ -877,7 +873,7 @@ function validateCertsRecordTypes(inp, caller) {
 // Given an array of valid cycle certs, go through them and see if we can improve our best cert
 // return true if we improved it
 // We assume the certs have already been checked
-function improveBestCert(inpCerts: CycleCert[], inpRecord) {
+function improveBestCert(inpCerts: CycleCreatorTypes.CycleCert[], inpRecord) {
   //  warn(`improveBestCert: certs:${JSON.stringify(certs)}`)
   //  warn(`improveBestCert: record:${JSON.stringify(record)}`)
   let improved = false
@@ -969,8 +965,8 @@ function compareCycleCertEndpoint(inp: CompareCertReq, sender) {
 
 async function compareCycleCert(myC: number, myQ: number, matches: number) {
   const queryFn = async (
-    node: Node
-  ): Promise<[CompareCertRes, Node]> => {
+    node: NodeListTypes.Node
+  ): Promise<[CompareCertRes, NodeListTypes.Node]> => {
     const req: CompareCertReq = {
       certs: bestCycleCert.get(bestMarker),
       record: bestRecord,
@@ -988,23 +984,23 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
     /**
      * [IMPORTANT] Don't change things if the awaited call took too long
      */
-    if (cycleQuarterChanged(myC, myQ)) return Comparison.ABORT
+    if (cycleQuarterChanged(myC, myQ)) return P2PUtils.Comparison.ABORT
 
     const [resp, node] = respArr
-    if (resp === null) return Comparison.WORSE
+    if (resp === null) return P2PUtils.Comparison.WORSE
     if (resp.certs[0].marker === bestMarker) {
       // Our markers match
-      return Comparison.EQUAL
+      return P2PUtils.Comparison.EQUAL
     } else if (!validateCerts(resp.certs, resp.record, node.id)) {
-      return Comparison.WORSE
+      return P2PUtils.Comparison.WORSE
     } else if (improveBestCert(resp.certs, resp.record)) {
       // Their marker is better, change to it and their record
       // don't need the following line anymore since improveBestCert sets bestRecord if it improved
       // bestRecord = resp.record
-      return Comparison.BETTER
+      return P2PUtils.Comparison.BETTER
     } else {
       // Their marker was worse
-      return Comparison.WORSE
+      return P2PUtils.Comparison.WORSE
     }
   }
 
@@ -1019,12 +1015,12 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
    */
   // We shuffle to spread out the network load of cert comparison
   const nodesToAsk = [...NodeList.activeOthersByIdOrder]
-  shuffleArray(nodesToAsk)
+  Utils.shuffleArray(nodesToAsk)
 
-  // If anything compares better than us, compareQuery starts over
-  const errors = await compareQuery<
-    Node,
-    [CompareCertRes, Node]
+  // If anything compares better than us, P2PUtils.compareQuery starts over
+  const errors = await P2PUtils.compareQuery<
+    NodeListTypes.Node,
+    [CompareCertRes, NodeListTypes.Node]
   >(NodeList.activeOthersByIdOrder, queryFn, compareFn, matches)
 
   if (errors.length > 0) {
@@ -1052,7 +1048,7 @@ async function gossipMyCycleCert() {
 
 function gossipHandlerCycleCert(
   inp: CompareCertReq,
-  sender: Node['id']
+  sender: NodeListTypes.Node['id']
 ) {
   if (!validateCertsRecordTypes(inp, 'gossipHandlerCycleCert')) return
   // [TODO] - submodules need to validate their part of the record

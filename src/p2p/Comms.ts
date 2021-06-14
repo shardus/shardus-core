@@ -4,15 +4,14 @@ import * as utils from '../utils'
 import { config, crypto, logger, network } from './Context'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { InternalHandler, LooseObject } from '../shared-types/Cycle/P2PTypes'
-import { validateTypes } from '../shared-functions/Utils'
+import { P2PTypes, Utils } from 'shardus-parser'
 import {logFlags} from '../logger'
 
 /** ROUTES */
 
-type GossipReq = LooseObject
+type GossipReq = P2PTypes.LooseObject
 
-const gossipInternalRoute: InternalHandler<GossipReq> = async (
+const gossipInternalRoute: P2PTypes.InternalHandler<GossipReq> = async (
   payload,
   _respond,
   sender,
@@ -97,7 +96,7 @@ function _authenticateByNode(message, node) {
 }
 
 function _extractPayload(wrappedPayload, nodeGroup) {
-  let err = validateTypes(wrappedPayload, { error: 's?' })
+  let err = Utils.validateTypes(wrappedPayload, { error: 's?' })
   if (err) {
     warn(
       'extractPayload: bad wrappedPayload: ' +
@@ -112,7 +111,7 @@ function _extractPayload(wrappedPayload, nodeGroup) {
     warn(`_extractPayload Failed to extract payload. Error: ${error}`)
     return [null]
   }
-  err = validateTypes(wrappedPayload, {
+  err = Utils.validateTypes(wrappedPayload, {
     sender: 's',
     payload: 'o',
     tag: 's',
@@ -513,7 +512,7 @@ export async function handleGossip(payload, sender, tracker = '') {
     info(`Start of handleGossip(${utils.stringifyReduce(payload)})`)
   }
 
-  const err = validateTypes(payload, { type: 's', data: 'o' })
+  const err = Utils.validateTypes(payload, { type: 's', data: 'o' })
   if (err) {
     warn('handleGossip: bad payload: ' + err)
     return

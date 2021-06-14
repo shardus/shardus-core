@@ -8,26 +8,24 @@ import {
   getReceiptMap,
   getSummaryBlob,
 } from '../snapshot'
-import { validateTypes } from '../shared-functions/Utils'
+import { Changer ,Utils, CycleCreatorTypes, ArchiversTypes, StateTypes } from 'shardus-parser'
 import * as Comms from './Comms'
 import { crypto, logger, network, io } from './Context'
 import { getCycleChain, computeCycleMarker, getNewest } from './CycleChain'
 import * as CycleCreator from './CycleCreator'
-import { CycleRecord as Cycle, CycleRecord } from "../shared-types/Cycle/CycleCreatorTypes"
-import * as CycleParser from '../shared-functions/Cycle'
 import {logFlags} from '../logger'
-import { StateMetaData } from '../shared-types/State'
-import { JoinedArchiver, DataRecipient, Request, Txs, Record, RequestTypes, DataResponse, NamesToTypes, TypeNames, DataRequest } from '../shared-types/Cycle/ArchiversTypes'
 
 /** STATE */
 
 let p2pLogger
 
-export let archivers: Map<JoinedArchiver['publicKey'], JoinedArchiver>
-let recipients: Map<JoinedArchiver['publicKey'], DataRecipient>
+type Cycle = CycleCreatorTypes.CycleRecord
 
-let joinRequests: Request[]
-let leaveRequests: Request[]
+export let archivers: Map<ArchiversTypes.JoinedArchiver['publicKey'], ArchiversTypes.JoinedArchiver>
+let recipients: Map<ArchiversTypes.JoinedArchiver['publicKey'], ArchiversTypes.DataRecipient>
+
+let joinRequests: ArchiversTypes.Request[]
+let leaveRequests: ArchiversTypes.Request[]
 
 /** FUNCTIONS */
 
@@ -49,7 +47,7 @@ export function reset() {
   resetJoinRequests()
 }
 
-export function getTxs(): Txs {
+export function getTxs(): ArchiversTypes.Txs {
   // [IMPORTANT] Must return a copy to avoid mutation
   const requestsCopy = deepmerge({}, [...joinRequests, ...leaveRequests])
   if (logFlags.console)
@@ -65,11 +63,11 @@ export function getTxs(): Txs {
   }
 }
 
-export function validateRecordTypes(rec: Record): string {
-  let err = validateTypes(rec, { joinedArchivers: 'a' })
+export function validateRecordTypes(rec: ArchiversTypes.Record): string {
+  let err = Utils.validateTypes(rec, { joinedArchivers: 'a' })
   if (err) return err
   for (const item of rec.joinedArchivers) {
-    err = validateTypes(item, {
+    err = Utils.validateTypes(item, {
       publicKey: 's',
       ip: 's',
       port: 'n',
@@ -80,15 +78,15 @@ export function validateRecordTypes(rec: Record): string {
   return ''
 }
 
-export function updateRecord(txs: Txs, record: CycleRecord) {
+export function updateRecord(txs: ArchiversTypes.Txs, record: CycleCreatorTypes.CycleRecord) {
   // Add joining archivers to the cycle record
   const joinedArchivers = txs.archivers
-    .filter((request) => request.requestType === RequestTypes.JOIN)
+    .filter((request) => request.requestType === ArchiversTypes.RequestTypes.JOIN)
     .map((joinRequest) => joinRequest.nodeInfo)
 
   // Add leaving archivers to the cycle record
   const leavingArchivers = txs.archivers
-    .filter((request) => request.requestType === RequestTypes.LEAVE)
+    .filter((request) => request.requestType === ArchiversTypes.RequestTypes.LEAVE)
     .map((leaveRequest) => leaveRequest.nodeInfo)
 
   if (logFlags.console)
@@ -99,12 +97,12 @@ export function updateRecord(txs: Txs, record: CycleRecord) {
     )
 
   record.joinedArchivers = joinedArchivers.sort(
-    (a: JoinedArchiver, b: JoinedArchiver) =>
+    (a: ArchiversTypes.JoinedArchiver, b: ArchiversTypes.JoinedArchiver) =>
       a.publicKey > b.publicKey ? 1 : -1
   )
   record.leavingArchivers = JSON.parse(
     JSON.stringify(
-      leavingArchivers.sort((a: JoinedArchiver, b: JoinedArchiver) =>
+      leavingArchivers.sort((a: ArchiversTypes.JoinedArchiver, b: ArchiversTypes.JoinedArchiver) =>
         a.publicKey > b.publicKey ? 1 : -1
       )
     )
@@ -119,8 +117,8 @@ export function updateRecord(txs: Txs, record: CycleRecord) {
 }
 
 export function parseRecord(
-  record: CycleRecord
-): CycleParser.Change {
+  record: CycleCreatorTypes.CycleRecord
+): Changer.Change {
   // Update our archivers list
   updateArchivers(record)
 
@@ -150,12 +148,12 @@ export function resetLeaveRequests() {
 
 export function addJoinRequest(joinRequest, tracker?, gossip = true) {
   // validate input
-  let err = validateTypes(joinRequest, { nodeInfo: 'o', sign: 'o' })
+  let err = Utils.validateTypes(joinRequest, { nodeInfo: 'o', sign: 'o' })
   if (err) {
     warn('addJoinRequest: bad joinRequest ' + err)
     return false
   }
-  err = validateTypes(joinRequest.nodeInfo, {
+  err = Utils.validateTypes(joinRequest.nodeInfo, {
     curvePk: 's',
     ip: 's',
     port: 'n',
@@ -165,7 +163,7 @@ export function addJoinRequest(joinRequest, tracker?, gossip = true) {
     warn('addJoinRequest: bad joinRequest.nodeInfo ' + err)
     return false
   }
-  err = validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
+  err = Utils.validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
   if (err) {
     warn('addJoinRequest: bad joinRequest.sign ' + err)
     return false
@@ -188,12 +186,12 @@ export function addJoinRequest(joinRequest, tracker?, gossip = true) {
 
 export function addLeaveRequest(request, tracker?, gossip = true) {
   // validate input
-  let err = validateTypes(request, { nodeInfo: 'o', sign: 'o' })
+  let err = Utils.validateTypes(request, { nodeInfo: 'o', sign: 'o' })
   if (err) {
     warn('addLeaveRequest: bad leaveRequest ' + err)
     return false
   }
-  err = validateTypes(request.nodeInfo, {
+  err = Utils.validateTypes(request.nodeInfo, {
     curvePk: 's',
     ip: 's',
     port: 'n',
@@ -203,7 +201,7 @@ export function addLeaveRequest(request, tracker?, gossip = true) {
     warn('addLeaveRequest: bad leaveRequest.nodeInfo ' + err)
     return false
   }
-  err = validateTypes(request.sign, { owner: 's', sig: 's' })
+  err = Utils.validateTypes(request.sign, { owner: 's', sig: 's' })
   if (err) {
     warn('addLeaveRequest: bad leaveRequest.sign ' + err)
     return false
@@ -237,8 +235,8 @@ export function updateArchivers(record) {
 }
 
 export function addDataRecipient(
-  nodeInfo: JoinedArchiver,
-  dataRequests: DataRequest<Cycle | StateMetaData>[]
+  nodeInfo: ArchiversTypes.JoinedArchiver,
+  dataRequests: ArchiversTypes.DataRequest<Cycle | StateTypes.StateMetaData>[]
 ) {
   if (logFlags.console) console.log('Adding data recipient..')
   const recipient = {
@@ -267,13 +265,13 @@ export function sendData() {
   for (const [publicKey, recipient] of recipients) {
     const recipientUrl = `http://${recipient.nodeInfo.ip}:${recipient.nodeInfo.port}/newdata`
 
-    const responses: DataResponse['responses'] = {}
+    const responses: ArchiversTypes.DataResponse['responses'] = {}
 
     for (const request of recipient.dataRequests) {
       switch (request.type) {
-        case TypeNames.CYCLE: {
+        case ArchiversTypes.TypeNames.CYCLE: {
           // Identify request type
-          const typedRequest = request as DataRequest<NamesToTypes['CYCLE']>
+          const typedRequest = request as ArchiversTypes.DataRequest<ArchiversTypes.NamesToTypes['CYCLE']>
           // Get latest cycles since lastData
           const cycleRecords = getCycleChain(typedRequest.lastData + 1)
           const cyclesWithMarker = []
@@ -292,10 +290,10 @@ export function sendData() {
           responses.CYCLE = cyclesWithMarker
           break
         }
-        case TypeNames.STATE_METADATA: {
+        case ArchiversTypes.TypeNames.STATE_METADATA: {
           // Identify request type
-          const typedRequest = request as DataRequest<
-            NamesToTypes['STATE_METADATA']
+          const typedRequest = request as ArchiversTypes.DataRequest<
+            ArchiversTypes.NamesToTypes['STATE_METADATA']
           >
           if (logFlags.console)
             console.log('STATE_METADATA typedRequest', typedRequest)
@@ -308,7 +306,7 @@ export function sendData() {
             typedRequest.lastData = stateHashes[stateHashes.length - 1].counter
           }
 
-          const metadata: StateMetaData = {
+          const metadata: StateTypes.StateMetaData = {
             counter: typedRequest.lastData >= 0 ? typedRequest.lastData : 0,
             stateHashes,
             receiptHashes,
@@ -324,7 +322,7 @@ export function sendData() {
       }
     }
 
-    const dataResponse: DataResponse = {
+    const dataResponse: ArchiversTypes.DataResponse = {
       publicKey: crypto.getPublicKey(),
       responses,
       recipient: publicKey,
@@ -369,7 +367,7 @@ export function sendData() {
 
 export function registerRoutes() {
   network.registerExternalPost('joinarchiver', async (req, res) => {
-    const err = validateTypes(req, { body: 'o' })
+    const err = Utils.validateTypes(req, { body: 'o' })
     if (err) {
       warn(`joinarchiver: bad req ${err}`)
       return res.json({ success: false, error: err })
@@ -386,7 +384,7 @@ export function registerRoutes() {
   })
 
   network.registerExternalPost('leavingarchivers', async (req, res) => {
-    const err = validateTypes(req, { body: 'o' })
+    const err = Utils.validateTypes(req, { body: 'o' })
     if (err) {
       warn(`leavingarchivers: bad req ${err}`)
       return res.json({ success: false, error: err })
@@ -448,12 +446,12 @@ export function registerRoutes() {
   )
 
   network.registerExternalPost('requestdata', (req, res) => {
-    let err = validateTypes(req, { body: 'o' })
+    let err = Utils.validateTypes(req, { body: 'o' })
     if (err) {
       warn(`requestdata: bad req ${err}`)
       return res.json({ success: false, error: err })
     }
-    err = validateTypes(req.body, {
+    err = Utils.validateTypes(req.body, {
       publicKey: 's',
       tag: 's',
       nodeInfo: 'o',
@@ -503,12 +501,12 @@ export function registerRoutes() {
   })
 
   network.registerExternalPost('querydata', (req, res) => {
-    let err = validateTypes(req, { body: 'o' })
+    let err = Utils.validateTypes(req, { body: 'o' })
     if (err) {
       warn(`querydata: bad req ${err}`)
       return res.json({ success: false, error: err })
     }
-    err = validateTypes(req.body, {
+    err = Utils.validateTypes(req.body, {
       publicKey: 's',
       tag: 's',
       nodeInfo: 'o',

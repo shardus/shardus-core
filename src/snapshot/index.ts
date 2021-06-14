@@ -7,13 +7,11 @@ import * as Active from '../p2p/Active'
 import * as Archivers from '../p2p/Archivers'
 import * as Comms from '../p2p/Comms'
 import * as Context from '../p2p/Context'
-import * as CycleCreator from '../shared-types/Cycle/CycleCreatorTypes'
 import * as CycleChain from '../p2p/CycleChain'
 import * as NodeList from '../p2p/NodeList'
 import * as Self from '../p2p/Self'
 import * as Sync from '../p2p/Sync'
 import * as ShardusTypes from '../shardus/shardus-types'
-import * as Types from '../shared-types/Cycle/P2PTypes'
 import ShardFunctions from '../state-manager/shardFunctions'
 import * as shardFunctionTypes from '../state-manager/shardFunctionTypes'
 import * as utils from '../utils'
@@ -21,9 +19,8 @@ import * as partitionGossip from './partition-gossip'
 import * as SnapshotFunctions from './snapshotFunctions'
 import {logFlags} from '../logger'
 import { Cycle, CycleShardData, MainHashResults } from '../state-manager/state-manager-types'
-import { StateHashes, ReceiptHashes, SummaryHashes, ReceiptMapResult, StatsClump } from '../shared-types/State'
+import { StateTypes, P2PTypes, CycleCreatorTypes, Utils } from 'shardus-parser'
 import { PartitionNum, PartitionRanges, offerResponse } from './snapshotFunctions'
-import { validateTypes } from '../shared-functions/Utils'
 
 /** STATE */
 
@@ -34,14 +31,14 @@ const oldPartitionHashMap: Map<PartitionNum, string> = new Map()
 let missingPartitions: PartitionNum[] = []
 const notNeededRepliedNodes: Map<string, true> = new Map()
 const alreadyOfferedNodes = new Map()
-let stateHashesByCycle: Map<Cycle['counter'], StateHashes> = new Map()
-let receiptHashesByCycle: Map<Cycle['counter'], ReceiptHashes> = new Map()
-let summaryHashesByCycle: Map<Cycle['counter'], SummaryHashes> = new Map()
+let stateHashesByCycle: Map<Cycle['counter'], StateTypes.StateHashes> = new Map()
+let receiptHashesByCycle: Map<Cycle['counter'], StateTypes.ReceiptHashes> = new Map()
+let summaryHashesByCycle: Map<Cycle['counter'], StateTypes.SummaryHashes> = new Map()
 const partitionBlockMapByCycle: Map<
   Cycle['counter'],
-  ReceiptMapResult[]
+  StateTypes.ReceiptMapResult[]
 > = new Map()
-const statesClumpMapByCycle: Map<Cycle['counter'], StatsClump> = new Map()
+const statesClumpMapByCycle: Map<Cycle['counter'], StateTypes.StatsClump> = new Map()
 let safetySyncing = false // to set true when data exchange occurs during safetySync
 
 export const safetyModeVals = {
@@ -66,8 +63,8 @@ export function setOldDataPath(path) {
 export function getStateHashes(
   start: Cycle['counter'] = 0,
   end?: Cycle['counter']
-): StateHashes[] {
-  const collector: StateHashes[] = []
+): StateTypes.StateHashes[] {
+  const collector: StateTypes.StateHashes[] = []
   for (const [key] of stateHashesByCycle) {
     if (key >= start) {
       // check against end cycle only if it's provided
@@ -80,8 +77,8 @@ export function getStateHashes(
 export function getReceiptHashes(
   start: Cycle['counter'] = 0,
   end?: Cycle['counter']
-): ReceiptHashes[] {
-  const collector: ReceiptHashes[] = []
+): StateTypes.ReceiptHashes[] {
+  const collector: StateTypes.ReceiptHashes[] = []
   for (const [key] of receiptHashesByCycle) {
     if (key >= start) {
       // check against end cycle only if it's provided
@@ -94,8 +91,8 @@ export function getReceiptHashes(
 export function getSummaryHashes(
   start: Cycle['counter'] = 0,
   end?: Cycle['counter']
-): SummaryHashes[] {
-  const collector: SummaryHashes[] = []
+): StateTypes.SummaryHashes[] {
+  const collector: StateTypes.SummaryHashes[] = []
   for (const [key] of summaryHashesByCycle) {
     if (key >= start) {
       // check against end cycle only if it's provided
@@ -165,8 +162,8 @@ export function startSnapshotting() {
     'cycleTxsFinalized',
     async (
       shard: CycleShardData,
-      receiptMapResults: ReceiptMapResult[],
-      statsClump: StatsClump,
+      receiptMapResults: StateTypes.ReceiptMapResult[],
+      statsClump: StateTypes.StatsClump,
       mainHashResults: MainHashResults
     ) => {
       try {
@@ -176,7 +173,7 @@ export function startSnapshotting() {
         partitionBlockMapByCycle.set(shard.cycleNumber, receiptMapResults)
 
         // store summary blob map for this cycle
-        const statsClumpForThisCycle: StatsClump = statsClump
+        const statsClumpForThisCycle: StateTypes.StatsClump = statsClump
         statesClumpMapByCycle.set(shard.cycleNumber, statsClumpForThisCycle)
 
         // create our own partition hashes for that cycle number
@@ -288,7 +285,7 @@ export function startSnapshotting() {
           )
 
           // Update stateHashes by Cycle map
-          const newStateHash: StateHashes = {
+          const newStateHash: StateTypes.StateHashes = {
             counter: shard.cycleNumber,
             partitionHashes,
             networkHash: networkStateHash,
@@ -300,7 +297,7 @@ export function startSnapshotting() {
           )
 
           // Update receiptHashes by Cycle map
-          const newReceiptHash: ReceiptHashes = {
+          const newReceiptHash: StateTypes.ReceiptHashes = {
             counter: shard.cycleNumber,
             receiptMapHashes: receiptHashes,
             networkReceiptHash: networkReceiptMapHash,
@@ -312,7 +309,7 @@ export function startSnapshotting() {
           )
 
           // Update summaryHashes by Cycle map
-          const newSummaryHash: SummaryHashes = {
+          const newSummaryHash: StateTypes.SummaryHashes = {
             counter: shard.cycleNumber,
             summaryHashes: summaryHashes,
             networkSummaryHash: networkSummaryHash,
@@ -411,7 +408,7 @@ export async function safetySync() {
 
   // Wait until safetyNum of nodes have joined the network
   await new Promise((resolve) => {
-    Self.emitter.on('new_cycle_data', (data: CycleCreator.CycleData) => {
+    Self.emitter.on('new_cycle_data', (data: CycleCreatorTypes.CycleData) => {
       if (data.syncing >= data.safetyNum) {
         safetyNum = data.safetyNum
         if (!safetyModeVals.networkStateHash) {
@@ -565,7 +562,7 @@ export async function startWitnessMode() {
   /**
    * [TODO] [AS] Instead of an interval, make this get the latest cycle,
    * calculate timstamp of the next one, and schedule a callback to run at that
-   * time (like how CycleCreator works). That should prove more robust.
+   * time (like how CycleCreatorTypes works). That should prove more robust.
    */
   const witnessInterval = setInterval(async () => {
     try {
@@ -749,11 +746,11 @@ function processDownloadedMissingData(missingData) {
 }
 
 function registerSnapshotRoutes() {
-  const snapshotDataOfferRoute: Types.Route<express.Handler> = {
+  const snapshotDataOfferRoute: P2PTypes.Route<express.Handler> = {
     method: 'POST',
     name: 'snapshot-data-offer',
     handler: async (req, res) => {
-      const err = validateTypes(req, { body: 'o' })
+      const err = Utils.validateTypes(req, { body: 'o' })
       if (err) {
         log('snapshot-data-offer bad req ' + err)
         res.json([])
@@ -787,11 +784,11 @@ function registerSnapshotRoutes() {
       }
     },
   }
-  const snapshotWitnessDataOfferRoute: Types.Route<express.Handler> = {
+  const snapshotWitnessDataOfferRoute: P2PTypes.Route<express.Handler> = {
     method: 'POST',
     name: 'snapshot-witness-data',
     handler: (req, res) => {
-      const err = validateTypes(req, { body: 'o' })
+      const err = Utils.validateTypes(req, { body: 'o' })
       if (err) {
         log('snapshot-witness-data bad req ' + err)
         res.json([])

@@ -1,9 +1,7 @@
 import { Logger } from 'log4js'
 import * as Comms from './Comms'
 import { logger } from './Context'
-import { CycleRecord } from "../shared-types/Cycle/CycleCreatorTypes"
-import { Change } from '../shared-functions/Cycle'
-import * as Types from '../shared-types/Cycle/P2PTypes'
+import { Changer, CycleCreatorTypes, P2PTypes} from 'shardus-parser'
 import {logFlags} from '../logger'
 
 /** TYPES */
@@ -22,7 +20,7 @@ let p2pLogger: Logger
 
 /** ROUTES */
 
-const gossipRoute: Types.GossipHandler = payload => {}
+const gossipRoute: P2PTypes.GossipHandler = payload => {}
 
 const routes = {
   internal: {},
@@ -71,11 +69,11 @@ Given the txs and prev cycle record mutate the referenced record
 */
 export function updateRecord(
   txs: Txs,
-  record: CycleRecord,
-  prev: CycleRecord
+  record: CycleCreatorTypes.CycleRecord,
+  prev: CycleCreatorTypes.CycleRecord
 ) {}
 
-export function parseRecord(record: CycleRecord): Change {
+export function parseRecord(record: CycleCreatorTypes.CycleRecord): Changer.Change {
   return
 }
 

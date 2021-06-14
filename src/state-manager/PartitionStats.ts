@@ -12,7 +12,7 @@ import ShardFunctions from './shardFunctions.js'
 import AccountCache from './AccountCache'
 import StateManager from '.'
 import { AccountHashCache, QueueEntry, CycleShardData } from './state-manager-types'
-import { SummaryBlob, SummaryBlobCollection, StatsClump } from '../shared-types/State'
+import { StateTypes } from 'shardus-parser'
 
 class PartitionStats {
   app: Shardus.App
@@ -27,9 +27,9 @@ class PartitionStats {
   shardLogger: any
   statsLogger: any
 
-  summaryBlobByPartition: Map<number, SummaryBlob>
+  summaryBlobByPartition: Map<number, StateTypes.SummaryBlob>
   summaryPartitionCount: number
-  txSummaryBlobCollections: SummaryBlobCollection[]
+  txSummaryBlobCollections: StateTypes.SummaryBlobCollection[]
   extensiveRangeChecking: boolean // non required range checks that can show additional errors (should not impact flow control)
 
   // add cycle then , never delete one from previous cycle.
@@ -72,7 +72,7 @@ class PartitionStats {
     this.initSummaryBlobs()
   }
 
-  getNewSummaryBlob(partition: number): SummaryBlob {
+  getNewSummaryBlob(partition: number): StateTypes.SummaryBlob {
     return { counter: 0, latestCycle: 0, errorNull: 0, partition, opaqueBlob: {} }
   }
 
@@ -82,7 +82,7 @@ class PartitionStats {
     }
   }
 
-  initTXSummaryBlobsForCycle(cycleNumber: number): SummaryBlobCollection {
+  initTXSummaryBlobsForCycle(cycleNumber: number): StateTypes.SummaryBlobCollection {
     let summaryBlobCollection = { cycle: cycleNumber, blobsByPartition: new Map() }
     for (let i = 0; i < this.summaryPartitionCount; i++) {
       summaryBlobCollection.blobsByPartition.set(i, this.getNewSummaryBlob(i))
@@ -91,7 +91,7 @@ class PartitionStats {
     return summaryBlobCollection
   }
 
-  getOrCreateTXSummaryBlobCollectionByCycle(cycle: number): SummaryBlobCollection {
+  getOrCreateTXSummaryBlobCollectionByCycle(cycle: number): StateTypes.SummaryBlobCollection {
     let summaryBlobCollectionToUse = null
     if (cycle < 0) {
       return null
@@ -131,14 +131,14 @@ class PartitionStats {
     return summaryPartition
   }
 
-  getSummaryBlob(address: string): SummaryBlob {
+  getSummaryBlob(address: string): StateTypes.SummaryBlob {
     let partition = this.getSummaryBlobPartition(address)
-    let blob: SummaryBlob = this.summaryBlobByPartition.get(partition)
+    let blob: StateTypes.SummaryBlob = this.summaryBlobByPartition.get(partition)
     return blob
   }
 
   statsDataSummaryInit(cycle: number, accountData: Shardus.WrappedData) {
-    let blob: SummaryBlob = this.getSummaryBlob(accountData.accountId)
+    let blob: StateTypes.SummaryBlob = this.getSummaryBlob(accountData.accountId)
     blob.counter++
 
     // if(this.useSeenAccountMap === true && this.seenCreatedAccounts.has(accountData.accountId)){
@@ -178,7 +178,7 @@ class PartitionStats {
   }
 
   statsDataSummaryInitRaw(cycle: number, accountId: string, accountDataRaw: any) {
-    let blob: SummaryBlob = this.getSummaryBlob(accountId)
+    let blob: StateTypes.SummaryBlob = this.getSummaryBlob(accountId)
     blob.counter++
 
     // if(this.useSeenAccountMap === true && this.seenCreatedAccounts.has(accountId)){
@@ -216,7 +216,7 @@ class PartitionStats {
 
   //statsDataSummaryUpdate(accountDataBefore:any, accountDataAfter:Shardus.WrappedData){
   statsDataSummaryUpdate(cycle: number, accountData: Shardus.WrappedResponse) {
-    let blob: SummaryBlob = this.getSummaryBlob(accountData.accountId)
+    let blob: StateTypes.SummaryBlob = this.getSummaryBlob(accountData.accountId)
     blob.counter++
     if (accountData.data == null) {
       blob.errorNull += 10000
@@ -270,7 +270,7 @@ class PartitionStats {
   }
 
   statsDataSummaryUpdate2(cycle: number, accountDataBefore: any, accountDataAfter: Shardus.WrappedData) {
-    let blob: SummaryBlob = this.getSummaryBlob(accountDataAfter.accountId)
+    let blob: StateTypes.SummaryBlob = this.getSummaryBlob(accountDataAfter.accountId)
     blob.counter++
     if (accountDataAfter.data == null) {
       blob.errorNull += 100000000
@@ -329,7 +329,7 @@ class PartitionStats {
     let summaryBlobCollection = this.getOrCreateTXSummaryBlobCollectionByCycle(queueEntry.cycleToRecordOn)
 
     if (summaryBlobCollection != null) {
-      let blob: SummaryBlob = summaryBlobCollection.blobsByPartition.get(partition)
+      let blob: StateTypes.SummaryBlob = summaryBlobCollection.blobsByPartition.get(partition)
       if (cycle > blob.latestCycle) {
         blob.latestCycle = cycle
       }
@@ -394,9 +394,9 @@ class PartitionStats {
     return statsDump
   }
 
-  getCoveredStatsPartitions(cycleShardData: CycleShardData, excludeEmpty: boolean = true): StatsClump {
+  getCoveredStatsPartitions(cycleShardData: CycleShardData, excludeEmpty: boolean = true): StateTypes.StatsClump {
     let cycle = cycleShardData.cycleNumber
-    let statsDump: StatsClump = { error: false, cycle, dataStats: [], txStats: [], covered: [], coveredParititionCount: 0, skippedParitionCount: 0 }
+    let statsDump: StateTypes.StatsClump = { error: false, cycle, dataStats: [], txStats: [], covered: [], coveredParititionCount: 0, skippedParitionCount: 0 }
 
     let coveredParitionCount = 0
     let skippedParitionCount = 0

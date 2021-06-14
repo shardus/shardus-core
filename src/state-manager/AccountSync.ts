@@ -12,7 +12,7 @@ import ShardFunctions from './shardFunctions.js'
 import { time } from 'console'
 import StateManager from '.'
 import { isNullOrUndefined } from 'util'
-import { robustQuery } from '../shared-functions/P2PUtils'
+import { P2PUtils } from 'shardus-parser'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import * as Context from '../p2p/Context'
 import * as Wrapper from '../p2p/Wrapper'
@@ -971,7 +971,7 @@ class AccountSync {
     let result
     let winners
     try {
-      let robustQueryResult = await robustQuery(nodes, queryFn, equalFn, 3, false)
+      let robustQueryResult = await P2PUtils.robustQuery(nodes, queryFn, equalFn, 3, false)
       result = robustQueryResult.topResult
       winners = robustQueryResult.winningNodes
 
@@ -1131,7 +1131,7 @@ class AccountSync {
       let result
       let winners
       try {
-        let robustQueryResult = await robustQuery(nodes, queryFn, equalFn, 3, false)
+        let robustQueryResult = await P2PUtils.robustQuery(nodes, queryFn, equalFn, 3, false)
         result = robustQueryResult.topResult
         winners = robustQueryResult.winningNodes
 
@@ -1140,7 +1140,7 @@ class AccountSync {
           nestedCountersInstance.countEvent('sync','majority of nodes not ready, wait and retry')
           //too many nodes not ready
           await utils.sleep(30000) //wait 30 seconds and try again
-          robustQueryResult = await robustQuery(nodes, queryFn, equalFn, 3, false)
+          robustQueryResult = await P2PUtils.robustQuery(nodes, queryFn, equalFn, 3, false)
           result = robustQueryResult.topResult
           winners = robustQueryResult.winningNodes
           tries--

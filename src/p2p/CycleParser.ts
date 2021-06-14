@@ -1,12 +1,11 @@
 import deepmerge from 'deepmerge'
 import * as CycleCreator from './CycleCreator'
-import { CycleRecord } from "../shared-types/Cycle/CycleCreatorTypes"
-import { Change } from '../shared-functions/Cycle'
+import { Changer, CycleCreatorTypes } from 'shardus-parser'
 
-export function parse(record: CycleRecord): Change {
+export function parse(record: CycleCreatorTypes.CycleRecord): Changer.Change {
   const changes = CycleCreator.submodules.map(submodule =>
     submodule.parseRecord(record)
   )
-  const mergedChange = deepmerge.all<Change>(changes)
+  const mergedChange = deepmerge.all<Changer.Change>(changes)
   return mergedChange
 }

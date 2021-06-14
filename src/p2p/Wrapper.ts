@@ -9,11 +9,9 @@ import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import * as Utils from '../shared-functions/P2PUtils'
 import {logFlags} from '../logger'
 import {getNodeRequestingJoin} from './Join'
-import { P2PNode } from '../shared-types/Cycle/P2PTypes'
-import { Node } from '../shared-types/Cycle/NodeListTypes'
+import { P2PTypes, NodeListTypes, P2PUtils } from 'shardus-parser'
 
 /* p2p functions */
 
@@ -41,14 +39,14 @@ class P2P extends EventEmitter {
     payload: any,
     tracker?: string,
     sender?: any,
-    inpNodes?: Node[]
+    inpNodes?: NodeListTypes.Node[]
   ) => Promise<void>
   sendGossipAll: (
     type: any,
     payload: any,
     tracker?: string,
     sender?: any,
-    inpNodes?: Node[]
+    inpNodes?: NodeListTypes.Node[]
   ) => Promise<void>
 
   robustQuery: any
@@ -64,7 +62,7 @@ class P2P extends EventEmitter {
     this.ask = Comms.ask
     this.tell = Comms.tell
     this.sendGossipIn = Comms.sendGossip
-    this.robustQuery = Utils.robustQuery
+    this.robustQuery = P2PUtils.robustQuery
     this.sendGossipAll = Comms.sendGossipAll //Need this but will try sendGossipIn as a work around
   }
 
@@ -146,7 +144,7 @@ class State extends EventEmitter {
     return NodeList.nodes
   }
 
-  getNodesRequestingJoin(): P2PNode[] {
+  getNodesRequestingJoin(): P2PTypes.P2PNode[] {
     return getNodeRequestingJoin()
   }
 

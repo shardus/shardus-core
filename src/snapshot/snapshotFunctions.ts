@@ -10,8 +10,6 @@ import * as NodeList from '../p2p/NodeList'
 import * as Self from '../p2p/Self'
 import * as Sync from '../p2p/Sync'
 import * as ShardusTypes from '../shardus/shardus-types'
-import * as Types from '../shared-types/Cycle/P2PTypes'
-import * as shardusTypes from '../shardus/shardus-types'
 import ShardFunctions from '../state-manager/shardFunctions'
 import * as shardFunctionTypes from '../state-manager/shardFunctionTypes'
 import * as utils from '../utils'
@@ -23,8 +21,7 @@ import stream from 'stream'
 import zlib from 'zlib'
 import {logFlags} from '../logger'
 import { Cycle, CycleShardData } from '../state-manager/state-manager-types'
-import { StateHashes, ReceiptHashes, SummaryHashes,  NetworkStateHash, NetworkReceiptHash, NetworkSummarytHash } from '../shared-types/State'
-
+import { StateTypes } from 'shardus-parser'
 const { Transform } = require('stream')
 /** TYPES */
 
@@ -80,7 +77,7 @@ export function calculatePartitionBlock (shard) {
 
 export function createNetworkHash (
   hashes: Map<number, string>
-): NetworkStateHash {
+): StateTypes.NetworkStateHash {
   let hashArray = []
   for (const [, hash] of hashes) {
     hashArray.push(hash)
@@ -92,10 +89,10 @@ export function createNetworkHash (
 
 export function updateStateHashesByCycleMap (
   counter: Cycle['counter'],
-  stateHash: StateHashes,
+  stateHash: StateTypes.StateHashes,
   stateHashesByCycle
 ) {
-  const newStateHashByCycle: Map<Cycle['counter'], StateHashes> = new Map(
+  const newStateHashByCycle: Map<Cycle['counter'], StateTypes.StateHashes> = new Map(
     stateHashesByCycle
   )
   const transformedStateHash = {
@@ -116,10 +113,10 @@ export function updateStateHashesByCycleMap (
 
 export function updateReceiptHashesByCycleMap (
   counter: Cycle['counter'],
-  receiptHash: ReceiptHashes,
+  receiptHash: StateTypes.ReceiptHashes,
   receiptHashesByCycle
 ) {
-  const newReceiptHashesByCycle: Map<Cycle['counter'], ReceiptHashes> = new Map(
+  const newReceiptHashesByCycle: Map<Cycle['counter'], StateTypes.ReceiptHashes> = new Map(
     receiptHashesByCycle
   )
 
@@ -141,10 +138,10 @@ export function updateReceiptHashesByCycleMap (
 
 export function updateSummaryHashesByCycleMap (
   counter: Cycle['counter'],
-  summaryHashes: SummaryHashes,
+  summaryHashes: StateTypes.SummaryHashes,
   summaryHashesByCycle
 ) {
-  const newSummaryHashesByCycle: Map<Cycle['counter'], SummaryHashes> = new Map(
+  const newSummaryHashesByCycle: Map<Cycle['counter'], StateTypes.SummaryHashes> = new Map(
     summaryHashesByCycle
   )
 
@@ -167,7 +164,7 @@ export function updateSummaryHashesByCycleMap (
 export async function savePartitionAndNetworkHashes (
   shard: CycleShardData,
   partitionHashes: hashMap,
-  networkHash: NetworkStateHash
+  networkHash: StateTypes.NetworkStateHash
 ) {
   for (const [partitionId, hash] of partitionHashes) {
     await Context.storage.addPartitionHash({
@@ -185,7 +182,7 @@ export async function savePartitionAndNetworkHashes (
 export async function saveReceiptAndNetworkHashes (
   shard: CycleShardData,
   receiptMapHashes: hashMap,
-  networkReceiptHash: NetworkReceiptHash
+  networkReceiptHash: StateTypes.NetworkReceiptHash
 ) {
   for (const [partitionId, hash] of receiptMapHashes) {
     await Context.storage.addReceiptMapHash({
@@ -203,7 +200,7 @@ export async function saveReceiptAndNetworkHashes (
 export async function saveSummaryAndNetworkHashes (
   shard: CycleShardData,
   summaryHashes: hashMap,
-  summaryReceiptHash: NetworkSummarytHash
+  summaryReceiptHash: StateTypes.NetworkSummarytHash
 ) {
   for (const [partitionId, hash] of summaryHashes) {
     await Context.storage.addSummaryHash({

@@ -16,13 +16,9 @@ import * as Archivers from './Archivers'
 import { logger } from './Context'
 import { cycles, newest } from './CycleChain'
 import * as CycleCreator from './CycleCreator'
-import * as CycleParser from '../shared-functions/Cycle'
 import * as NodeList from './NodeList'
 import { activeNodeCount, totalNodeCount, showNodeCount } from './Sync'
-import { Txs, Record } from '../shared-types/Cycle/RefreshTypes'
-import * as Types from '../shared-types/Cycle/P2PTypes'
-import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes';
-import { validateTypes, reversed } from '../shared-functions/Utils'
+import { RefreshTypes, P2PTypes, CycleCreatorTypes, Utils, Changer } from 'shardus-parser'
 
 /** STATE */
 
@@ -42,19 +38,19 @@ export function init() {
 
 export function reset() {}
 
-export function getTxs(): Txs {
+export function getTxs(): RefreshTypes.Txs {
   return {}
 }
 
-export function validateRecordTypes(rec: Record): string{
-  let err = validateTypes(rec,{refreshedArchivers:'a',refreshedConsensors:'a'})
+export function validateRecordTypes(rec: RefreshTypes.Record): string{
+  let err = Utils.validateTypes(rec,{refreshedArchivers:'a',refreshedConsensors:'a'})
   if (err) return err
   for(const item of rec.refreshedArchivers){
-    err = validateTypes(item,{publicKey:'s',ip:'s',port:'n',curvePk:'s'})
+    err = Utils.validateTypes(item,{publicKey:'s',ip:'s',port:'n',curvePk:'s'})
     if (err) return 'in refreshedArchivers array '+err
   }
   for(const item of rec.refreshedConsensors){
-    err = validateTypes(item,{activeTimestamp:'n',address:'s',externalIp:'s',externalPort:'n',
+    err = Utils.validateTypes(item,{activeTimestamp:'n',address:'s',externalIp:'s',externalPort:'n',
       internalIp:'s',internalPort:'n',joinRequestTimestamp:'n',publicKey:'s',
       cycleJoined:'s',counterRefreshed:'n',id:'s',curvePublicKey:'s',status:'s'
     })
@@ -63,7 +59,7 @@ export function validateRecordTypes(rec: Record): string{
   return ''
 }
 
-export function dropInvalidTxs(txs: Txs): Txs {
+export function dropInvalidTxs(txs: RefreshTypes.Txs): RefreshTypes.Txs {
   return txs
 }
 
@@ -71,17 +67,17 @@ export function dropInvalidTxs(txs: Txs): Txs {
 Given the txs and prev cycle record mutate the referenced record
 */
 export function updateRecord(
-  txs: Txs,
-  record: CycleRecord,
-  prev: CycleRecord
+  txs: RefreshTypes.Txs,
+  record: CycleCreatorTypes.CycleRecord,
+  prev: CycleCreatorTypes.CycleRecord
 ) {
   record.refreshedArchivers = refreshArchivers() // This returns a copy of the objects
   record.refreshedConsensors = refreshConsensors() // This returns a copy of the objects
 }
 
 export function parseRecord(
-  record: CycleRecord
-): CycleParser.Change {
+  record: CycleCreatorTypes.CycleRecord
+): Changer.Change {
   // If Archivers.archivers doesn't have a refreshedArchiver, put it in
   for (const refreshed of record.refreshedArchivers) {
     if (Archivers.archivers.has(refreshed.publicKey) === false) {
@@ -93,8 +89,8 @@ export function parseRecord(
    * A refreshedConsensor results in either an added or update, depending on
    * whether or not we have the refreshedConsensor in our node list or not.
    */
-  const added: CycleParser.Change['added'] = []
-  const updated: CycleParser.Change['updated'] = []
+  const added: Changer.Change['added'] = []
+  const updated: Changer.Change['updated'] = []
   for (const refreshed of record.refreshedConsensors) {
     const node = NodeList.nodes.get(refreshed.id)
     if (node) {
@@ -110,7 +106,7 @@ export function parseRecord(
       // (IMPORTANT: update counterRefreshed to the records counter)
       updated.push({
         id: refreshed.id,
-        status: Types.NodeStatus.ACTIVE,
+        status: P2PTypes.NodeStatus.ACTIVE,
         counterRefreshed: record.counter,
       })
     }
@@ -167,12 +163,12 @@ export function cyclesToKeep() {
    * Walk through the cycle chain backwards to calculate how many records we
    * need to build the current node list
    */
-//  const squasher = new CycleParser.ChangeSquasher()
+//  const squasher = new Changer.ChangeSquasher()
   let count = 1
   let seen = new Map()
-  for (const record of reversed(cycles)) {
+  for (const record of Utils.reversed(cycles)) {
 /*
-    squasher.addChange(CycleParser.parse(record))
+    squasher.addChange(Changer.parse(record))
     if (
       squasher.final.updated.length >= activeNodeCount(newest) &&
       squasher.final.added.length >= totalNodeCount(newest)

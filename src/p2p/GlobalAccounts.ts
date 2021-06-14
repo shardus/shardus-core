@@ -10,14 +10,7 @@ import * as Comms from './Comms'
 import * as Context from './Context'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import {
-  GossipHandler,
-  InternalHandler,
-  NodeInfo,
-  Route,
-  Signature,
-  SignedObject,
-} from '../shared-types/Cycle/P2PTypes'
+import { P2PTypes } from 'shardus-parser'
 import {logFlags} from '../logger'
 
 /** TYPES */
@@ -30,25 +23,25 @@ export interface SetGlobalTx {
 }
 
 export interface Receipt {
-  signs: Signature[]
+  signs: P2PTypes.Signature[]
   tx: SetGlobalTx
-  consensusGroup: Set<NodeInfo['id']>
+  consensusGroup: Set<P2PTypes.NodeInfo['id']>
 }
 
 export interface Tracker {
-  seen: Set<NodeInfo['publicKey']>
+  seen: Set<P2PTypes.NodeInfo['publicKey']>
   timestamp: number
   gossiped: boolean
 }
 
 export type TxHash = string
 
-export type SignedSetGlobalTx = SetGlobalTx & SignedObject
+export type SignedSetGlobalTx = SetGlobalTx & P2PTypes.SignedObject
 
 /** ROUTES */
 // [TODO] - need to add validattion of types to the routes
 
-const makeReceiptRoute: Route<InternalHandler<
+const makeReceiptRoute: P2PTypes.Route<P2PTypes.InternalHandler<
   SignedSetGlobalTx,
   unknown,
   string
@@ -59,7 +52,7 @@ const makeReceiptRoute: Route<InternalHandler<
   },
 }
 
-const setGlobalGossipRoute: Route<GossipHandler<Receipt>> = {
+const setGlobalGossipRoute: P2PTypes.Route<P2PTypes.GossipHandler<Receipt>> = {
   name: 'set-global',
   handler: (payload) => {
     if (validateReceipt(payload) === false) return
@@ -180,7 +173,7 @@ export function createMakeReceiptHandle(txHash: string) {
 
 export function makeReceipt(
   signedTx: SignedSetGlobalTx,
-  sender: NodeInfo['id']
+  sender: P2PTypes.NodeInfo['id']
 ) {
   if (!Context.stateManager) {
     if (logFlags.console) console.log('GlobalAccounts: makeReceipt: stateManager not ready')
@@ -289,7 +282,7 @@ function validateReceipt(receipt: Receipt) {
     return false
   }
   // Make a map of signs that overlap with consensusGroup
-  const signsInConsensusGroup: Signature[] = []
+  const signsInConsensusGroup: P2PTypes.Signature[] = []
   for (const sign of receipt.signs) {
     /** [TODO] [AS] Replace with NodeList.byPubKey.get() */
     // const node = p2p.state.getNodeByPubKey(sign.owner)
@@ -345,7 +338,7 @@ function validateReceipt(receipt: Receipt) {
 
 function createTracker(txHash) {
   const tracker = {
-    seen: new Set<NodeInfo['id']>(),
+    seen: new Set<P2PTypes.NodeInfo['id']>(),
     timestamp: 0,
     gossiped: false,
   }

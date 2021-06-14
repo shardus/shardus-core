@@ -3,40 +3,23 @@ import * as utils from '../utils'
 import * as Comms from './Comms'
 import { config, crypto, logger } from './Context'
 import * as CycleCreator from './CycleCreator'
-import { Change } from '../shared-functions/Cycle'
+import { Changer, Utils ,P2PTypes, ActiveTypes, CycleCreatorTypes, NodeListTypes } from 'shardus-parser'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import * as Types from '../shared-types/Cycle/P2PTypes'
-import { validateTypes } from '../shared-functions/Utils'
 import {logFlags} from '../logger'
-import { SignedActiveRequest, ActiveRequest, Txs, Record } from '../shared-types/Cycle/ActiveTypes'
-import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes'
-import { Node } from '../shared-types/Cycle/NodeListTypes'
-
 /** ROUTES */
 
-const gossipActiveRoute: Types.GossipHandler<SignedActiveRequest> = (
+const gossipActiveRoute: P2PTypes.GossipHandler<ActiveTypes.SignedActiveRequest> = (
   payload,
   sender
 ) => {
   if (logFlags.p2pNonFatal)
     info(`Got active request: ${JSON.stringify(payload)}`)
   let err = ''
-  err = validateTypes(payload, {
-    nodeId: 's',
-    status: 's',
-    timestamp: 'n',
-    sign: 'o',
-  })
-  if (err) {
-    warn('bad input ' + err)
-    return
-  }
-  err = validateTypes(payload.sign, { owner: 's', sig: 's' })
-  if (err) {
-    warn('bad input sign ' + err)
-    return
-  }
+  err = Utils.validateTypes(payload, {nodeId:'s',status:'s',timestamp:'n',sign:'o'})
+  if (err){ warn('bad input '+err); return }
+  err = Utils.validateTypes(payload.sign, {owner:'s',sig:'s'})
+  if (err){ warn('bad input sign '+err); return }
 
   const signer = NodeList.byPubKey.get(payload.sign.owner)
   if (!signer) {
@@ -64,8 +47,8 @@ const routes = {
 
 let p2pLogger: Logger
 
-let activeRequests: Map<Node['publicKey'], SignedActiveRequest>
-let queuedRequest: ActiveRequest
+let activeRequests: Map<NodeListTypes.Node['publicKey'], ActiveTypes.SignedActiveRequest>
+let queuedRequest: ActiveTypes.ActiveRequest
 
 /** FUNCTIONS */
 
@@ -91,18 +74,14 @@ export function reset() {
   activeRequests = new Map()
 }
 
-export function getTxs(): Txs {
+export function getTxs(): ActiveTypes.Txs {
   return {
     active: [...activeRequests.values()],
   }
 }
 
-export function validateRecordTypes(rec: Record): string {
-  let err = validateTypes(rec, {
-    active: 'n',
-    activated: 'a',
-    activatedPublicKeys: 'a',
-  })
+export function validateRecordTypes(rec: ActiveTypes.Record): string{
+  let err = Utils.validateTypes(rec,{active:'n',activated:'a',activatedPublicKeys:'a'})
   if (err) return err
   for (const item of rec.activated) {
     if (typeof item !== 'string')
@@ -115,15 +94,16 @@ export function validateRecordTypes(rec: Record): string {
   return ''
 }
 
-export function dropInvalidTxs(txs: Txs): Txs {
-  const active = txs.active.filter((request) => validateActiveRequest(request))
+
+export function dropInvalidTxs(txs: ActiveTypes.Txs): ActiveTypes.Txs {
+  const active = txs.active.filter(request => validateActiveRequest(request))
   return { active }
 }
 
 export function updateRecord(
-  txs: Txs,
-  record: CycleRecord,
-  _prev: CycleRecord
+  txs: ActiveTypes.Txs,
+  record: CycleCreatorTypes.CycleRecord,
+  _prev: CycleCreatorTypes.CycleRecord
 ) {
   const active = NodeList.activeByIdOrder.length
   const activated = []
@@ -143,7 +123,7 @@ export function updateRecord(
   record.activatedPublicKeys = activatedPublicKeys.sort()
 }
 
-export function parseRecord(record: CycleRecord): Change {
+export function parseRecord(record: CycleCreatorTypes.CycleRecord): Changer.Change {
   // Look at the activated id's and make Self emit 'active' if your own id is there
   if (record.activated.includes(Self.id)) {
     Self.setActive()
@@ -154,7 +134,7 @@ export function parseRecord(record: CycleRecord): Change {
   const updated = record.activated.map((id) => ({
     id,
     activeTimestamp: record.start,
-    status: Types.NodeStatus.ACTIVE,
+    status: P2PTypes.NodeStatus.ACTIVE,
   }))
 
   return {
@@ -187,7 +167,7 @@ export function sendRequests() {
   }
 }
 
-export function queueRequest(request: ActiveRequest) {
+export function queueRequest(request: ActiveTypes.ActiveRequest) {
   queuedRequest = request
 }
 
@@ -199,7 +179,7 @@ export function requestActive() {
   queueRequest(request)
 }
 
-function createActiveRequest(): ActiveRequest {
+function createActiveRequest(): ActiveTypes.ActiveRequest {
   const request = {
     nodeId: Self.id,
     status: 'active',
@@ -208,7 +188,7 @@ function createActiveRequest(): ActiveRequest {
   return request
 }
 
-function addActiveTx(request: SignedActiveRequest) {
+function addActiveTx(request: ActiveTypes.SignedActiveRequest) {
   if (!request) return false
   if (!validateActiveRequest(request)) return false
   if (activeRequests.has(request.sign.owner)) return false
@@ -217,7 +197,7 @@ function addActiveTx(request: SignedActiveRequest) {
   return true
 }
 
-function validateActiveRequest(request: SignedActiveRequest) {
+function validateActiveRequest(request: ActiveTypes.SignedActiveRequest) {
   // [TODO] Validate active request
   return true
 }

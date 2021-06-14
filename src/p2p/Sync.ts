@@ -2,18 +2,13 @@ import { Handler } from 'express'
 import { Logger } from 'log4js'
 import util from 'util'
 import * as http from '../http'
-import { reversed, validateTypes } from '../shared-functions/Utils'
 import { logger, network } from './Context'
 import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import { parse } from './CycleParser'
-import { Change, ChangeSquasher } from '../shared-functions/Cycle'
+import { Changer, Utils, P2PUtils, P2PTypes, CycleCreatorTypes, NodeListTypes } from 'shardus-parser'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { Route } from '../shared-types/Cycle/P2PTypes'
-import { robustQuery } from '../shared-functions/P2PUtils'
-import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes';
-import { Node } from '../shared-types/Cycle/NodeListTypes'
 
 /** TYPES */
 
@@ -29,7 +24,7 @@ let p2pLogger: Logger
 
 /** ROUTES */
 
-const newestCycleRoute: Route<Handler> = {
+const newestCycleRoute: P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'sync-newest-cycle',
   handler: (_req, res) => {
@@ -38,17 +33,17 @@ const newestCycleRoute: Route<Handler> = {
   },
 }
 
-const cyclesRoute: Route<Handler> = {
+const cyclesRoute: P2PTypes.Route<Handler> = {
   method: 'POST',
   name: 'sync-cycles',
   handler: (req, res) => {
-    let err = validateTypes(req, { body: 'o' })
+    let err = Utils.validateTypes(req, { body: 'o' })
     if (err) {
       warn('sync-cycles bad req ' + err)
       res.json([])
       return
     }
-    err = validateTypes(req.body, { start: 'n?', end: 'n?' })
+    err = Utils.validateTypes(req.body, { start: 'n?', end: 'n?' })
     if (err) {
       warn('sync-cycles bad req.body ' + err)
       res.json([])
@@ -89,7 +84,7 @@ export async function sync(activeNodes: ActiveNode[]) {
   info(`Cycles to get is ${cyclesToGet}`)
 
   // Sync old cycles until your active nodes === network active nodes
-  const squasher = new ChangeSquasher()
+  const squasher = new Changer.ChangeSquasher()
 
   CycleChain.prepend(cycleToSyncTo)
   squasher.addChange(parse(CycleChain.oldest))
@@ -111,7 +106,7 @@ export async function sync(activeNodes: ActiveNode[]) {
     // Add prevCycles to our cycle chain
     let prepended = 0
 
-    for (const prevCycle of reversed(prevCycles)) {
+    for (const prevCycle of Utils.reversed(prevCycles)) {
       const marker = CycleChain.computeCycleMarker(prevCycle)
       // If you already have this cycle, skip it
       if (CycleChain.cyclesByMarker[marker]) {
@@ -203,7 +198,7 @@ export async function sync(activeNodes: ActiveNode[]) {
 
 type SyncNode = Partial<
   Pick<ActiveNode, 'ip' | 'port'> &
-    Pick<Node, 'externalIp' | 'externalPort'>
+    Pick<NodeListTypes.Node, 'externalIp' | 'externalPort'>
 >
 
 export async function syncNewCycles(activeNodes: SyncNode[]) {
@@ -254,7 +249,7 @@ export async function syncNewCycles(activeNodes: SyncNode[]) {
   }
 }
 
-export function digestCycle(cycle: CycleRecord) {
+export function digestCycle(cycle: CycleCreatorTypes.CycleRecord) {
   const marker = CycleCreator.makeCycleMarker(cycle)
   if (CycleChain.cyclesByMarker[marker]) {
     warn(
@@ -277,7 +272,7 @@ export function digestCycle(cycle: CycleRecord) {
   `)
 }
 
-function applyNodeListChange(change: Change) {
+function applyNodeListChange(change: Changer.Change) {
   NodeList.addNodes(change.added.map((joined) => NodeList.createNode(joined)))
   NodeList.updateNodes(change.updated)
   NodeList.removeNodes(change.removed)
@@ -285,7 +280,7 @@ function applyNodeListChange(change: Change) {
 
 export async function getNewestCycle(
   activeNodes: SyncNode[]
-): Promise<CycleRecord> {
+): Promise<CycleCreatorTypes.CycleRecord> {
   const queryFn = async (node: SyncNode) => {
     const ip = node.ip ? node.ip : node.externalIp
     const port = node.port ? node.port : node.externalPort
@@ -307,7 +302,7 @@ export async function getNewestCycle(
   let redundancy = 1
   if (activeNodes.length > 5) redundancy = 2
   if (activeNodes.length > 10) redundancy = 3
-  const { topResult: response, winningNodes: _responders } = await robustQuery(
+  const { topResult: response, winningNodes: _responders } = await P2PUtils.robustQuery(
     activeNodes,
     queryFn,
     eqFn,
@@ -320,7 +315,7 @@ export async function getNewestCycle(
   if (!response) throw new Error('Bad response')
   if (!response.newestCycle) throw new Error('Bad response')
 
-  const newestCycle = response.newestCycle as CycleRecord
+  const newestCycle = response.newestCycle as CycleCreatorTypes.CycleRecord
   return newestCycle
 }
 
@@ -329,7 +324,7 @@ async function getCycles(
   activeNodes: SyncNode[],
   start: number,
   end?: number
-): Promise<CycleRecord[]> {
+): Promise<CycleCreatorTypes.CycleRecord[]> {
   if (start < 0) start = 0
   if (end !== undefined) {
     if (start > end) start = end
@@ -352,7 +347,7 @@ async function getCycles(
   let redundancy = 1
   if (activeNodes.length > 5) redundancy = 2
   if (activeNodes.length > 10) redundancy = 3
-  const { topResult: response, winningNodes: _responders } = await robustQuery(
+  const { topResult: response, winningNodes: _responders } = await P2PUtils.robustQuery(
     activeNodes,
     queryFn,
     util.isDeepStrictEqual,
@@ -361,13 +356,13 @@ async function getCycles(
   )
 
   // [TODO] Validate whatever came in
-  const cycles = response as CycleRecord[]
+  const cycles = response as CycleCreatorTypes.CycleRecord[]
 
   const valid = validateCycles(cycles)
   if (valid) return cycles
 }
 
-export function activeNodeCount(cycle: CycleRecord) {
+export function activeNodeCount(cycle: CycleCreatorTypes.CycleRecord) {
   return (
     cycle.active +
     cycle.activated.length -
@@ -377,7 +372,7 @@ export function activeNodeCount(cycle: CycleRecord) {
   )
 }
 
-export function showNodeCount(cycle: CycleRecord) {
+export function showNodeCount(cycle: CycleCreatorTypes.CycleRecord) {
   warn(` syncing + joined + active - apop - rem - lost
     ${cycle.syncing} +
     ${cycle.joinedConsensors.length} +
@@ -390,7 +385,7 @@ export function showNodeCount(cycle: CycleRecord) {
   //    ${cycle.activated.length} -
 }
 
-export function totalNodeCount(cycle: CycleRecord) {
+export function totalNodeCount(cycle: CycleCreatorTypes.CycleRecord) {
   return (
     cycle.syncing +
     cycle.joinedConsensors.length +
@@ -402,7 +397,7 @@ export function totalNodeCount(cycle: CycleRecord) {
   )
 }
 
-function validateCycles(cycles: CycleRecord[]) {
+function validateCycles(cycles: CycleCreatorTypes.CycleRecord[]) {
   const archiverType = {
     publicKey: 's',
     ip: 's',
@@ -410,7 +405,7 @@ function validateCycles(cycles: CycleRecord[]) {
     curvePk: 's',
   }
   for (const cycleRecord of cycles) {
-    let err = validateTypes(cycleRecord, {
+    let err = Utils.validateTypes(cycleRecord, {
       safetyMode: 'b',
       safetyNum: 'n',
       networkStateHash: 's',
@@ -437,14 +432,14 @@ function validateCycles(cycles: CycleRecord[]) {
       warn('Type validation failed for cycleRecord: ' + err)
     }
     for (const refreshedArchiver of cycleRecord.refreshedArchivers) {
-      err = validateTypes(refreshedArchiver, archiverType)
+      err = Utils.validateTypes(refreshedArchiver, archiverType)
       if (err) {
         warn('Validation failed for cycleRecord.refreshedArchivers: ' + err)
         return false
       }
     }
     for (const refreshedConsensor of cycleRecord.refreshedConsensors) {
-      err = validateTypes(refreshedConsensor, {
+      err = Utils.validateTypes(refreshedConsensor, {
         curvePublicKey: 's',
         status: 's',
       })
@@ -454,21 +449,21 @@ function validateCycles(cycles: CycleRecord[]) {
       }
     }
     for (const joinedArchiver of cycleRecord.joinedArchivers) {
-      err = validateTypes(joinedArchiver, archiverType)
+      err = Utils.validateTypes(joinedArchiver, archiverType)
       if (err) {
         warn('Validation failed for cycleRecord.joinedArchivers: ' + err)
         return false
       }
     }
     for (const leavingArchiver of cycleRecord.leavingArchivers) {
-      err = validateTypes(leavingArchiver, archiverType)
+      err = Utils.validateTypes(leavingArchiver, archiverType)
       if (err) {
         warn('Validation failed for cycleRecord.leavingArchivers: ' + err)
         return false
       }
     }
     for (const joinedConsensor of cycleRecord.joinedConsensors) {
-      err = validateTypes(joinedConsensor, {
+      err = Utils.validateTypes(joinedConsensor, {
         cycleJoined: 's',
         counterRefreshed: 'n',
         id: 's',
@@ -521,7 +516,7 @@ function validateCycles(cycles: CycleRecord[]) {
       }
     }
     for (const networkHash of cycleRecord.networkDataHash) {
-      err = validateTypes(networkHash, {
+      err = Utils.validateTypes(networkHash, {
         cycle: 'n',
         hash: 's',
       })
@@ -531,7 +526,7 @@ function validateCycles(cycles: CycleRecord[]) {
       }
     }
     for (const networkHash of cycleRecord.networkReceiptHash) {
-      err = validateTypes(networkHash, {
+      err = Utils.validateTypes(networkHash, {
         cycle: 'n',
         hash: 's',
       })
@@ -541,7 +536,7 @@ function validateCycles(cycles: CycleRecord[]) {
       }
     }
     for (const networkHash of cycleRecord.networkSummaryHash) {
-      err = validateTypes(networkHash, {
+      err = Utils.validateTypes(networkHash, {
         cycle: 'n',
         hash: 's',
       })

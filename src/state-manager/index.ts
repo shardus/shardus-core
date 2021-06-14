@@ -39,7 +39,7 @@ import TransactionConsenus from './TransactionConsensus'
 import PartitionObjects from './PartitionObjects'
 import Depricated from './Depricated'
 import { CycleShardData, PartitionReceipt, FifoLockObjectMap, QueueEntry, AcceptedTx, AccountCopy, GetAccountDataByRangeSmart, WrappedStateArray, AccountHashCache, RequestReceiptForTxReq, RequestReceiptForTxResp, RequestStateForTxReqPost, RequestStateForTxResp, RequestTxResp, AppliedVote, GetAccountDataWithQueueHintsResp, DebugDumpPartitions, DebugDumpRangesCovered, DebugDumpNodesCovered, DebugDumpPartition, DebugDumpPartitionSkip, MainHashResults, SimpleDistanceObject, WrappedResponses, LocalCachedData, AccountFilter, StringBoolObjectMap, AppliedReceipt } from './state-manager-types'
-import { ReceiptMapResult } from '../shared-types/State'
+import { StateTypes } from 'shardus-parser'
 
 /**
  * WrappedEventEmitter just a default extended WrappedEventEmitter
@@ -2569,15 +2569,15 @@ class StateManager {
     return receipt
   }
 
-  generateReceiptMapResults(lastCycle: Shardus.Cycle): ReceiptMapResult[] {
-    let results: ReceiptMapResult[] = []
+  generateReceiptMapResults(lastCycle: Shardus.Cycle): StateTypes.ReceiptMapResult[] {
+    let results: StateTypes.ReceiptMapResult[] = []
 
     let cycleToSave = lastCycle.counter
 
     //init results per partition
-    let receiptMapByPartition: Map<number, ReceiptMapResult> = new Map()
+    let receiptMapByPartition: Map<number, StateTypes.ReceiptMapResult> = new Map()
     for (let i = 0; i < this.currentCycleShardData.shardGlobals.numPartitions; i++) {
-      let mapResult: ReceiptMapResult = {
+      let mapResult: StateTypes.ReceiptMapResult = {
         cycle: cycleToSave,
         partition: i,
         receiptMap: {},
@@ -2625,7 +2625,7 @@ class StateManager {
         let txIdShort = utils.short(txHash)
         let txResult = utils.short(txResultFullHash)
         if (receiptMapByPartition.has(partition)) {
-          let mapResult: ReceiptMapResult = receiptMapByPartition.get(partition)
+          let mapResult: StateTypes.ReceiptMapResult = receiptMapByPartition.get(partition)
           //create an array if we have not seen this index yet
           if (mapResult.receiptMap[txIdShort] == null) {
             mapResult.receiptMap[txIdShort] = []

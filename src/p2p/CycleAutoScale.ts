@@ -2,21 +2,16 @@ import { Logger } from 'log4js'
 import { crypto, logger, config, network } from './Context'
 import * as CycleCreator from './CycleCreator'
 import * as CycleChain from './CycleChain'
-import * as CycleParser from '../shared-functions/Cycle'
 import * as Rotation from './Rotation'
 import * as Self from './Self'
 import * as NodeList from './NodeList'
-import { LooseObject } from '../shared-types/Cycle/P2PTypes'
-import * as Types from '../shared-types/Cycle/P2PTypes'
-import { validateTypes, sleep } from '../shared-functions/Utils'
+import { Utils, Changer, CycleCreatorTypes, CycleAutoScaleTypes, P2PTypes } from 'shardus-parser'
 import * as Comms from './Comms'
-import * as Utils from '../shared-functions/P2PUtils'
 import * as Network from '../network'
 import deepmerge from 'deepmerge'
 import { request } from 'express'
 import { logFlags } from '../logger'
 import { ScaleRequest, SignedScaleRequest, ScaleType, Txs, Record } from '../shared-types/Cycle/CycleAutoScaleTypes'
-import { CycleRecord } from '../shared-types/Cycle/CycleCreatorTypes'
 
 /** STATE */
 
@@ -27,14 +22,14 @@ export let requestedScalingType: string
 export let approvedScalingType: string
 
 export let scalingRequestsCollector: Map<
-  ScaleRequest['nodeId'],
-  SignedScaleRequest
+  CycleAutoScaleTypes.ScaleRequest['nodeId'],
+  CycleAutoScaleTypes.SignedScaleRequest
 >
 export let desiredCount: number
 
 reset()
 
-const gossipScaleRoute: Types.GossipHandler<SignedScaleRequest> = async (
+const gossipScaleRoute: P2PTypes.GossipHandler<CycleAutoScaleTypes.SignedScaleRequest> = async (
   payload,
   sender,
   tracker
@@ -50,7 +45,7 @@ const gossipScaleRoute: Types.GossipHandler<SignedScaleRequest> = async (
   Comms.sendGossip('scaling', payload, tracker)
 }
 
-const scalingTestRoute: Types.GossipHandler<SignedScaleRequest> = async (
+const scalingTestRoute: P2PTypes.GossipHandler<CycleAutoScaleTypes.SignedScaleRequest> = async (
   payload,
   sender,
   tracker
@@ -99,18 +94,18 @@ export function getDesiredCount(): number {
 }
 
 function createScaleRequest(scaleType) {
-  const request: ScaleRequest = {
+  const request: CycleAutoScaleTypes.ScaleRequest = {
     nodeId: Self.id,
     timestamp: Date.now(),
     counter: CycleCreator.currentCycle,
     scale: undefined,
   }
   switch (scaleType) {
-    case ScaleType.UP:
-      request.scale = ScaleType.UP
+    case CycleAutoScaleTypes.ScaleType.UP:
+      request.scale = CycleAutoScaleTypes.ScaleType.UP
       break
-    case ScaleType.DOWN:
-      request.scale = ScaleType.DOWN
+    case CycleAutoScaleTypes.ScaleType.DOWN:
+      request.scale = CycleAutoScaleTypes.ScaleType.DOWN
       break
     default:
       const err = new Error(`Invalid scaling request type: ${scaleType}`)
@@ -135,7 +130,7 @@ export function requestNetworkUpsize() {
     return
   }
   console.log('DBG', 'UPSIZE!')
-  _requestNetworkScaling(ScaleType.UP)
+  _requestNetworkScaling(CycleAutoScaleTypes.ScaleType.UP)
 }
 
 export function requestNetworkDownsize() {
@@ -143,7 +138,7 @@ export function requestNetworkDownsize() {
     return
   }
   console.log('DBG', 'DOWNSIZE!')
-  _requestNetworkScaling(ScaleType.DOWN)
+  _requestNetworkScaling(CycleAutoScaleTypes.ScaleType.DOWN)
 }
 
 function addExtScalingRequest(scalingRequest) {
@@ -151,7 +146,7 @@ function addExtScalingRequest(scalingRequest) {
   return added
 }
 
-function validateScalingRequest(scalingRequest: SignedScaleRequest) {
+function validateScalingRequest(scalingRequest: CycleAutoScaleTypes.SignedScaleRequest) {
   // Check existence of fields
   if (
     !scalingRequest.nodeId ||
@@ -178,8 +173,8 @@ function validateScalingRequest(scalingRequest: SignedScaleRequest) {
   }
   // Check if we are trying to scale either up or down
   if (
-    scalingRequest.scale !== ScaleType.UP &&
-    scalingRequest.scale !== ScaleType.DOWN
+    scalingRequest.scale !== CycleAutoScaleTypes.ScaleType.UP &&
+    scalingRequest.scale !== CycleAutoScaleTypes.ScaleType.DOWN
   ) {
     warn(
       `Invalid scaling request, not a valid scaling type. Request: ${JSON.stringify(
@@ -225,27 +220,27 @@ function _checkScaling() {
   // Keep a flag if we have changed our metadata.scaling at all
   let changed = false
 
-  if (approvedScalingType === ScaleType.UP) {
+  if (approvedScalingType === CycleAutoScaleTypes.ScaleType.UP) {
     warn('Already set to scale up this cycle. No need to scale up anymore.')
     return
   }
 
   // Check up first
   if (getScaleUpRequests().length >= config.p2p.scaleReqsNeeded) {
-    approvedScalingType = ScaleType.UP
+    approvedScalingType = CycleAutoScaleTypes.ScaleType.UP
     changed = true
   }
 
   // If we haven't approved an scale type, check if we should scale down
   if (!changed) {
-    if (approvedScalingType === ScaleType.DOWN) {
+    if (approvedScalingType === CycleAutoScaleTypes.ScaleType.DOWN) {
       warn(
         'Already set to scale down for this cycle. No need to scale down anymore.'
       )
       return
     }
     if (getScaleDownRequests().length >= config.p2p.scaleReqsNeeded) {
-      approvedScalingType = ScaleType.DOWN
+      approvedScalingType = CycleAutoScaleTypes.ScaleType.DOWN
       changed = true
     } else {
       // Return if we don't change anything
@@ -256,13 +251,13 @@ function _checkScaling() {
   // At this point, we have changed our scaling type flag (approvedScalingType)
   let newDesired
   switch (approvedScalingType) {
-    case ScaleType.UP:
+    case CycleAutoScaleTypes.ScaleType.UP:
       newDesired = CycleChain.newest.desired + config.p2p.amountToGrow
       // If newDesired more than maxNodes, set newDesired to maxNodes
       if (newDesired > config.p2p.maxNodes) newDesired = config.p2p.maxNodes
       setDesireCount(newDesired)
       break
-    case ScaleType.DOWN:
+    case CycleAutoScaleTypes.ScaleType.DOWN:
       newDesired = CycleChain.newest.desired - config.p2p.amountToGrow
       // If newDesired less than minNodes, set newDesired to minNodes
       if (newDesired < config.p2p.minNodes) newDesired = config.p2p.minNodes
@@ -290,7 +285,7 @@ export function queueRequest(request) {}
 
 export function sendRequests() {}
 
-export function getTxs(): Txs {
+export function getTxs(): CycleAutoScaleTypes.Txs {
   // [IMPORTANT] Must return a copy to avoid mutation
   const requestsCopy = deepmerge({}, [
     ...Object.values(scalingRequestsCollector),
@@ -300,20 +295,20 @@ export function getTxs(): Txs {
   }
 }
 
-export function validateRecordTypes(rec: Record): string {
-  let err = validateTypes(rec, { desired: 'n' })
+export function validateRecordTypes(rec: CycleAutoScaleTypes.Record): string {
+  let err = Utils.validateTypes(rec, { desired: 'n' })
   if (err) return err
   return ''
 }
 
-export function updateRecord(txs: Txs, record: CycleRecord) {
+export function updateRecord(txs: CycleAutoScaleTypes.Txs, record: CycleCreatorTypes.CycleRecord) {
   record.desired = getDesiredCount()
   reset()
 }
 
 export function parseRecord(
-  record: CycleRecord
-): CycleParser.Change {
+  record: CycleCreatorTypes.CycleRecord
+): Changer.Change {
   // Since we don't touch the NodeList, return an empty Change
   return {
     added: [],
@@ -325,7 +320,7 @@ export function parseRecord(
 function getScaleUpRequests() {
   let requests = []
   for (let [nodeId, request] of scalingRequestsCollector) {
-    if (request.scale === ScaleType.UP) requests.push(request)
+    if (request.scale === CycleAutoScaleTypes.ScaleType.UP) requests.push(request)
   }
   return requests
 }
@@ -333,15 +328,15 @@ function getScaleUpRequests() {
 function getScaleDownRequests() {
   let requests = []
   for (let [nodeId, request] of scalingRequestsCollector) {
-    if (request.scale === ScaleType.DOWN) requests.push(request)
+    if (request.scale === CycleAutoScaleTypes.ScaleType.DOWN) requests.push(request)
   }
   return requests
 }
 
 function _addToScalingRequests(scalingRequest) {
   switch (scalingRequest.scale) {
-    case ScaleType.UP:
-      if (requestedScalingType === ScaleType.DOWN) {
+    case CycleAutoScaleTypes.ScaleType.UP:
+      if (requestedScalingType === CycleAutoScaleTypes.ScaleType.DOWN) {
         warn('Already scaling down this cycle. Cannot add scaling up request.')
         return false
       }
@@ -352,13 +347,13 @@ function _addToScalingRequests(scalingRequest) {
         return false
       }
       scalingRequestsCollector.set(scalingRequest.nodeId, scalingRequest)
-      requestedScalingType = ScaleType.UP
+      requestedScalingType = CycleAutoScaleTypes.ScaleType.UP
       // console.log(`Added scale request in cycle ${CycleCreator.currentCycle}, quarter ${CycleCreator.currentQuarter}`, requestedScalingType, scalingRequest)
       _checkScaling()
       return true
-    case ScaleType.DOWN:
+    case CycleAutoScaleTypes.ScaleType.DOWN:
       // Check if we are already voting scale up, don't add in that case
-      if (requestedScalingType === ScaleType.UP) {
+      if (requestedScalingType === CycleAutoScaleTypes.ScaleType.UP) {
         warn('Already scaling up this cycle. Cannot add scaling down request.')
         return false
       }
@@ -368,7 +363,7 @@ function _addToScalingRequests(scalingRequest) {
         return false
       }
       scalingRequestsCollector.set(scalingRequest.nodeId, scalingRequest)
-      requestedScalingType = ScaleType.DOWN
+      requestedScalingType = CycleAutoScaleTypes.ScaleType.DOWN
       _checkScaling()
       return true
     default:
@@ -381,7 +376,7 @@ function _addToScalingRequests(scalingRequest) {
   }
 }
 
-function _addScalingRequest(scalingRequest: SignedScaleRequest) {
+function _addScalingRequest(scalingRequest: CycleAutoScaleTypes.SignedScaleRequest) {
   // Check existence of node
   if (!scalingRequest.nodeId) return
 
@@ -410,7 +405,7 @@ async function _waitUntilEndOfCycle() {
   }
   if (logFlags.p2pNonFatal)
     info(`Waiting for ${timeToWait} ms before next cycle marker creation...`)
-  await sleep(timeToWait)
+  await Utils.sleep(timeToWait)
 }
 
 function info(...msg) {

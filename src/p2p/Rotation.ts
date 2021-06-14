@@ -2,14 +2,10 @@ import { Logger } from 'log4js'
 import { insertSorted } from '../utils'
 import * as Comms from './Comms'
 import { config, logger } from './Context'
-import { CycleRecord } from "../shared-types/Cycle/CycleCreatorTypes"
-import { Change } from '../shared-functions/Cycle'
+import { CycleCreatorTypes, P2PTypes, RotationTypes, Changer, Utils } from "shardus-parser"
 import { getDesiredCount } from './CycleAutoScale'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import * as Types from '../shared-types/Cycle/P2PTypes'
-import { Txs, Record } from '../shared-types/Cycle/RotationTypes'
-import { validateTypes } from '../shared-functions/Utils'
 
 /** STATE */
 
@@ -18,7 +14,7 @@ let p2pLogger: Logger
 /** ROUTES */
 
 // [TODO] - since we don't have any routes, no need to create and register this emply function
-const gossipRoute: Types.GossipHandler = (payload) => {}
+const gossipRoute: P2PTypes.GossipHandler = (payload) => {}
 
 const routes = {
   internal: {},
@@ -49,12 +45,12 @@ export function init() {
 
 export function reset() {}
 
-export function getTxs(): Txs {
+export function getTxs(): RotationTypes.Txs {
   return {}
 }
 
-export function validateRecordTypes(rec: Record): string {
-  let err = validateTypes(rec, { expired: 'n', removed: 'a' })
+export function validateRecordTypes(rec: RotationTypes.Record): string {
+  let err = Utils.validateTypes(rec, { expired: 'n', removed: 'a' })
   if (err) return err
   for (const item of rec.removed) {
     if (typeof item !== 'string')
@@ -63,14 +59,14 @@ export function validateRecordTypes(rec: Record): string {
   return ''
 }
 
-export function dropInvalidTxs(txs: Txs): Txs {
+export function dropInvalidTxs(txs: RotationTypes.Txs): RotationTypes.Txs {
   return txs
 }
 
 /*
 Given the txs and prev cycle record mutate the referenced record
 */
-export function updateRecord(txs: Txs, record: CycleRecord, prev: CycleRecord) {
+export function updateRecord(txs: RotationTypes.Txs, record: CycleCreatorTypes.CycleRecord, prev: CycleCreatorTypes.CycleRecord) {
   if (!prev) {
     record.expired = 0
     record.removed = []
@@ -84,7 +80,7 @@ export function updateRecord(txs: Txs, record: CycleRecord, prev: CycleRecord) {
   record.removed = removed // already sorted
 }
 
-export function parseRecord(record: CycleRecord): Change {
+export function parseRecord(record: CycleCreatorTypes.CycleRecord): Changer.Change {
   // Look at the removed id's and make Self emit 'removed' if your own id is there
   if (record.removed.includes(Self.id)) {
     Self.emitter.emit('removed', Self.id)
@@ -104,8 +100,8 @@ export function sendRequests() {}
 /** Module Functions */
 
 export function getExpiredRemoved(
-  start: CycleRecord['start'],
-  desired: CycleRecord['desired']
+  start: CycleCreatorTypes.CycleRecord['start'],
+  desired: CycleCreatorTypes.CycleRecord['desired']
 ) {
   let expired = 0
   const removed = []
