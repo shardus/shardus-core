@@ -6,7 +6,7 @@ import { logger, network } from './Context'
 import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import { parse } from './CycleParser'
-import { Changer, Utils, P2PUtils, P2PTypes, CycleCreatorTypes, NodeListTypes } from 'shardus-parser'
+import { Changer, Utils, SyncUtils, P2PUtils, P2PTypes, CycleCreatorTypes, NodeListTypes } from 'shardus-parser'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
 
@@ -124,8 +124,8 @@ export async function sync(activeNodes: ActiveNode[]) {
       prepended++
 
       if (
-        squasher.final.updated.length >= activeNodeCount(cycleToSyncTo) &&
-        squasher.final.added.length >= totalNodeCount(cycleToSyncTo)
+        squasher.final.updated.length >= SyncUtils.activeNodeCount(cycleToSyncTo) &&
+        squasher.final.added.length >= SyncUtils.totalNodeCount(cycleToSyncTo)
       ) {
         break
       }
@@ -134,14 +134,14 @@ export async function sync(activeNodes: ActiveNode[]) {
     info(
       `Got ${
         squasher.final.updated.length
-      } active nodes, need ${activeNodeCount(cycleToSyncTo)}`
+      } active nodes, need ${SyncUtils.activeNodeCount(cycleToSyncTo)}`
     )
     info(
-      `Got ${squasher.final.added.length} total nodes, need ${totalNodeCount(
+      `Got ${squasher.final.added.length} total nodes, need ${SyncUtils.totalNodeCount(
         cycleToSyncTo
       )}`
     )
-    if (squasher.final.added.length < totalNodeCount(cycleToSyncTo))
+    if (squasher.final.added.length < SyncUtils.totalNodeCount(cycleToSyncTo))
       info(
         'Short on nodes. Need to get more cycles. Cycle:' +
           cycleToSyncTo.counter
@@ -151,8 +151,8 @@ export async function sync(activeNodes: ActiveNode[]) {
     // If you weren't able to prepend any of the prevCycles, start over
     if (prepended < 1) throw new Error('Unable to prepend any previous cycles')
   } while (
-    squasher.final.updated.length < activeNodeCount(cycleToSyncTo) ||
-    squasher.final.added.length < totalNodeCount(cycleToSyncTo)
+    squasher.final.updated.length < SyncUtils.activeNodeCount(cycleToSyncTo) ||
+    squasher.final.added.length < SyncUtils.totalNodeCount(cycleToSyncTo)
   )
 
   // Now that our node list is synced, validate the anchor cycle's cert
@@ -362,16 +362,6 @@ async function getCycles(
   if (valid) return cycles
 }
 
-export function activeNodeCount(cycle: CycleCreatorTypes.CycleRecord) {
-  return (
-    cycle.active +
-    cycle.activated.length -
-    cycle.apoptosized.length -
-    cycle.removed.length -
-    cycle.lost.length
-  )
-}
-
 export function showNodeCount(cycle: CycleCreatorTypes.CycleRecord) {
   warn(` syncing + joined + active - apop - rem - lost
     ${cycle.syncing} +
@@ -383,18 +373,6 @@ export function showNodeCount(cycle: CycleCreatorTypes.CycleRecord) {
     ${cycle.counter}
   `)
   //    ${cycle.activated.length} -
-}
-
-export function totalNodeCount(cycle: CycleCreatorTypes.CycleRecord) {
-  return (
-    cycle.syncing +
-    cycle.joinedConsensors.length +
-    cycle.active +
-    //    cycle.activated.length -      // don't count activated because it was already counted in syncing
-    cycle.apoptosized.length -
-    cycle.removed.length -
-    cycle.lost.length
-  )
 }
 
 function validateCycles(cycles: CycleCreatorTypes.CycleRecord[]) {

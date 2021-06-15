@@ -529,7 +529,7 @@ export function registerRoutes() {
     // }
     delete queryRequest.publicKey
     delete queryRequest.tag
-    let data
+    let data : { [key: number]: StateTypes.ReceiptMapResult[] | StateTypes.StatsClump[] }
     if (queryRequest.type === 'RECEIPT_MAP') {
       data = getReceiptMap(queryRequest.lastData)
     } else if (queryRequest.type === 'SUMMARY_BLOB') {

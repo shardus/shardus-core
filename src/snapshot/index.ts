@@ -105,7 +105,7 @@ export function getSummaryHashes(
 export function getReceiptMap(
   start: Cycle['counter'] = 0,
   end?: Cycle['counter']
-) {
+) : { [key: number]: StateTypes.ReceiptMapResult[] } {
   const collector = {}
   for (const [key] of partitionBlockMapByCycle) {
     if (key >= start) {
@@ -119,7 +119,7 @@ export function getReceiptMap(
 export function getSummaryBlob(
   start: Cycle['counter'] = 0,
   end?: Cycle['counter']
-) {
+) : { [key: number]: StateTypes.StatsClump[] } {
   const collector = {}
   for (const [key] of statesClumpMapByCycle) {
     if (key >= start) {

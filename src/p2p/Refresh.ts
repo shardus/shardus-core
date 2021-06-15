@@ -17,8 +17,7 @@ import { logger } from './Context'
 import { cycles, newest } from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
-import { activeNodeCount, totalNodeCount, showNodeCount } from './Sync'
-import { RefreshTypes, P2PTypes, CycleCreatorTypes, Utils, Changer } from 'shardus-parser'
+import { RefreshTypes, P2PTypes, CycleCreatorTypes, Utils, Changer, SyncUtils } from 'shardus-parser'
 
 /** STATE */
 
@@ -170,15 +169,15 @@ export function cyclesToKeep() {
 /*
     squasher.addChange(Changer.parse(record))
     if (
-      squasher.final.updated.length >= activeNodeCount(newest) &&
-      squasher.final.added.length >= totalNodeCount(newest)
+      squasher.final.updated.length >= SyncUtils.activeNodeCount(newest) &&
+      squasher.final.added.length >= SyncUtils.totalNodeCount(newest)
     ) {
       break
     }
 */
     for (const n of record.refreshedConsensors) seen.set(n.publicKey, 1)
     for (const n of record.joinedConsensors) seen.set(n.publicKey, 1)
-    if (seen.size >= totalNodeCount(newest)) break
+    if (seen.size >= SyncUtils.totalNodeCount(newest)) break
     count++
   }
   info('cycles to keep is '+count)
