@@ -29,6 +29,7 @@ import * as Archivers from '../p2p/Archivers'
 import * as AutoScaling from '../p2p/CycleAutoScale'
 import { currentCycle, currentQuarter } from '../p2p/CycleCreator'
 import { nestedCountersInstance } from '../utils/nestedCounters'
+import { ParserLogger } from 'shardus-parser'
 // the following can be removed now since we are not using the old p2p code
 //const P2P = require('../p2p')
 const allZeroes64 = '0'.repeat(64)
@@ -114,6 +115,10 @@ class Shardus extends EventEmitter {
     this.mainLogger = this.logger.getLogger('main')
     this.fatalLogger = this.logger.getLogger('fatal')
     this.appLogger = this.logger.getLogger('app')
+
+    ParserLogger.logInit(config.baseDir,'shardus-parser-log') 
+    ParserLogger.setAppLogger(this.mainLogger)
+
     this.exitHandler = new ExitHandler()
     this.storage = new Storage(
       config.baseDir,
