@@ -11,7 +11,6 @@ import * as Network from '../network'
 import deepmerge from 'deepmerge'
 import { request } from 'express'
 import { logFlags } from '../logger'
-import { ScaleRequest, SignedScaleRequest, ScaleType, Txs, Record } from '../shared-types/Cycle/CycleAutoScaleTypes'
 
 /** STATE */
 
