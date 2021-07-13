@@ -1,5 +1,6 @@
 import deepmerge from 'deepmerge'
 import { Logger } from 'log4js'
+
 import { logFlags } from '../logger'
 import * as Snapshot from '../snapshot'
 import * as utils from '../utils'
@@ -8,7 +9,12 @@ import * as Active from './Active'
 import * as Apoptosis from './Apoptosis'
 import * as Archivers from './Archivers'
 import * as Comms from './Comms'
-import { config, crypto, logger, storage } from './Context'
+import {
+  config,
+  crypto,
+  logger,
+  storage,
+} from './Context'
 import * as CycleAutoScale from './CycleAutoScale'
 import * as CycleChain from './CycleChain'
 import * as Join from './Join'
@@ -19,8 +25,15 @@ import * as Rotation from './Rotation'
 import * as SafetyMode from './SafetyMode'
 import * as Self from './Self'
 import * as Sync from './Sync'
-import { GossipHandler, InternalHandler, SignedObject } from './Types'
-import { compareQuery, Comparison } from './Utils'
+import {
+  GossipHandler,
+  InternalHandler,
+  SignedObject,
+} from './Types'
+import {
+  compareQuery,
+  Comparison,
+} from './Utils'
 
 /** TYPES */
 
@@ -146,13 +159,11 @@ interface CompareCertRes {
   record: CycleRecord
 }
 
-const compareMarkerRoute: InternalHandler<
-  CompareMarkerReq,
-  CompareMarkerRes
-> = (payload, respond, sender) => {
-  const req = payload
-  respond(compareCycleMarkersEndpoint(req))
-}
+const compareMarkerRoute: InternalHandler<CompareMarkerReq, CompareMarkerRes> =
+  (payload, respond, sender) => {
+    const req = payload
+    respond(compareCycleMarkersEndpoint(req))
+  }
 
 const compareCertRoute: InternalHandler<
   CompareCertReq,
@@ -306,19 +317,11 @@ async function cycleCreator() {
 
   // Send last cycle record, state hashes and receipt hashes to any subscribed archivers
   Archivers.sendData()
-  ;({
-    cycle: currentCycle,
-    quarter: currentQuarter,
-  } = currentCycleQuarterByTime(prevRecord))
+  ;({ cycle: currentCycle, quarter: currentQuarter } =
+    currentCycleQuarterByTime(prevRecord))
 
-  const {
-    quarterDuration,
-    startQ1,
-    startQ2,
-    startQ3,
-    startQ4,
-    end,
-  } = calcIncomingTimes(prevRecord)
+  const { quarterDuration, startQ1, startQ2, startQ3, startQ4, end } =
+    calcIncomingTimes(prevRecord)
 
   nextQ1Start = end
 
@@ -455,7 +458,7 @@ async function runQ4() {
 
   // Don't do cert comparison if you didn't make the cycle
   // [TODO] - maybe we should still compare if we have bestCert since we may have got it from gossip
-  if (madeCycle === false) {
+  if (!madeCycle) {
     warn('In Q4 nothing to do since we madeCycle is false.')
     return
   }

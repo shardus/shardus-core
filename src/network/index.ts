@@ -1,21 +1,26 @@
-import Sntp from '@hapi/sntp'
 import bodyParser from 'body-parser'
 import cors from 'cors'
 import { EventEmitter } from 'events'
 import express from 'express'
 import Log4js from 'log4js'
+import NatAPI = require('nat-api')
 import * as net from 'net'
 import { Sn } from 'shardus-net'
 import { promisify } from 'util'
+
+import Sntp from '@hapi/sntp'
+
 import * as httpModule from '../http'
-import Logger, {logFlags} from '../logger'
-import { config, defaultConfigs, logger } from '../p2p/Context'
-import * as utils from '../utils'
-import { profilerInstance } from '../utils/profiler'
-import NatAPI = require('nat-api')
-import Shardus from '../shardus'
+import Logger, { logFlags } from '../logger'
+import {
+  config,
+  defaultConfigs,
+  logger,
+} from '../p2p/Context'
 import { ShardusConfiguration } from '../shardus/shardus-types'
+import * as utils from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
+import { profilerInstance } from '../utils/profiler'
 
 /** TYPES */
 export interface IPInfo {
@@ -71,13 +76,11 @@ export class NetworkClass extends EventEmitter {
     this.InternalAskCounter = 1
     this.debugNetworkDelay = 0
 
-
-    if(config && config.debug && config.debug.fakeNetworkDelay){
+    if (config && config.debug && config.debug.fakeNetworkDelay) {
       this.debugNetworkDelay = config.debug.fakeNetworkDelay
     }
 
-    nestedCountersInstance.countEvent('network','init') 
-
+    nestedCountersInstance.countEvent('network', 'init')
   }
 
   // TODO: Allow for binding to a specified network interface
@@ -126,29 +129,30 @@ export class NetworkClass extends EventEmitter {
         if (!data) throw new Error('No data provided in request...')
         const { route, payload } = data
 
-
         routeName = route
         if (!route && payload && payload.isResponse) {
-          if (logFlags.debug) this.mainLogger.debug(
-            'Received response data without any specified route',
-            payload
-          )
+          if (logFlags.debug)
+            this.mainLogger.debug(
+              'Received response data without any specified route',
+              payload
+            )
           return
         }
         if (!route) {
-          if (logFlags.debug) this.mainLogger.debug(
-            'Network: ' +
-              `Unable to read request, payload of received message: ${JSON.stringify(
-                data
-              )}`
-          )
+          if (logFlags.debug)
+            this.mainLogger.debug(
+              'Network: ' +
+                `Unable to read request, payload of received message: ${JSON.stringify(
+                  data
+                )}`
+            )
           throw new Error('Unable to read request, no route specified.')
         }
         if (!this.internalRoutes[route])
           throw new Error('Unable to handle request, invalid route.')
 
-        if(this.debugNetworkDelay > 0){
-          await utils.sleep(this.debugNetworkDelay)          
+        if (this.debugNetworkDelay > 0) {
+          await utils.sleep(this.debugNetworkDelay)
         }
         profilerInstance.profileSectionStart('net-internl')
         profilerInstance.profileSectionStart(`net-internl-${route}`)
@@ -169,17 +173,20 @@ export class NetworkClass extends EventEmitter {
           )
         }
       } catch (err) {
-        if (logFlags.error) this.mainLogger.error('Network: _setupInternal: ', err)
-        if (logFlags.error) this.mainLogger.error(
-          'DBG',
-          'Network: _setupInternal > sn.listen > callback > data',
-          data
-        )
-        if (logFlags.error) this.mainLogger.error(
-          'DBG',
-          'Network: _setupInternal > sn.listen > callback > remote',
-          remote
-        )
+        if (logFlags.error)
+          this.mainLogger.error('Network: _setupInternal: ', err)
+        if (logFlags.error)
+          this.mainLogger.error(
+            'DBG',
+            'Network: _setupInternal > sn.listen > callback > data',
+            data
+          )
+        if (logFlags.error)
+          this.mainLogger.error(
+            'DBG',
+            'Network: _setupInternal > sn.listen > callback > remote',
+            remote
+          )
       } finally {
         profilerInstance.profileSectionEnd('net-internl')
         profilerInstance.profileSectionEnd(`net-internl-${routeName}`)
@@ -232,8 +239,8 @@ export class NetworkClass extends EventEmitter {
       }
 
       try {
-        if(this.debugNetworkDelay > 0){
-          await utils.sleep(this.debugNetworkDelay)          
+        if (this.debugNetworkDelay > 0) {
+          await utils.sleep(this.debugNetworkDelay)
         }
         profilerInstance.profileSectionStart('net-ask')
         profilerInstance.profileSectionStart(`net-ask-${route}`)
@@ -252,7 +259,7 @@ export class NetworkClass extends EventEmitter {
           resolve(res)
         }
         const onTimeout = () => {
-          nestedCountersInstance.countEvent('network','timeout') 
+          nestedCountersInstance.countEvent('network', 'timeout')
           const err = new Error(
             `Request timed out. ${utils.stringifyReduce(id)}`
           )
@@ -478,9 +485,9 @@ export async function init() {
     internalPort,
   }
 
-  if(logFlags.info) {
+  if (logFlags.info) {
     mainLogger.info('This nodes ipInfo:')
-    mainLogger.info(JSON.stringify(ipInfo, null, 2))    
+    mainLogger.info(JSON.stringify(ipInfo, null, 2))
   }
 }
 
@@ -532,9 +539,10 @@ async function getNextExternalPort(ip: string) {
     const attempts = [{ enablePMP: false }, { enablePMP: true }]
 
     for (const opts of attempts) {
-      if(logFlags.info) mainLogger.info(
-        `Forwarding ${port} via ${opts.enablePMP ? 'PMP' : 'UPnP'}...`
-      )
+      if (logFlags.info)
+        mainLogger.info(
+          `Forwarding ${port} via ${opts.enablePMP ? 'PMP' : 'UPnP'}...`
+        )
 
       try {
         await natClient.es6.map(
@@ -543,10 +551,10 @@ async function getNextExternalPort(ip: string) {
             opts
           )
         )
-        if(logFlags.info) mainLogger.info('  Success!')
+        if (logFlags.info) mainLogger.info('  Success!')
         break
       } catch (err) {
-        if(logFlags.info) mainLogger.info('  Error:', err.message)
+        if (logFlags.info) mainLogger.info('  Error:', err.message)
       }
     }
   }
@@ -561,21 +569,21 @@ async function getNextExternalPort(ip: string) {
 }
 
 async function wrapTest(test: ConnectTest) {
-  if(logFlags.info) mainLogger.info(`Testing ${test.ip}...`)
+  if (logFlags.info) mainLogger.info(`Testing ${test.ip}...`)
 
   test.once('port', (port) => {
-    if(logFlags.info) mainLogger.info(`  Listening on ${port}. Connecting...`)
-  }
-  )
+    if (logFlags.info) mainLogger.info(`  Listening on ${port}. Connecting...`)
+  })
 
   let result: [boolean, number]
 
   try {
     const success = await test.start()
     result = [success, test.port]
-    if(logFlags.info) mainLogger.info('  Success!')
+    if (logFlags.info) mainLogger.info('  Success!')
   } catch (err) {
-    if(logFlags.info) mainLogger.info('  Failed:', err.message ? err.message : err)
+    if (logFlags.info)
+      mainLogger.info('  Failed:', err.message ? err.message : err)
     result = [false, test.port]
   }
 

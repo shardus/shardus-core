@@ -1,11 +1,20 @@
 import { Logger } from 'log4js'
+
+import { logFlags } from '../logger'
 import { setIsUpTs } from '../p2p/Lost'
 import * as utils from '../utils'
-import { config, crypto, logger, network } from './Context'
+import {
+  config,
+  crypto,
+  logger,
+  network,
+} from './Context'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { InternalHandler, LooseObject } from './Types'
-import {logFlags} from '../logger'
+import {
+  InternalHandler,
+  LooseObject,
+} from './Types'
 
 /** TYPES */
 
@@ -205,7 +214,7 @@ export async function tell(
   const promises = []
   for (const node of nodes) {
     if (node.id === Self.id) {
-      if(logFlags.p2pNonFatal) info('p2p/Comms:tell: Not telling self')
+      if (logFlags.p2pNonFatal) info('p2p/Comms:tell: Not telling self')
       continue
     }
     const signedMessage = _wrapAndTagMessage(message, tracker, node)
@@ -230,7 +239,7 @@ export async function ask(
     tracker = createMsgTracker()
   }
   if (node.id === Self.id) {
-    if(logFlags.p2pNonFatal) info('p2p/Comms:ask: Not asking self')
+    if (logFlags.p2pNonFatal) info('p2p/Comms:ask: Not asking self')
     return false
   }
   const signedMessage = _wrapAndTagMessage(message, tracker, node)
@@ -263,7 +272,8 @@ export function registerInternal(route, handler) {
     internalRecvCounter++
     // We have internal requests turned off until we have a node id
     if (!acceptInternal) {
-      if(logFlags.p2pNonFatal) info('We are not currently accepting internal requests...')
+      if (logFlags.p2pNonFatal)
+        info('We are not currently accepting internal requests...')
       return
     }
     let tracker = ''
@@ -366,7 +376,7 @@ export async function sendGossip(
 
   // nodes.sort((first, second) => first.id.localeCompare(second.id, 'en', { sensitivity: 'variant' }))
   nodes.sort(sortByID)
-  const nodeIdxs = new Array(nodes.length).fill(0).map((curr, idx) => idx) // [TODO]  - we need to make sure that we never iterate, or copy the full nodes list. Assume it could be a million nodes.
+  const nodeIdxs = new Array(nodes.length).fill(0).map((cur, idx) => idx) // [TODO]  - we need to make sure that we never iterate, or copy the full nodes list. Assume it could be a million nodes.
   // Find out your own index in the nodes array
   const myIdx = nodes.findIndex((node) => node.id === Self.id)
   if (myIdx < 0) throw new Error('Could not find self in nodes array')
@@ -617,7 +627,7 @@ export function unregisterGossipHandler(type) {
 // We don't need to prune gossip hashes since we are not creating them anymore.
 function pruneGossipHashes() {
   //  warn(`gossipedHashesRecv:${gossipedHashesRecv.size} gossipedHashesSent:${gossipedHashesSent.size}`)
-  if(logFlags.p2pNonFatal) {
+  if (logFlags.p2pNonFatal) {
     info(`Total  gossipSent:${gossipSent} gossipRecv:${gossipRecv}`)
     info(`Sent gossip by type: ${JSON.stringify(gossipTypeSent)}`)
     info(`Recv gossip by type: ${JSON.stringify(gossipTypeRecv)}`)
