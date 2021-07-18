@@ -1,7 +1,10 @@
-import { readdirSync, readFileSync } from 'fs'
+import {
+  readdirSync,
+  readFileSync,
+} from 'fs'
 import { join } from 'path'
-import { isDeepStrictEqual } from 'util'
-import {logFlags} from '../logger'
+
+import { logFlags } from '../logger'
 
 type Comparator<T, E = T> = (a: E, b: T) => number
 
@@ -315,20 +318,20 @@ export const reviverExpander = (key, value) => {
       return new Map(value.value)
     }
   }
-  if(typeof value === 'string' && value.length === 10 && value[4] === 'x'){
-    let res =  value.slice(0,4) + '0'.repeat(55) + value.slice(5,5+5)
+  if (typeof value === 'string' && value.length === 10 && value[4] === 'x') {
+    let res = value.slice(0, 4) + '0'.repeat(55) + value.slice(5, 5 + 5)
     return res
   }
   return value
 }
 
 export const debugExpand = (value: string) => {
-  let res =  value.slice(0,4) + '0'.repeat(55) + value.slice(5,5+5)
+  let res = value.slice(0, 4) + '0'.repeat(55) + value.slice(5, 5 + 5)
   return res
 }
 
 export const replacer = (key, value) => {
-  const originalObject = value // this[key] 
+  const originalObject = value // this[key]
   if (originalObject instanceof Map) {
     return {
       dataType: 'stringifyReduce_map_2_array',
@@ -340,10 +343,7 @@ export const replacer = (key, value) => {
 }
 
 //Figure out certain chunky objects and store them in their own table
-export const stringifyReduceMemoize = (val, isArrayProp?: boolean) => { 
-
-
-}
+export const stringifyReduceMemoize = (val, isArrayProp?: boolean) => {}
 
 export const reviverMemoize = (key, value) => {
   if (typeof value === 'object' && value !== null) {
@@ -743,4 +743,52 @@ export function isStartWith(inputStr: string, startStr: string) {
   if (!inputStr) return false
   if (!startStr) return false
   return inputStr.indexOf(startStr) === 0
+}
+
+/**
+ * Promise.allSettled with a timeout, in which promises that don't
+ * settle before the specified timeout result in a 'timeout' status.
+ *
+ * @param promises An array of promises
+ * @param timeout The timeout in milliseconds
+ */
+export function promiseAllSettledWithTimeout(
+  promises: Promise<any>[],
+  timeout: number
+): Promise<
+  {
+    status: 'fulfilled' | 'rejected' | 'timeout'
+    reason?: Error
+    value?: any
+  }[]
+> {
+  return new Promise((resolve) => {
+    // initialize all promises to timed out, those that don't timeout will be overwritten
+    let results = new Array(promises.length).fill({ status: 'timeout' })
+    let promisesCompletedCount: number = 0
+
+    promises.forEach((promise, promiseIndex) => {
+      promise
+        .then((value) => {
+          results[promiseIndex] = {
+            status: 'fulfilled',
+            value,
+          }
+        })
+        .catch((error) => {
+          results[promiseIndex] = {
+            status: 'rejected',
+            reason: error,
+          }
+        })
+        .finally(() => {
+          promisesCompletedCount++
+          if (promisesCompletedCount >= results.length) resolve(results)
+        })
+    })
+
+    setTimeout(() => {
+      resolve(results)
+    }, timeout)
+  })
 }
