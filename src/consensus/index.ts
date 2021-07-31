@@ -1,11 +1,13 @@
+import { EventEmitter } from 'events'
 import Log4js from 'log4js'
-import Profiler from '../utils/profiler'
-import Logger, {logFlags} from '../logger'
+
+import Crypto from '../crypto'
+import Logger, { logFlags } from '../logger'
 import Shardus from '../shardus/shardus-types'
 import Storage from '../storage'
-import Crypto from '../crypto'
 import * as utils from '../utils'
-import { EventEmitter } from 'events'
+import Profiler from '../utils/profiler'
+
 type P2P = typeof import('../p2p')
 
 interface Consensus {
@@ -47,6 +49,10 @@ class Consensus extends EventEmitter {
   }
 
   async inject(shardusTransaction, global, noConsensus) {
+    const debugToMainLogger = (message) => {
+      if (logFlags.debug) this.mainLogger.debug(message)
+    }
+
     let transactionReceipt
     const inTransaction = shardusTransaction.inTransaction
     let timestamp = 0
@@ -57,13 +63,12 @@ class Consensus extends EventEmitter {
       timestamp = keysResponse.timestamp
       debugInfo = keysResponse.debugInfo
 
-      if (logFlags.debug) {
-        this.mainLogger.debug(
-          `Start of inject(globalModification:${global}  ts: ${timestamp} noConsensus:${noConsensus} dbg: ${debugInfo}  tx: ${utils.stringifyReduce(
-            shardusTransaction
-          )})`
-        )
-      }
+      debugToMainLogger(
+        `Start of inject(globalModification:${global}  ts: ${timestamp} noConsensus:${noConsensus} dbg: ${debugInfo}  tx: ${utils.stringifyReduce(
+          shardusTransaction
+        )})`
+      )
+
       let sourceAddress, targetAddress, stateId, targetStateId
 
       if (Array.isArray(sourceKeys) && sourceKeys.length > 0) {
@@ -72,61 +77,51 @@ class Consensus extends EventEmitter {
       if (Array.isArray(targetKeys) && targetKeys.length > 0) {
         targetAddress = targetKeys[0]
       }
-      if (logFlags.debug) {
-        this.mainLogger.debug(
-          `sourceAddress: ${utils.makeShortHash(
-            sourceAddress
-          )} targetAddress: ${utils.makeShortHash(targetAddress)}`
-        )
-      }
+
+      debugToMainLogger(
+        `sourceAddress: ${utils.makeShortHash(
+          sourceAddress
+        )} targetAddress: ${utils.makeShortHash(targetAddress)}`
+      )
 
       if (sourceAddress) {
-        if (logFlags.debug) {
-          this.mainLogger.debug(`get source state id for ${sourceAddress}`)
-        }
+        debugToMainLogger(`get source state id for ${sourceAddress}`)
         stateId = null // await this.app.getStateId(sourceAddress)
-        if (logFlags.debug) {
-          this.mainLogger.debug(
-            `StateID: ${stateId} short stateID: ${utils.makeShortHash(
-              stateId
-            )} `
-          )
-        }
+        debugToMainLogger(
+          `StateID: ${stateId} short stateID: ${utils.makeShortHash(stateId)} `
+        )
       }
 
       if (targetAddress) {
-        if (logFlags.debug) {
-          this.mainLogger.debug(`get target state id for ${targetAddress}`)
-        }
+        debugToMainLogger(`get target state id for ${targetAddress}`)
         targetStateId = null // await this.app.getStateId(targetAddress, false) // we don't require this to exist
-        if (logFlags.debug) {
-          this.mainLogger.debug(`targetStateId ${targetStateId}`)
-        }
+        debugToMainLogger(`targetStateId ${targetStateId}`)
       }
 
-      if(sourceAddress === null && targetAddress === null){
-        throw new Error(`app.getKeyFromTransaction did not return any keys for the transaction: ${utils.stringifyReduce(shardusTransaction)}`)
-      }
-
-      if (logFlags.debug) {
-        this.mainLogger.debug(
-          `Creating the receipt for the transaction: StateID: ${stateId} short stateID: ${utils.makeShortHash(
-            stateId
-          )} `
+      if (sourceAddress === null && targetAddress === null) {
+        throw new Error(
+          `app.getKeyFromTransaction did not return any keys for the transaction: ${utils.stringifyReduce(
+            shardusTransaction
+          )}`
         )
       }
+
+      debugToMainLogger(
+        `Creating the receipt for the transaction: StateID: ${stateId} short stateID: ${utils.makeShortHash(
+          stateId
+        )} `
+      )
+
       transactionReceipt = this.createReceipt(
         inTransaction,
         stateId,
         targetStateId
       )
-      if (logFlags.debug) {
-        this.mainLogger.debug(
-          `Done Creating the receipt for the transaction: StateID: ${stateId} short stateID: ${utils.makeShortHash(
-            stateId
-          )} `
-        )
-      }
+      debugToMainLogger(
+        `Done Creating the receipt for the transaction: StateID: ${stateId} short stateID: ${utils.makeShortHash(
+          stateId
+        )} `
+      )
     } catch (ex) {
       this.logger
         .getLogger('main')
@@ -152,7 +147,14 @@ class Consensus extends EventEmitter {
       receipt: transactionReceipt,
     }
 
-    this.emit('accepted', acceptedTX,/*send gossip*/ true, null, global, noConsensus)
+    this.emit(
+      'accepted',
+      acceptedTX,
+      /*send gossip*/ true,
+      null,
+      global,
+      noConsensus
+    )
     this.logger.playbackLogNote(
       'tx_accepted',
       `TransactionId: ${txId}`,
