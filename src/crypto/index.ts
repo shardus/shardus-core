@@ -1,8 +1,12 @@
-import * as crypto from 'shardus-crypto-utils'
+import {
+  ChildProcess,
+  fork,
+} from 'child_process'
 import Log4js from 'log4js'
-import { fork, ChildProcess } from 'child_process'
+import * as crypto from 'shardus-crypto-utils'
+
+import Logger from '../logger'
 import Shardus = require('../shardus/shardus-types')
-import Logger, {logFlags} from '../logger'
 import Storage from '../storage'
 
 interface Crypto {
@@ -40,7 +44,7 @@ class Crypto {
       this.mainLogger.info(
         'Keypair unable to be loaded from database. Generating new keypair...'
       )
-      this.keypair = this._generateKeypair()
+      this.keypair = this.generateKeypair()
       await this.storage.setProperty('keypair', this.keypair)
       this.mainLogger.info(
         'New keypair successfully generated and saved to database.'
@@ -55,7 +59,7 @@ class Crypto {
     }
   }
 
-  _generateKeypair() {
+  private generateKeypair() {
     const keypair = crypto.generateKeypair()
     this.mainLogger.info('New keypair generated.')
     return keypair
@@ -119,7 +123,7 @@ class Crypto {
   }
 
   getComputeProofOfWork(seed, difficulty) {
-    return this._runProofOfWorkGenerator(
+    return this.runProofOfWorkGenerator(
       './computePowGenerator.js',
       seed,
       difficulty
@@ -134,15 +138,17 @@ class Crypto {
     this.powGenerators = {}
   }
 
-  _runProofOfWorkGenerator(generator: string, seed, difficulty: number) {
+  private runProofOfWorkGenerator(generator: string, seed, difficulty: number) {
     // Fork a child process to compute the PoW, if it doesn't exist
     // @ts-ignore for seems to have a funky definition so ignoring it for now.  could be good to go back and research this.
     if (!this.powGenerators[generator]) {
-      this.powGenerators[generator] = fork(generator, undefined, { cwd: __dirname })
+      this.powGenerators[generator] = fork(generator, undefined, {
+        cwd: __dirname,
+      })
     }
     const promise = new Promise((resolve, reject) => {
-      this.powGenerators[generator].on('message', powObj => {
-        this._stopProofOfWorkGenerator(generator)
+      this.powGenerators[generator].on('message', (powObj) => {
+        this.stopProofOfWorkGenerator(generator)
         resolve(powObj)
       })
     })
@@ -154,10 +160,10 @@ class Crypto {
     return promise
   }
 
-  _stopProofOfWorkGenerator(generator: string) {
+  private stopProofOfWorkGenerator(generator: string) {
     if (!this.powGenerators[generator]) return Promise.resolve('not running')
     const promise = new Promise((resolve, reject) => {
-      this.powGenerators[generator].on('close', signal => {
+      this.powGenerators[generator].on('close', (signal) => {
         delete this.powGenerators[generator]
         resolve(signal)
       })

@@ -1,7 +1,9 @@
 import path from 'path'
-import { NetworkClass } from '../network'
-import zlib from 'zlib'
 import Trie from 'trie-prefix-tree'
+import zlib from 'zlib'
+
+import { NetworkClass } from '../network'
+
 const tar = require('tar-fs')
 
 interface Debug {
@@ -17,7 +19,7 @@ class Debug {
     this.network = network
     this.archiveName = `debug-${network.ipInfo.externalIp}-${network.ipInfo.externalPort}.tar.gz`
     this.files = {}
-    this._registerRoutes()
+    this.registerRoutes()
   }
 
   addToArchive(src, dest) {
@@ -41,7 +43,7 @@ class Debug {
     const trie = Trie(entries)
     const pack = tar.pack(cwd, {
       entries,
-      map: function(header) {
+      map: function (header) {
         // Find the closest entry for this item
         let entry = header.name
         while (!trie.isPrefix(entry)) {
@@ -59,7 +61,7 @@ class Debug {
     return pack
   }
 
-  _registerRoutes() {
+  private registerRoutes() {
     this.network.registerExternalGet('debug', (req, res) => {
       const archive = this.createArchiveStream()
       const gzip = zlib.createGzip()

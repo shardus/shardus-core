@@ -1,15 +1,19 @@
+import {
+  existsSync,
+  mkdirSync,
+} from 'fs'
+import got from 'got'
 import log4js from 'log4js'
-import { existsSync, mkdirSync } from 'fs'
-import * as utils from '../utils'
 import os from 'os'
+import { parse as parseUrl } from 'url'
+
 import * as http from '../http'
 import Shardus = require('../shardus/shardus-types')
-import { profilerInstance } from '../utils/profiler'
+import * as utils from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
+
 const stringify = require('fast-stable-stringify')
 const log4jsExtend = require('log4js-extend')
-import got from 'got'
-import { parse as parseUrl } from 'url'
 
 interface Logger {
   baseDir: string
@@ -78,7 +82,7 @@ export type LogFlags = {
   // playback:boolean;
   // playback_verbose:boolean
 
-  p2pNonFatal:boolean;
+  p2pNonFatal: boolean
   // //p2p_info:boolean;
 
   // snapshot:boolean;
@@ -104,26 +108,28 @@ export let logFlags: LogFlags = {
   // playback:true,
   // playback_verbose:true,
 
-  p2pNonFatal:true,
+  p2pNonFatal: true,
 
   // snapshot:true,
-} 
-
+}
 
 class Logger {
   backupLogFlags: LogFlags
 
-  constructor(baseDir: string, config: Shardus.LogsConfiguration, startInFatalsLogMode:boolean) {
+  constructor(
+    baseDir: string,
+    config: Shardus.LogsConfiguration,
+    startInFatalsLogMode: boolean
+  ) {
     this.baseDir = baseDir
     this.config = config
     this.logDir = null
     this.log4Conf = null
-    this._setupLogs(startInFatalsLogMode)
-
+    this.setupLogs(startInFatalsLogMode)
   }
 
   // Checks if the configuration has the required components
-  _checkValidConfig() {
+  private checkValidConfig() {
     const config = this.config
     if (!config.dir) throw Error('Fatal Error: Log directory not defined.')
     if (!config.files || typeof config.files !== 'object')
@@ -131,7 +137,7 @@ class Logger {
   }
 
   // Add filenames to each appender of type 'file'
-  _addFileNamesToAppenders() {
+  private addFileNamesToAppenders() {
     const conf = this.log4Conf
     for (const key in conf.appenders) {
       const appender = conf.appenders[key]
@@ -140,7 +146,7 @@ class Logger {
     }
   }
 
-  _configureLogs() {
+  private configureLogs() {
     return log4js.configure(this.log4Conf)
   }
 
@@ -150,13 +156,13 @@ class Logger {
   }
 
   // Setup the logs with the provided configuration using the base directory provided for relative paths
-  _setupLogs(startInFatalsLogMode:boolean) {
+  private setupLogs(startInFatalsLogMode: boolean) {
     const baseDir = this.baseDir
     const config = this.config
 
     if (!baseDir) throw Error('Fatal Error: Base directory not defined.')
     if (!config) throw Error('Fatal Error: No configuration provided.')
-    this._checkValidConfig()
+    this.checkValidConfig()
 
     // Makes specified directory if it doesn't exist
     this.logDir = `${baseDir}/${config.dir}`
@@ -165,15 +171,15 @@ class Logger {
     // Read the log config from log config file
     this.log4Conf = config.options
     log4jsExtend(log4js)
-    this._addFileNamesToAppenders()
-    this._configureLogs()
+    this.addFileNamesToAppenders()
+    this.configureLogs()
     this.getLogger('main').info('Logger initialized.')
 
     this._playbackLogger = this.getLogger('playback')
 
     this.setupLogControlValues()
 
-    if(startInFatalsLogMode){
+    if (startInFatalsLogMode) {
       console.log('startInFatalsLogMode=true!')
       this.setFatalFlags()
     }
@@ -259,7 +265,7 @@ class Logger {
   playbackLog(from, to, type, endpoint, id, desc) {
     if (!logFlags.playback) {
       return
-    }   
+    }
 
     nestedCountersInstance.countEvent(type, endpoint)
 
@@ -294,16 +300,15 @@ class Logger {
     this.playbackLog('', '', 'Note', noteCategory, id, desc)
   }
 
+  setFatalFlags() {
+    for (const [key, value] of Object.entries(logFlags)) {
+      logFlags[key] = false
+    }
+    logFlags.fatal = true
 
-  setFatalFlags(){
-      for (const [key, value] of Object.entries(logFlags)) {
-        logFlags[key] = false
-      }
-      logFlags.fatal = true
-
-      logFlags.playback = false
+    logFlags.playback = false
   }
-  setDefaultFlags(){
+  setDefaultFlags() {
     for (const [key, value] of Object.entries(logFlags)) {
       logFlags[key] = this.backupLogFlags[key]
     }
@@ -315,10 +320,8 @@ class Logger {
     }
   }
 
-
   registerEndpoints(Context) {
     Context.network.registerExternalGet('log-fatal', (req, res) => {
-
       this.setFatalFlags()
 
       for (const [key, value] of Object.entries(logFlags)) {
@@ -332,35 +335,38 @@ class Logger {
 
       for (const [key, value] of Object.entries(logFlags)) {
         res.write(`${key}: ${value}\n`)
-      }      
+      }
       res.end()
     })
-
 
     //TODO DEBUG DO NOT USE IN LIVE NETWORK
     Context.network.registerExternalGet('log-default-all', (req, res) => {
       this.setDefaultFlags()
 
-      try{
+      try {
         let activeNodes = Context.p2p.state.getNodes()
-        if(activeNodes){
-          for(let node of activeNodes.values()){
-            this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-default`)
+        if (activeNodes) {
+          for (let node of activeNodes.values()) {
+            this.internalHackGet(
+              `${node.externalIp}:${node.externalPort}/log-default`
+            )
             res.write(`${node.externalIp}:${node.externalPort}/log-default\n`)
-          }        
+          }
         }
-        res.write(`joining nodes...\n`)  
+        res.write(`joining nodes...\n`)
         let joiningNodes = Context.p2p.state.getNodesRequestingJoin()
-        if(joiningNodes){
-          for(let node of joiningNodes.values()){
-            this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-default`)
+        if (joiningNodes) {
+          for (let node of joiningNodes.values()) {
+            this.internalHackGet(
+              `${node.externalIp}:${node.externalPort}/log-default`
+            )
             res.write(`${node.externalIp}:${node.externalPort}/log-default\n`)
-          }        
+          }
         }
 
-        res.write(`sending default logs to all nodes\n`)        
-      } catch(e){
-        res.write(`${e}\n`) 
+        res.write(`sending default logs to all nodes\n`)
+      } catch (e) {
+        res.write(`${e}\n`)
       }
 
       res.end()
@@ -369,77 +375,75 @@ class Logger {
     //TODO DEBUG DO NOT USE IN LIVE NETWORK
     Context.network.registerExternalGet('log-fatal-all', (req, res) => {
       this.setFatalFlags()
-      try{
+      try {
         let activeNodes = Context.p2p.state.getNodes()
-        if(activeNodes){
-          for(let node of activeNodes.values()){
-            this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-fatal`)
+        if (activeNodes) {
+          for (let node of activeNodes.values()) {
+            this.internalHackGet(
+              `${node.externalIp}:${node.externalPort}/log-fatal`
+            )
             res.write(`${node.externalIp}:${node.externalPort}/log-fatal\n`)
-          }        
+          }
         }
-        res.write(`joining nodes...\n`)  
+        res.write(`joining nodes...\n`)
         let joiningNodes = Context.p2p.state.getNodesRequestingJoin()
-        if(joiningNodes){
-          for(let node of joiningNodes.values()){
-            this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-fatal`)
+        if (joiningNodes) {
+          for (let node of joiningNodes.values()) {
+            this.internalHackGet(
+              `${node.externalIp}:${node.externalPort}/log-fatal`
+            )
             res.write(`${node.externalIp}:${node.externalPort}/log-fatal\n`)
-          }  
+          }
         }
-        res.write(`sending fatal logs to all nodes\n`)   
-      } catch(e){
-        res.write(`${e}\n`) 
+        res.write(`sending fatal logs to all nodes\n`)
+      } catch (e) {
+        res.write(`${e}\n`)
       }
       res.end()
-    })    
-
+    })
   }
 
-  _containsProtocol(url: string) {
+  private containsProtocol(url: string) {
     if (!url.match('https?://*')) return false
     return true
   }
-  
-  _normalizeUrl(url: string) {
+
+  private normalizeUrl(url: string) {
     let normalized = url
-    if (!this._containsProtocol(url)) normalized = 'http://' + url
+    if (!this.containsProtocol(url)) normalized = 'http://' + url
     return normalized
   }
-  async _internalHackGet(url:string){
-    let normalized = this._normalizeUrl(url)
+  private async internalHackGet(url: string) {
+    let normalized = this.normalizeUrl(url)
     let host = parseUrl(normalized, true)
-    try{
+    try {
       await got.get(host, {
-        timeout: 1000,   
-        retry: 0,  
+        timeout: 1000,
+        retry: 0,
         throwHttpErrors: false,
         //parseJson: (text:string)=>{},
-        //json: false, // the whole reason for _internalHackGet was because we dont want the text response to mess things up
-                     //  and as a debug non shipping endpoint did not want to add optional parameters to http module
-      })   
-      
-    } catch(e) {
-
-    }
-
+        //json: false, // the whole reason for internalHackGet was because we dont want the text response to mess things up
+        //  and as a debug non shipping endpoint did not want to add optional parameters to http module
+      })
+    } catch (e) {}
   }
-  async _internalHackGetWithResp(url:string){
-    let normalized = this._normalizeUrl(url)
+  async internalHackGetWithResp(url: string) {
+    let normalized = this.normalizeUrl(url)
     let host = parseUrl(normalized, true)
-    try{
+    try {
       const res = await got.get(host, {
-        timeout: 7000,   
-        retry: 0,  
+        timeout: 7000,
+        retry: 0,
         throwHttpErrors: false,
         //parseJson: (text:string)=>{},
-        //json: false, // the whole reason for _internalHackGet was because we dont want the text response to mess things up
-                     //  and as a debug non shipping endpoint did not want to add optional parameters to http module
-      })   
-      
+        //json: false, // the whole reason for internalHackGet was because we dont want the text response to mess things up
+        //  and as a debug non shipping endpoint did not want to add optional parameters to http module
+      })
+
       return res
-    } catch(e) {
+    } catch (e) {
       return null
     }
-
   }
 
   setupLogControlValues() {
@@ -447,29 +451,38 @@ class Logger {
 
     let mainLogger = this.getLogger('main')
     // @ts-ignore
-    if (mainLogger && ['TRACE','trace'].includes(mainLogger.level.levelStr)) {
+    if (mainLogger && ['TRACE', 'trace'].includes(mainLogger.level.levelStr)) {
       logFlags.verbose = true
       logFlags.debug = true
       logFlags.info = true
       logFlags.error = true
       // @ts-ignore
-    } else if (mainLogger && ['DEBUG','debug'].includes(mainLogger.level.levelStr)) {
+    } else if (
+      mainLogger &&
+      ['DEBUG', 'debug'].includes(mainLogger.level.levelStr)
+    ) {
       logFlags.verbose = false
       logFlags.debug = true
       logFlags.info = true
       logFlags.error = true
       // @ts-ignore
-    } else if (mainLogger && ['INFO','info'].includes(mainLogger.level.levelStr)) {
+    } else if (
+      mainLogger &&
+      ['INFO', 'info'].includes(mainLogger.level.levelStr)
+    ) {
       logFlags.verbose = false
       logFlags.debug = false
       logFlags.info = true
       logFlags.error = true
       // @ts-ignore
-    } else if (mainLogger && ['ERROR','error','WARN','warn'].includes(mainLogger.level.levelStr)) {
+    } else if (
+      mainLogger &&
+      ['ERROR', 'error', 'WARN', 'warn'].includes(mainLogger.level.levelStr)
+    ) {
       logFlags.verbose = false
       logFlags.debug = false
       logFlags.info = true
-      logFlags.error = true     
+      logFlags.error = true
     } else {
       logFlags.verbose = false
       logFlags.debug = false
@@ -480,27 +493,31 @@ class Logger {
 
     let playbackLogger = this.getLogger('playback')
     logFlags.playback = false
-    if(playbackLogger){
+    if (playbackLogger) {
       // @ts-ignore
-      logFlags.playback_trace = ['TRACE'].includes(playbackLogger.level.levelStr)
+      logFlags.playback_trace = ['TRACE'].includes(
+        playbackLogger.level.levelStr
+      )
       // @ts-ignore
-      logFlags.playback_debug = ['DEBUG'].includes(playbackLogger.level.levelStr)
+      logFlags.playback_debug = ['DEBUG'].includes(
+        playbackLogger.level.levelStr
+      )
       if (logFlags.playback_trace || logFlags.playback_debug) {
         logFlags.playback = true
       } else {
         logFlags.playback = false
-      }  
+      }
     }
-  
+
     let netLogger = this.getLogger('net')
     // @ts-ignore
-    if (netLogger && ['TRACE','trace'].includes(netLogger.level.levelStr)) {
+    if (netLogger && ['TRACE', 'trace'].includes(netLogger.level.levelStr)) {
       logFlags.net_trace = true
     }
 
     let p2pLogger = this.getLogger('p2p')
     // @ts-ignore
-    if (p2pLogger && ['FATAL','fatal'].includes(netLogger.level.levelStr)) {
+    if (p2pLogger && ['FATAL', 'fatal'].includes(netLogger.level.levelStr)) {
       logFlags.p2pNonFatal = false
     } else {
       logFlags.p2pNonFatal = true

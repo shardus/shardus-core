@@ -22,14 +22,14 @@ class ExitHandler {
   }
 
   // Cleans up all modules with registered async functions
-  async _cleanupAsync() {
+  private async cleanupAsync() {
     for (const [, func] of this.asyncFuncs) {
       await func()
     }
   }
 
   // Cleans up all modules with registered sync functions
-  _cleanupSync() {
+  private cleanupSync() {
     for (const [, func] of this.syncFuncs) {
       func()
     }
@@ -39,9 +39,9 @@ class ExitHandler {
   async exitCleanly(exitProcess = true) {
     if (this.exited) return
     this.exited = true
-    this._cleanupSync()
+    this.cleanupSync()
     try {
-      await this._cleanupAsync()
+      await this.cleanupAsync()
     } catch (e) {
       console.error(e)
     }
@@ -51,13 +51,13 @@ class ExitHandler {
   async exitUncleanly() {
     if (this.exited) return
     this.exited = true
-    this._cleanupSync()
+    this.cleanupSync()
     try {
-      await this._cleanupAsync()
+      await this.cleanupAsync()
     } catch (e) {
       console.error(e)
     }
-    process.exit(1)  // exiting with status 1 causes our modified PM2 to not restart the process
+    process.exit(1) // exiting with status 1 causes our modified PM2 to not restart the process
   }
 
   // Used for adding event listeners for the SIGINT and SIGTERM signals
