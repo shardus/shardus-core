@@ -1,23 +1,24 @@
-import { ShardusConfiguration } from '../shardus/shardus-types'
-import Shardus = require('../shardus/shardus-types')
-import { ShardGlobals, ShardInfo, StoredPartition, NodeShardData, AddressRange, HomeNodeSummary, ParititionShardDataMap, NodeShardDataMap, MergeResults, BasicAddressRange } from './shardFunctionTypes'
-import * as utils from '../utils'
-const stringify = require('fast-stable-stringify')
-
-import Profiler from '../utils/profiler'
-import { P2PModuleContext as P2P } from '../p2p/Context'
-import Storage from '../storage'
 import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
-import ShardFunctions from './shardFunctions.js'
-import { time } from 'console'
-import StateManager from '.'
-import { isNullOrUndefined } from 'util'
-import { robustQuery } from '../p2p/Utils'
-import { nestedCountersInstance } from '../utils/nestedCounters'
 import * as Context from '../p2p/Context'
-import * as Wrapper from '../p2p/Wrapper'
+import { P2PModuleContext as P2P } from '../p2p/Context'
 import * as Self from '../p2p/Self'
+import { robustQuery } from '../p2p/Utils'
+import * as Wrapper from '../p2p/Wrapper'
+import Shardus = require('../shardus/shardus-types')
+import Storage from '../storage'
+import * as utils from '../utils'
+import { nestedCountersInstance } from '../utils/nestedCounters'
+import Profiler from '../utils/profiler'
+import StateManager from './'
+import ShardFunctions from './shardFunctions.js'
+import {
+  AddressRange,
+  BasicAddressRange,
+  ShardInfo,
+} from './shardFunctionTypes'
+
+const stringify = require('fast-stable-stringify')
 
 const allZeroes64 = '0'.repeat(64)
 
@@ -212,7 +213,6 @@ class AccountSync {
     this.mapAccountData = {}
 
     this.stateManager.fifoLocks = {}
-
   }
 
   /***
@@ -236,13 +236,13 @@ class AccountSync {
     this.p2p.registerInternal('get_account_state_hash', async (payload: AccountStateHashReq, respond: (arg0: AccountStateHashResp) => any) => {
       let result = {} as AccountStateHashResp
 
-      if(this.softSync_checkInitialFlag && this.initalSyncFinished === false){
+      if (this.softSync_checkInitialFlag && this.initalSyncFinished === false) {
         //not ready?
         result.ready = false
         result.stateHash = this.stateManager.currentCycleShardData.ourNode.id
         await respond(result)
         return
-      } 
+      }
 
       // yikes need to potentially hash only N records at a time and return an array of hashes
       let stateHash = await this.stateManager.transactionQueue.getAccountsStateHash(payload.accountStart, payload.accountEnd, payload.tsStart, payload.tsEnd)
@@ -697,7 +697,6 @@ class AccountSync {
       }
 
       nestedCountersInstance.countEvent('sync', `sync partition: ${partition} end: ${this.stateManager.currentCycleShardData.cycleNumber} missing tx to repair: ${keysToRepair}`)
-
     } catch (error) {
       if (error.message.includes('FailAndRestartPartition')) {
         if (logFlags.debug) this.mainLogger.debug(`DATASYNC: Error Failed at: ${error.stack}`)
@@ -1022,7 +1021,6 @@ class AccountSync {
       return
     }
 
-
     let debugRange = ` ${utils.stringifyReduce(lowAddress)} - ${utils.stringifyReduce(highAddress)}`
 
     if (logFlags.console) console.log(`syncStateTableData startTime: ${startTime} endTime: ${endTime}` + '   time:' + Date.now())
@@ -1127,8 +1125,8 @@ class AccountSync {
         winners = robustQueryResult.winningNodes
 
         let tries = 3
-        while(result && result.ready === false && tries > 0){
-          nestedCountersInstance.countEvent('sync','majority of nodes not ready, wait and retry')
+        while (result && result.ready === false && tries > 0) {
+          nestedCountersInstance.countEvent('sync', 'majority of nodes not ready, wait and retry')
           //too many nodes not ready
           await utils.sleep(30000) //wait 30 seconds and try again
           robustQueryResult = await robustQuery(nodes, queryFn, equalFn, 3, false)
@@ -1142,7 +1140,6 @@ class AccountSync {
           this.statemanager_fatal(`syncStateTableData_nonRobust`, 'syncStateTableData: robustQuery ' + debugRange)
           throw new Error('FailAndRestartPartition_stateTable_A' + debugRange)
         }
-
       } catch (ex) {
         // NOTE: no longer expecting an exception from robust query in cases where we do not have enough votes or respones!
         //       but for now if isRobustResult == false then we local code wil throw an exception
@@ -1158,13 +1155,13 @@ class AccountSync {
           this.statemanager_fatal(`syncStateTableData_noWin`, `DATASYNC: no winners, going to throw fail and restart` + debugRange) // todo: consider if this is just an error
           throw new Error('FailAndRestartPartition_stateTable_C' + debugRange)
         }
-        this.dataSourceNode = winners[0] // Todo random index
+        this.dataSourceNode = winners[Math.floor(Math.random() * winners.length)]
         if (logFlags.debug)
           this.mainLogger.debug(`DATASYNC: got hash ${result.stateHash} from ${utils.stringifyReduce(winners.map((node: Shardus.Node) => utils.makeShortHash(node.id) + ':' + node.externalPort))}`)
         firstHash = result.stateHash
       } else {
         let resultStr = utils.stringifyReduce(result)
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: robustQuery get_account_state_hash failed ${result} `  + debugRange)
+        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: robustQuery get_account_state_hash failed ${result} ` + debugRange)
         throw new Error('FailAndRestartPartition_stateTable_D ' + result + debugRange)
       }
 
@@ -1895,18 +1892,18 @@ class AccountSync {
    *    ##     ##  #######  ##    ##    ##    #### ##     ## ########     ######     ##    ##    ##  ######  ##     ## ##     ## ##    ## ########  ######## ######## ##     ##  ######
    */
 
-   /**
-    * updateRuntimeSyncTrackers
-    * 
-    * called in update shard values to handle sync trackers that have finished and need to restar TXs
-    */
+  /**
+   * updateRuntimeSyncTrackers
+   *
+   * called in update shard values to handle sync trackers that have finished and need to restar TXs
+   */
   updateRuntimeSyncTrackers() {
     let initalSyncRemaining = 0
     if (this.syncTrackers != null) {
       for (let i = this.syncTrackers.length - 1; i >= 0; i--) {
         let syncTracker = this.syncTrackers[i]
 
-        if(syncTracker.isPartOfInitialSync){
+        if (syncTracker.isPartOfInitialSync) {
           initalSyncRemaining++
         }
 
@@ -1915,10 +1912,9 @@ class AccountSync {
 
           // allow syncing queue entries to resume!
           for (let queueEntry of syncTracker.queueEntries) {
-
             //need to decrement this per key
-            for(let key of queueEntry.uniqueKeys){
-              if(syncTracker.keys[key] === true){
+            for (let key of queueEntry.uniqueKeys) {
+              if (syncTracker.keys[key] === true) {
                 queueEntry.syncCounter--
               }
             }
@@ -1993,24 +1989,24 @@ class AccountSync {
       }
       if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_trackerRangeClearFinished', ` `, `num trackers left: ${this.syncTrackers.length} `)
 
-      if(this.initalSyncRemaining > 0 && initalSyncRemaining === 0){
-        this.initalSyncFinished = true        
+      if (this.initalSyncRemaining > 0 && initalSyncRemaining === 0) {
+        this.initalSyncFinished = true
         this.initalSyncRemaining = 0
         if (logFlags.debug) this.mainLogger.debug(`DATASYNC: initalSyncFinished.`)
-        nestedCountersInstance.countEvent('sync',`initialSyncFinished ${this.stateManager.currentCycleShardData.cycleNumber}`)
+        nestedCountersInstance.countEvent('sync', `initialSyncFinished ${this.stateManager.currentCycleShardData.cycleNumber}`)
       }
     }
   }
 
-/***
- *     ######  ##    ## ##    ##  ######  ########  ##     ## ##    ## ######## #### ##     ## ######## ######## ########     ###     ######  ##    ## ######## ########   ######  
- *    ##    ##  ##  ##  ###   ## ##    ## ##     ## ##     ## ###   ##    ##     ##  ###   ### ##          ##    ##     ##   ## ##   ##    ## ##   ##  ##       ##     ## ##    ## 
- *    ##         ####   ####  ## ##       ##     ## ##     ## ####  ##    ##     ##  #### #### ##          ##    ##     ##  ##   ##  ##       ##  ##   ##       ##     ## ##       
- *     ######     ##    ## ## ## ##       ########  ##     ## ## ## ##    ##     ##  ## ### ## ######      ##    ########  ##     ## ##       #####    ######   ########   ######  
- *          ##    ##    ##  #### ##       ##   ##   ##     ## ##  ####    ##     ##  ##     ## ##          ##    ##   ##   ######### ##       ##  ##   ##       ##   ##         ## 
- *    ##    ##    ##    ##   ### ##    ## ##    ##  ##     ## ##   ###    ##     ##  ##     ## ##          ##    ##    ##  ##     ## ##    ## ##   ##  ##       ##    ##  ##    ## 
- *     ######     ##    ##    ##  ######  ##     ##  #######  ##    ##    ##    #### ##     ## ########    ##    ##     ## ##     ##  ######  ##    ## ######## ##     ##  ######  
- */
+  /***
+   *     ######  ##    ## ##    ##  ######  ########  ##     ## ##    ## ######## #### ##     ## ######## ######## ########     ###     ######  ##    ## ######## ########   ######
+   *    ##    ##  ##  ##  ###   ## ##    ## ##     ## ##     ## ###   ##    ##     ##  ###   ### ##          ##    ##     ##   ## ##   ##    ## ##   ##  ##       ##     ## ##    ##
+   *    ##         ####   ####  ## ##       ##     ## ##     ## ####  ##    ##     ##  #### #### ##          ##    ##     ##  ##   ##  ##       ##  ##   ##       ##     ## ##
+   *     ######     ##    ## ## ## ##       ########  ##     ## ## ## ##    ##     ##  ## ### ## ######      ##    ########  ##     ## ##       #####    ######   ########   ######
+   *          ##    ##    ##  #### ##       ##   ##   ##     ## ##  ####    ##     ##  ##     ## ##          ##    ##   ##   ######### ##       ##  ##   ##       ##   ##         ##
+   *    ##    ##    ##    ##   ### ##    ## ##    ##  ##     ## ##   ###    ##     ##  ##     ## ##          ##    ##    ##  ##     ## ##    ## ##   ##  ##       ##    ##  ##    ##
+   *     ######     ##    ##    ##  ######  ##     ##  #######  ##    ##    ##    #### ##     ## ########    ##    ##     ## ##     ##  ######  ##    ## ######## ##     ##  ######
+   */
 
   /**
    * syncRuntimeTrackers
@@ -2075,13 +2071,24 @@ class AccountSync {
   createSyncTrackerByRange(range: BasicAddressRange, cycle: number, initalSync: boolean = false): SyncTracker {
     // let partition = -1
     let index = this.syncTrackerIndex++
-    let syncTracker = { range, queueEntries: [], cycle, index, syncStarted: false, syncFinished: false, isGlobalSyncTracker: false, globalAddressMap: {}, isPartOfInitialSync:initalSync, keys:{}  } as SyncTracker // partition,
+    let syncTracker = {
+      range,
+      queueEntries: [],
+      cycle,
+      index,
+      syncStarted: false,
+      syncFinished: false,
+      isGlobalSyncTracker: false,
+      globalAddressMap: {},
+      isPartOfInitialSync: initalSync,
+      keys: {},
+    } as SyncTracker // partition,
     syncTracker.syncStarted = false
     syncTracker.syncFinished = false
 
     this.syncTrackers.push(syncTracker) // we should maintain this order.
 
-    if(initalSync){
+    if (initalSync) {
       this.initalSyncRemaining++
     }
 
@@ -2091,13 +2098,24 @@ class AccountSync {
   createSyncTrackerByForGlobals(cycle: number, initalSync: boolean = false): SyncTracker {
     // let partition = -1
     let index = this.syncTrackerIndex++
-    let syncTracker = { range: {}, queueEntries: [], cycle, index, syncStarted: false, syncFinished: false, isGlobalSyncTracker: true, globalAddressMap: {}, isPartOfInitialSync:initalSync, keys:{} } as SyncTracker // partition,
+    let syncTracker = {
+      range: {},
+      queueEntries: [],
+      cycle,
+      index,
+      syncStarted: false,
+      syncFinished: false,
+      isGlobalSyncTracker: true,
+      globalAddressMap: {},
+      isPartOfInitialSync: initalSync,
+      keys: {},
+    } as SyncTracker // partition,
     syncTracker.syncStarted = false
     syncTracker.syncFinished = false
 
     this.syncTrackers.push(syncTracker) // we should maintain this order.
 
-    if(initalSync){
+    if (initalSync) {
       this.initalSyncRemaining++
     }
 

@@ -1,11 +1,19 @@
-import { Utils } from 'sequelize/types'
-import Logger, {logFlags} from '../logger'
+import Logger, { logFlags } from '../logger'
 import Shardus = require('../shardus/shardus-types')
+//import {ShardGlobals,ShardInfo,StoredPartition,NodeShardData,AddressRange,HomeNodeSummary,ParititionShardDataMap,NodeShardDataMap,MergeResults,BasicAddressRange } from  './shardFunction2Types'
+import {
+  AddressRange,
+  HomeNodeSummary,
+  MergeResults,
+  NodeShardData,
+  NodeShardDataMap,
+  ParititionShardDataMap,
+  ShardGlobals,
+  ShardInfo,
+  StoredPartition,
+} from './shardFunctionTypes'
 
 const stringify = require('fast-stable-stringify')
-
-//import {ShardGlobals,ShardInfo,StoredPartition,NodeShardData,AddressRange,HomeNodeSummary,ParititionShardDataMap,NodeShardDataMap,MergeResults,BasicAddressRange } from  './shardFunction2Types'
-import { ShardGlobals, ShardInfo, StoredPartition, NodeShardData, AddressRange, HomeNodeSummary, ParititionShardDataMap, NodeShardDataMap, MergeResults, BasicAddressRange } from './shardFunctionTypes'
 
 class ShardFunctions {
   static logger: Logger = null
@@ -142,13 +150,12 @@ class ShardFunctions {
     }
 
     // need to collapse a split range that covers all partitions?
-    if(storedPartitions.rangeIsSplit === true && storedPartitions.partitionEnd1 + 1 === storedPartitions.partitionStart2){
+    if (storedPartitions.rangeIsSplit === true && storedPartitions.partitionEnd1 + 1 === storedPartitions.partitionStart2) {
       storedPartitions.rangeIsSplit = false
       storedPartitions.partitionStart = 0
-      storedPartitions.partitionEnd = shardGlobals.numPartitions - 1 
+      storedPartitions.partitionEnd = shardGlobals.numPartitions - 1
 
       storedPartitions.partitionRangeVector = { start: storedPartitions.partitionStart, dist: 1 + 2 * shardGlobals.nodesPerConsenusGroup, end: storedPartitions.partitionEnd }
-
     }
 
     // alias to start and end 1 in the simple case.  sync code expects values for these
@@ -1033,7 +1040,7 @@ class ShardFunctions {
       }
     }
 
-    if(coverageChanges.length === 0){
+    if (coverageChanges.length === 0) {
       return coverageChanges
     }
 
@@ -1044,31 +1051,30 @@ class ShardFunctions {
 
     let finalChanges = []
     // post process our coverage changes.  If any of our old range overlaps subtract out the old range
-    for(let coverageChange of coverageChanges){
-
-      if (ShardFunctions.setOverlap(oldStart1, oldEnd1, coverageChange.start, coverageChange.end)){
-        if(oldStart1 <= coverageChange.start){
+    for (let coverageChange of coverageChanges) {
+      if (ShardFunctions.setOverlap(oldStart1, oldEnd1, coverageChange.start, coverageChange.end)) {
+        if (oldStart1 <= coverageChange.start) {
           coverageChange.start = oldEnd1
         }
-        if(oldEnd1 >= coverageChange.end){
+        if (oldEnd1 >= coverageChange.end) {
           coverageChange.end = oldStart1
         }
-        if(coverageChange.start >= coverageChange.end){
+        if (coverageChange.start >= coverageChange.end) {
           continue
         }
       }
-      if(oldStoredPartitions.rangeIsSplit){
-        if (ShardFunctions.setOverlap(oldStart2, oldEnd2, coverageChange.start, coverageChange.end)){
-          if(oldStart2 <= coverageChange.start){
+      if (oldStoredPartitions.rangeIsSplit) {
+        if (ShardFunctions.setOverlap(oldStart2, oldEnd2, coverageChange.start, coverageChange.end)) {
+          if (oldStart2 <= coverageChange.start) {
             coverageChange.start = oldEnd2
           }
-          if(oldEnd2 >= coverageChange.end){
+          if (oldEnd2 >= coverageChange.end) {
             coverageChange.end = oldStart2
           }
-          if(coverageChange.start >= coverageChange.end){
+          if (coverageChange.start >= coverageChange.end) {
             continue
           }
-        }      
+        }
       }
 
       finalChanges.push(coverageChange)
@@ -1418,7 +1424,7 @@ class ShardFunctions {
     let lowAddressNum = parseInt(lowAddress.slice(0, 8), 16) // assume trailing 0s
     let highAddressNum = parseInt(highAddress.slice(0, 8), 16) + 1 // assume trailng fffs
 
-    // todo start and end loop at smarter areas for efficieny reasones!
+    // todo start and end loop at smarter areas for efficiency reasons!
     let distLow = 0
     let distHigh = 0
 
@@ -1524,7 +1530,7 @@ class ShardFunctions {
     //   return results
     // }
 
-    //TODO found a bug here. the consensus radius needs to hold one more node!!!
+    // TODO found a bug here. the consensus radius needs to hold one more node!
 
     //let expectedNodes = Math.min(allNodes.length - exclude.length, radius * 2)
 

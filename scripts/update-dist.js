@@ -1,7 +1,5 @@
 const execa = require('execa')
 const { rm } = require('shelljs')
-const { readFileSync } = require('fs')
-const { join } = require('path')
 
 const branch = process.argv[2]
 if (!branch) {
