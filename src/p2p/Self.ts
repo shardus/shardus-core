@@ -16,6 +16,7 @@ import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
+import { hrtime } from 'process'
 
 /** STATE */
 
@@ -54,6 +55,40 @@ export function init() {
 }
 
 export async function startup(): Promise<boolean> {
+  console.log('Starting archiver spam test...')
+
+  let totalStart, totalDiff, totalSec, totalRps
+  let intervalStart, intervalDiff, intervalSec, intervalRps
+  let totalReqs, intervalReqs = 0
+
+  totalStart = hrtime()
+  intervalStart = hrtime()
+
+  setInterval(() => {
+    // How much time has passed
+    totalDiff = hrtime(totalStart)
+    totalSec = totalDiff[0] + totalDiff[1] / 1e9
+    intervalDiff = hrtime(intervalStart)
+    intervalSec = intervalDiff[0]  + intervalDiff[1] / 1e9
+    // Reset interval
+    intervalReqs = 0
+    intervalStart = hrtime()
+    // Calculate and print rates
+    totalRps = totalSec / totalReqs
+    intervalRps = intervalSec / intervalReqs
+    console.log(`interval: ${intervalReqs} reqs / ${intervalSec} s = ${intervalRps} rps`)
+    console.log(`total: ${totalReqs} reqs / ${totalSec} s = ${totalRps} rps`)
+    console.log()
+  }, 2000)
+
+  while (true) {
+    await contactArchiver()
+    totalReqs++
+    intervalReqs++
+  }
+
+
+  /*
   const publicKey = Context.crypto.getPublicKey()
 
   // If startInWitness config is set to true, start witness mode and end
@@ -115,6 +150,7 @@ export async function startup(): Promise<boolean> {
   emitter.emit('initialized')
 
   return true
+  */
 }
 
 async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]) {
@@ -136,7 +172,10 @@ async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]) {
   return false
 }
 
-async function joinNetwork(activeNodes: P2P.P2PTypes.Node[], firstTime: boolean) {
+async function joinNetwork(
+  activeNodes: P2P.P2PTypes.Node[],
+  firstTime: boolean
+) {
   // Check if you're the first node
   const isFirst = await discoverNetwork(activeNodes)
   if (isFirst) {
@@ -193,7 +232,7 @@ async function joinNetwork(activeNodes: P2P.P2PTypes.Node[], firstTime: boolean)
     info('Waiting approx. one cycle then checking again...')
 
   // Wait until a Q4 before we loop ..
-  // This is a bit faster than before and should allow nodes to try joining 
+  // This is a bit faster than before and should allow nodes to try joining
   // without skipping a cycle
   let untilQ4 = startQ4 - Date.now()
   while (untilQ4 < 0) {
