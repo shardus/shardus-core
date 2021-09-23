@@ -60,8 +60,8 @@ export async function startup(): Promise<boolean> {
 
   let totalStart, totalDiff, totalSec, totalRps
   let intervalStart, intervalDiff, intervalSec, intervalRps
-  let totalReqs,
-    intervalReqs = 0
+  let totalReqs = 0
+  let intervalReqs = 0
 
   totalStart = hrtime()
   intervalStart = hrtime()
@@ -72,31 +72,37 @@ export async function startup(): Promise<boolean> {
     totalSec = totalDiff[0] + totalDiff[1] / 1e9
     intervalDiff = hrtime(intervalStart)
     intervalSec = intervalDiff[0] + intervalDiff[1] / 1e9
-    // Reset interval
-    intervalReqs = 0
-    intervalStart = hrtime()
-    // Calculate and print rates
-    totalRps = totalSec / totalReqs
-    intervalRps = intervalSec / intervalReqs
+    // Calculate rates and print report
+    totalRps = totalReqs / totalSec
+    intervalRps = intervalReqs / intervalSec
     console.log(
       `interval: ${intervalReqs} reqs / ${intervalSec} s = ${intervalRps} rps`
     )
     console.log(`total: ${totalReqs} reqs / ${totalSec} s = ${totalRps} rps`)
     console.log()
+    // Reset interval
+    intervalReqs = 0
+    intervalStart = hrtime()
   }, 2000)
 
-  while (true) {
-    try {
-      await contactArchiver()
-      totalReqs++
-      intervalReqs++
-    } catch (e) {
-      console.log(e)
-      console.log('Waiting 1 sec...')
-      sleep(1000)
-    }
+  const spamArchiver = () => {
+    contactArchiver()
+      .then(() => {
+        totalReqs++
+        intervalReqs++
+        setImmediate(() => spamArchiver())
+      })
+      .catch((e) => {
+        console.log(e)
+        console.log('Waiting 1 sec...')
+        sleep(1000).then(() => {
+          setImmediate(() => spamArchiver())
+        })
+      })
   }
+  spamArchiver()
 
+  return true
   /*
   const publicKey = Context.crypto.getPublicKey()
 
