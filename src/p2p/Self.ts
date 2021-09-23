@@ -17,6 +17,7 @@ import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
 import { hrtime } from 'process'
+import { sleep } from '../utils'
 
 /** STATE */
 
@@ -59,7 +60,8 @@ export async function startup(): Promise<boolean> {
 
   let totalStart, totalDiff, totalSec, totalRps
   let intervalStart, intervalDiff, intervalSec, intervalRps
-  let totalReqs, intervalReqs = 0
+  let totalReqs,
+    intervalReqs = 0
 
   totalStart = hrtime()
   intervalStart = hrtime()
@@ -69,24 +71,31 @@ export async function startup(): Promise<boolean> {
     totalDiff = hrtime(totalStart)
     totalSec = totalDiff[0] + totalDiff[1] / 1e9
     intervalDiff = hrtime(intervalStart)
-    intervalSec = intervalDiff[0]  + intervalDiff[1] / 1e9
+    intervalSec = intervalDiff[0] + intervalDiff[1] / 1e9
     // Reset interval
     intervalReqs = 0
     intervalStart = hrtime()
     // Calculate and print rates
     totalRps = totalSec / totalReqs
     intervalRps = intervalSec / intervalReqs
-    console.log(`interval: ${intervalReqs} reqs / ${intervalSec} s = ${intervalRps} rps`)
+    console.log(
+      `interval: ${intervalReqs} reqs / ${intervalSec} s = ${intervalRps} rps`
+    )
     console.log(`total: ${totalReqs} reqs / ${totalSec} s = ${totalRps} rps`)
     console.log()
   }, 2000)
 
   while (true) {
-    await contactArchiver()
-    totalReqs++
-    intervalReqs++
+    try {
+      await contactArchiver()
+      totalReqs++
+      intervalReqs++
+    } catch (e) {
+      console.log(e)
+      console.log('Waiting 1 sec...')
+      sleep(1000)
+    }
   }
-
 
   /*
   const publicKey = Context.crypto.getPublicKey()
