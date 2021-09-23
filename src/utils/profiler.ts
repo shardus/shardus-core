@@ -49,7 +49,7 @@ class Profiler {
     })
 
     Context.network.registerExternalGet('combined-debug', async (req, res) => {
-      const waitTime = req.query.wait || 60
+      const waitTime = Number.parseInt(req.query.wait as string, 10) || 60
 
       // hit "counts-reset" endpoint
       this.eventCounters = new Map()

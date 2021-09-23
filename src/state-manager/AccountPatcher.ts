@@ -499,7 +499,7 @@ class AccountPatcher {
      */
     Context.network.registerExternalGet('account-report', async (req, res) => {
       if (req.query.id == null) return
-      let id = req.query.id
+      let id = req.query.id as string
       res.write(`report for: ${id} \n`)
       try {
         if(id.length === 10){
