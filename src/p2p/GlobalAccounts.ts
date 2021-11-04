@@ -12,8 +12,8 @@ import * as Comms from './Comms'
 import * as Context from './Context'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { profilerInstance } from '../utils/profiler'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** ROUTES */
 // [TODO] - need to add validattion of types to the routes
 
@@ -24,11 +24,11 @@ const makeReceiptRoute: P2P.P2PTypes.Route<P2P.P2PTypes.InternalHandler<
 >> = {
   name: 'make-receipt',
   handler: (payload, respond, sender) => {
-    profilerInstance.scopedProfileSectionStart('make-receipt')
+    perf.profilerInstance.scopedProfileSectionStart('make-receipt')
     try {
       makeReceipt(payload, sender)
     } finally {
-      profilerInstance.scopedProfileSectionEnd('make-receipt')
+      perf.profilerInstance.scopedProfileSectionEnd('make-receipt')
     }
   },
 }
@@ -36,7 +36,7 @@ const makeReceiptRoute: P2P.P2PTypes.Route<P2P.P2PTypes.InternalHandler<
 const setGlobalGossipRoute: P2P.P2PTypes.Route<P2P.P2PTypes.GossipHandler<P2P.GlobalAccountsTypes.Receipt>> = {
   name: 'set-global',
   handler: (payload, sender, tracker) => {
-    profilerInstance.scopedProfileSectionStart('set-global')
+    perf.profilerInstance.scopedProfileSectionStart('set-global')
     try {
       if (validateReceipt(payload) === false) return
       if (processReceipt(payload) === false) return
@@ -45,7 +45,7 @@ const setGlobalGossipRoute: P2P.P2PTypes.Route<P2P.P2PTypes.GossipHandler<P2P.Gl
       Comms.sendGossip('set-global', payload, tracker, sender, NodeList.byIdOrder, false)
 
     } finally {
-      profilerInstance.scopedProfileSectionEnd('set-global')
+      perf.profilerInstance.scopedProfileSectionEnd('set-global')
     }
   },
 }

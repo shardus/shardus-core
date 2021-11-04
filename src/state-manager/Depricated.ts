@@ -2,7 +2,6 @@ import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
 
-import Profiler from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
@@ -19,8 +18,8 @@ class Depricated {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.ShardusConfiguration
-  profiler: Profiler
-  
+  profiler: any
+
   logger: Logger
   p2p: P2P
   storage: Storage
@@ -47,8 +46,8 @@ class Depricated {
   // repairCompletedMap: Map<string, boolean>
   // dataRepairStack: RepairTracker[]
 
-  constructor(stateManager: StateManager,  profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
-    
+  constructor(stateManager: StateManager,  profiler: any, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
+
     this.crypto = crypto
     this.app = app
     this.logger = logger
@@ -3815,7 +3814,7 @@ class Depricated {
   //       return { success: false, hasStateTableData }
   //     }
 
-  //     // TODO: even if we keep the code below this line, we should consider combining keys in a set first so that we dont 
+  //     // TODO: even if we keep the code below this line, we should consider combining keys in a set first so that we dont
   //     // double up on work if a key is a source and target.
 
   //     // check state table
@@ -3878,8 +3877,8 @@ class Depricated {
   // /**
   //  * testAccountTimes
   //  * check to see if any of the account data has timestamps newer or equal to the transaction
-  //  * @param tx 
-  //  * @param wrappedStates 
+  //  * @param tx
+  //  * @param wrappedStates
   //  */
   // testAccountTimes(tx: Shardus.OpaqueTransaction, wrappedStates: WrappedStates) {
   //   try {
@@ -3951,7 +3950,7 @@ class Depricated {
 
 //       // TODO ARCH REVIEW:  review use of fifo lock of accountModification and account keys.
 //       // I think we need to consider adding reader-writer lock support so that a non written to global account is a "reader" lock: check but dont aquire
-//       // consider if it is safe to axe the use of fifolock accountModification.  
+//       // consider if it is safe to axe the use of fifolock accountModification.
 //       if (repairing !== true) {
 //         // get a list of modified account keys that we will lock
 //         let { sourceKeys, targetKeys } = keysResponse
@@ -4147,9 +4146,9 @@ class Depricated {
   //       await this.storage.addAccountStates(stateTableResults)
   //     //   //want to confirm that we pretty much alway take this branch
   //     //   //pretty sure we would not have this data now
-  //     //   nestedCountersInstance.countEvent('stateManager', 'txCommit hasOldStateTable = false')
+  //     //   perf.nestedCountersInstance.countEvent('stateManager', 'txCommit hasOldStateTable = false')
   //     // } else {
-  //     //   nestedCountersInstance.countEvent('stateManager', 'txCommit hasOldStateTable = true')
+  //     //   perf.nestedCountersInstance.countEvent('stateManager', 'txCommit hasOldStateTable = true')
   //     // }
 
   //     // post validate that state ended up correctly?
@@ -4686,7 +4685,7 @@ class Depricated {
 //             // may have to be carefull about how we tune this value relative to the rate that we make this query
 //             // we should try to make this query more often then the delta.
 //             if (logFlags.verbose) console.log('delta ' + delta)
-//             // increased allowed delta to allow for a better chance to catch up  
+//             // increased allowed delta to allow for a better chance to catch up
 //             if (delta < this.queueSitTime * 2) {
 //                 let tsStart2 = highestTs
 //                 wrappedAccounts2 = await this.app.getAccountDataByRange(accountStart, accountEnd, tsStart2, Date.now(), 10000000)
@@ -4738,7 +4737,7 @@ class Depricated {
 
 //         // const cycle = CycleChain.getCycleByTimestamp(offsetTimestamp)
 //         // if (cycle != null && cycle.counter != null) {
-//         //   nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'first lookup')
+//         //   perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'first lookup')
 //         //   return cycle.counter
 //         // }
 
@@ -4746,18 +4745,18 @@ class Depricated {
 //         if (this.currentCycleShardData.timestamp <= offsetTimestamp && offsetTimestamp < this.currentCycleShardData.timestampEndCycle) {
 //             if (this.currentCycleShardData.cycleNumber == null) {
 //                 this.statemanager_fatal('getCycleNumberFromTimestamp failed. cycleNumber == null', 'this.currentCycleShardData.cycleNumber == null')
-//                 nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber fail')
+//                 perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber fail')
 //                 const cycle = CycleChain.getCycleByTimestamp(offsetTimestamp)
 //                 console.log("CycleChain.getCycleByTimestamp", cycle)
 //                 if (cycle != null) {
 //                     this.statemanager_fatal('getCycleNumberFromTimestamp failed fatal redeemed', 'this.currentCycleShardData.cycleNumber == null, fatal redeemed')
-//                     nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber redeemed')
+//                     perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber redeemed')
 //                     return cycle.counter
 //                 } else {
 //                     //debug only!!!
 //                     let cycle2 = CycleChain.getCycleByTimestamp(offsetTimestamp)
 //                     this.statemanager_fatal('getCycleNumberFromTimestamp failed fatal not redeemed', 'getCycleByTimestamp cycleNumber == null not redeemed')
-//                     nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber failed to redeem')
+//                     perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber failed to redeem')
 //                 }
 //             } else {
 //                 return this.currentCycleShardData.cycleNumber
@@ -4765,7 +4764,7 @@ class Depricated {
 //         }
 
 //         if (this.currentCycleShardData.cycleNumber == null) {
-//             nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'this.currentCycleShardData.cycleNumber == null')
+//             perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'this.currentCycleShardData.cycleNumber == null')
 //             this.statemanager_fatal('getCycleNumberFromTimestamp: currentCycleShardData.cycleNumber == null', `getCycleNumberFromTimestamp: currentCycleShardData.cycleNumber == null ${this.currentCycleShardData.cycleNumber} timestamp:${timestamp}`)
 
 //         }
@@ -4776,21 +4775,21 @@ class Depricated {
 
 //             let timePastCurrentCycle = offsetTimestamp - this.currentCycleShardData.timestampEndCycle
 //             let cyclesAhead = Math.ceil(timePastCurrentCycle / (cycle.duration * 1000))
-//             nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', `+${cyclesAhead}`)
+//             perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', `+${cyclesAhead}`)
 
 //             return this.currentCycleShardData.cycleNumber + cyclesAhead
 
 //             // let endOfNextCycle = this.currentCycleShardData.timestampEndCycle + cycle.duration * 1000
 //             // if (offsetTimestamp < endOfNextCycle /*+ this.syncSettleTime*/) {
-//             //   nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', '+1')
+//             //   perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', '+1')
 //             //   return this.currentCycleShardData.cycleNumber + 1
 //             // } else if (offsetTimestamp < endOfNextCycle + /*this.syncSettleTime +*/ cycle.duration * 1000) {
-//             //   nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', '+2')
+//             //   perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', '+2')
 //             //   //if (logFlags.error) this.mainLogger.error(`getCycleNumberFromTimestamp fail2: endOfNextCycle:${endOfNextCycle} offsetTimestamp:${offsetTimestamp} timestamp:${timestamp}`)
 //             //   return this.currentCycleShardData.cycleNumber + 2
 //             // } else {
-//             //   nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'too far')
-//             //   this.statemanager_fatal('getCycleNumberFromTimestamp: too far in future',`getCycleNumberFromTimestamp fail: too far in future. endOfNextCycle:${endOfNextCycle} 
+//             //   perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'too far')
+//             //   this.statemanager_fatal('getCycleNumberFromTimestamp: too far in future',`getCycleNumberFromTimestamp fail: too far in future. endOfNextCycle:${endOfNextCycle}
 //             //     offsetTimestamp:${offsetTimestamp} timestamp:${timestamp} now:${Date.now()} end of cycle age: ${(Date.now() - endOfNextCycle)/1000}`)
 //             //   //too far in the future
 //             //   return -2
@@ -4801,15 +4800,15 @@ class Depricated {
 //             // let offsetSeconds = Math.floor(offsetTimestamp * 0.001)
 //             const cycle = CycleChain.getCycleByTimestamp(offsetTimestamp)
 //             if (cycle != null) {
-//                 nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup')
+//                 perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup')
 //                 if (cycle.counter == null) {
 //                     this.statemanager_fatal('getCycleNumberFromTimestamp  unexpected cycle.cycleNumber == null', 'getCycleNumberFromTimestamp unexpected cycle.cycleNumber == null')
-//                     nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', `getCycleNumberFromTimestamp unexpected cycle.cycleNumber == null  ${timestamp}`)
+//                     perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', `getCycleNumberFromTimestamp unexpected cycle.cycleNumber == null  ${timestamp}`)
 //                 }
 
 //                 return cycle.counter
 //             } else {
-//                 //nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup fail -estimate cycle')
+//                 //perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup fail -estimate cycle')
 //                 //debug only!!!
 //                 //let cycle2 = CycleChain.getCycleByTimestamp(offsetTimestamp)
 //                 //this.statemanager_fatal('getCycleNumberFromTimestamp getCycleByTimestamp failed', 'getCycleByTimestamp getCycleByTimestamp failed')
@@ -4818,7 +4817,7 @@ class Depricated {
 //                 if (cycleEstimate < 1) {
 //                     cycleEstimate = 1
 //                 }
-//                 nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup fail -estimate cycle: ' + cycleEstimate)
+//                 perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup fail -estimate cycle: ' + cycleEstimate)
 //                 return cycleEstimate
 //             }
 //         }
@@ -5148,7 +5147,7 @@ class Depricated {
   //   }
   // }
 
-  // 
+  //
   // sortAndMaintainBackups(oldestTimestamp: number): void {
   //   let keys = this.globalAccountRepairBank.keys()
   //   for (let key of keys) {
@@ -5245,7 +5244,7 @@ class Depricated {
   //   //     let accountMemData:AccountMemoryCache = {t:accountData.timestamp, h:accountData.stateId}
   //   //     this.seenCreatedAccounts.set(accountData.accountId, accountMemData)
   //   // }
-    
+
   //   if (this.accountCache.hasAccount(accountData.accountId)) {
   //     return
   //   }

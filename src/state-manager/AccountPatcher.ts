@@ -2,7 +2,6 @@ import * as Shardus from '../shardus/shardus-types'
 import { StateManager as StateManagerTypes } from 'shardus-types'
 import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
-import Profiler, { profilerInstance } from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
@@ -10,7 +9,6 @@ import Logger, {logFlags} from '../logger'
 import ShardFunctions from './shardFunctions.js'
 import { time } from 'console'
 import StateManager from '.'
-import { nestedCountersInstance } from '../utils/nestedCounters'
 import * as NodeList from '../p2p/NodeList'
 
 import * as Comms from '../p2p/Comms'
@@ -21,13 +19,14 @@ import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { errorToStringFull } from '../utils'
 //import { all } from 'deepmerge'
 //import { Node } from '../p2p/Types'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 
 class AccountPatcher {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.ShardusConfiguration
-  profiler: Profiler
+  profiler: any
 
   p2p: P2P
 
@@ -74,7 +73,7 @@ class AccountPatcher {
 
   lastRepairInfo: any
 
-  constructor(stateManager: StateManager, profiler: Profiler, app: Shardus.App, logger: Logger, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
+  constructor(stateManager: StateManager, profiler: any, app: Shardus.App, logger: Logger, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
     this.crypto = crypto
     this.app = app
     this.logger = logger
@@ -169,7 +168,7 @@ class AccountPatcher {
 
   setupHandlers() {
     Comms.registerInternal('get_trie_hashes', async (payload: HashTrieReq, respond: (arg0: HashTrieResp) => any) => {
-      profilerInstance.scopedProfileSectionStart('get_trie_hashes')
+      perf.profilerInstance.scopedProfileSectionStart('get_trie_hashes')
       let result = {nodeHashes:[]} as HashTrieResp
 
       for(let radix of payload.radixList){
@@ -189,14 +188,14 @@ class AccountPatcher {
         }
       }
       await respond(result)
-      profilerInstance.scopedProfileSectionEnd('get_trie_hashes')
+      perf.profilerInstance.scopedProfileSectionEnd('get_trie_hashes')
     })
 
 
     //this should be a tell to X..  robust tell? if a node does not get enough it can just query for more.
     Comms.registerInternal('sync_trie_hashes', async (payload: HashTrieSyncTell, respondWrapped, sender, tracker) => {
 
-      profilerInstance.scopedProfileSectionStart('sync_trie_hashes')
+      perf.profilerInstance.scopedProfileSectionStart('sync_trie_hashes')
       try {
         //TODO use our own definition of current cycle.
         //use playlod cycle to filter out TXs..
@@ -213,7 +212,7 @@ class AccountPatcher {
 
           let shardValues = this.stateManager.shardValuesByCycle.get(payload.cycle)
           if (shardValues == null) {
-            nestedCountersInstance.countEvent('accountPatcher', `sync_trie_hashes not ready c:${payload.cycle}`)
+            perf.nestedCountersInstance.countEvent('accountPatcher', `sync_trie_hashes not ready c:${payload.cycle}`)
             return
           }
 
@@ -256,13 +255,13 @@ class AccountPatcher {
           }
         }
       } finally {
-        profilerInstance.scopedProfileSectionEnd('sync_trie_hashes')
+        perf.profilerInstance.scopedProfileSectionEnd('sync_trie_hashes')
       }
     })
 
     //get child accountHashes for radix.  //get the hashes and ids so we know what to fix.
     Comms.registerInternal('get_trie_accountHashes', async (payload: HashTrieReq, respond: (arg0: HashTrieAccountsResp) => any) => {
-      profilerInstance.scopedProfileSectionStart('get_trie_hashes')
+      perf.profilerInstance.scopedProfileSectionStart('get_trie_hashes')
       //nodeChildHashes: {radix:string, childAccounts:{accountID:string, hash:string}[]}[]
       let result = {nodeChildHashes:[]} as HashTrieAccountsResp
 
@@ -281,13 +280,13 @@ class AccountPatcher {
         }
       }
       await respond(result)
-      profilerInstance.scopedProfileSectionEnd('get_trie_hashes')
+      perf.profilerInstance.scopedProfileSectionEnd('get_trie_hashes')
     })
 
     Comms.registerInternal('get_account_data_by_hashes', async (payload: HashTrieAccountDataRequest, respond: (arg0: HashTrieAccountDataResponse) => any) => {
 
-      profilerInstance.scopedProfileSectionStart('get_account_data_by_hashes')
-      nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes`)
+      perf.profilerInstance.scopedProfileSectionStart('get_account_data_by_hashes')
+      perf.nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes`)
       let result:HashTrieAccountDataResponse = {accounts:[], stateTableData:[]}
       try{
 
@@ -362,10 +361,10 @@ class AccountPatcher {
         //this.stateManager.testAccountDataWrapped(accountDataFinal)
 
         if(queryStats.returned < payload.accounts.length){
-          nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes incomplete`)
+          perf.nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes incomplete`)
           queryStats.missingResp = true
           if(queryStats.returned === 0){
-            nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes no results`)
+            perf.nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes no results`)
             queryStats.noResp = true
           }
         }
@@ -388,7 +387,7 @@ class AccountPatcher {
         this.statemanager_fatal(`get_account_data_by_hashes-failed`, 'get_account_data_by_hashes:' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
       }
       await respond(result)
-      profilerInstance.scopedProfileSectionEnd('get_account_data_by_hashes')
+      perf.profilerInstance.scopedProfileSectionEnd('get_account_data_by_hashes')
     })
 
 
@@ -700,10 +699,10 @@ class AccountPatcher {
       }
     }
     if(removedAccounts > 0 ){
-      nestedCountersInstance.countEvent(`accountPatcher`, `removedAccounts c:${cycle}`, removedAccounts)
+      perf.nestedCountersInstance.countEvent(`accountPatcher`, `removedAccounts c:${cycle}`, removedAccounts)
     }
     if(removedAccountsFailed > 0 ){
-      nestedCountersInstance.countEvent(`accountPatcher`, `removedAccountsFailed c:${cycle}`, removedAccountsFailed)
+      perf.nestedCountersInstance.countEvent(`accountPatcher`, `removedAccountsFailed c:${cycle}`, removedAccountsFailed)
     }
     this.accountRemovalQueue = []
 
@@ -1195,7 +1194,7 @@ class AccountPatcher {
     }
 
     if(nodeHashes.length > 0){
-      nestedCountersInstance.countEvent(`accountPatcher`, `got nodeHashes`, nodeHashes.length)
+      perf.nestedCountersInstance.countEvent(`accountPatcher`, `got nodeHashes`, nodeHashes.length)
     }
 
     return nodeHashes
@@ -1268,7 +1267,7 @@ class AccountPatcher {
     }
 
     if(nodeChildHashes.length > 0){
-      nestedCountersInstance.countEvent(`accountPatcher`, `got nodeChildHashes`, nodeChildHashes.length)
+      perf.nestedCountersInstance.countEvent(`accountPatcher`, `got nodeChildHashes`, nodeChildHashes.length)
     }
 
     return nodeChildHashes
@@ -1678,7 +1677,7 @@ class AccountPatcher {
     }
 
     if(stats.broadcastSkip > 0){
-      nestedCountersInstance.countEvent(`accountPatcher`, `broadcast skip syncing`, stats.broadcastSkip)
+      perf.nestedCountersInstance.countEvent(`accountPatcher`, `broadcast skip syncing`, stats.broadcastSkip)
     }
 
     //send the messages we have built up.  (parallel waiting with promise.all)
@@ -1754,10 +1753,10 @@ class AccountPatcher {
           // treeNode.children = Array(16)
           // treeNode.childHashes = Array(16)
 
-          //nestedCountersInstance.countEvent(`accountPatcher`, `updateTrieAndBroadCast: ok account list?`)
+          //perf.nestedCountersInstance.countEvent(`accountPatcher`, `updateTrieAndBroadCast: ok account list?`)
           resizeStats.nodesWithAccounts++
         } else{
-          //nestedCountersInstance.countEvent(`accountPatcher`, `updateTrieAndBroadCast: null account list?`)
+          //perf.nestedCountersInstance.countEvent(`accountPatcher`, `updateTrieAndBroadCast: null account list?`)
           resizeStats.nodesWithoutAccounts++
         }
       }
@@ -1769,9 +1768,9 @@ class AccountPatcher {
 
       if(newMaxDepth < this.treeMaxDepth){
         //cant get here, but consider deleting layers out of the map
-        nestedCountersInstance.countEvent(`accountPatcher`, `max depth decrease oldMaxDepth:${this.treeMaxDepth} maxDepth :${newMaxDepth} stats:${utils.stringifyReduce(resizeStats)}`)
+        perf.nestedCountersInstance.countEvent(`accountPatcher`, `max depth decrease oldMaxDepth:${this.treeMaxDepth} maxDepth :${newMaxDepth} stats:${utils.stringifyReduce(resizeStats)}`)
       } else {
-        nestedCountersInstance.countEvent(`accountPatcher`, `max depth increase oldMaxDepth:${this.treeMaxDepth} maxDepth :${newMaxDepth} stats:${utils.stringifyReduce(resizeStats)}`)
+        perf.nestedCountersInstance.countEvent(`accountPatcher`, `max depth increase oldMaxDepth:${this.treeMaxDepth} maxDepth :${newMaxDepth} stats:${utils.stringifyReduce(resizeStats)}`)
       }
 
       this.treeSyncDepth = newSyncDepth
@@ -1779,11 +1778,11 @@ class AccountPatcher {
 
     }
 
-    nestedCountersInstance.countEvent(`accountPatcher`, ` syncDepth:${this.treeSyncDepth} maxDepth :${this.treeMaxDepth}`)
+    perf.nestedCountersInstance.countEvent(`accountPatcher`, ` syncDepth:${this.treeSyncDepth} maxDepth :${this.treeMaxDepth}`)
 
     let updateStats = this.upateShardTrie(cycle)
 
-    nestedCountersInstance.countEvent(`accountPatcher`, `totalAccountsHashed`, updateStats.totalAccountsHashed)
+    perf.nestedCountersInstance.countEvent(`accountPatcher`, `totalAccountsHashed`, updateStats.totalAccountsHashed)
 
     //broadcast sync
     await this.broadcastSyncHashes(cycle)
@@ -1809,7 +1808,7 @@ class AccountPatcher {
    */
   async testAndPatchAccounts(cycle){
     // let updateStats = this.upateShardTrie(cycle)
-    // nestedCountersInstance.countEvent(`accountPatcher`, `totalAccountsHashed`, updateStats.totalAccountsHashed)
+    // perf.nestedCountersInstance.countEvent(`accountPatcher`, `totalAccountsHashed`, updateStats.totalAccountsHashed)
 
     let lastFail = this.failedLastTrieSync
 
@@ -1846,8 +1845,8 @@ class AccountPatcher {
 
 
       let results = await this.findBadAccounts(cycle)
-      nestedCountersInstance.countEvent(`accountPatcher`, `badAccounts c:${cycle} `, results.badAccounts.length)
-      nestedCountersInstance.countEvent(`accountPatcher`, `accountHashesChecked c:${cycle}`, results.accountHashesChecked)
+      perf.nestedCountersInstance.countEvent(`accountPatcher`, `badAccounts c:${cycle} `, results.badAccounts.length)
+      perf.nestedCountersInstance.countEvent(`accountPatcher`, `accountHashesChecked c:${cycle}`, results.accountHashesChecked)
 
       this.stateManager.cycleDebugNotes.badAccounts = results.badAccounts.length //per cycle debug info
       //TODO figure out if the possible repairs will fully repair a given hash for a radix.
@@ -1882,7 +1881,7 @@ class AccountPatcher {
           // we may need to do more work to make sure this can not cause an un repairable situation
           if (wrappedData.timestamp < accountMemData.t) {
             updateTooOld.add(wrappedData.accountId)
-            // nestedCountersInstance.countEvent('accountPatcher', `checkAndSetAccountData updateTooOld c:${cycle}`)
+            // perf.nestedCountersInstance.countEvent('accountPatcher', `checkAndSetAccountData updateTooOld c:${cycle}`)
             this.statemanager_fatal('checkAndSetAccountData updateTooOld',`checkAndSetAccountData updateTooOld ${cycle}: acc:${utils.stringifyReduce(wrappedData.accountId)} updateTS:${wrappedData.timestamp} updateHash:${utils.stringifyReduce(wrappedData.stateId)}  cacheTS:${accountMemData.t} cacheHash:${utils.stringifyReduce(accountMemData.h)}`)
             filterStats.tooOld++
             continue
@@ -1892,20 +1891,20 @@ class AccountPatcher {
             // if we got here make sure to update the last seen cycle in case the cache needs to know it has current enough data
             let accountHashCacheHistory: AccountHashCacheHistory = this.stateManager.accountCache.accountsHashCache3.accountHashMap.get(wrappedData.accountId)
             if(accountHashCacheHistory != null && accountHashCacheHistory.lastStaleCycle >= accountHashCacheHistory.lastSeenCycle ){
-              // nestedCountersInstance.countEvent('accountPatcher', `checkAndSetAccountData updateSameTS update lastSeenCycle c:${cycle}`)
+              // perf.nestedCountersInstance.countEvent('accountPatcher', `checkAndSetAccountData updateSameTS update lastSeenCycle c:${cycle}`)
               filterStats.sameTSFix++
               accountHashCacheHistory.lastSeenCycle = cycle
             } else if(accountHashCacheHistory != null && accountHashCacheHistory.accountHashList.length > 0 && wrappedData.stateId != accountHashCacheHistory.accountHashList[0].h ){
               // not sure if this is the correct fix but testing will let us know more
-              nestedCountersInstance.countRareEvent('accountPatcher', `tsFix2`)
-              nestedCountersInstance.countEvent('accountPatcher', `tsFix2 c:${cycle}`)
+              perf.nestedCountersInstance.countRareEvent('accountPatcher', `tsFix2`)
+              perf.nestedCountersInstance.countEvent('accountPatcher', `tsFix2 c:${cycle}`)
               //not really fatal. but want to validate info
               this.statemanager_fatal('accountPatcher_tsFix2', `tsFix2 c:${cycle} wrappedData:${utils.stringifyReduce(wrappedData)} accountHashCacheHistory:${utils.stringifyReduce(accountHashCacheHistory)}` )
               filterStats.tsFix2++
               accountHashCacheHistory.lastSeenCycle = cycle
             } else {
               //just dont even care and bump the last seen cycle up.. this might do nothing
-              nestedCountersInstance.countRareEvent('accountPatcher', `tsFix3`)
+              perf.nestedCountersInstance.countRareEvent('accountPatcher', `tsFix3`)
               //not really fatal. but want to validate info
               this.statemanager_fatal('accountPatcher_tsFix3', `tsFix3 c:${cycle} wrappedData:${utils.stringifyReduce(wrappedData)} accountHashCacheHistory:${utils.stringifyReduce(accountHashCacheHistory)}` )
               filterStats.tsFix3++
@@ -1913,7 +1912,7 @@ class AccountPatcher {
             }
 
             noChange.add(wrappedData.accountId)
-            // nestedCountersInstance.countEvent('accountPatcher', `checkAndSetAccountData updateSameTS c:${cycle}`)
+            // perf.nestedCountersInstance.countEvent('accountPatcher', `checkAndSetAccountData updateSameTS c:${cycle}`)
             filterStats.sameTS++
             continue
           }
@@ -1932,12 +1931,12 @@ class AccountPatcher {
       let failedHashes = await this.stateManager.checkAndSetAccountData(wrappedDataListFiltered, `testAndPatchAccounts`, true, updatedAccounts)
 
       if(failedHashes.length != 0){
-        nestedCountersInstance.countEvent('accountPatcher', 'checkAndSetAccountData failed hashes', failedHashes.length)
+        perf.nestedCountersInstance.countEvent('accountPatcher', 'checkAndSetAccountData failed hashes', failedHashes.length)
         this.statemanager_fatal('isInSync = false, failed hashes',`isInSync = false cycle:${cycle}:  failed hashes:${failedHashes.length}`)
       }
       let appliedFixes = Math.max(0,wrappedDataListFiltered.length - failedHashes.length)
-      nestedCountersInstance.countEvent('accountPatcher', 'writeCombinedAccountDataToBackups', Math.max(0,wrappedDataListFiltered.length - failedHashes.length))
-      nestedCountersInstance.countEvent('accountPatcher', `p.repair applied c:${cycle} bad:${results.badAccounts.length} received:${wrappedDataList.length} failedH: ${failedHashes.length} filtered:${utils.stringifyReduce(filterStats)} stats:${utils.stringifyReduce(results.stats)} getAccountStats: ${utils.stringifyReduce(getAccountStats)}`, appliedFixes)
+      perf.nestedCountersInstance.countEvent('accountPatcher', 'writeCombinedAccountDataToBackups', Math.max(0,wrappedDataListFiltered.length - failedHashes.length))
+      perf.nestedCountersInstance.countEvent('accountPatcher', `p.repair applied c:${cycle} bad:${results.badAccounts.length} received:${wrappedDataList.length} failedH: ${failedHashes.length} filtered:${utils.stringifyReduce(filterStats)} stats:${utils.stringifyReduce(results.stats)} getAccountStats: ${utils.stringifyReduce(getAccountStats)}`, appliedFixes)
 
       this.stateManager.cycleDebugNotes.patchedAccounts = appliedFixes //per cycle debug info
 
@@ -1979,7 +1978,7 @@ class AccountPatcher {
       }
       if(combinedAccountStateData.length > 0){
         await this.stateManager.storage.addAccountStates(combinedAccountStateData)
-        nestedCountersInstance.countEvent('accountPatcher', `p.repair stateTable c:${cycle} acc:#${updatedAccounts.length} st#:${combinedAccountStateData.length} missed#${combinedAccountStateData.length-updatedAccounts.length}`, combinedAccountStateData.length)
+        perf.nestedCountersInstance.countEvent('accountPatcher', `p.repair stateTable c:${cycle} acc:#${updatedAccounts.length} st#:${combinedAccountStateData.length} missed#${combinedAccountStateData.length-updatedAccounts.length}`, combinedAccountStateData.length)
       }
 
       if(wrappedDataListFiltered.length > 0){
@@ -2006,7 +2005,7 @@ class AccountPatcher {
       //This is something that can be checked with debug endpoints get-tree-last-insync-all / get-tree-last-insync
       this.failedLastTrieSync = true
     } else {
-      nestedCountersInstance.countEvent(`accountPatcher`, `inSync`)
+      perf.nestedCountersInstance.countEvent(`accountPatcher`, `inSync`)
 
       if(lastFail === true){
         let failHistoryObject = this.syncFailHistory[this.syncFailHistory.length -1]
@@ -2014,7 +2013,7 @@ class AccountPatcher {
         failHistoryObject.e = this.failEndCycle
         failHistoryObject.cycles = this.failEndCycle - this.failStartCycle
 
-        nestedCountersInstance.countEvent(`accountPatcher`, `inSync again. ${JSON.stringify(this.syncFailHistory[this.syncFailHistory.length -1])}`)
+        perf.nestedCountersInstance.countEvent(`accountPatcher`, `inSync again. ${JSON.stringify(this.syncFailHistory[this.syncFailHistory.length -1])}`)
 
         //this is not really a fatal log so should be removed eventually. is is somewhat usefull context though when debugging.
         this.statemanager_fatal(`inSync again`,  JSON.stringify(this.syncFailHistory))
@@ -2162,7 +2161,7 @@ class AccountPatcher {
           let desiredHash = accountHashMap.get(wrappedAccount.accountId)
           if(desiredHash != wrappedAccount.stateId){
             //got account back but has the wrong stateID
-            //nestedCountersInstance.countEvent('accountPatcher', 'getAccountRepairData wrong hash')
+            //perf.nestedCountersInstance.countEvent('accountPatcher', 'getAccountRepairData wrong hash')
             this.statemanager_fatal('getAccountRepairData wrong hash',`getAccountRepairData wrong hash ${utils.stringifyReduce(wrappedAccount.accountId)}`)
             continue
           }

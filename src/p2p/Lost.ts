@@ -17,8 +17,8 @@ import { crypto, logger, network } from './Context'
 import { currentCycle, currentQuarter } from './CycleCreator'
 import { activeByIdOrder, byIdOrder, nodes } from './NodeList'
 import * as Self from './Self'
-import { profilerInstance } from '../utils/profiler'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** STATE */
 
 // [TODO] - This enables the /kill /killother debug route and should be set to false after testing
@@ -65,20 +65,20 @@ const lostReportRoute: P2P.P2PTypes.Route<P2P.P2PTypes.InternalHandler<P2P.LostT
 }
 
 const lostDownRoute: P2P.P2PTypes.GossipHandler = (payload:P2P.LostTypes.SignedDownGossipMessage, sender, tracker) => {
-  profilerInstance.scopedProfileSectionStart('lost-down')
+  perf.profilerInstance.scopedProfileSectionStart('lost-down')
   try {
     downGossipHandler(payload, sender, tracker)
   } finally {
-    profilerInstance.scopedProfileSectionStart('lost-down')
+    perf.profilerInstance.scopedProfileSectionStart('lost-down')
   }
 }
 
 const lostUpRoute: P2P.P2PTypes.GossipHandler = (payload:P2P.LostTypes.SignedUpGossipMessage, sender, tracker) => {
-  profilerInstance.scopedProfileSectionStart('lost-up')
+  perf.profilerInstance.scopedProfileSectionStart('lost-up')
   try {
     upGossipHandler(payload, sender, tracker)
   } finally {
-    profilerInstance.scopedProfileSectionStart('lost-up')
+    perf.profilerInstance.scopedProfileSectionStart('lost-up')
   }
 }
 
@@ -311,7 +311,7 @@ function getCheckerNode(id, cycle){
 }
 
 async function lostReportHandler (payload, response, sender) {
-  profilerInstance.scopedProfileSectionStart('lost-report')
+  perf.profilerInstance.scopedProfileSectionStart('lost-report')
   try {
     if(logFlags.p2pNonFatal) info(`Got investigate request: ${JSON.stringify(payload)} from ${JSON.stringify(sender)}`)
     let err = ''
@@ -339,7 +339,7 @@ async function lostReportHandler (payload, response, sender) {
     if(logFlags.p2pNonFatal) info('Status after checking is '+obj.status)
     // At start of Q1 of the next cycle sendRequests() will start a gossip if the node was found to be down
   } finally {
-    profilerInstance.scopedProfileSectionEnd('lost-report')
+    perf.profilerInstance.scopedProfileSectionEnd('lost-report')
   }
 }
 

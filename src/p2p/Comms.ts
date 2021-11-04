@@ -6,8 +6,8 @@ import * as NodeList from './NodeList'
 import * as Self from './Self'
 import { P2P } from 'shardus-types'
 import {logFlags} from '../logger'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** ROUTES */
 
 type GossipReq = P2P.P2PTypes.LooseObject
@@ -206,10 +206,10 @@ export async function tell(
   const promises = []
 
   if(commsCounters){
-    nestedCountersInstance.countEvent('comms-route', `tell ${route}`, nodes.length)
-    nestedCountersInstance.countEvent('comms-route x recipients', `tell ${route} recipients:${nodes.length}`, nodes.length)
-    nestedCountersInstance.countEvent('comms-recipients', `tell recipients: ${nodes.length}`, nodes.length) 
-    nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `tell ${route} recipients:${nodes.length}`)  
+    perf.nestedCountersInstance.countEvent('comms-route', `tell ${route}`, nodes.length)
+    perf.nestedCountersInstance.countEvent('comms-route x recipients', `tell ${route} recipients:${nodes.length}`, nodes.length)
+    perf.nestedCountersInstance.countEvent('comms-recipients', `tell recipients: ${nodes.length}`, nodes.length)
+    perf.nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `tell ${route} recipients:${nodes.length}`)
   }
 
   for (const node of nodes) {
@@ -245,10 +245,10 @@ export async function ask(
   }
 
   if(commsCounters){
-    nestedCountersInstance.countEvent('comms-route', `ask ${route}`)
-    nestedCountersInstance.countEvent('comms-route x recipients', `ask ${route} recipients: 1`)
-    nestedCountersInstance.countEvent('comms-recipients', `ask recipients: 1`)
-    nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `ask ${route} recipients: 1`)
+    perf.nestedCountersInstance.countEvent('comms-route', `ask ${route}`)
+    perf.nestedCountersInstance.countEvent('comms-route x recipients', `ask ${route} recipients: 1`)
+    perf.nestedCountersInstance.countEvent('comms-recipients', `ask recipients: 1`)
+    perf.nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `ask ${route} recipients: 1`)
   }
 
   const signedMessage = _wrapAndTagMessage(message, tracker, node)
@@ -291,7 +291,7 @@ export function registerInternal(route, handler) {
       /**
        * [TODO] [AS]
        * If sender is not found in nodelist, _wrapAndTagMessage will try to access
-       * a property of undefined and error out. This might cause some trouble for 
+       * a property of undefined and error out. This might cause some trouble for
        * registerInternal handlers that use the respond fn handed to their callbacks
        * to reply to requests. They might have to be try/catched to avoid crashing
        * shardus
@@ -402,7 +402,7 @@ export async function sendGossip(
     error(`Failed to sendGossip. Could not find self in nodes array`)
     return
   }
-  
+
   const gossipFactor = config.p2p.gossipFactor
   let recipientIdxs
   let originNode
@@ -412,7 +412,7 @@ export async function sendGossip(
     originNode = NodeList.byPubKey.get(payload.sign.owner)
     if(originNode) originIdx = nodes.findIndex((node) => node.id === originNode.id)
   }
-  
+
   if (originIdx !== undefined && originIdx >= 0) { // If it is protocol tx signed by a node in the network
     recipientIdxs = utils.getLinearGossipBurstList(nodeIdxs.length, gossipFactor, myIdx, originIdx)
   } else { // If it is app tx which is not signed by a node in the network
@@ -448,10 +448,10 @@ export async function sendGossip(
     }
 
     if(commsCounters){
-      nestedCountersInstance.countEvent('comms-route', `sendGossip ${type}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-route x recipients', `sendGossip ${type} recipients: ${recipients.length}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-recipients', `sendGossip recipients: ${recipients.length}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossip ${type} recipients: ${recipients.length}`)
+      perf.nestedCountersInstance.countEvent('comms-route', `sendGossip ${type}`, recipients.length)
+      perf.nestedCountersInstance.countEvent('comms-route x recipients', `sendGossip ${type} recipients: ${recipients.length}`, recipients.length)
+      perf.nestedCountersInstance.countEvent('comms-recipients', `sendGossip recipients: ${recipients.length}`, recipients.length)
+      perf.nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossip ${type} recipients: ${recipients.length}`)
     }
 
     await tell(recipients, 'gossip', gossipPayload, true, tracker)
@@ -536,10 +536,10 @@ export async function sendGossipAll(
     }
 
     if(commsCounters){
-      nestedCountersInstance.countEvent('comms-route', `sendGossipAll ${type}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-route x recipients', `sendGossipAll ${type} recipients: ${recipients.length}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-recipients', `sendGossipAll recipients: ${recipients.length}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossipAll ${type} recipients: ${recipients.length}`)
+      perf.nestedCountersInstance.countEvent('comms-route', `sendGossipAll ${type}`, recipients.length)
+      perf.nestedCountersInstance.countEvent('comms-route x recipients', `sendGossipAll ${type} recipients: ${recipients.length}`, recipients.length)
+      perf.nestedCountersInstance.countEvent('comms-recipients', `sendGossipAll recipients: ${recipients.length}`, recipients.length)
+      perf.nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossipAll ${type} recipients: ${recipients.length}`)
     }
 
     await tell(recipients, 'gossip', gossipPayload, true, tracker)

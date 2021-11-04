@@ -10,12 +10,10 @@ import * as Self from '../p2p/Self'
 import * as NodeList from '../p2p/NodeList'
 import * as Rotation from '../p2p/Rotation'
 import StateManager from '../state-manager'
-import Statistics from '../statistics'
-import Profiler from '../utils/profiler'
 import packageJson from '../../package.json'
 import { isDebugModeAnd } from '../debug'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-import { memoryReportingInstance } from '../utils/memoryReporting'
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance, memoryReportingInstance
 
 const http = require('../http')
 const allZeroes64 = '0'.repeat(64)
@@ -38,9 +36,9 @@ interface Reporter {
   config: any
   mainLogger: Log4js.Logger
   p2p: any
-  statistics: Statistics
+  statistics: any
   stateManager: StateManager
-  profiler: Profiler
+  profiler: any
   loadDetection: LoadDetection
   logger: Logger
   reportTimer: NodeJS.Timeout
@@ -73,6 +71,9 @@ class Reporter {
     this.doConsoleReport = isDebugModeAnd((config) => config.profiler);
 
     this.hasRecipient = this.config.recipient != null
+    nestedCountersInstance = perf.nestedCountersInstance
+    profilerInstance = perf.profilerInstance
+    memoryReportingInstance = perf.memoryReportingInstance
     this.resetStatisticsReport()
   }
 
@@ -295,7 +296,7 @@ class Reporter {
     const isDataSynced = !this.stateManager.accountPatcher.failedLastTrieSync
     let rareCounters = {}
     // convert nested Map to nested Object
-    for (const [key, value] of nestedCountersInstance.rareEventCounters) {
+    for (const [key, value] of perf.nestedCountersInstance.rareEventCounters) {
       rareCounters[key] = { ...value }
       rareCounters[key].subCounters = {}
       for (const [subKey, subValue] of value.subCounters) {
@@ -358,7 +359,7 @@ class Reporter {
       self.collectStatisticToReport()
 
       //temp mem debugging:
-      this.mainLogger.info(memoryReportingInstance.getMemoryStringBasic() )
+      this.mainLogger.info(perf.memoryReportingInstance.getMemoryStringBasic() )
 
     }, 1000)
     // Creates and sends a report every `interval` seconds

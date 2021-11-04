@@ -3,7 +3,6 @@ import { StateManager as StateManagerTypes } from 'shardus-types'
 import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
 
-import Profiler, { profilerInstance } from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
@@ -13,7 +12,6 @@ import { time } from 'console'
 import StateManager from '.'
 import { isNullOrUndefined } from 'util'
 import { robustQuery } from '../p2p/Utils'
-import { nestedCountersInstance } from '../utils/nestedCounters'
 import * as Context from '../p2p/Context'
 import * as Wrapper from '../p2p/Wrapper'
 import * as Self from '../p2p/Self'
@@ -22,7 +20,8 @@ import { SyncTracker, SimpleRange, AccountStateHashReq, AccountStateHashResp, Ge
 import { safetyModeVals } from '../snapshot'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { errorToStringFull } from '../utils'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 const allZeroes64 = '0'.repeat(64)
 
 type SyncStatment = {
@@ -60,7 +59,7 @@ class AccountSync {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.ShardusConfiguration
-  profiler: Profiler
+  profiler: any
 
   logger: Logger
   p2p: P2P
@@ -130,7 +129,7 @@ class AccountSync {
   constructor(
     stateManager: StateManager,
 
-    profiler: Profiler,
+    profiler: any,
     app: Shardus.App,
     logger: Logger,
     storage: Storage,
@@ -259,7 +258,7 @@ class AccountSync {
     // Returns a single hash of the data from the Account State Table determined by the input parameters; sort by Tx_ts  then Tx_id before taking the hash
     // Updated names:  accountStart , accountEnd, tsStart, tsEnd
     this.p2p.registerInternal('get_account_state_hash', async (payload: AccountStateHashReq, respond: (arg0: AccountStateHashResp) => any) => {
-      profilerInstance.scopedProfileSectionStart('get_account_state_hash')
+      perf.profilerInstance.scopedProfileSectionStart('get_account_state_hash')
       try {
         let result = {} as AccountStateHashResp
 
@@ -279,7 +278,7 @@ class AccountSync {
       } catch (e) {
         this.statemanager_fatal('get_account_state_hash', e)
       } finally {
-        profilerInstance.scopedProfileSectionEnd('get_account_state_hash')
+        perf.profilerInstance.scopedProfileSectionEnd('get_account_state_hash')
       }
     })
 
@@ -294,7 +293,7 @@ class AccountSync {
       if (this.config.stateManager == null) {
         throw new Error('this.config.stateManager == null') //TODO TSConversion  would be nice to eliminate some of these config checks.
       }
-      profilerInstance.scopedProfileSectionStart('get_account_state')
+      perf.profilerInstance.scopedProfileSectionStart('get_account_state')
       let result = {} as { accountStates: Shardus.StateTableObject[] }
 
       // max records set artificially low for better test coverage
@@ -302,11 +301,11 @@ class AccountSync {
       let accountStates = await this.storage.queryAccountStateTable(payload.accountStart, payload.accountEnd, payload.tsStart, payload.tsEnd, this.config.stateManager.stateTableBucketSize)
       result.accountStates = accountStates
       await respond(result)
-      profilerInstance.scopedProfileSectionEnd('get_account_state')
+      perf.profilerInstance.scopedProfileSectionEnd('get_account_state')
     })
 
     this.p2p.registerInternal('get_account_data3', async (payload: GetAccountData3Req, respond: (arg0: { data: GetAccountDataByRangeSmart }) => any) => {
-      profilerInstance.scopedProfileSectionStart('get_account_data3')
+      perf.profilerInstance.scopedProfileSectionStart('get_account_data3')
       let result = {} as { data: GetAccountDataByRangeSmart } //TSConversion  This is complicated !!(due to app wrapping)  as {data: Shardus.AccountData[] | null}
       let accountData: GetAccountDataByRangeSmart | null = null
       let ourLockID = -1
@@ -326,7 +325,7 @@ class AccountSync {
 
       result.data = accountData
       await respond(result)
-      profilerInstance.scopedProfileSectionEnd('get_account_data3')
+      perf.profilerInstance.scopedProfileSectionEnd('get_account_data3')
     })
 
     // /get_account_data_by_list (Acc_ids)
@@ -336,7 +335,7 @@ class AccountSync {
     // For example: [ {Acc_id, State_after, Acc_data}, { … }, ….. ]
     // Updated names:  accountIds, max records
     this.p2p.registerInternal('get_account_data_by_list', async (payload: { accountIds: any }, respond: (arg0: { accountData: Shardus.WrappedData[] | null }) => any) => {
-      profilerInstance.scopedProfileSectionStart('get_account_data_by_list')
+      perf.profilerInstance.scopedProfileSectionStart('get_account_data_by_list')
       let result = {} as { accountData: Shardus.WrappedData[] | null }
       let accountData = null
       let ourLockID = -1
@@ -350,7 +349,7 @@ class AccountSync {
       this.stateManager.testAccountDataWrapped(accountData)
       result.accountData = accountData
       await respond(result)
-      profilerInstance.scopedProfileSectionEnd('get_account_data_by_list')
+      perf.profilerInstance.scopedProfileSectionEnd('get_account_data_by_list')
     })
 
     Context.network.registerExternalGet('sync-statement', isDebugModeMiddleware, (req, res) => {
@@ -448,7 +447,7 @@ class AccountSync {
       this.syncStatement.timeBeforeDataSync = (Date.now() - Self.p2pSyncEnd)/1000
       this.syncStatement.timeBeforeDataSync2 = this.syncStatement.timeBeforeDataSync
 
-      nestedCountersInstance.countEvent('sync', `sync comlete numCycles: ${this.syncStatement.numCycles} start:${this.syncStatement.cycleStarted} end:${this.syncStatement.cycleEnded}`)
+      perf.nestedCountersInstance.countEvent('sync', `sync comlete numCycles: ${this.syncStatement.numCycles} start:${this.syncStatement.cycleStarted} end:${this.syncStatement.cycleEnded}`)
 
       if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_syncStatement', ` `, `${utils.stringifyReduce(this.syncStatement)}`)
 
@@ -506,7 +505,7 @@ class AccountSync {
 
     // //DO NOT CHECK IN
     // if(this.syncStatement.numNodesOnStart >= 15) {
-    //   nestedCountersInstance.countEvent('hack', 'force default logs on')
+    //   perf.nestedCountersInstance.countEvent('hack', 'force default logs on')
     //   this.logger.setDefaultFlags()
     // }
 
@@ -630,7 +629,7 @@ class AccountSync {
             this.createSyncTrackerByRange(range, cycle, true)
             newTrackers++
           }
-          nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: lastCycle: ${lastCycle} cycle: ${cycle} ${JSON.stringify({cleared, kept, newTrackers})}`)
+          perf.nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: lastCycle: ${lastCycle} cycle: ${cycle} ${JSON.stringify({cleared, kept, newTrackers})}`)
 
           continue //resume loop at top!
 
@@ -789,7 +788,7 @@ class AccountSync {
       }
       if (logFlags.debug) this.mainLogger.debug(`DATASYNC: partition: ${partition}, syncStateTableData 1st pass done.`)
 
-      nestedCountersInstance.countEvent('sync', `sync partition: ${partition} start: ${this.stateManager.currentCycleShardData.cycleNumber}`)
+      perf.nestedCountersInstance.countEvent('sync', `sync partition: ${partition} start: ${this.stateManager.currentCycleShardData.cycleNumber}`)
 
       this.readyforTXs = true // open the floodgates of queuing stuffs.
 
@@ -849,7 +848,7 @@ class AccountSync {
         this.repairMissingTXs()
       }
 
-      nestedCountersInstance.countEvent('sync', `sync partition: ${partition} end: ${this.stateManager.currentCycleShardData.cycleNumber} accountsSynced:${accountsSaved} missing tx to repair: ${keysToRepair}`)
+      perf.nestedCountersInstance.countEvent('sync', `sync partition: ${partition} end: ${this.stateManager.currentCycleShardData.cycleNumber} accountsSynced:${accountsSaved} missing tx to repair: ${keysToRepair}`)
 
     } catch (error) {
       if(error.message.includes('reset-sync-ranges')){
@@ -1287,7 +1286,7 @@ class AccountSync {
 
         let tries = 3
         while(result && result.ready === false && tries > 0){
-          nestedCountersInstance.countEvent('sync','majority of nodes not ready, wait and retry')
+          perf.nestedCountersInstance.countEvent('sync','majority of nodes not ready, wait and retry')
           //too many nodes not ready
           await utils.sleep(30000) //wait 30 seconds and try again
           robustQueryResult = await robustQuery(nodes, queryFn, equalFn, 3, false)
@@ -1404,7 +1403,7 @@ class AccountSync {
             )
           this.combinedAccountStateData = this.combinedAccountStateData.concat(accountStateData)
 
-          nestedCountersInstance.countEvent('sync', `statetable written`, accountStateData.length)
+          perf.nestedCountersInstance.countEvent('sync', `statetable written`, accountStateData.length)
 
           loopCount++
         }
@@ -1868,7 +1867,7 @@ class AccountSync {
 
     let accountsSaved = await this.stateManager.writeCombinedAccountDataToBackups(goodAccounts, failedHashes)
 
-    nestedCountersInstance.countEvent('sync', `accounts written`, accountsSaved)
+    perf.nestedCountersInstance.countEvent('sync', `accounts written`, accountsSaved)
 
     this.combinedAccountData = [] // we can clear this now.
 
@@ -1967,7 +1966,7 @@ class AccountSync {
 
     let accountsSaved = await this.stateManager.writeCombinedAccountDataToBackups(goodAccounts, failedHashes)
 
-    nestedCountersInstance.countEvent('sync', `accounts written`, accountsSaved)
+    perf.nestedCountersInstance.countEvent('sync', `accounts written`, accountsSaved)
 
     this.combinedAccountData = [] // we can clear this now.
 
@@ -2067,7 +2066,7 @@ class AccountSync {
       return
     }
 
-    nestedCountersInstance.countEvent('sync', 'syncFailedAcccounts')
+    perf.nestedCountersInstance.countEvent('sync', 'syncFailedAcccounts')
     this.syncStatement.failedAccountLoops++
 
     if (logFlags.verbose) this.mainLogger.debug(`DATASYNC: syncFailedAcccounts start`)
@@ -2102,7 +2101,7 @@ class AccountSync {
     let message = { accountIds: addressList }
     let result = await this.p2p.ask(this.dataSourceNode, 'get_account_data_by_list', message)
 
-    nestedCountersInstance.countEvent('sync', 'syncFailedAcccounts accountsFailed', addressList.length)
+    perf.nestedCountersInstance.countEvent('sync', 'syncFailedAcccounts accountsFailed', addressList.length)
     this.syncStatement.failedAccounts += addressList.length
 
     if (result == null) {
@@ -2148,7 +2147,7 @@ class AccountSync {
    *
    */
   async repairMissingTXs() {
-    nestedCountersInstance.countEvent('sync', 'repairMissingTXs')
+    perf.nestedCountersInstance.countEvent('sync', 'repairMissingTXs')
 
     let keys = Object.keys(this.stateTableForMissingTXs)
 
@@ -2159,11 +2158,11 @@ class AccountSync {
         let stateTableData = this.stateTableForMissingTXs[key]
 
         if (stateTableData == null) {
-          nestedCountersInstance.countEvent('sync', 'repairMissingTXs stateTableData == null')
+          perf.nestedCountersInstance.countEvent('sync', 'repairMissingTXs stateTableData == null')
           continue
         }
         if (stateTableData.txId == null) {
-          nestedCountersInstance.countEvent('sync', 'repairMissingTXs stateTableData.txId == null')
+          perf.nestedCountersInstance.countEvent('sync', 'repairMissingTXs stateTableData.txId == null')
           continue
         }
 
@@ -2201,7 +2200,7 @@ class AccountSync {
 
 
     if(this.forceSyncComplete){
-      nestedCountersInstance.countEvent('sync', 'forceSyncComplete')
+      perf.nestedCountersInstance.countEvent('sync', 'forceSyncComplete')
       this.syncStatmentIsComplete()
       this.clearSyncData()
       this.skipSync()
@@ -2214,7 +2213,7 @@ class AccountSync {
     }
 
 
-    nestedCountersInstance.countEvent('sync', 'fail and restart')
+    perf.nestedCountersInstance.countEvent('sync', 'fail and restart')
     this.syncStatement.failAndRestart++
 
     //TODO proper restart not useing global var
@@ -2360,7 +2359,7 @@ class AccountSync {
         this.initalSyncFinished = true
         this.initalSyncRemaining = 0
         if (logFlags.debug) this.mainLogger.debug(`DATASYNC: initalSyncFinished.`)
-        nestedCountersInstance.countEvent('sync',`initialSyncFinished ${this.stateManager.currentCycleShardData.cycleNumber}`)
+        perf.nestedCountersInstance.countEvent('sync',`initialSyncFinished ${this.stateManager.currentCycleShardData.cycleNumber}`)
       }
     }
   }
@@ -2423,7 +2422,7 @@ class AccountSync {
       let cycle = this.stateManager.currentCycleShardData.cycleNumber
       let lastCycle = cycle - 1
 
-      nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: runtime. lastCycle: ${lastCycle} cycle: ${cycle} ${JSON.stringify({cleared, kept, newTrackers})}`)
+      perf.nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: runtime. lastCycle: ${lastCycle} cycle: ${cycle} ${JSON.stringify({cleared, kept, newTrackers})}`)
 
       // clear all sync trackers.
       this.syncTrackers = []

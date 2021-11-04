@@ -2,9 +2,7 @@ import * as Shardus from '../shardus/shardus-types'
 import { StateManager as StateManagerTypes } from 'shardus-types'
 import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
-import { nestedCountersInstance } from '../utils/nestedCounters'
 
-import Profiler, { profilerInstance } from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
@@ -16,7 +14,8 @@ import { potentiallyRemoved } from '../p2p/NodeList'
 import * as CycleChain from '../p2p/CycleChain'
 import { QueueEntry, RequestStateForTxReq, RequestStateForTxResp, PreApplyAcceptedTransactionResult, CommitConsensedTransactionResult, AccountFilter, AcceptedTx, StringBoolObjectMap, RequestReceiptForTxResp, StringNodeObjectMap, SeenAccounts } from './state-manager-types'
 import { errorToStringFull } from '../utils'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 const http = require('../http')
 const allZeroes64 = '0'.repeat(64)
 
@@ -24,7 +23,7 @@ class TransactionQueue {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.ShardusConfiguration
-  profiler: Profiler
+  profiler: any
 
   logger: Logger
   p2p: P2P
@@ -55,7 +54,7 @@ class TransactionQueue {
   processingLastRunTime: number
   processingMinRunBreak: number
 
-  constructor(stateManager: StateManager,  profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
+  constructor(stateManager: StateManager,  profiler: any, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
 
     this.crypto = crypto
     this.app = app
@@ -105,7 +104,7 @@ class TransactionQueue {
   setupHandlers() {
 
     this.p2p.registerInternal('broadcast_state', async (payload: { txid: string; stateList: any[] }, respond: any) => {
-      profilerInstance.scopedProfileSectionStart('broadcast_state')
+      perf.profilerInstance.scopedProfileSectionStart('broadcast_state')
       try {
         // Save the wrappedAccountState with the rest our queue data
         // let message = { stateList: datas, txid: queueEntry.acceptedTX.id }
@@ -127,22 +126,22 @@ class TransactionQueue {
         }
 
       } finally {
-        profilerInstance.scopedProfileSectionEnd('broadcast_state')
+        perf.profilerInstance.scopedProfileSectionEnd('broadcast_state')
       }
     })
 
     this.p2p.registerInternal('spread_tx_to_group_syncing', async (payload: Shardus.AcceptedTx, respondWrapped, sender, tracker) => {
-      profilerInstance.scopedProfileSectionStart('spread_tx_to_group_syncing')
+      perf.profilerInstance.scopedProfileSectionStart('spread_tx_to_group_syncing')
       try {
         //handleSharedTX will also validate fields
         this.handleSharedTX(payload, sender)
       } finally {
-        profilerInstance.scopedProfileSectionEnd('spread_tx_to_group_syncing')
+        perf.profilerInstance.scopedProfileSectionEnd('spread_tx_to_group_syncing')
       }
     })
 
     this.p2p.registerGossipHandler('spread_tx_to_group', async (payload, sender, tracker) => {
-      profilerInstance.scopedProfileSectionStart('spread_tx_to_group')
+      perf.profilerInstance.scopedProfileSectionStart('spread_tx_to_group')
       try {
         // Place tx in queue (if younger than m)
         //  gossip 'spread_tx_to_group' to transaction group
@@ -163,7 +162,7 @@ class TransactionQueue {
           this.p2p.sendGossipIn('spread_tx_to_group', payload, tracker, sender, transactionGroup, false)
         }
       } finally {
-        profilerInstance.scopedProfileSectionEnd('spread_tx_to_group')
+        perf.profilerInstance.scopedProfileSectionEnd('spread_tx_to_group')
       }
     })
 
@@ -172,7 +171,7 @@ class TransactionQueue {
      * used by the transaction queue when a queue entry needs to ask for missing state
      */
     this.p2p.registerInternal('request_state_for_tx', async (payload: RequestStateForTxReq, respond: (arg0: RequestStateForTxResp) => any) => {
-      profilerInstance.scopedProfileSectionStart('request_state_for_tx')
+      perf.profilerInstance.scopedProfileSectionStart('request_state_for_tx')
       try {
         let response: RequestStateForTxResp = { stateList: [], beforeHashes: {}, note: '', success: false }
         // app.getRelevantData(accountId, tx) -> wrappedAccountState  for local accounts
@@ -199,7 +198,7 @@ class TransactionQueue {
         response.success = true
         await respond(response)
       } finally {
-        profilerInstance.scopedProfileSectionEnd('request_state_for_tx')
+        perf.profilerInstance.scopedProfileSectionEnd('request_state_for_tx')
       }
     })
   }
@@ -575,7 +574,7 @@ class TransactionQueue {
         }
         let homeNode = ShardFunctions.findHomeNode(this.stateManager.currentCycleShardData.shardGlobals, key, this.stateManager.currentCycleShardData.parititionShardDataMap)
         if (homeNode == null) {
-          nestedCountersInstance.countRareEvent('fatal', 'updateHomeInformation homeNode == null')
+          perf.nestedCountersInstance.countRareEvent('fatal', 'updateHomeInformation homeNode == null')
           throw new Error(`updateHomeInformation homeNode == null ${key}`)
         }
         txQueueEntry.homeNodes[key] = homeNode
@@ -752,7 +751,7 @@ class TransactionQueue {
         txQueueEntry.cycleToRecordOn = CycleChain.getCycleNumberFromTimestamp(timestamp)
         if (logFlags.verbose) console.log("Cycle number from timestamp", timestamp, txQueueEntry.cycleToRecordOn)
         if (txQueueEntry.cycleToRecordOn < 0) {
-          nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'caused Enqueue fail')
+          perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'caused Enqueue fail')
           if (logFlags.verbose) if (logFlags.error) this.mainLogger.error(`routeAndQueueAcceptedTransaction failed to calculate cycle ${timestamp} error code:${txQueueEntry.cycleToRecordOn}`)
           return false
         }
@@ -810,9 +809,9 @@ class TransactionQueue {
 
         if (age > this.stateManager.queueSitTime * 0.9) {
           if(txQueueEntry.didSync === true){
-            nestedCountersInstance.countEvent('stateManager', `enqueue old TX didSync === true queuedBeforeMainSyncComplete:${txQueueEntry.queuedBeforeMainSyncComplete}`)
+            perf.nestedCountersInstance.countEvent('stateManager', `enqueue old TX didSync === true queuedBeforeMainSyncComplete:${txQueueEntry.queuedBeforeMainSyncComplete}`)
           } else {
-            nestedCountersInstance.countEvent('stateManager', `enqueue old TX didSync === false queuedBeforeMainSyncComplete:${txQueueEntry.queuedBeforeMainSyncComplete}`)
+            perf.nestedCountersInstance.countEvent('stateManager', `enqueue old TX didSync === false queuedBeforeMainSyncComplete:${txQueueEntry.queuedBeforeMainSyncComplete}`)
             if(txQueueEntry.queuedBeforeMainSyncComplete){
               //only a fatal if it was after the main sync phase was complete.
               this.statemanager_fatal(`routeAndQueueAcceptedTransaction_olderTX`, 'routeAndQueueAcceptedTransaction working on older tx ' + timestamp + ' age: ' + age)
@@ -868,7 +867,7 @@ class TransactionQueue {
                 let send_spread_tx_to_group_syncing = true
                 //todo turn this back on if other testing goes ok
                 if (txQueueEntry.ourNodeInTransactionGroup === false) {
-                  nestedCountersInstance.countEvent('transactionQueue', 'spread_tx_to_group_syncing-skipped2')
+                  perf.nestedCountersInstance.countEvent('transactionQueue', 'spread_tx_to_group_syncing-skipped2')
                   send_spread_tx_to_group_syncing = false
                 } else if(txQueueEntry.ourTXGroupIndex > 0){
                   let everyN = Math.max(1,Math.floor(txQueueEntry.transactionGroup.length * 0.4))
@@ -876,12 +875,12 @@ class TransactionQueue {
                   let idxPlusNonce = txQueueEntry.ourTXGroupIndex + nonce
                   let idxModEveryN = idxPlusNonce % everyN
                   if(idxModEveryN > 0){
-                    nestedCountersInstance.countEvent('transactionQueue', 'spread_tx_to_group_syncing-skipped')
+                    perf.nestedCountersInstance.countEvent('transactionQueue', 'spread_tx_to_group_syncing-skipped')
                     send_spread_tx_to_group_syncing = false
                   }
                 }
                 if(send_spread_tx_to_group_syncing){
-                  nestedCountersInstance.countEvent('transactionQueue', 'spread_tx_to_group_syncing-notSkipped')
+                  perf.nestedCountersInstance.countEvent('transactionQueue', 'spread_tx_to_group_syncing-notSkipped')
 
                   // only send non global modification TXs
                   if (txQueueEntry.globalModification === false) {
@@ -985,7 +984,7 @@ class TransactionQueue {
     if (queueEntry != null) {
       return queueEntry
     }
-    nestedCountersInstance.countRareEvent('error', `getQueueEntryArchived no entry: ${msg}`)
+    perf.nestedCountersInstance.countRareEvent('error', `getQueueEntryArchived no entry: ${msg}`)
     if (logFlags.error) this.mainLogger.error(`getQueueEntryArchived failed to find: ${utils.stringifyReduce(txid)} ${msg} dbg:${this.stateManager.debugTXHistory[utils.stringifyReduce(txid)]}`)
     return null
   }
@@ -1070,7 +1069,7 @@ class TransactionQueue {
     }
     queueEntry.pendingDataRequest = true
 
-    nestedCountersInstance.countEvent('processing', 'queueEntryRequestMissingData-start')
+    perf.nestedCountersInstance.countEvent('processing', 'queueEntryRequestMissingData-start')
 
     if (!queueEntry.requests) {
       queueEntry.requests = {}
@@ -1212,9 +1211,9 @@ class TransactionQueue {
     }
 
     if (queueEntry.hasAll === true) {
-      nestedCountersInstance.countEvent('processing', 'queueEntryRequestMissingData-success')
+      perf.nestedCountersInstance.countEvent('processing', 'queueEntryRequestMissingData-success')
     } else {
-      nestedCountersInstance.countEvent('processing', 'queueEntryRequestMissingData-failed')
+      perf.nestedCountersInstance.countEvent('processing', 'queueEntryRequestMissingData-failed')
 
       //give up and wait for receipt
       queueEntry.waitForReceiptOnly = true
@@ -1784,7 +1783,7 @@ class TransactionQueue {
       if(timeSinceLastRun < this.processingMinRunBreak){
         let sleepTime = Math.max(5, this.processingMinRunBreak - timeSinceLastRun )
         await utils.sleep(sleepTime)
-        nestedCountersInstance.countEvent('processing', 'resting')
+        perf.nestedCountersInstance.countEvent('processing', 'resting')
       }
 
       this.profiler.profileSectionStart('processQ')
@@ -1817,9 +1816,9 @@ class TransactionQueue {
         for (let txQueueEntry of this.newAcceptedTxQueueTempInjest) {
 
           if(this.txWillChangeLocalData(txQueueEntry) === true){
-            nestedCountersInstance.countEvent('stateManager', 'processAcceptedTxQueue injest: kept TX' )
+            perf.nestedCountersInstance.countEvent('stateManager', 'processAcceptedTxQueue injest: kept TX' )
           } else {
-            nestedCountersInstance.countEvent('stateManager', 'processAcceptedTxQueue injest: discard TX' )
+            perf.nestedCountersInstance.countEvent('stateManager', 'processAcceptedTxQueue injest: discard TX' )
             continue
           }
 
@@ -1875,15 +1874,15 @@ class TransactionQueue {
 
         if(currentTime - lastRest > 1000){
           //add a brief sleep if we have been in this loop for a long time
-          nestedCountersInstance.countEvent('processing','forcedSleep')
+          perf.nestedCountersInstance.countEvent('processing','forcedSleep')
           await utils.sleep(5) //5ms sleep
           lastRest = currentTime
 
           if(currentTime - this.stateManager.currentCycleShardData.calculationTime > ((this.config.p2p.cycleDuration * 1000) + 5000)){
-            nestedCountersInstance.countEvent('processing','old cycle data >5s past due')
+            perf.nestedCountersInstance.countEvent('processing','old cycle data >5s past due')
           }
           if(currentTime - this.stateManager.currentCycleShardData.calculationTime > ((this.config.p2p.cycleDuration * 1000) + 11000)){
-            nestedCountersInstance.countEvent('processing','very old cycle data >11s past due')
+            perf.nestedCountersInstance.countEvent('processing','very old cycle data >11s past due')
             return //loop will restart.
           }
         }
@@ -1952,7 +1951,7 @@ class TransactionQueue {
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
 
-            nestedCountersInstance.countEvent('txExpired', `> M3 * 2. NormalTX Timed out. didSync == false. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
+            perf.nestedCountersInstance.countEvent('txExpired', `> M3 * 2. NormalTX Timed out. didSync == false. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
             this.removeFromQueue(queueEntry, currentIndex)
             continue
@@ -1969,7 +1968,7 @@ class TransactionQueue {
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired 2  ${utils.stringifyReduce(queueEntry.acceptedTx)} ${queueEntry.didWakeup}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt 2: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
 
-            nestedCountersInstance.countEvent('txExpired', `> M3 * 50. SyncedTX Timed out. didSync == true. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
+            perf.nestedCountersInstance.countEvent('txExpired', `> M3 * 50. SyncedTX Timed out. didSync == true. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
             this.removeFromQueue(queueEntry, currentIndex)
             continue
@@ -1983,7 +1982,7 @@ class TransactionQueue {
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired 3 requestingReceiptFailed  ${utils.stringifyReduce(queueEntry.acceptedTx)} ${queueEntry.didWakeup}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt 3 requestingReceiptFailed: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
 
-            nestedCountersInstance.countEvent('txExpired', `> M3. receiptRequestFail after Timed Out. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
+            perf.nestedCountersInstance.countEvent('txExpired', `> M3. receiptRequestFail after Timed Out. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
             this.removeFromQueue(queueEntry, currentIndex)
             continue
@@ -1999,7 +1998,7 @@ class TransactionQueue {
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired 3 repairFailed  ${utils.stringifyReduce(queueEntry.acceptedTx)} ${queueEntry.didWakeup}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt 3 repairFailed: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
 
-            nestedCountersInstance.countEvent('txExpired', `> M3. repairFailed after Timed Out. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
+            perf.nestedCountersInstance.countEvent('txExpired', `> M3. repairFailed after Timed Out. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
             this.removeFromQueue(queueEntry, currentIndex)
             continue
@@ -2016,7 +2015,7 @@ class TransactionQueue {
                   if (logFlags.verbose) if (logFlags.error) this.mainLogger.error(`Wait for reciept only: txAge > timeM2_5 txid:${shortID} `)
                   if (logFlags.playback) this.logger.playbackLogNote('txMissingReceipt3', `${shortID}`, `processAcceptedTxQueue ` + `txid: ${shortID} state: ${queueEntry.state} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} age:${txAge}`)
 
-                  nestedCountersInstance.countEvent('txMissingReceipt', `Wait for reciept only: txAge > timeM2.5. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
+                  perf.nestedCountersInstance.countEvent('txMissingReceipt', `Wait for reciept only: txAge > timeM2.5. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
                   queueEntry.waitForReceiptOnly = true
                   queueEntry.m2TimeoutReached = true
                   queueEntry.state = 'consensing'
@@ -2038,7 +2037,7 @@ class TransactionQueue {
                 this.processQueue_markAccountsSeen(seenAccounts, queueEntry)
                 this.queueEntryRequestMissingReceipt(queueEntry)
 
-                nestedCountersInstance.countEvent('txMissingReceipt', `txAge > timeM3 => ask for receipt now. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
+                perf.nestedCountersInstance.countEvent('txMissingReceipt', `txAge > timeM3 => ask for receipt now. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
                 queueEntry.waitForReceiptOnly = true
                 queueEntry.m2TimeoutReached = true
                 queueEntry.state = 'consensing'
@@ -2055,7 +2054,7 @@ class TransactionQueue {
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} txExpired 4  ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
             if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt 4: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
 
-            nestedCountersInstance.countEvent('txExpired', `txExpired txAge > timeM3 * 50. still syncing. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
+            perf.nestedCountersInstance.countEvent('txExpired', `txExpired txAge > timeM3 * 50. still syncing. state:${queueEntry.state} globalMod:${queueEntry.globalModification}`)
             queueEntry.state = 'expired'
             this.removeFromQueue(queueEntry, currentIndex)
             continue
@@ -2078,7 +2077,7 @@ class TransactionQueue {
 
             //the syncing process is not fully reliable when popping synced TX.  this is a backup check to see if we can get out of syncing state
             if (queueEntry.syncCounter <= 0) {
-              nestedCountersInstance.countEvent('sync', 'syncing state needs bump')
+              perf.nestedCountersInstance.countEvent('sync', 'syncing state needs bump')
 
               queueEntry.waitForReceiptOnly = true
               queueEntry.state = 'consensing'
@@ -2123,7 +2122,7 @@ class TransactionQueue {
             // catch all in case we get waiting for data
             if(txAge > timeM2_5){
               this.processQueue_markAccountsSeen(seenAccounts, queueEntry)
-              nestedCountersInstance.countEvent('processing', `awaiting data txAge > m2.5 set to consensing hasAll:${queueEntry.hasAll} hasReceivedApplyReceipt:${hasReceivedApplyReceipt}`)
+              perf.nestedCountersInstance.countEvent('processing', `awaiting data txAge > m2.5 set to consensing hasAll:${queueEntry.hasAll} hasReceivedApplyReceipt:${hasReceivedApplyReceipt}`)
 
               queueEntry.waitForReceiptOnly = true
               queueEntry.state = 'consensing'
@@ -2141,14 +2140,14 @@ class TransactionQueue {
 
               if (this.queueEntryHasAllData(queueEntry) === true) {
                 // I think this can't happen
-                nestedCountersInstance.countEvent('processing', 'data missing at t>M2. but not really. investigate further')
+                perf.nestedCountersInstance.countEvent('processing', 'data missing at t>M2. but not really. investigate further')
                 if (logFlags.playback) this.logger.playbackLogNote('shrd_hadDataAfterall', `${shortID}`, `This is kind of an error, and should not happen`)
                 continue
               }
 
               // 7.  Manually request missing state
               try {
-                nestedCountersInstance.countEvent('processing', 'data missing at t>M2. request data')
+                perf.nestedCountersInstance.countEvent('processing', 'data missing at t>M2. request data')
                 // Await note: current thinking is that is is best to not await this call.
                 this.queueEntryRequestMissingData(queueEntry)
               } catch (ex) {
@@ -2187,11 +2186,11 @@ class TransactionQueue {
                       let {timestamp, hash} = this.app.getTimestampAndHashFromAccount(wrappedAccount.data)
                       if(wrappedAccount.timestamp != timestamp){
                         wrappedAccount.timestamp = timestamp
-                        nestedCountersInstance.countEvent('transactionQueue', 'correctedTimestamp')
+                        perf.nestedCountersInstance.countEvent('transactionQueue', 'correctedTimestamp')
                       }
                       if(wrappedAccount.stateId != hash){
                         wrappedAccount.stateId = hash
-                        nestedCountersInstance.countEvent('transactionQueue', 'correctedHash')
+                        perf.nestedCountersInstance.countEvent('transactionQueue', 'correctedHash')
                       }
                     }
 
@@ -2217,7 +2216,7 @@ class TransactionQueue {
                   } else {
                     //There was some sort of error when we tried to apply the TX
                     //Go directly into 'consensing' state, because we need to wait for a receipt that is good.
-                    nestedCountersInstance.countEvent('processing', `txResult apply error. applied: ${txResult?.applied}`)
+                    perf.nestedCountersInstance.countEvent('processing', `txResult apply error. applied: ${txResult?.applied}`)
                     if (logFlags.error) this.mainLogger.error(`processAcceptedTxQueue2 txResult problem txid:${queueEntry.logID} res: ${utils.stringifyReduce(txResult)} `)
                     queueEntry.waitForReceiptOnly = true
                     queueEntry.state = 'consensing'
@@ -2289,7 +2288,7 @@ class TransactionQueue {
                 if(queueEntry.debugFail_failNoRepair){
                   queueEntry.state = 'fail'
                   this.removeFromQueue(queueEntry, currentIndex)
-                  nestedCountersInstance.countEvent('stateManager', 'debugFail_failNoRepair')
+                  perf.nestedCountersInstance.countEvent('stateManager', 'debugFail_failNoRepair')
                   this.statemanager_fatal(`processAcceptedTxQueue_debugFail_failNoRepair2`, `processAcceptedTxQueue_debugFail_failNoRepair2 tx: ${shortID} cycle:${queueEntry.cycleToRecordOn}  accountkeys: ${utils.stringifyReduce(queueEntry.uniqueWritableKeys)}`)
                   this.processQueue_clearAccountsSeen(seenAccounts, queueEntry)
                   continue
@@ -2354,7 +2353,7 @@ class TransactionQueue {
               if(queueEntry.debugFail_failNoRepair){
                 queueEntry.state = 'fail'
                 this.removeFromQueue(queueEntry, currentIndex)
-                nestedCountersInstance.countEvent('stateManager', 'debugFail_failNoRepair')
+                perf.nestedCountersInstance.countEvent('stateManager', 'debugFail_failNoRepair')
                 this.statemanager_fatal(`processAcceptedTxQueue_debugFail_failNoRepair`, `processAcceptedTxQueue_debugFail_failNoRepair tx: ${shortID} cycle:${queueEntry.cycleToRecordOn}  accountkeys: ${utils.stringifyReduce(queueEntry.uniqueWritableKeys)}`)
                 this.processQueue_clearAccountsSeen(seenAccounts, queueEntry)
                 continue
@@ -2402,12 +2401,12 @@ class TransactionQueue {
                     // saw a TODO comment above and befor I axe it want to confirm what is happening after we repair a receipt.
                     // shouldn't get here putting this in to catch if we do
                     this.statemanager_fatal(`processAcceptedTxQueue_commitingRepairedReceipt`, `${shortID} `)
-                    nestedCountersInstance.countEvent('processing', 'commiting a repaired TX...')
+                    perf.nestedCountersInstance.countEvent('processing', 'commiting a repaired TX...')
                   }
 
-                  nestedCountersInstance.countEvent('stateManager', 'committed tx')
+                  perf.nestedCountersInstance.countEvent('stateManager', 'committed tx')
                   if(queueEntry.hasValidFinalData === false){
-                    nestedCountersInstance.countEvent('stateManager', 'commit state fix FinalDataFlag')
+                    perf.nestedCountersInstance.countEvent('stateManager', 'commit state fix FinalDataFlag')
                     queueEntry.hasValidFinalData = true
                   }
 
@@ -2512,17 +2511,17 @@ class TransactionQueue {
 
       let processTime = Date.now() - startTime
       if(processTime > 10000){
-        nestedCountersInstance.countEvent('stateManager', 'processTime > 10s')
+        perf.nestedCountersInstance.countEvent('stateManager', 'processTime > 10s')
         this.statemanager_fatal(`processAcceptedTxQueue excceded time ${processTime/1000} firstTime:${firstTime}`, `processAcceptedTxQueue excceded time ${processTime/1000} firstTime:${firstTime}`)
       }
       else if(processTime > 5000){
-        nestedCountersInstance.countEvent('stateManager', 'processTime > 5s')
+        perf.nestedCountersInstance.countEvent('stateManager', 'processTime > 5s')
       }
       else if(processTime > 2000){
-        nestedCountersInstance.countEvent('stateManager', 'processTime > 2s')
+        perf.nestedCountersInstance.countEvent('stateManager', 'processTime > 2s')
       }
       else if(processTime > 1000){
-        nestedCountersInstance.countEvent('stateManager', 'processTime > 1s')
+        perf.nestedCountersInstance.countEvent('stateManager', 'processTime > 1s')
       }
 
       // restart loop if there are still elements in it

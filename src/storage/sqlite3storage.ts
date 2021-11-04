@@ -7,7 +7,6 @@ import * as Sequelize from 'sequelize'
 import * as Shardus from '../shardus/shardus-types'
 import * as Snapshot from '../snapshot'
 import * as utils from '../utils'
-import Profiler from '../utils/profiler'
 import { config, crypto, logger } from '../p2p/Context'
 import {logFlags} from '../logger'
 
@@ -17,7 +16,7 @@ const sqlite3 = require('sqlite3').verbose()
 interface Sqlite3Storage {
   baseDir: string
   storageConfig: Shardus.StorageConfiguration
-  profiler: Profiler
+  profiler: any
   mainLogger: Log4js.Logger
   initialized: boolean
   storageModels: any
@@ -204,7 +203,7 @@ class Sqlite3Storage {
 
     // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(inputs))
     return this.run(queryString, inputs)
-    
+
     } finally {
       this.profiler.profileSectionEnd('db')
     }

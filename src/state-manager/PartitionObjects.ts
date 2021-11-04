@@ -3,7 +3,6 @@ import { StateManager as StateManagerTypes } from 'shardus-types'
 import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
 
-import Profiler from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
@@ -18,8 +17,8 @@ class PartitionObjects {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.ShardusConfiguration
-  profiler: Profiler
-  
+  profiler: any
+
   logger: Logger
   p2p: P2P
   storage: Storage
@@ -52,8 +51,8 @@ class PartitionObjects {
 
   resetAndApplyPerPartition: boolean
 
-  constructor(stateManager: StateManager,  profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
-    
+  constructor(stateManager: StateManager,  profiler: any, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
+
     this.crypto = crypto
     this.app = app
     this.logger = logger
@@ -111,7 +110,7 @@ class PartitionObjects {
       let shardGlobals = shardValues.shardGlobals as StateManagerTypes.shardFunctionTypes.ShardGlobals
       let consensusStartPartition = shardValues.nodeShardData.consensusStartPartition
       let consensusEndPartition = shardValues.nodeShardData.consensusEndPartition
-      
+
 
       response = {res:[], cycleNumber:this.nextCycleReportToSend.cycleNumber}
       if (this.lastCycleReported < this.nextCycleReportToSend.cycleNumber || this.partitionReportDirty === true) {

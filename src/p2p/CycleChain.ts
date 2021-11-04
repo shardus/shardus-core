@@ -2,8 +2,8 @@ import { Logger } from 'log4js'
 import { crypto, logger, stateManager } from './Context'
 import { P2P } from 'shardus-types'
 import { nodes } from './NodeList'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** STATE */
 
 let p2pLogger: Logger
@@ -94,9 +94,9 @@ export function getStoredCycleByTimestamp(timestamp) {
 
 /**
  * Get a cycle from a timestamp.
- * Future timestamps are allowed. Timestamps for cycles older than stored are allow if the allowOlder flag is set 
+ * Future timestamps are allowed. Timestamps for cycles older than stored are allow if the allowOlder flag is set
  * @param timestamp timestamp of the TX.  NOTE by default the sync settle time will be added.  set addSyncSettleTime = false to avoid this
- * @param allowOlder this allows calculating a cycle number for a cycle that is not stored. 
+ * @param allowOlder this allows calculating a cycle number for a cycle that is not stored.
  * @param addSyncSettleTime add in the sync settle time to the request.
  */
 export function getCycleNumberFromTimestamp(timestamp : number, allowOlder: boolean = true, addSyncSettleTime: boolean = true) {
@@ -117,18 +117,18 @@ export function getCycleNumberFromTimestamp(timestamp : number, allowOlder: bool
     if (currentCycleShardData.timestamp <= offsetTimestamp && offsetTimestamp < currentCycleShardData.timestampEndCycle) {
       if(currentCycleShardData.cycleNumber == null){
         stateManager.statemanager_fatal('getCycleNumberFromTimestamp failed. cycleNumber == null', 'currentCycleShardData.cycleNumber == null')
-        nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber fail')
+        perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber fail')
         const cycle = getStoredCycleByTimestamp(offsetTimestamp)
         console.log("CycleChain.getCycleNumberFromTimestamp getStoredCycleByTimestamp",cycle, timestamp)
         if (cycle != null) {
           stateManager.statemanager_fatal('getCycleNumberFromTimestamp failed fatal redeemed', 'currentCycleShardData.cycleNumber == null, fatal redeemed')
-          nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber redeemed')
+          perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber redeemed')
           return cycle.counter
         } else {
           //debug only!!!
           let cycle2 = getStoredCycleByTimestamp(offsetTimestamp)
           stateManager.statemanager_fatal('getCycleNumberFromTimestamp failed fatal not redeemed', 'getStoredCycleByTimestamp cycleNumber == null not redeemed')
-          nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber failed to redeem')
+          perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber failed to redeem')
         }
       } else {
         return currentCycleShardData.cycleNumber
@@ -136,7 +136,7 @@ export function getCycleNumberFromTimestamp(timestamp : number, allowOlder: bool
     }
 
     if(currentCycleShardData.cycleNumber == null){
-      nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber == null')
+      perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'currentCycleShardData.cycleNumber == null')
       stateManager.statemanager_fatal('getCycleNumberFromTimestamp: currentCycleShardData.cycleNumber == null',`getCycleNumberFromTimestamp: currentCycleShardData.cycleNumber == null ${currentCycleShardData.cycleNumber} timestamp:${timestamp}`)
 
     }
@@ -147,7 +147,7 @@ export function getCycleNumberFromTimestamp(timestamp : number, allowOlder: bool
 
       let timePastCurrentCycle = offsetTimestamp - currentCycleShardData.timestampEndCycle
       let cyclesAhead = Math.ceil(timePastCurrentCycle / (cycle.duration * 1000))
-      nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', `+${cyclesAhead}`)
+      perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', `+${cyclesAhead}`)
 
       return currentCycleShardData.cycleNumber + cyclesAhead
     }
@@ -156,15 +156,15 @@ export function getCycleNumberFromTimestamp(timestamp : number, allowOlder: bool
       // let offsetSeconds = Math.floor(offsetTimestamp * 0.001)
       const cycle = getStoredCycleByTimestamp(offsetTimestamp)
       if (cycle != null) {
-        nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup')
+        perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup')
         if(cycle.counter == null){
           stateManager.statemanager_fatal('getCycleNumberFromTimestamp  unexpected cycle.cycleNumber == null', 'getCycleNumberFromTimestamp unexpected cycle.cycleNumber == null')
-          nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', `getCycleNumberFromTimestamp unexpected cycle.cycleNumber == null  ${timestamp}`)
+          perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', `getCycleNumberFromTimestamp unexpected cycle.cycleNumber == null  ${timestamp}`)
         }
 
         return cycle.counter
       } else {
-        //nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup fail -estimate cycle')
+        //perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup fail -estimate cycle')
         //debug only!!!
         //let cycle2 = CycleChain.getCycleByTimestamp(offsetTimestamp)
         //stateManager.statemanager_fatal('getCycleNumberFromTimestamp getCycleByTimestamp failed', 'getCycleByTimestamp getCycleByTimestamp failed')
@@ -173,7 +173,7 @@ export function getCycleNumberFromTimestamp(timestamp : number, allowOlder: bool
         if(cycleEstimate < 1){
           cycleEstimate = 1
         }
-        nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup fail -estimate cycle: ' + cycleEstimate)
+        perf.nestedCountersInstance.countEvent('getCycleNumberFromTimestamp', 'p2p lookup fail -estimate cycle: ' + cycleEstimate)
         return cycleEstimate
       }
     }

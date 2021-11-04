@@ -16,8 +16,8 @@ import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 /** STATE */
 
 export const emitter = new events.EventEmitter()
@@ -96,7 +96,13 @@ export async function startup(): Promise<boolean> {
     firstTime = false
   } while (utils.isUndefined(isFirst) || utils.isUndefined(id))
 
-  p2pSyncStart = Date.now() 
+  perf.profilerInstance.setNodeInfo({
+    nodeId: id,
+    externalIp: ip,
+    externalPort: port,
+  })
+
+  p2pSyncStart = Date.now()
 
   if (logFlags.p2pNonFatal) info('Emitting `joined` event.')
   emitter.emit('joined', id, publicKey)
@@ -110,7 +116,7 @@ export async function startup(): Promise<boolean> {
   // Start creating cycle records
   await CycleCreator.startCycles()
 
-  p2pSyncEnd = Date.now() 
+  p2pSyncEnd = Date.now()
   p2pJoinTime = (p2pSyncEnd-p2pSyncStart)/1000
   if (logFlags.p2pNonFatal) info('Emitting `initialized` event.' + p2pJoinTime)
   emitter.emit('initialized')
@@ -194,7 +200,7 @@ async function joinNetwork(activeNodes: P2P.P2PTypes.Node[], firstTime: boolean)
     info('Waiting approx. one cycle then checking again...')
 
   // Wait until a Q4 before we loop ..
-  // This is a bit faster than before and should allow nodes to try joining 
+  // This is a bit faster than before and should allow nodes to try joining
   // without skipping a cycle
   let untilQ4 = startQ4 - Date.now()
   while (untilQ4 < 0) {
@@ -372,7 +378,7 @@ async function getActiveNodesFromArchiver() {
       }), false, 5000
     )
   } catch (e) {
-    nestedCountersInstance.countRareEvent('fatal', 'Could not get seed list from seed node server')
+    perf.nestedCountersInstance.countRareEvent('fatal', 'Could not get seed list from seed node server')
     throw Error(
       `Fatal: Could not get seed list from seed node server ${nodeListUrl}: ` +
         e.message

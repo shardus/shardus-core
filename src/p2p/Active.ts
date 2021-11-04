@@ -8,8 +8,8 @@ import { config, crypto, logger } from './Context'
 import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { profilerInstance } from '../utils/profiler'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** ROUTES */
 
 const gossipActiveRoute: P2P.P2PTypes.GossipHandler<P2P.ActiveTypes.SignedActiveRequest> = (
@@ -17,7 +17,7 @@ const gossipActiveRoute: P2P.P2PTypes.GossipHandler<P2P.ActiveTypes.SignedActive
   sender,
   tracker
 ) => {
-  profilerInstance.scopedProfileSectionStart('gossip-active', true)
+  perf.profilerInstance.scopedProfileSectionStart('gossip-active', true)
   try {
     if (logFlags.p2pNonFatal)
       info(`Got active request: ${JSON.stringify(payload)}`)
@@ -60,7 +60,7 @@ const gossipActiveRoute: P2P.P2PTypes.GossipHandler<P2P.ActiveTypes.SignedActive
         false
       )
   } finally {
-    profilerInstance.scopedProfileSectionEnd('gossip-active', true)
+    perf.profilerInstance.scopedProfileSectionEnd('gossip-active', true)
   }
 }
 

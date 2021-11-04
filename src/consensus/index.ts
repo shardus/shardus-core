@@ -1,5 +1,4 @@
 import Log4js from 'log4js'
-import Profiler from '../utils/profiler'
 import Logger, {logFlags} from '../logger'
 import * as Shardus from '../shardus/shardus-types'
 import Storage from '../storage'
@@ -9,7 +8,7 @@ import { EventEmitter } from 'events'
 type P2P = typeof import('../p2p/Wrapper')
 
 interface Consensus {
-  profiler: Profiler
+  profiler: any
   app: Shardus.App
   config: Shardus.ShardusConfiguration
   logger: Logger
@@ -29,7 +28,7 @@ class Consensus extends EventEmitter {
     logger: Logger,
     crypto: Crypto,
     storage: Storage,
-    profiler: Profiler
+    profiler: any
   ) {
     super()
     this.profiler = profiler
@@ -86,7 +85,7 @@ class Consensus extends EventEmitter {
       }
 
       // TODO INJECT: seems to just log errors if the address is missing.  I think we do still want some form of these
-      // logs to help dapp developers quickly catch the mistakes.   
+      // logs to help dapp developers quickly catch the mistakes.
       if (sourceAddress) {
         if (logFlags.debug) {
           this.mainLogger.debug(`get source state id for ${sourceAddress}`)
@@ -123,7 +122,7 @@ class Consensus extends EventEmitter {
         )
       }
 
-      // TODO INJECT: this is an old receipt, or a reciept that we got the TX, note that the TX passed in here is also signed, 
+      // TODO INJECT: this is an old receipt, or a reciept that we got the TX, note that the TX passed in here is also signed,
       //              at the most seems like we only need to wrap up and sign the TX once
       transactionReceipt = this.createReceipt(
         inTransaction,

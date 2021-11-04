@@ -15,8 +15,8 @@ import * as CycleCreator from './CycleCreator'
 import * as CycleParser from './CycleParser'
 import { logFlags } from '../logger'
 import { P2P, StateManager } from 'shardus-types'
-import { profilerInstance } from '../utils/profiler'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** STATE */
 
 let p2pLogger
@@ -387,7 +387,7 @@ export function registerRoutes() {
   Comms.registerGossipHandler(
     'joinarchiver',
     async (payload, sender, tracker) => {
-      profilerInstance.scopedProfileSectionStart('joinarchiver')
+      perf.profilerInstance.scopedProfileSectionStart('joinarchiver')
       try {
         if(logFlags.console) console.log('Join request gossip received:', payload)
         const existingJoinRequest = joinRequests.find(
@@ -406,7 +406,7 @@ export function registerRoutes() {
           if(logFlags.console) console.log('Already received archiver join gossip for this node')
         }
       } finally {
-        profilerInstance.scopedProfileSectionEnd('joinarchiver')
+        perf.profilerInstance.scopedProfileSectionEnd('joinarchiver')
       }
     }
   )
@@ -414,7 +414,7 @@ export function registerRoutes() {
   Comms.registerGossipHandler(
     'leavingarchiver',
     async (payload, sender, tracker) => {
-      profilerInstance.scopedProfileSectionStart('leavingarchiver')
+      perf.profilerInstance.scopedProfileSectionStart('leavingarchiver')
       try {
         if(logFlags.console) console.log('Leave request gossip received:', payload)
         const existingLeaveRequest = leaveRequests.find(
@@ -429,7 +429,7 @@ export function registerRoutes() {
           if(logFlags.console) console.log('Already received archiver leave gossip for this node')
         }
       } finally {
-        profilerInstance.scopedProfileSectionEnd('leavingarchiver')
+        perf.profilerInstance.scopedProfileSectionEnd('leavingarchiver')
       }
     }
   )

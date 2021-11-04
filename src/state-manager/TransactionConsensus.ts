@@ -2,7 +2,6 @@ import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
 
-import Profiler, { profilerInstance } from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
@@ -11,13 +10,13 @@ import ShardFunctions from './shardFunctions.js'
 import { info, time } from 'console'
 import StateManager from '.'
 import { AppliedReceipt, QueueEntry, AppliedVote } from './state-manager-types'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 class TransactionConsenus {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.ShardusConfiguration
-  profiler: Profiler
+  profiler: any
 
   logger: Logger
   p2p: P2P
@@ -30,7 +29,7 @@ class TransactionConsenus {
   statsLogger: any
   statemanager_fatal: (key: string, log: string) => void
 
-  constructor(stateManager: StateManager,  profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
+  constructor(stateManager: StateManager,  profiler: any, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
 
     this.crypto = crypto
     this.app = app
@@ -61,7 +60,7 @@ class TransactionConsenus {
 
   setupHandlers(){
     this.p2p.registerGossipHandler('spread_appliedReceipt', async (payload, sender, tracker) => {
-      profilerInstance.scopedProfileSectionStart('spread_appliedReceipt')
+      perf.profilerInstance.scopedProfileSectionStart('spread_appliedReceipt')
       try {
         let appliedReceipt = payload as AppliedReceipt
         let queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(appliedReceipt.txid) // , payload.timestamp)
@@ -116,7 +115,7 @@ class TransactionConsenus {
         }
 
       } finally {
-        profilerInstance.scopedProfileSectionEnd('spread_appliedReceipt')
+        perf.profilerInstance.scopedProfileSectionEnd('spread_appliedReceipt')
       }
     })
   }
@@ -151,11 +150,11 @@ class TransactionConsenus {
         let idxPlusNonce = queueEntry.ourTXGroupIndex + nonce
         let idxModEveryN = idxPlusNonce % everyN
         if(idxModEveryN > 0){
-          nestedCountersInstance.countEvent('transactionQueue', 'shareAppliedReceipt-skipped')
+          perf.nestedCountersInstance.countEvent('transactionQueue', 'shareAppliedReceipt-skipped')
           return
         }
       }
-      nestedCountersInstance.countEvent('transactionQueue', 'shareAppliedReceipt-notSkipped')
+      perf.nestedCountersInstance.countEvent('transactionQueue', 'shareAppliedReceipt-notSkipped')
       // should consider only forwarding in some cases?
       this.stateManager.debugNodeGroup(queueEntry.acceptedTx.id, queueEntry.acceptedTx.timestamp, `share appliedReceipt to neighbors`, gossipGroup)
       this.p2p.sendGossipIn('spread_appliedReceipt', appliedReceipt, '', sender, gossipGroup, true)

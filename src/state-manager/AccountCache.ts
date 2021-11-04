@@ -3,7 +3,6 @@ import { StateManager as StateManagerTypes} from 'shardus-types'
 import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
 
-import Profiler from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
@@ -11,15 +10,15 @@ import Logger, {logFlags} from '../logger'
 import ShardFunctions from './shardFunctions.js'
 import { time } from 'console'
 import StateManager from '.'
-import { nestedCountersInstance } from '../utils/nestedCounters'
 import { AccountHashCache, AccountHashCacheMain, AccountHashCacheMain3, CycleShardData, MainHashResults, AccountHashCacheHistory, AccountHashCacheList, PartitionHashResults } from './state-manager-types'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 class AccountCache {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.ShardusConfiguration
-  profiler: Profiler
-  
+  profiler: any
+
   logger: Logger
 
   mainLogger: any
@@ -40,7 +39,7 @@ class AccountCache {
   statemanager_fatal: (key: string, log: string) => void
   stateManager: StateManager
 
-  constructor(stateManager: StateManager, profiler: Profiler, app: Shardus.App, logger: Logger, crypto: Crypto, config: Shardus.ShardusConfiguration) {
+  constructor(stateManager: StateManager, profiler: any, app: Shardus.App, logger: Logger, crypto: Crypto, config: Shardus.ShardusConfiguration) {
     this.crypto = crypto
     this.app = app
     this.logger = logger
@@ -49,7 +48,7 @@ class AccountCache {
 
 
     if(logger == null){
-      
+
       return // for debug
     }
 
@@ -99,7 +98,7 @@ class AccountCache {
     // let stack = new Error().stack
     // this.mainLogger.debug(`updateAccountHash: ${utils.stringifyReduce({accountId, hash, timestamp, cycle})}  ${stack}`)
 
-    nestedCountersInstance.countEvent('cache', 'updateAccountHash: start') 
+    perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: start')
 
     let accountHashCacheHistory: AccountHashCacheHistory
     if (this.accountsHashCache3.accountHashMap.has(accountId) === false) {
@@ -117,7 +116,7 @@ class AccountCache {
           this.accountsHashCache3.currentCalculationCycle = 0
         }
       } else{
-        this.statemanager_fatal(`updateAccountHash: error getting cycle number ${this.stateManager.currentCycleShardData.cycleNumber}`, 
+        this.statemanager_fatal(`updateAccountHash: error getting cycle number ${this.stateManager.currentCycleShardData.cycleNumber}`,
         `updateAccountHash: error getting cycle number c:${this.stateManager.currentCycleShardData.cycleNumber} `)
       }
     }
@@ -143,7 +142,7 @@ class AccountCache {
 
     if (accountHashList.length === 0) {
       accountHashList.push(accountHashData)
-      nestedCountersInstance.countEvent('cache', 'updateAccountHash: push as first entry') 
+      perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: push as first entry')
     } else {
       if (accountHashList.length > 0) {
         //0 is the most current entry, older entries for older cycles are after that
@@ -156,25 +155,25 @@ class AccountCache {
             current.h = hash
             current.t = timestamp
 
-            updateIsNewerHash = true  
-            nestedCountersInstance.countEvent('cache', 'updateAccountHash: same cycle update')          
+            updateIsNewerHash = true
+            perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: same cycle update')
           } else {
-            nestedCountersInstance.countEvent('cache', 'updateAccountHash: same cycle older timestamp')
+            perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: same cycle older timestamp')
           }
         } else if (cycle > current.c || timestamp > current.t) {
           //push new entry to head
           accountHashList.unshift(accountHashData)
           //clean up list if is too long
-          while (accountHashList.length > 3 
+          while (accountHashList.length > 3
             && accountHashList[accountHashList.length-1].c < this.accountsHashCache3.currentCalculationCycle) {
             //remove from end.  but only if the data older than the current working cycle
             accountHashList.pop()
           }
-          nestedCountersInstance.countEvent('cache', 'updateAccountHash: new cycle update')  
+          perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: new cycle update')
 
           if (cycle < current.c && timestamp > current.t){
-            nestedCountersInstance.countEvent('cache', 'updateAccountHash: older cycle but newer timestamp')  
-            this.statemanager_fatal('updateAccountHash: cycleCalcOff', 
+            perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: older cycle but newer timestamp')
+            this.statemanager_fatal('updateAccountHash: cycleCalcOff',
             `updateAccountHash: older cycle but newer timestamp :${cycle} < ${current.c} && ${timestamp} > ${current.t} `)
           }
 
@@ -204,9 +203,9 @@ class AccountCache {
           }
           if(doInsert){
             accountHashList.splice(idx, 0, accountHashData)
-            nestedCountersInstance.countEvent('cache', 'updateAccountHash: old cycle update')  
+            perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: old cycle update')
           } else {
-            nestedCountersInstance.countEvent('cache', 'updateAccountHash: old cycle no update')  
+            perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: old cycle no update')
           }
         }
       }
@@ -221,7 +220,7 @@ class AccountCache {
       let index = this.insertIntoHistoryList(accountId, accountHashData, this.accountsHashCache3.workingHistoryList, lastIndex)
       accountHashCacheHistory.lastSeenSortIndex = index
 
-      nestedCountersInstance.countEvent('cache', 'updateAccountHash: update-working')
+      perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: update-working')
     } else if (updateIsNewerHash === true && onFutureCycle === true) {
       let lastIndex = -1
       //if our queue index is for the future cycle then we can use this index as a lastIndex for the insert to use on cleaning
@@ -232,7 +231,7 @@ class AccountCache {
       accountHashCacheHistory.queueIndex.idx = index
       accountHashCacheHistory.queueIndex.id = cycle
 
-      nestedCountersInstance.countEvent('cache', 'updateAccountHash: update-future')
+      perf.nestedCountersInstance.countEvent('cache', 'updateAccountHash: update-future')
     }
   }
 
@@ -284,11 +283,11 @@ class AccountCache {
     if (index === accountHashesSorted.length - 1) {
       accountHashesSorted.push(accountHashData)
       accountIDs.push(accountId)
-      nestedCountersInstance.countEvent('cache', 'insertIntoHistoryList: at end')
+      perf.nestedCountersInstance.countEvent('cache', 'insertIntoHistoryList: at end')
     } else {
       accountHashesSorted.splice(index + 1, 0, accountHashData)
       accountIDs.splice(index + 1, 0, accountId)
-      nestedCountersInstance.countEvent('cache', 'insertIntoHistoryList: splice')
+      perf.nestedCountersInstance.countEvent('cache', 'insertIntoHistoryList: splice')
     }
     return index
   }
@@ -326,14 +325,14 @@ class AccountCache {
 
   // currently a sync function, dont have correct buffers for async
   buildPartitionHashesForNode(cycleShardData: CycleShardData, debugAC3: AccountHashCacheMain3 = null, debugAccount:string = null ): MainHashResults {
-    
+
     // OFFLINE DEBUGGING
     // if(debugAC3 != null){
     //   this.accountsHashCache3 = debugAC3
     // }
-    
+
     if (logFlags.verbose) this.mainLogger.debug(`accountsHashCache3 ${cycleShardData.cycleNumber}: ${utils.stringifyReduce(this.accountsHashCache3)}`)
-    
+
     let cycleToProcess = cycleShardData.cycleNumber
     let nextCycleToProcess = cycleToProcess + 1
 
@@ -351,7 +350,7 @@ class AccountCache {
 
     let staleAccountsSkipped = 0
     // I think we could speed this up by just walking the future list and adding what is needed to the working list!
-    // look at each account key and build a temp list with the AccountCacheHash for this cycle 
+    // look at each account key and build a temp list with the AccountCacheHash for this cycle
     for (let key of this.accountsHashCache3.accountHashMap.keys()) {
       let accountCacheHistory = this.accountsHashCache3.accountHashMap.get(key)
       let index = 0
@@ -368,13 +367,13 @@ class AccountCache {
         continue
       }
 
-      //if index 0 entry is not for this cycle then look through the list for older cycles. 
+      //if index 0 entry is not for this cycle then look through the list for older cycles.
       while (index < accountCacheHistory.accountHashList.length - 1 && accountCacheHistory.accountHashList[index].c > cycleToProcess) {
         index++
       }
       //If the index got too high log a fatal
       if (index >= accountCacheHistory.accountHashList.length) {
-        this.statemanager_fatal('buildPartitionHashesForNode: indexToohigh', 
+        this.statemanager_fatal('buildPartitionHashesForNode: indexToohigh',
         `buildPartitionHashesForNode: indexToohigh :${index} `)
         continue
       }
@@ -396,7 +395,7 @@ class AccountCache {
     tempList1.sort(this.sortByTimestampIdAsc)
 
     if(staleAccountsSkipped > 0){
-      nestedCountersInstance.countEvent('cache', 'staleAccountsSkipped', staleAccountsSkipped)  
+      perf.nestedCountersInstance.countEvent('cache', 'staleAccountsSkipped', staleAccountsSkipped)
     }
 
     //rebuild the working list with out selected data from the map
@@ -423,7 +422,7 @@ class AccountCache {
       let accountID = this.accountsHashCache3.workingHistoryList.accountIDs[index]
       if (accountID == null) {
         //should never be null if accountHashData was not null
-        this.statemanager_fatal('buildPartitionHashesForNode: accountID==null unexpected', 
+        this.statemanager_fatal('buildPartitionHashesForNode: accountID==null unexpected',
         `buildPartitionHashesForNode: accountID==null unexpected:${utils.stringifyReduce(accountHashData)} `)
         continue
       }
@@ -469,7 +468,7 @@ class AccountCache {
       partitionHashResults.hashes.push(accountHashData.h)
       partitionHashResults.timestamps.push(accountHashData.t)
 
-      
+
       this.stateManager.accountPatcher.updateAccountHash(accountID, accountHashData.h)
     }
 
@@ -505,13 +504,13 @@ class AccountCache {
 
       if(accountHashData.c <= cycleToProcess){
         //did not need this from future list.
-        // nestedCountersInstance.countEvent('cache', 'un-needed future list')
+        // perf.nestedCountersInstance.countEvent('cache', 'un-needed future list')
         continue
       }
       nextFutureList.accountHashesSorted.push(accountHashData)
       nextFutureList.accountIDs.push(accountID)
       let accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountID)
-      accountHashCacheHistory.queueIndex = { id: accountHashData.c, idx: newIndex} 
+      accountHashCacheHistory.queueIndex = { id: accountHashData.c, idx: newIndex}
       newIndex++
     }
 
@@ -536,7 +535,7 @@ class AccountCache {
       if(ShardFunctions.testInRange(partitionHashResults.partition, shardValues.nodeShardData.storedPartitions) === false){
 
       }
-      
+
     }
   }
 
@@ -549,10 +548,10 @@ class AccountCache {
   //    of accounts gets large.
   buildPartitionHashesForNode_fast(cycleShardData: CycleShardData): MainHashResults {
     if (logFlags.verbose) this.mainLogger.debug(`accountsHashCache3 ${cycleShardData.cycleNumber}: ${utils.stringifyReduce(this.accountsHashCache3)}`)
-    
+
     let cycleToProcess = cycleShardData.cycleNumber
     let nextCycleToProcess = cycleToProcess + 1
- 
+
     let mainHashResults: MainHashResults = {
       cycle: cycleToProcess,
       partitionHashResults: new Map(),
@@ -625,7 +624,7 @@ class AccountCache {
       let accountID = this.accountsHashCache3.workingHistoryList.accountIDs[index]
       if (accountID == null) {
         //should never be null if accountHashData was not null
-        this.statemanager_fatal('buildPartitionHashesForNode: accountID==null unexpected', 
+        this.statemanager_fatal('buildPartitionHashesForNode: accountID==null unexpected',
         `buildPartitionHashesForNode: accountID==null unexpected:${utils.stringifyReduce(accountHashData)} `)
         continue
       }

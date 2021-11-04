@@ -19,6 +19,7 @@ export let shardus: Shardus
 export let stateManager: StateManager
 export let storage: Storage
 export let io
+export let perf
 export let config: ShardusTypes.ShardusConfiguration
 export let defaultConfigs: {
   server: ShardusTypes.ShardusConfiguration
@@ -65,6 +66,11 @@ export function setReporterContext(context) {
 
 export function setConfig(conf: ShardusTypes.ShardusConfiguration) {
   config = conf
+}
+
+export function setPerf(context) {
+  console.log("Setting perf", context)
+  perf = context
 }
 
 export function setDefaultConfigs(conf) {

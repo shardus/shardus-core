@@ -29,8 +29,8 @@ import { activeByIdOrder, byIdOrder, byPubKey, nodes } from './NodeList'
 import * as Self from './Self'
 import { robustQuery } from './Utils'
 import { isDebugMode } from '../debug'
-import { profilerInstance } from '../utils/profiler'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** STATE */
 
 // [TODO] - need to remove this after removing sequalize
@@ -77,7 +77,7 @@ const failExternalRoute: P2P.P2PTypes.Route<Handler> = {
 const apoptosisInternalRoute: P2P.P2PTypes.Route<P2P.P2PTypes.InternalHandler<P2P.ApoptosisTypes.SignedApoptosisProposal>> = {
   name: internalRouteName,
   handler: (payload, response, sender) => {
-    profilerInstance.scopedProfileSectionStart('apoptosize')
+    perf.profilerInstance.scopedProfileSectionStart('apoptosize')
     try {
       info(`Got Apoptosis proposal: ${JSON.stringify(payload)}`)
       let err = ''
@@ -112,14 +112,14 @@ const apoptosisInternalRoute: P2P.P2PTypes.Route<P2P.P2PTypes.InternalHandler<P2
         response({s:'fail',r:3})
       }
     } finally {
-      profilerInstance.scopedProfileSectionEnd('apoptosize')
+      perf.profilerInstance.scopedProfileSectionEnd('apoptosize')
     }
   }
 }
 
 const apoptosisGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ApoptosisTypes.SignedApoptosisProposal> =
    (payload, sender, tracker) => {
-  profilerInstance.scopedProfileSectionStart('apoptosis')
+  perf.profilerInstance.scopedProfileSectionStart('apoptosis')
   try {
     info(`Got Apoptosis gossip: ${JSON.stringify(payload)}`)
     let err = ''
@@ -133,7 +133,7 @@ const apoptosisGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ApoptosisTypes.Signed
       }
     }
   } finally {
-    profilerInstance.scopedProfileSectionEnd('apoptosis')
+    perf.profilerInstance.scopedProfileSectionEnd('apoptosis')
   }
 }
 

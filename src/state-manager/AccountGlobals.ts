@@ -2,7 +2,6 @@ import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
 
-import Profiler, { profilerInstance } from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
@@ -11,13 +10,13 @@ import ShardFunctions from './shardFunctions.js'
 import { time } from 'console'
 import StateManager from '.'
 import { GlobalAccountReportResp } from './state-manager-types'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 class AccountGlobals {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.ShardusConfiguration
-  profiler: Profiler
+  profiler: any
 
   logger: Logger
   p2p: P2P
@@ -44,7 +43,7 @@ class AccountGlobals {
   constructor(
     stateManager: StateManager,
 
-    profiler: Profiler,
+    profiler: any,
     app: Shardus.App,
     logger: Logger,
     storage: Storage,
@@ -76,7 +75,7 @@ class AccountGlobals {
 
   setupHandlers() {
     this.p2p.registerInternal('get_globalaccountreport', async (payload: any, respond: (arg0: GlobalAccountReportResp) => any) => {
-      profilerInstance.scopedProfileSectionStart('get_globalaccountreport')
+      perf.profilerInstance.scopedProfileSectionStart('get_globalaccountreport')
       try {
         let result = { combinedHash: '', accounts: [], ready: this.stateManager.appFinishedSyncing } as GlobalAccountReportResp
 
@@ -115,7 +114,7 @@ class AccountGlobals {
         if (this.p2p.isFirstSeed) {
           //TODO: SOON this will mess up dapps that dont use global accounts.  update: maybe add a config to specify if there will be no global accounts for a network. pls discuss fix with group.
           if(toQuery.length === 0){
-            nestedCountersInstance.countEvent(`sync`, `HACKFIX - first node needs to wait! ready:${result.ready} responded:${responded}`)
+            perf.nestedCountersInstance.countEvent(`sync`, `HACKFIX - first node needs to wait! ready:${result.ready} responded:${responded}`)
             result.ready = false
             if(responded === false){
               this.statemanager_fatal('get_globalaccountreport -first seed has no globals', `get_globalaccountreport -first seed has no globals. ready:${result.ready} responded:${responded}`)
@@ -126,7 +125,7 @@ class AccountGlobals {
         }
 
         if(result.ready === false){
-          nestedCountersInstance.countEvent(`sync`, `HACKFIX - forgot to return!`)
+          perf.nestedCountersInstance.countEvent(`sync`, `HACKFIX - forgot to return!`)
           return
         }
 
@@ -161,7 +160,7 @@ class AccountGlobals {
         result.combinedHash = this.crypto.hash(result)
         await respond(result)
       } finally {
-        profilerInstance.profileSectionEnd('get_globalaccountreport')
+        perf.profilerInstance.profileSectionEnd('get_globalaccountreport')
       }
     })
   }

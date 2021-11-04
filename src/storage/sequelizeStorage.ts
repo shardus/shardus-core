@@ -3,14 +3,13 @@ import * as Shardus from '../shardus/shardus-types'
 import fs from 'fs'
 import path from 'path'
 import { Sequelize } from 'sequelize'
-import Profiler from '../utils/profiler'
 import Logger, {logFlags} from '../logger'
 
 interface SequelizeStorage {
   baseDir: string
   models: any
   storageConfig: Shardus.StorageConfiguration
-  profiler: Profiler
+  profiler: any
   mainLogger: Log4js.Logger
   sequelize: Sequelize
   storageModels: any
@@ -24,7 +23,7 @@ class SequelizeStorage {
     storageConfig: Shardus.StorageConfiguration,
     logger: Logger,
     baseDir: string,
-    profiler: Profiler
+    profiler: any
   ) {
     this.baseDir = baseDir
     this.models = models

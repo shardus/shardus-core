@@ -1,11 +1,10 @@
 import LoadDetection from '../load-detection'
-import { NodeLoad } from '../utils/profiler'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 interface RateLimiting {
   loadDetection: LoadDetection
   limitRate: boolean
-  loadLimit: NodeLoad
+  loadLimit: any
 }
 
 class RateLimiting {
@@ -33,7 +32,7 @@ class RateLimiting {
       if (loads[key] < this.loadLimit[key]) continue
       let throttle = this.calculateThrottlePropotion(loads[key], this.loadLimit[key])
 
-      nestedCountersInstance.countEvent('loadRelated',`ratelimit reached: ${key} > ${this.loadLimit[key]}`)  
+      perf.nestedCountersInstance.countEvent('loadRelated',`ratelimit reached: ${key} > ${this.loadLimit[key]}`)
       if (throttle > maxThrottle) {
         maxThrottle = throttle
         loadType = key
@@ -41,7 +40,7 @@ class RateLimiting {
     }
 
     if(loadType){
-      nestedCountersInstance.countEvent('loadRelated',`ratelimit winning load factor: ${loadType}`)  
+      perf.nestedCountersInstance.countEvent('loadRelated',`ratelimit winning load factor: ${loadType}`)
     }
 
     return {

@@ -14,8 +14,8 @@ import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
 import { robustQuery } from './Utils'
-import { profilerInstance } from '../utils/profiler'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** STATE */
 
 let p2pLogger
@@ -83,7 +83,7 @@ const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P
   sender,
   tracker
 ) => {
-  profilerInstance.scopedProfileSectionStart('gossip-join')
+  perf.profilerInstance.scopedProfileSectionStart('gossip-join')
   try {
     // Do not forward gossip after quarter 2
     if (CycleCreator.currentQuarter >= 3) return
@@ -91,7 +91,7 @@ const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P
     //  Validate of payload is done in addJoinRequest
     if (addJoinRequest(payload)) Comms.sendGossip('gossip-join', payload, tracker, sender, NodeList.byIdOrder, false)
   } finally {
-    profilerInstance.scopedProfileSectionEnd('gossip-join')
+    perf.profilerInstance.scopedProfileSectionEnd('gossip-join')
   }
 }
 

@@ -9,8 +9,8 @@ import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { profilerInstance } from '../utils/profiler'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** STATE */
 
 let p2pLogger: Logger
@@ -33,7 +33,7 @@ const gossipScaleRoute: P2P.P2PTypes.GossipHandler<P2P.CycleAutoScaleTypes.Signe
   sender,
   tracker
 ) => {
-  profilerInstance.scopedProfileSectionStart('gossip-scaling')
+  perf.profilerInstance.scopedProfileSectionStart('gossip-scaling')
   try {
     if (logFlags.p2pNonFatal)
       info(`Got scale request: ${JSON.stringify(payload)}`)
@@ -45,7 +45,7 @@ const gossipScaleRoute: P2P.P2PTypes.GossipHandler<P2P.CycleAutoScaleTypes.Signe
     if (!added) return
     Comms.sendGossip('scaling', payload, tracker, sender, NodeList.byIdOrder, false)
   } finally {
-    profilerInstance.scopedProfileSectionEnd('gossip-scaling')
+    perf.profilerInstance.scopedProfileSectionEnd('gossip-scaling')
   }
 }
 

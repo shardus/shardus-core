@@ -3,7 +3,6 @@ import { StateManager as StateManagerTypes } from 'shardus-types'
 import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
 
-import Profiler from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
@@ -12,7 +11,8 @@ import ShardFunctions from './shardFunctions.js'
 import { time } from 'console'
 import StateManager from '.'
 import { json } from 'sequelize/types'
-import { nestedCountersInstance } from '../utils/nestedCounters'
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 import { potentiallyRemoved } from '../p2p/NodeList'
 import * as CycleChain from '../p2p/CycleChain'
 import { QueueEntry, AppliedVote, AccountHashCache, RequestStateForTxResp, AppliedReceipt, RequestTxResp, RequestReceiptForTxResp } from './state-manager-types'
@@ -21,8 +21,8 @@ class TransactionRepair {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.ShardusConfiguration
-  profiler: Profiler
-  
+  profiler: any
+
   logger: Logger
   p2p: P2P
   storage: Storage
@@ -34,8 +34,8 @@ class TransactionRepair {
   statsLogger: any
   statemanager_fatal: (key: string, log: string) => void
 
-  constructor(stateManager: StateManager,  profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
-    
+  constructor(stateManager: StateManager,  profiler: any, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ShardusConfiguration) {
+
     this.crypto = crypto
     this.app = app
     this.logger = logger
@@ -60,7 +60,7 @@ class TransactionRepair {
     //   queueEntry.requests = {}
     // }
     if (queueEntry.uniqueKeys == null) {
-      nestedCountersInstance.countEvent('repair1', 'queueEntry.uniqueKeys == null')
+      perf.nestedCountersInstance.countEvent('repair1', 'queueEntry.uniqueKeys == null')
       throw new Error('repairToMatchReceipt queueEntry.uniqueKeys == null')
     }
 
@@ -81,9 +81,9 @@ class TransactionRepair {
       this.profiler.profileSectionStart('repair_init')
 
       if(queueEntry.didSync){
-        nestedCountersInstance.countEvent('repair1', 'init-didSync')
+        perf.nestedCountersInstance.countEvent('repair1', 'init-didSync')
       } else {
-        nestedCountersInstance.countEvent('repair1', 'init-normal')
+        perf.nestedCountersInstance.countEvent('repair1', 'init-normal')
       }
 
       let shortHash = utils.makeShortHash(queueEntry.acceptedTx.id)
@@ -135,8 +135,8 @@ class TransactionRepair {
                   if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_note', `${shortHash}`, `account ${shortKey} already up to date our: cached:${utils.stringifyReduce(hashObj)}`)
                   break
                 }
-              }    
-              
+              }
+
               if (requestObjects[key] != null) {
                 //todo perf delay these checks for jit.
                 if (appliedVote.node_id !== this.stateManager.currentCycleShardData.ourNode.id) {
@@ -231,15 +231,15 @@ class TransactionRepair {
                     alternateIndex = 0
                     attemptsRemaining = true
                     checkNodeDown = false
-                    checkNodeLost = false      
+                    checkNodeLost = false
                     this.statemanager_fatal(`repairToMatchReceipt_2`, `ASK FAIL repairToMatchReceipt making attempt #${outerloopCount + 1}   tx:${shortHash}  acc:${shortKey}`)
-                    break              
+                    break
                   } else {
                     if (logFlags.error) this.mainLogger.error(`repairToMatchReceipt FAILED out of attempts #${outerloopCount + 1} tx:${shortHash}  acc:${shortKey}`)
                     this.statemanager_fatal(`repairToMatchReceipt_3`, `ASK FAIL repairToMatchReceipt FAILED out of attempts   tx:${shortHash}  acc:${shortKey}`)
                     return
                   }
-                  
+
                 }
                 let altId = requestObject.alternates[alternateIndex]
                 let nodeShardInfo: StateManagerTypes.shardFunctionTypes.NodeShardData = this.stateManager.currentCycleShardData.nodeShardDataMap.get(altId)
@@ -285,8 +285,8 @@ class TransactionRepair {
               let result: RequestStateForTxResp
               try{
                 this.profiler.profileSectionStart('repair_asking_for_data')
-                nestedCountersInstance.countEvent('repair1', 'asking')
-              
+                perf.nestedCountersInstance.countEvent('repair1', 'asking')
+
                 requestsMade++
                 let message = { key: requestObject.accountId, hash: requestObject.accountHash, txid: queueEntry.acceptedTx.id, timestamp: queueEntry.acceptedTx.timestamp }
                 result = await this.p2p.ask(node, 'request_state_for_tx_post', message) // not sure if we should await this.
@@ -320,7 +320,7 @@ class TransactionRepair {
                 try{
                   dataRecieved++
                   this.profiler.profileSectionStart('repair_saving_account_data')
-                  nestedCountersInstance.countEvent('repair1', 'saving')
+                  perf.nestedCountersInstance.countEvent('repair1', 'saving')
                   // let shortKey = utils.stringifyReduce(data.accountId)
 
                   //cycleToRecordOn = this.stateManager.getCycleNumberFromTimestamp(timestamp)
@@ -332,13 +332,13 @@ class TransactionRepair {
 
                   if(failedHashes.length === 0){
                     dataApplied++
-                    nestedCountersInstance.countEvent('repair1', `q.repair applied cycle: ${this.stateManager.currentCycleShardData.cycleNumber}`)
+                    perf.nestedCountersInstance.countEvent('repair1', `q.repair applied cycle: ${this.stateManager.currentCycleShardData.cycleNumber}`)
                   } else {
                     failedHash++
                     this.statemanager_fatal(`repairToMatchReceipt_failedhash`, ` tx:${shortHash}  failed:${failedHashes[0]} acc:${shortKey}`)
                   }
 
-                  nestedCountersInstance.countEvent('repair1', 'writeCombinedAccountDataToBackups')
+                  perf.nestedCountersInstance.countEvent('repair1', 'writeCombinedAccountDataToBackups')
                   await this.stateManager.writeCombinedAccountDataToBackups(dataToSet, failedHashes)
                   attemptsRemaining = false
                   //update global cache?  that will be obsolete soona anyhow!
@@ -353,7 +353,7 @@ class TransactionRepair {
                     }
                   }
                   if (beforeData == null) {
-                    nestedCountersInstance.countEvent('repair1', 'getAccountDataByList')
+                    perf.nestedCountersInstance.countEvent('repair1', 'getAccountDataByList')
                     let results = await this.app.getAccountDataByList([data.accountId])
                     beforeData = results[0]
                     if (logFlags.error) this.mainLogger.error(`repairToMatchReceipt: statsDataSummaryUpdate2 beforeData: had to query for data 1 ${utils.stringifyReduce(data.accountId)}  tx:${shortHash}  acc:${shortKey}`)
@@ -380,7 +380,7 @@ class TransactionRepair {
                     }
                     // This is correcting the timestamp on the wrapper
                     data.timestamp = updatedTimestamp
-                    
+
 
                     // USEDEFAULT=checkAndSetAccountData for stats.  (search USEDEFAULT for more context)
                     // this.stateManager.partitionStats.statsDataSummaryUpdate2(queueEntry.cycleToRecordOn, beforeData, data, 'repairToMatchReceipt')
@@ -408,7 +408,7 @@ class TransactionRepair {
                         test2 = true
                       }
                     }
-                    
+
                     let isGlobal = this.stateManager.accountGlobals.isGlobalAccount(data.accountId)
                     let test3 = false
                     if (isGlobal) {
@@ -425,7 +425,7 @@ class TransactionRepair {
                     }
 
                     if (updateStateTable === true) {
-                      nestedCountersInstance.countEvent('repair1', 'addAccountStates')
+                      perf.nestedCountersInstance.countEvent('repair1', 'addAccountStates')
                       await this.storage.addAccountStates(stateTableResults)
                     }
 
@@ -443,13 +443,13 @@ class TransactionRepair {
               }
 
               if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_result', `${shortHash}`, `r:${relationString}   result:${queueEntry.logstate} dataCount:${dataCountReturned} asking: ${utils.makeShortHash(node.id)} qId: ${queueEntry.entryID}  AccountsMissing:${utils.stringifyReduce(allKeys)} AccountsReturned:${utils.stringifyReduce(accountIdsReturned)}`)
-              
+
               if(outerloopCount > 1){
                 this.statemanager_fatal(`repairToMatchReceipt_5ok`, `ASK FAIL repairToMatchReceipt FIX WORKED ${outerloopCount} tx:${shortHash}  acc:${shortKey}`)
               }
 
               break
-              
+
               // // queueEntry.homeNodes[key] = null
               // for (let key2 of allKeys) {
               //   //consider deleteing these instead?
@@ -461,7 +461,7 @@ class TransactionRepair {
               // if (queueEntry.hasAll === true) {
               //   break
               // }
-            } 
+            }
           }
         }
         // next account
@@ -487,8 +487,8 @@ class TransactionRepair {
 
       } else {
         queueEntry.repairFailed = true
-        this.statemanager_fatal(`repairToMatchReceipt_failed`, `tx:${queueEntry.logID} counters:${utils.stringifyReduce({requestObjectCount,requestsMade,responseFails,dataRecieved,dataApplied,failedHash})}  keys ${utils.stringifyReduce(allKeys)}  `)        
-        nestedCountersInstance.countEvent('repair1', 'failed')
+        this.statemanager_fatal(`repairToMatchReceipt_failed`, `tx:${queueEntry.logID} counters:${utils.stringifyReduce({requestObjectCount,requestsMade,responseFails,dataRecieved,dataApplied,failedHash})}  keys ${utils.stringifyReduce(allKeys)}  `)
+        perf.nestedCountersInstance.countEvent('repair1', 'failed')
       }
 
       this.profiler.profileSectionEnd('repair')
@@ -525,12 +525,12 @@ class TransactionRepair {
     let shortHash = utils.makeShortHash(txID)
     let allKeys
     try {
-      nestedCountersInstance.countEvent('repair2', `init`)
+      perf.nestedCountersInstance.countEvent('repair2', `init`)
 
       // STEP 0: need to find the TX
       let txRequestResult = await this.requestMissingTX(txID, refAccountId)
       if(txRequestResult == null || txRequestResult.success != true){
-        nestedCountersInstance.countEvent('repair2', `txRequestResult.success == ${txRequestResult?.success}`)
+        perf.nestedCountersInstance.countEvent('repair2', `txRequestResult.success == ${txRequestResult?.success}`)
         this.statemanager_fatal(`repairToMatchReceipt2_a`, `ASK FAIL requestMissingTX   tx:${shortHash} result:${utils.stringifyReduce(txRequestResult)} `)
         return false
       }
@@ -551,17 +551,17 @@ class TransactionRepair {
         let isStored = ShardFunctions.testAddressInRange(key, this.stateManager.currentCycleShardData.nodeShardData.storedPartitions)
         if(isStored != true){
           // continue
-          nestedCountersInstance.countEvent('repair2', `non stored key?`)
+          perf.nestedCountersInstance.countEvent('repair2', `non stored key?`)
         }
 
         keyMap[key] = true
       }
       uniqueKeys = Object.keys(keyMap)
-      
+
       // if(uniqueKeys.length === 0){
 
       //   this.statemanager_fatal('ABORT no covered keys', `ABORT no covered keys  ${utils.stringifyReduce(allKeys)} tx:${shortHash} ${utils.stringifyReduce(this.stateManager.currentCycleShardData.nodeShardData.storedPartitions)} cycle:${this.stateManager.currentCycleShardData.cycleNumber}`)
-      //   nestedCountersInstance.countEvent('repair2', `ABORT no covered keys  ${utils.stringifyReduce(allKeys)} tx:${shortHash} ${utils.stringifyReduce(this.stateManager.currentCycleShardData.nodeShardData.storedPartitions)} cycle:${this.stateManager.currentCycleShardData.cycleNumber}`)
+      //   perf.nestedCountersInstance.countEvent('repair2', `ABORT no covered keys  ${utils.stringifyReduce(allKeys)} tx:${shortHash} ${utils.stringifyReduce(this.stateManager.currentCycleShardData.nodeShardData.storedPartitions)} cycle:${this.stateManager.currentCycleShardData.cycleNumber}`)
       //   if (logFlags.error) this.mainLogger.error(`shrd_repairToMatchReceipt2: ABORT no covered keys ${utils.stringifyReduce(allKeys)} tx:${shortHash} `)
       //   if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_noKeys', `${shortHash}`, `ABORT no covered keys  ${utils.stringifyReduce(allKeys)} tx:${shortHash} `)
 
@@ -626,8 +626,8 @@ class TransactionRepair {
                 } else {
                   needUpdateAccounts[id] = true
                 }
-              }    
-              
+              }
+
               if (requestObjects[key] != null) {
                 //todo perf delay these checks for jit.
                 if (appliedVote.node_id !== this.stateManager.currentCycleShardData.ourNode.id) {
@@ -660,7 +660,7 @@ class TransactionRepair {
               if (isGlobal === false && ShardFunctions.testAddressInRange(id, nodeShardInfo.storedPartitions) == false) {
                 if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_note2', `${shortHash}`, `address not in range ${utils.stringifyReduce(nodeShardInfo.storedPartitions)}  acc:${shortKey}`)
                 //continue
-                nestedCountersInstance.countEvent('repair2', `dont skip account for repair..`)
+                perf.nestedCountersInstance.countEvent('repair2', `dont skip account for repair..`)
 
               }
               let objectToSet = { appliedVote, voteIndex: j, accountHash: hash, accountId: id, nodeShardInfo, alternates: [] }
@@ -682,7 +682,7 @@ class TransactionRepair {
       if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_start2', `${shortHash}`, ` AccountsMissing:${utils.stringifyReduce(allKeys)}  requestObject:${utils.stringifyReduce(requestObjects)}`)
 
       if(requestObjectCount === 0){
-        nestedCountersInstance.countEvent('repair2', `ABORT no covered keys  ${utils.stringifyReduce(allKeys)} tx:${shortHash} cycle:${this.stateManager.currentCycleShardData.cycleNumber}`)
+        perf.nestedCountersInstance.countEvent('repair2', `ABORT no covered keys  ${utils.stringifyReduce(allKeys)} tx:${shortHash} cycle:${this.stateManager.currentCycleShardData.cycleNumber}`)
       }
 
 
@@ -729,15 +729,15 @@ class TransactionRepair {
                     alternateIndex = 0
                     attemptsRemaining = true
                     checkNodeDown = false
-                    checkNodeLost = false      
+                    checkNodeLost = false
                     this.statemanager_fatal(`repairToMatchReceipt2_2`, `ASK FAIL repairToMatchReceipt making attempt #${outerloopCount + 1}   tx:${shortHash}  acc:${shortKey}`)
-                    break              
+                    break
                   } else {
                     if (logFlags.error) this.mainLogger.error(`repairToMatchReceipt2 FAILED out of attempts #${outerloopCount + 1} tx:${shortHash}  acc:${shortKey}`)
                     this.statemanager_fatal(`repairToMatchReceipt2_3`, `ASK FAIL repairToMatchReceipt FAILED out of attempts   tx:${shortHash}  acc:${shortKey}`)
                     return false
                   }
-                  
+
                 }
                 let altId = requestObject.alternates[alternateIndex]
                 let nodeShardInfo: StateManagerTypes.shardFunctionTypes.NodeShardData = this.stateManager.currentCycleShardData.nodeShardDataMap.get(altId)
@@ -900,7 +900,7 @@ class TransactionRepair {
                       test2 = true
                     }
                   }
-                  
+
                   let isGlobal = this.stateManager.accountGlobals.isGlobalAccount(data.accountId)
                   let test3 = false
                   if (isGlobal) {
@@ -930,13 +930,13 @@ class TransactionRepair {
               }
 
               if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt2_result', `${shortHash}`, `r:${relationString}   result: dataCount:${dataCountReturned} asking: ${utils.makeShortHash(node.id)}   AccountsMissing:${utils.stringifyReduce(allKeys)} AccountsReturned:${utils.stringifyReduce(accountIdsReturned)}`)
-              
+
               if(outerloopCount > 1){
                 this.statemanager_fatal(`repairToMatchReceipt2_5ok`, `ASK FAIL repairToMatchReceipt FIX WORKED ${outerloopCount} tx:${shortHash}  acc:${shortKey}`)
               }
 
               break
-              
+
               // // queueEntry.homeNodes[key] = null
               // for (let key2 of allKeys) {
               //   //consider deleteing these instead?
@@ -948,7 +948,7 @@ class TransactionRepair {
               // if (queueEntry.hasAll === true) {
               //   break
               // }
-            } 
+            }
           }
         }
         // next account
@@ -979,7 +979,7 @@ class TransactionRepair {
           if(updatedAccounts[key] != true){
             skippedKeys.push(key)
           }
-        }        
+        }
       } else {
         skippedKeys = allKeys
       }
@@ -990,16 +990,16 @@ class TransactionRepair {
 
       if(repairFinished == false){
         this.statemanager_fatal(`repairToMatchReceiptNoRecipt_failed`, `counters:${utils.stringifyReduce({missingTXFound, requestObjectCount,requestsMade,responseFails,dataRecieved,dataApplied,failedHash,neededUpdate,upToDateCount,updatedAccountsCount})} keys ${utils.stringifyReduce(allKeys)}  skipped ${utils.stringifyReduce(skippedKeys)} `)
-        nestedCountersInstance.countEvent('repair2', 'complete-failed')
+        perf.nestedCountersInstance.countEvent('repair2', 'complete-failed')
       } else {
         let repairLogString = `tx:${shortHash} updatedAccountAndHashes:${utils.stringifyReduce(updatedAccountAndHashes )} counters:${utils.stringifyReduce({missingTXFound, requestObjectCount,requestsMade,responseFails,dataRecieved,dataApplied,failedHash,neededUpdate,upToDateCount,updatedAccountsCount})}`
-        if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_success2', shortHash, repairLogString) 
+        if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_success2', shortHash, repairLogString)
         this.mainLogger.debug('shrd_repairToMatchReceipt_success2 ' + repairLogString)
 
-        nestedCountersInstance.countEvent('repair2', `complete-ok`)
-        nestedCountersInstance.countEvent('repair2', `s.repair applied cycle: ${this.stateManager.currentCycleShardData.cycleNumber}`)
+        perf.nestedCountersInstance.countEvent('repair2', `complete-ok`)
+        perf.nestedCountersInstance.countEvent('repair2', `s.repair applied cycle: ${this.stateManager.currentCycleShardData.cycleNumber}`)
       }
-      
+
       this.profiler.profileSectionEnd('repair2')
     }
   }
@@ -1021,7 +1021,7 @@ class TransactionRepair {
 
     // get nodes for address
     let homeNode = ShardFunctions.findHomeNode(this.stateManager.currentCycleShardData.shardGlobals, refAccountId, this.stateManager.currentCycleShardData.parititionShardDataMap)
-    queryGroup = homeNode.nodeThatStoreOurParitionFull.slice()  
+    queryGroup = homeNode.nodeThatStoreOurParitionFull.slice()
 
     // technically could look at all the keys from a reciept and build a larger list.
     // queryGroup = [...this.stateManager.currentCycleShardData.nodeShardData.nodeThatStoreOurParition]
@@ -1102,7 +1102,7 @@ class TransactionRepair {
 
     // get nodes for address
     let homeNode = ShardFunctions.findHomeNode(this.stateManager.currentCycleShardData.shardGlobals, refAccountId, this.stateManager.currentCycleShardData.parititionShardDataMap)
-    queryGroup = homeNode.nodeThatStoreOurParitionFull.slice()  
+    queryGroup = homeNode.nodeThatStoreOurParitionFull.slice()
 
     // technically could look at all the keys from a reciept and build a larger list.
     //queryGroup = [...this.stateManager.currentCycleShardData.nodeShardData.nodeThatStoreOurParition]

@@ -1,6 +1,5 @@
 import Log4js from 'log4js'
 import * as Shardus from '../shardus/shardus-types'
-import Profiler from '../utils/profiler'
 import fs from 'fs'
 import path from 'path'
 import * as Sequelize from 'sequelize'
@@ -14,7 +13,7 @@ const stringify = require('fast-stable-stringify')
 interface BetterSqlite3Storage {
   baseDir: string
   storageConfig: Shardus.StorageConfiguration
-  profiler: Profiler
+  profiler: any
   mainLogger: Log4js.Logger
   initialized: boolean
   storageModels: any
@@ -28,7 +27,7 @@ class BetterSqlite3Storage {
     storageConfig: Shardus.StorageConfiguration,
     logger: Logger,
     baseDir: string,
-    profiler: Profiler
+    profiler: any
   ) {
     this.baseDir = baseDir
     this.storageConfig = storageConfig

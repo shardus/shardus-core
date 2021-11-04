@@ -5,7 +5,6 @@ import { Op } from 'sequelize'
 import Logger, {logFlags} from '../logger'
 import * as Snapshot from '../snapshot'
 import StateManager from '../state-manager'
-import Profiler from '../utils/profiler'
 import * as ShardusTypes from './../shardus/shardus-types'
 import models from './models'
 // const stringify = require('fast-stable-stringify')
@@ -17,7 +16,7 @@ import Sqlite3Storage from './sqlite3storage'
 import P2PApoptosis = require('../p2p/Apoptosis')
 
 interface Storage {
-  profiler: Profiler
+  profiler: any
   mainLogger: Log4js.Logger
   fatalLogger: Log4js.Logger
   storage: Sqlite3Storage
@@ -38,7 +37,7 @@ class Storage {
     baseDir: string,
     config: ShardusTypes.StorageConfiguration,
     logger: Logger,
-    profiler: Profiler
+    profiler: any
   ) {
     this.profiler = profiler
 

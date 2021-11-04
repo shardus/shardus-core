@@ -11,8 +11,8 @@ import { ChangeSquasher, parse } from './CycleParser'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
 import { robustQuery } from './Utils'
-import { profilerInstance } from '../utils/profiler'
-
+import { perf } from './Context'
+let nestedCountersInstance, profilerInstance
 /** STATE */
 
 let p2pLogger: Logger
@@ -23,10 +23,10 @@ const newestCycleRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'sync-newest-cycle',
   handler: (_req, res) => {
-    profilerInstance.scopedProfileSectionStart('sync-newest-cycle')
+    perf.profilerInstance.scopedProfileSectionStart('sync-newest-cycle')
     const newestCycle = CycleChain.newest ? CycleChain.newest : undefined
     res.json({ newestCycle })
-    profilerInstance.scopedProfileSectionEnd('sync-newest-cycle')
+    perf.profilerInstance.scopedProfileSectionEnd('sync-newest-cycle')
   },
 }
 
@@ -34,7 +34,7 @@ const cyclesRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'POST',
   name: 'sync-cycles',
   handler: (req, res) => {
-    profilerInstance.scopedProfileSectionStart('sync-cycles')
+    perf.profilerInstance.scopedProfileSectionStart('sync-cycles')
     try {
       let err = validateTypes(req, { body: 'o' })
       if (err) {
@@ -56,7 +56,7 @@ const cyclesRoute: P2P.P2PTypes.Route<Handler> = {
     } catch(e) {
       warn('sync-cycles', e)
     } finally {
-      profilerInstance.scopedProfileSectionEnd('sync-cycles')
+      perf.profilerInstance.scopedProfileSectionEnd('sync-cycles')
     }
   },
 }

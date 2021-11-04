@@ -4,13 +4,12 @@ import * as utils from '../utils'
 import os from 'os'
 import * as http from '../http'
 import * as Shardus from '../shardus/shardus-types'
-import { profilerInstance } from '../utils/profiler'
-import { nestedCountersInstance } from '../utils/nestedCounters'
 const stringify = require('fast-stable-stringify')
 const log4jsExtend = require('log4js-extend')
 import got from 'got'
 import { parse as parseUrl } from 'url'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
+import { perf } from '../p2p/Context'
 
 interface Logger {
   baseDir: string
@@ -108,7 +107,7 @@ export let logFlags: LogFlags = {
   p2pNonFatal:true,
 
   // snapshot:true,
-} 
+}
 
 
 class Logger {
@@ -260,9 +259,9 @@ class Logger {
   playbackLog(from, to, type, endpoint, id, desc) {
     if (!logFlags.playback) {
       return
-    }   
+    }
 
-    nestedCountersInstance.countEvent(type, endpoint)
+    perf.nestedCountersInstance.countEvent(type, endpoint)
 
     let ts = Date.now()
 
@@ -333,7 +332,7 @@ class Logger {
 
       for (const [key, value] of Object.entries(logFlags)) {
         res.write(`${key}: ${value}\n`)
-      }      
+      }
       res.end()
     })
 
@@ -348,20 +347,20 @@ class Logger {
           for(let node of activeNodes.values()){
             this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-default`)
             res.write(`${node.externalIp}:${node.externalPort}/log-default\n`)
-          }        
+          }
         }
-        res.write(`joining nodes...\n`)  
+        res.write(`joining nodes...\n`)
         let joiningNodes = Context.p2p.state.getNodesRequestingJoin()
         if(joiningNodes){
           for(let node of joiningNodes.values()){
             this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-default`)
             res.write(`${node.externalIp}:${node.externalPort}/log-default\n`)
-          }        
+          }
         }
 
-        res.write(`sending default logs to all nodes\n`)        
+        res.write(`sending default logs to all nodes\n`)
       } catch(e){
-        res.write(`${e}\n`) 
+        res.write(`${e}\n`)
       }
 
       res.end()
@@ -376,22 +375,22 @@ class Logger {
           for(let node of activeNodes.values()){
             this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-fatal`)
             res.write(`${node.externalIp}:${node.externalPort}/log-fatal\n`)
-          }        
+          }
         }
-        res.write(`joining nodes...\n`)  
+        res.write(`joining nodes...\n`)
         let joiningNodes = Context.p2p.state.getNodesRequestingJoin()
         if(joiningNodes){
           for(let node of joiningNodes.values()){
             this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-fatal`)
             res.write(`${node.externalIp}:${node.externalPort}/log-fatal\n`)
-          }  
+          }
         }
-        res.write(`sending fatal logs to all nodes\n`)   
+        res.write(`sending fatal logs to all nodes\n`)
       } catch(e){
-        res.write(`${e}\n`) 
+        res.write(`${e}\n`)
       }
       res.end()
-    })    
+    })
 
   }
 
@@ -399,7 +398,7 @@ class Logger {
     if (!url.match('https?://*')) return false
     return true
   }
-  
+
   _normalizeUrl(url: string) {
     let normalized = url
     if (!this._containsProtocol(url)) normalized = 'http://' + url
@@ -410,14 +409,14 @@ class Logger {
     let host = parseUrl(normalized, true)
     try{
       await got.get(host, {
-        timeout: 1000,   
-        retry: 0,  
+        timeout: 1000,
+        retry: 0,
         throwHttpErrors: false,
         //parseJson: (text:string)=>{},
         //json: false, // the whole reason for _internalHackGet was because we dont want the text response to mess things up
                      //  and as a debug non shipping endpoint did not want to add optional parameters to http module
-      })   
-      
+      })
+
     } catch(e) {
 
     }
@@ -428,14 +427,14 @@ class Logger {
     let host = parseUrl(normalized, true)
     try{
       const res = await got.get(host, {
-        timeout: 7000,   
-        retry: 0,  
+        timeout: 7000,
+        retry: 0,
         throwHttpErrors: false,
         //parseJson: (text:string)=>{},
         //json: false, // the whole reason for _internalHackGet was because we dont want the text response to mess things up
                      //  and as a debug non shipping endpoint did not want to add optional parameters to http module
-      })   
-      
+      })
+
       return res
     } catch(e) {
       return null
@@ -470,7 +469,7 @@ class Logger {
       logFlags.verbose = false
       logFlags.debug = false
       logFlags.info = true
-      logFlags.error = true     
+      logFlags.error = true
     } else {
       logFlags.verbose = false
       logFlags.debug = false
@@ -490,9 +489,9 @@ class Logger {
         logFlags.playback = true
       } else {
         logFlags.playback = false
-      }  
+      }
     }
-  
+
     let netLogger = this.getLogger('net')
     // @ts-ignore
     if (netLogger && ['TRACE','trace'].includes(netLogger.level.levelStr)) {

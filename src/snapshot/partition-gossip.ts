@@ -5,8 +5,8 @@ import * as Comm from '../p2p/Comms'
 import * as NodeList from '../p2p/NodeList'
 import {logFlags} from '../logger'
 import { CycleShardData } from '../state-manager/state-manager-types'
-import { profilerInstance } from '../utils/profiler'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 /** TYPES */
 
 type Count = number
@@ -248,7 +248,7 @@ export class Collector extends EventEmitter {
 export function initGossip() {
   if (logFlags.console) console.log('registering gossip handler...')
   registerGossipHandler('snapshot_gossip', (message) => {
-    profilerInstance.scopedProfileSectionStart('snapshot_gossip')
+    perf.profilerInstance.scopedProfileSectionStart('snapshot_gossip')
     try {
       let { cycle } = message
       let collector = collectors.get(cycle)
@@ -265,7 +265,7 @@ export function initGossip() {
         }
       }
     } finally {
-      profilerInstance.scopedProfileSectionEnd('snapshot_gossip')
+      perf.profilerInstance.scopedProfileSectionEnd('snapshot_gossip')
     }
   })
 }

@@ -11,10 +11,10 @@ import * as httpModule from '../http'
 import Logger, {logFlags} from '../logger'
 import { config, defaultConfigs, logger } from '../p2p/Context'
 import * as utils from '../utils'
-import { profilerInstance } from '../utils/profiler'
 import NatAPI = require('nat-api')
 import * as Shardus from '../shardus/shardus-types'
-import { nestedCountersInstance } from '../utils/nestedCounters'
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 import { isDebugMode } from '../debug'
 
 /** TYPES */
@@ -77,8 +77,10 @@ export class NetworkClass extends EventEmitter {
     if(config && config.debug && config.debug.fakeNetworkDelay){
       this.debugNetworkDelay = config.debug.fakeNetworkDelay
     }
+    nestedCountersInstance = perf.nestedCountersInstance
+    profilerInstance = perf.profilerInstance
 
-    nestedCountersInstance.countEvent('network','init')
+    perf.nestedCountersInstance.countEvent('network','init')
 
   }
 
@@ -156,8 +158,8 @@ export class NetworkClass extends EventEmitter {
         if(this.debugNetworkDelay > 0){
           await utils.sleep(this.debugNetworkDelay)
         }
-        profilerInstance.profileSectionStart('net-internl')
-        profilerInstance.profileSectionStart(`net-internl-${route}`)
+        perf.profilerInstance.profileSectionStart('net-internl')
+        perf.profilerInstance.profileSectionStart(`net-internl-${route}`)
 
         const handler = this.internalRoutes[route]
         if (!payload) {
@@ -187,8 +189,8 @@ export class NetworkClass extends EventEmitter {
           remote
         )
       } finally {
-        profilerInstance.profileSectionEnd('net-internl')
-        profilerInstance.profileSectionEnd(`net-internl-${routeName}`)
+        perf.profilerInstance.profileSectionEnd('net-internl')
+        perf.profilerInstance.profileSectionEnd(`net-internl-${routeName}`)
       }
     })
     console.log(
@@ -241,8 +243,8 @@ export class NetworkClass extends EventEmitter {
         if(this.debugNetworkDelay > 0){
           await utils.sleep(this.debugNetworkDelay)
         }
-        profilerInstance.profileSectionStart('net-ask')
-        profilerInstance.profileSectionStart(`net-ask-${route}`)
+        perf.profilerInstance.profileSectionStart('net-ask')
+        perf.profilerInstance.profileSectionStart(`net-ask-${route}`)
 
         const data = { route, payload: message }
         const onRes = (res) => {
@@ -258,12 +260,12 @@ export class NetworkClass extends EventEmitter {
           resolve(res)
         }
         const onTimeout = () => {
-          nestedCountersInstance.countEvent('network','timeout')
+          perf.nestedCountersInstance.countEvent('network','timeout')
           if (this.statisticsInstance) this.statisticsInstance.incrementCounter('networkTimeout')
           const err = new Error(
             `Request timed out. ${utils.stringifyReduce(id)}`
           )
-          nestedCountersInstance.countRareEvent('network','timeout ' + route)
+          perf.nestedCountersInstance.countRareEvent('network','timeout ' + route)
           if (logFlags.error) this.mainLogger.error('Network: ' + err)
           if (logFlags.error) this.mainLogger.error(err.stack)
           this.emit('timeout', node)
@@ -292,8 +294,8 @@ export class NetworkClass extends EventEmitter {
           this.emit('error', node)
         }
       } finally {
-        profilerInstance.profileSectionEnd('net-ask')
-        profilerInstance.profileSectionEnd(`net-ask-${route}`)
+        perf.profilerInstance.profileSectionEnd('net-ask')
+        perf.profilerInstance.profileSectionEnd(`net-ask-${route}`)
       }
     })
   }
@@ -365,15 +367,15 @@ export class NetworkClass extends EventEmitter {
 
     if (isDebugMode() && ['GET', 'POST'].includes(method)) {
       const wrappedHandler = async (req, res, next) => {
-          profilerInstance.profileSectionStart('net-externl', false)
-          profilerInstance.profileSectionStart(`net-externl-${route}`, false)
+          perf.profilerInstance.profileSectionStart('net-externl', false)
+          perf.profilerInstance.profileSectionStart(`net-externl-${route}`, false)
 
           let result;
           try {
             result = await responseHandler(req, res, next)
           } finally {
-            profilerInstance.profileSectionEnd('net-externl', false)
-            profilerInstance.profileSectionEnd(`net-externl-${route}`, false)
+            perf.profilerInstance.profileSectionEnd('net-externl', false)
+            perf.profilerInstance.profileSectionEnd(`net-externl-${route}`, false)
           }
 
           return result

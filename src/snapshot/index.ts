@@ -18,10 +18,10 @@ import {
 } from '../state-manager/state-manager-types'
 import { P2P, StateManager } from 'shardus-types'
 import * as utils from '../utils'
-import { profilerInstance } from '../utils/profiler'
 import * as partitionGossip from './partition-gossip'
 import * as SnapshotFunctions from './snapshotFunctions'
-
+import { perf } from '../p2p/Context'
+let nestedCountersInstance, profilerInstance
 console.log('StateManager', StateManager)
 console.log('StateManager type', StateManager.StateManagerTypes)
 
@@ -200,7 +200,7 @@ export function startSnapshotting() {
       mainHashResults: MainHashResults
     ) => {
       try {
-        profilerInstance.profileSectionStart('snapshot')
+        perf.profilerInstance.profileSectionStart('snapshot')
         const debugStrs = []
         // store receiptMap for this cycle number
         partitionBlockMapByCycle.set(shard.cycleNumber, receiptMapResults)
@@ -445,7 +445,7 @@ export function startSnapshotting() {
       } catch (e) {
         console.log(e)
       } finally {
-        profilerInstance.profileSectionEnd('snapshot')
+        perf.profilerInstance.profileSectionEnd('snapshot')
       }
     }
   )
