@@ -186,7 +186,9 @@ function calculateToAccept() {
 
   // If rotation is on, add expired to needed
   if (config.p2p.maxRotatedPerCycle > 0) {
-    needed += expired
+    if (expired > config.p2p.maxRotatedPerCycle)
+      needed += config.p2p.maxRotatedPerCycle
+    else needed += expired
   }
 
   // Limit needed by canSync and maxJoin

@@ -178,7 +178,7 @@ class State extends EventEmitter {
   // The original function in p2p.state just returns an array with all nodes that are syncing excluding self
   //     there is no concept of neighbors
   getOrderedSyncingNeighbors(node) {
-    const nodes = NodeList.othersByIdOrder.filter(e => e.status === 'syncing') // remove syncing nodes
+    const nodes = NodeList.othersByIdOrder.filter(e => e.status === 'syncing') // syncing nodes only
     return nodes
   }
 

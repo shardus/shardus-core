@@ -22,6 +22,7 @@ import { SyncTracker, SimpleRange, AccountStateHashReq, AccountStateHashResp, Ge
 import { safetyModeVals } from '../snapshot'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { errorToStringFull } from '../utils'
+import * as CycleChain from '../p2p/CycleChain'
 
 const allZeroes64 = '0'.repeat(64)
 
@@ -418,7 +419,9 @@ class AccountSync {
    * @param requiredNodeCount
    */
   async initialSyncMain(requiredNodeCount: number) {
-    const safetyMode = safetyModeVals.safetyMode
+    // const safetyMode = safetyModeVals.safetyMode
+    const newest = CycleChain.getNewest();
+    const safetyMode = newest ? newest.safetyMode : false
     // Dont sync if first node
     if (this.p2p.isFirstSeed || safetyMode) {
       this.dataSyncMainPhaseComplete = true

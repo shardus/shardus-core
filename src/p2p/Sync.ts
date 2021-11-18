@@ -336,7 +336,8 @@ export async function getNewestCycle(
   if (!response.newestCycle) throw new Error('Bad response')
 
   const newestCycle = response.newestCycle as P2P.CycleCreatorTypes.CycleRecord
-  return newestCycle
+  const valid = validateCycles([newestCycle])
+  if (valid) return newestCycle
 }
 
 // This tries to get the cycles with counter from start to end inclusively.

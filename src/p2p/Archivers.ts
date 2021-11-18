@@ -258,7 +258,7 @@ export function sendData() {
   if(logFlags.console) console.log('Recient List before sending data')
   if(logFlags.console) console.log(recipients)
   for (const [publicKey, recipient] of recipients) {
-    const recipientUrl = `http://${recipient.nodeInfo.ip}:${recipient.nodeInfo.port}/newdata`
+    // const recipientUrl = `http://${recipient.nodeInfo.ip}:${recipient.nodeInfo.port}/newdata`
 
     const responses: P2P.ArchiversTypes.DataResponse['responses'] = {}
 
@@ -325,14 +325,14 @@ export function sendData() {
     // Tag dataResponse
     const taggedDataResponse = crypto.tag(dataResponse, recipient.curvePk)
 
-    if(logFlags.console) {
-      console.log(
-        `Sending data for cycle ${
-          getNewest().counter
-        } to archiver ${recipientUrl}`,
-        recipient.curvePk
-      )
-    }
+    // if(logFlags.console) {
+    //   console.log(
+    //     `Sending data for cycle ${
+    //       getNewest().counter
+    //     } to archiver ${recipientUrl}`,
+    //     recipient.curvePk
+    //   )
+    // }
 
     io.emit('DATA', taggedDataResponse)
 
