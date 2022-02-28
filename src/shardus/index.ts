@@ -1431,16 +1431,6 @@ class Shardus extends EventEmitter {
         throw new Error('Missing required interface function. setAccountData()')
       }
 
-      // pass array of account copies to this (only looks at the data field) and it will reset the account state
-      if (typeof application.resetAccountData === 'function') {
-        applicationInterfaceImpl.resetAccountData = async (accountRecords) =>
-          application.resetAccountData(accountRecords)
-      } else {
-        throw new Error(
-          'Missing required interface function. resetAccountData()'
-        )
-      }
-
       // pass array of account ids to this and it will delete the accounts
       if (typeof application.deleteAccountData === 'function') {
         applicationInterfaceImpl.deleteAccountData = async (addressList) =>

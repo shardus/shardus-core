@@ -2039,7 +2039,7 @@ class StateManager {
 
   /**
    * _commitAccountCopies
-   * This takes an array of account data and pushes it directly into the system with app.resetAccountData
+   * This takes an array of account data and pushes it directly into the system with app.setAccountData
    * Account backup copies and in memory global account backups are also updated
    * you only need to set the true values for the globalAccountKeyMap
    * @param accountCopies
@@ -2060,7 +2060,7 @@ class StateManager {
         }
       }
       // tell the app to replace the account data
-      await this.app.resetAccountData(accountCopies)
+      await this.app.setAccountData(accountCopies.map((accountData) => accountData.data))
 
       let globalAccountKeyMap: { [key: string]: boolean } = {}
 

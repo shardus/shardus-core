@@ -260,8 +260,6 @@ export interface App {
 
   setAccountData: (accountRecords: unknown[]) => void
 
-  resetAccountData: (accountRecords: unknown[]) => void
-
   deleteAccountData: (addressList: string[]) => void
 
   getAccountDataByList: (addressList: string[]) => WrappedData[]
