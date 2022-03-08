@@ -35,14 +35,10 @@ import Profiler, { profilerInstance } from '../utils/profiler'
 const allZeroes64 = '0'.repeat(64)
 const saveConsoleOutput = require('./saveConsoleOutput')
 
-const defaultConfigs = {
+const defaultConfigs: ShardusTypes.ShardusConfiguration = {
   server: require('../config/server.json'),
   logs: require('../config/logs.json'),
   storage: require('../config/storage.json'),
-} as {
-  server: ShardusTypes.ServerConfiguration
-  logs: ShardusTypes.LogsConfiguration
-  storage: ShardusTypes.StorageConfiguration
 }
 Context.setDefaultConfigs(defaultConfigs)
 
@@ -94,11 +90,7 @@ class Shardus extends EventEmitter {
     server: config,
     logs: logsConfig,
     storage: storageConfig,
-  }: {
-    server: ShardusTypes.ServerConfiguration
-    logs: ShardusTypes.LogsConfiguration
-    storage: ShardusTypes.StorageConfiguration
-  }) {
+  }: ShardusTypes.ShardusConfiguration) {
     super()
     this.nestedCounters = new NestedCounters()
     this.memoryReporting = new MemoryReporting(this)
