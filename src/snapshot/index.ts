@@ -32,41 +32,17 @@ let disableSummarySnapshot = true //with 4096 stats regions the snapshot module 
 /** STATE */
 
 export let oldDataPath: string
-let oldDataMap: Map<
-  P2P.SnapshotTypes.PartitionNum,
-  ShardusTypes.AccountsCopy[]
-> = new Map()
-const dataToMigrate: Map<
-  P2P.SnapshotTypes.PartitionNum,
-  ShardusTypes.AccountsCopy[]
-> = new Map()
-const oldPartitionHashMap: Map<
-  P2P.SnapshotTypes.PartitionNum,
-  string
-> = new Map()
+let oldDataMap: Map< P2P.SnapshotTypes.PartitionNum, ShardusTypes.AccountsCopy[] > = new Map()
+const dataToMigrate: Map< P2P.SnapshotTypes.PartitionNum, ShardusTypes.AccountsCopy[] > = new Map()
+const oldPartitionHashMap: Map< P2P.SnapshotTypes.PartitionNum, string > = new Map()
 let missingPartitions: P2P.SnapshotTypes.PartitionNum[] = []
 const notNeededRepliedNodes: Map<string, true> = new Map()
 const alreadyOfferedNodes = new Map()
-let stateHashesByCycle: Map<
-  Cycle['counter'],
-  P2P.SnapshotTypes.StateHashes
-> = new Map()
-let receiptHashesByCycle: Map<
-  Cycle['counter'],
-  P2P.SnapshotTypes.ReceiptHashes
-> = new Map()
-let summaryHashesByCycle: Map<
-  Cycle['counter'],
-  P2P.SnapshotTypes.SummaryHashes
-> = new Map()
-const partitionBlockMapByCycle: Map<
-  Cycle['counter'],
-  StateManager.StateManagerTypes.ReceiptMapResult[]
-> = new Map()
-const statesClumpMapByCycle: Map<
-  Cycle['counter'],
-  StateManager.StateManagerTypes.StatsClump
-> = new Map()
+let stateHashesByCycle: Map< Cycle['counter'], P2P.SnapshotTypes.StateHashes > = new Map()
+let receiptHashesByCycle: Map< Cycle['counter'], P2P.SnapshotTypes.ReceiptHashes > = new Map()
+let summaryHashesByCycle: Map< Cycle['counter'], P2P.SnapshotTypes.SummaryHashes > = new Map()
+const partitionBlockMapByCycle: Map< Cycle['counter'], StateManager.StateManagerTypes.ReceiptMapResult[] > = new Map()
+const statesClumpMapByCycle: Map< Cycle['counter'], StateManager.StateManagerTypes.StatsClump > = new Map()
 let safetySyncing = false // to set true when data exchange occurs during safetySync
 
 export const safetyModeVals = {
@@ -197,7 +173,7 @@ export function startSnapshotting() {
       shard: CycleShardData,
       receiptMapResults: StateManager.StateManagerTypes.ReceiptMapResult[],
       statsClump: StateManager.StateManagerTypes.StatsClump,
-      mainHashResults: MainHashResults
+      mainHashResults: MainHashResults //unused, accounts are queried manually below.
     ) => {
       try {
         profilerInstance.profileSectionStart('snapshot')
@@ -386,7 +362,7 @@ export function startSnapshotting() {
         }
         // attach partition and receipt hashes to the message to be gossiped
         for (const [partitionId, hash] of partitionHashes) {
-          message.data.partitionHash[partitionId] = hash
+          message.data.partitionHash[partitionId] = hash  //this could be a hash over hash( list of trie chunks  )
           message.data.receiptMapHash[partitionId] = hashPartitionBlocks(
             partitionId,
             partitionBlockMapByCycle.get(shard.cycleNumber)

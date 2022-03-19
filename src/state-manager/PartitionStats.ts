@@ -100,7 +100,9 @@ class PartitionStats {
     this.stateManager = stateManager
     this.accountCache = accountCache
 
-    //Init Summary Blobs
+    //Init Summary Blobs   //rename to "Summary blocks" 2-5 nodes cover 
+                            //need to do partial work on
+                            //maybe more background. 
     this.summaryPartitionCount = 4096 //32 //TODO my next branch will address this.  Needs to be 4096! (and some other support)
 
     this.extensiveRangeChecking = true //leaving true for now may go away with next update
@@ -488,13 +490,7 @@ class PartitionStats {
    */
   statsDataSummaryUpdate(cycle: number, accountDataBefore: any, accountDataAfter: Shardus.WrappedData, debugMsg: string) {
     let opCounter = this.statsProcessCounter++
-    if (this.invasiveDebugInfo)
-      this.mainLogger.debug(
-        `statData enter:statsDataSummaryUpdate op:${opCounter} c:${cycle} ${debugMsg}  accForBin:${utils.makeShortHash(accountDataAfter.accountId)}   inputs:${JSON.stringify({
-          accountDataBefore,
-          accountDataAfter,
-        })}`
-      )
+    if (this.invasiveDebugInfo) this.mainLogger.debug( `statData enter:statsDataSummaryUpdate op:${opCounter} c:${cycle} ${debugMsg}  accForBin:${utils.makeShortHash(accountDataAfter.accountId)}   inputs:${JSON.stringify({ accountDataBefore, accountDataAfter, })}` )
 
     let blob: StateManagerTypes.StateManagerTypes.SummaryBlob = this.getSummaryBlob(accountDataAfter.accountId)
     blob.counter++
@@ -541,12 +537,7 @@ class PartitionStats {
       blob.latestCycle = cycle
     }
     this.app.dataSummaryUpdate(blob.opaqueBlob, accountDataBefore, accountDataAfter.data)
-    if (this.invasiveDebugInfo)
-      this.mainLogger.debug(
-        `statData:statsDataSummaryUpdate op:${opCounter} c:${cycle} accForBin:${utils.makeShortHash(accountDataAfter.accountId)}   ${this.debugAccountData(
-          accountDataAfter.data
-        )} - ${this.debugAccountData(accountDataBefore)}`
-      )
+    if (this.invasiveDebugInfo) this.mainLogger.debug( `statData:statsDataSummaryUpdate op:${opCounter} c:${cycle} accForBin:${utils.makeShortHash(accountDataAfter.accountId)}   ${this.debugAccountData( accountDataAfter.data )} - ${this.debugAccountData(accountDataBefore)}` )
     if (this.invasiveDebugInfo) this.addDebugToBlob(blob, accountDataAfter.accountId)
   }
 
