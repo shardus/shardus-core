@@ -1,9 +1,9 @@
 /**
  * Returns an array of two arrays, one will all resolved promises, and one with all rejected promises
  */
-export const robustPromiseAll = async (promises) => {
+export const robustPromiseAll = async promises => {
   // This is how we wrap a promise to prevent it from rejecting directing in the Promise.all and causing a short circuit
-  const wrapPromise = async (promise) => {
+  const wrapPromise = async promise => {
     // We are trying to await the promise, and catching any rejections
     // We return an array, the first index being resolve, and the second being an error
     try {

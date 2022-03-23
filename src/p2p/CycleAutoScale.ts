@@ -1,15 +1,15 @@
 import deepmerge from 'deepmerge'
-import { Logger } from 'log4js'
-import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
-import { sleep, validateTypes } from '../utils'
+import {Logger} from 'log4js'
+import {logFlags} from '../logger'
+import {P2P} from '@shardus/types'
+import {sleep, validateTypes} from '../utils'
 import * as Comms from './Comms'
-import { config, crypto, logger } from './Context'
+import {config, crypto, logger} from './Context'
 import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { profilerInstance } from '../utils/profiler'
+import {profilerInstance} from '../utils/profiler'
 
 /** STATE */
 
@@ -28,11 +28,9 @@ export let desiredCount: number
 
 reset()
 
-const gossipScaleRoute: P2P.P2PTypes.GossipHandler<P2P.CycleAutoScaleTypes.SignedScaleRequest> = async (
-  payload,
-  sender,
-  tracker
-) => {
+const gossipScaleRoute: P2P.P2PTypes.GossipHandler<
+  P2P.CycleAutoScaleTypes.SignedScaleRequest
+> = async (payload, sender, tracker) => {
   profilerInstance.scopedProfileSectionStart('gossip-scaling')
   try {
     if (logFlags.p2pNonFatal)
@@ -43,7 +41,14 @@ const gossipScaleRoute: P2P.P2PTypes.GossipHandler<P2P.CycleAutoScaleTypes.Signe
     }
     const added = await addExtScalingRequest(payload)
     if (!added) return
-    Comms.sendGossip('scaling', payload, tracker, sender, NodeList.byIdOrder, false)
+    Comms.sendGossip(
+      'scaling',
+      payload,
+      tracker,
+      sender,
+      NodeList.byIdOrder,
+      false
+    )
   } finally {
     profilerInstance.scopedProfileSectionEnd('gossip-scaling')
   }
@@ -79,16 +84,15 @@ export function reset() {
 }
 
 export function getDesiredCount(): number {
-
   // having trouble finding a better way to update this!
-  if(desiredCount < config.p2p.minNodes){
+  if (desiredCount < config.p2p.minNodes) {
     desiredCount = config.p2p.minNodes
   }
 
   return desiredCount
 }
 
-function createScaleRequest(scaleType) : P2P.CycleAutoScaleTypes.ScaleRequest {
+function createScaleRequest(scaleType): P2P.CycleAutoScaleTypes.ScaleRequest {
   const request: P2P.CycleAutoScaleTypes.ScaleRequest = {
     nodeId: Self.id,
     timestamp: Date.now(),
@@ -138,12 +142,14 @@ export function requestNetworkDownsize() {
   _requestNetworkScaling(P2P.CycleAutoScaleTypes.ScaleType.DOWN)
 }
 
-function addExtScalingRequest(scalingRequest) : boolean {
+function addExtScalingRequest(scalingRequest): boolean {
   const added = _addScalingRequest(scalingRequest)
   return added
 }
 
-function validateScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest) : boolean {
+function validateScalingRequest(
+  scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest
+): boolean {
   // Check existence of fields
   if (
     !scalingRequest.nodeId ||
@@ -229,18 +235,23 @@ function _checkScaling() {
 
   // lazy init of desiredCount
   // if we have a good value in our cycle chane for desired nodes update our desired count.
-  if(CycleChain.newest != null && CycleChain.newest.desired != null){
+  if (CycleChain.newest != null && CycleChain.newest.desired != null) {
     desiredCount = CycleChain.newest.desired
   }
 
-  let requiredVotes = Math.max(config.p2p.minScaleReqsNeeded, config.p2p.scaleConsensusRequired * NodeList.activeByIdOrder.length )
+  const requiredVotes = Math.max(
+    config.p2p.minScaleReqsNeeded,
+    config.p2p.scaleConsensusRequired * NodeList.activeByIdOrder.length
+  )
 
-  let scaleUpRequests = getScaleUpRequests()
-  let scaleDownRequests = getScaleDownRequests()
+  const scaleUpRequests = getScaleUpRequests()
+  const scaleDownRequests = getScaleDownRequests()
 
   // Check up first, but must have more votes than down votes.
-  if (scaleUpRequests.length >= requiredVotes &&
-    scaleUpRequests.length >= scaleDownRequests.length) {
+  if (
+    scaleUpRequests.length >= requiredVotes &&
+    scaleUpRequests.length >= scaleDownRequests.length
+  ) {
     approvedScalingType = P2P.CycleAutoScaleTypes.ScaleType.UP
     changed = true
   }
@@ -296,8 +307,8 @@ function setDesireCount(count: number) {
   }
 }
 
-export function configUpdated(){
-  if(desiredCount < config.p2p.minNodes){
+export function configUpdated() {
+  if (desiredCount < config.p2p.minNodes) {
     desiredCount = config.p2p.minNodes
   }
 }
@@ -316,20 +327,27 @@ export function getTxs(): P2P.CycleAutoScaleTypes.Txs {
   }
 }
 
-export function validateRecordTypes(rec: P2P.CycleAutoScaleTypes.Record): string {
-  let err = validateTypes(rec, { desired: 'n' })
+export function validateRecordTypes(
+  rec: P2P.CycleAutoScaleTypes.Record
+): string {
+  const err = validateTypes(rec, {desired: 'n'})
   if (err) return err
   return ''
 }
 
-export function updateRecord(txs: P2P.CycleAutoScaleTypes.Txs, record: P2P.CycleCreatorTypes.CycleRecord) {
+export function updateRecord(
+  txs: P2P.CycleAutoScaleTypes.Txs,
+  record: P2P.CycleCreatorTypes.CycleRecord
+) {
   //just in time scaling vote count.
   _checkScaling()
   record.desired = getDesiredCount()
   reset()
 }
 
-export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
+export function parseRecord(
+  record: P2P.CycleCreatorTypes.CycleRecord
+): P2P.CycleParserTypes.Change {
   // Since we don't touch the NodeList, return an empty Change
   return {
     added: [],
@@ -338,24 +356,25 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   }
 }
 
-function getScaleUpRequests() : P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
-  let requests = []
-  for (let [nodeId, request] of scalingRequestsCollector) {
-    if (request.scale === P2P.CycleAutoScaleTypes.ScaleType.UP) requests.push(request)
+function getScaleUpRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
+  const requests = []
+  for (const [nodeId, request] of scalingRequestsCollector) {
+    if (request.scale === P2P.CycleAutoScaleTypes.ScaleType.UP)
+      requests.push(request)
   }
   return requests
 }
 
-function getScaleDownRequests() : P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
-  let requests = []
-  for (let [nodeId, request] of scalingRequestsCollector) {
-    if (request.scale === P2P.CycleAutoScaleTypes.ScaleType.DOWN) requests.push(request)
+function getScaleDownRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
+  const requests = []
+  for (const [nodeId, request] of scalingRequestsCollector) {
+    if (request.scale === P2P.CycleAutoScaleTypes.ScaleType.DOWN)
+      requests.push(request)
   }
   return requests
 }
 
-function _addToScalingRequests(scalingRequest) : boolean {
-
+function _addToScalingRequests(scalingRequest): boolean {
   switch (scalingRequest.scale) {
     case P2P.CycleAutoScaleTypes.ScaleType.UP:
       // This was blocking other votes from comming in.. need to check this in _requestNetworkScaling
@@ -402,7 +421,9 @@ function _addToScalingRequests(scalingRequest) : boolean {
   }
 }
 
-function _addScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest) : boolean {
+function _addScalingRequest(
+  scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest
+): boolean {
   // Check existence of node
   if (!scalingRequest.nodeId) return false
 

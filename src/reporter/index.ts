@@ -1,10 +1,14 @@
 import Log4js from 'log4js'
 import LoadDetection from '../load-detection'
 import Logger, {logFlags} from '../logger'
-import { ipInfo } from '../network'
-import { config, crypto } from '../p2p/Context'
+import {ipInfo} from '../network'
+import {config, crypto} from '../p2p/Context'
 import * as Context from '../p2p/Context'
-import { getDesiredCount, lastScalingType, requestedScalingType } from '../p2p/CycleAutoScale'
+import {
+  getDesiredCount,
+  lastScalingType,
+  requestedScalingType,
+} from '../p2p/CycleAutoScale'
 import * as CycleChain from '../p2p/CycleChain'
 import * as Self from '../p2p/Self'
 import * as NodeList from '../p2p/NodeList'
@@ -13,9 +17,9 @@ import StateManager from '../state-manager'
 import Statistics from '../statistics'
 import Profiler from '../utils/profiler'
 import packageJson from '../../package.json'
-import { isDebugModeAnd } from '../debug'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-import { memoryReportingInstance } from '../utils/memoryReporting'
+import {isDebugModeAnd} from '../debug'
+import {nestedCountersInstance} from '../utils/nestedCounters'
+import {memoryReportingInstance} from '../utils/memoryReporting'
 
 const http = require('../http')
 const allZeroes64 = '0'.repeat(64)
@@ -70,7 +74,7 @@ class Reporter {
 
     this.lastTime = Date.now()
 
-    this.doConsoleReport = isDebugModeAnd((config) => config.profiler);
+    this.doConsoleReport = isDebugModeAnd(config => config.profiler)
 
     this.hasRecipient = this.config.recipient != null
     this.resetStatisticsReport()
@@ -115,9 +119,10 @@ class Reporter {
         nodeIpInfo,
       })
     } catch (e) {
-      if (logFlags.error) this.mainLogger.error(
-        'reportJoining: ' + e.name + ': ' + e.message + ' at ' + e.stack
-      )
+      if (logFlags.error)
+        this.mainLogger.error(
+          'reportJoining: ' + e.name + ': ' + e.message + ' at ' + e.stack
+        )
       console.error(e)
     }
   }
@@ -134,9 +139,10 @@ class Reporter {
         nodeIpInfo,
       })
     } catch (e) {
-      if (logFlags.error) this.mainLogger.error(
-        'reportJoined: ' + e.name + ': ' + e.message + ' at ' + e.stack
-      )
+      if (logFlags.error)
+        this.mainLogger.error(
+          'reportJoined: ' + e.name + ': ' + e.message + ' at ' + e.stack
+        )
       console.error(e)
     }
   }
@@ -146,11 +152,12 @@ class Reporter {
       return
     }
     try {
-      await http.post(`${this.config.recipient}/active`, { nodeId })
+      await http.post(`${this.config.recipient}/active`, {nodeId})
     } catch (e) {
-      if (logFlags.error) this.mainLogger.error(
-        'reportActive: ' + e.name + ': ' + e.message + ' at ' + e.stack
-      )
+      if (logFlags.error)
+        this.mainLogger.error(
+          'reportActive: ' + e.name + ': ' + e.message + ' at ' + e.stack
+        )
       console.error(e)
     }
   }
@@ -160,11 +167,15 @@ class Reporter {
       return
     }
     try {
-      await http.post(`${this.config.recipient}/sync-statement`, { nodeId, syncStatement })
+      await http.post(`${this.config.recipient}/sync-statement`, {
+        nodeId,
+        syncStatement,
+      })
     } catch (e) {
-      if (logFlags.error) this.mainLogger.error(
-        'reportSyncStatement: ' + e.name + ': ' + e.message + ' at ' + e.stack
-      )
+      if (logFlags.error)
+        this.mainLogger.error(
+          'reportSyncStatement: ' + e.name + ': ' + e.message + ' at ' + e.stack
+        )
       console.error(e)
     }
   }
@@ -174,11 +185,12 @@ class Reporter {
       return
     }
     try {
-      await http.post(`${this.config.recipient}/removed`, { nodeId })
+      await http.post(`${this.config.recipient}/removed`, {nodeId})
     } catch (e) {
-      if (logFlags.error) this.mainLogger.error(
-        'reportRemoved: ' + e.name + ': ' + e.message + ' at ' + e.stack
-      )
+      if (logFlags.error)
+        this.mainLogger.error(
+          'reportRemoved: ' + e.name + ': ' + e.message + ' at ' + e.stack
+        )
       console.error(e)
     }
     // Omar added this, since, just clearing the timer did not work
@@ -200,9 +212,10 @@ class Reporter {
     try {
       await http.post(`${this.config.recipient}/heartbeat`, report)
     } catch (e) {
-      if (logFlags.error) this.mainLogger.error(
-        '_sendReport: ' + e.name + ': ' + e.message + ' at ' + e.stack
-      )
+      if (logFlags.error)
+        this.mainLogger.error(
+          '_sendReport: ' + e.name + ': ' + e.message + ' at ' + e.stack
+        )
       console.error(e)
     }
   }
@@ -218,7 +231,7 @@ class Reporter {
   checkIsNodeLost(nodeId) {
     const lostNodeIds = CycleChain.getNewest().lost
     if (lostNodeIds.length === 0) return false
-    const foundId = lostNodeIds.find((lostId) => lostId === nodeId)
+    const foundId = lostNodeIds.find(lostId => lostId === nodeId)
     if (foundId) return true
     return false
   }
@@ -226,7 +239,7 @@ class Reporter {
   checkIsNodeRefuted(nodeId) {
     const refutedNodeIds = CycleChain.getNewest().refuted
     if (refutedNodeIds.length === 0) return false
-    const foundId = refutedNodeIds.find((refutedId) => refutedId === nodeId)
+    const foundId = refutedNodeIds.find(refutedId => refutedId === nodeId)
     if (foundId) return true
     return false
   }
@@ -242,7 +255,7 @@ class Reporter {
     const cycleMarker = CycleChain.newest.previous || '' // [TODO] Replace with cycle creator
     const cycleCounter = CycleChain.newest.counter
 
-    let nodelistIDs = NodeList.activeByIdOrder.map((node)=>node.id)
+    const nodelistIDs = NodeList.activeByIdOrder.map(node => node.id)
     const nodelistHash = crypto.hash(nodelistIDs)
     //const nodelistHash = crypto.hash(NodeList.byJoinOrder) //todo figure out what fields are off.
     const desiredNodes = getDesiredCount()
@@ -302,10 +315,10 @@ class Reporter {
     const isNodeLost = this.checkIsNodeLost(Self.id)
     const isNodeRefuted = this.checkIsNodeRefuted(Self.id)
     const isDataSynced = !this.stateManager.accountPatcher.failedLastTrieSync
-    let rareCounters = {}
+    const rareCounters = {}
     // convert nested Map to nested Object
     for (const [key, value] of nestedCountersInstance.rareEventCounters) {
-      rareCounters[key] = { ...value }
+      rareCounters[key] = {...value}
       rareCounters[key].subCounters = {}
       for (const [subKey, subValue] of value.subCounters) {
         rareCounters[key].subCounters[subKey] = subValue
@@ -335,21 +348,22 @@ class Reporter {
         globalSync,
         partitions,
         partitionsCovered,
-        'currentLoad': {
-          'networkLoad': currentNetworkLoad,
-          'nodeLoad': currentNodeLoad
+        currentLoad: {
+          networkLoad: currentNetworkLoad,
+          nodeLoad: currentNodeLoad,
         },
         queueLength,
         txTimeInQueue,
         rareCounters,
-        'isLost': isNodeLost,
-        'isRefuted': isNodeRefuted,
-        'shardusVersion': packageJson.version,
+        isLost: isNodeLost,
+        isRefuted: isNodeRefuted,
+        shardusVersion: packageJson.version,
       })
     } catch (e) {
-      if (logFlags.error) this.mainLogger.error(
-        'startReporting: ' + e.name + ': ' + e.message + ' at ' + e.stack
-      )
+      if (logFlags.error)
+        this.mainLogger.error(
+          'startReporting: ' + e.name + ': ' + e.message + ' at ' + e.stack
+        )
       console.error(e)
     }
 
@@ -367,8 +381,7 @@ class Reporter {
       self.collectStatisticToReport()
 
       //temp mem debugging:
-      this.mainLogger.info(memoryReportingInstance.getMemoryStringBasic() )
-
+      this.mainLogger.info(memoryReportingInstance.getMemoryStringBasic())
     }, 1000)
     // Creates and sends a report every `interval` seconds
     this.reportTimer = setTimeout(() => {
@@ -397,13 +410,14 @@ class Reporter {
       //Note: turning this log on will make the perf endpoint math get reset
       //  one option would be to have a flag that gets set if anyone hits the perf endpoint
       //  if so, then just stop this logging.  for now i will leave this off.
-//      if (logFlags.console) console.log(this.profiler.printAndClearReport(delta))
-      if (logFlags.console) console.log(
-        'Current load',
-        'counter',
-        CycleChain.newest.counter,
-        this.loadDetection.getCurrentLoad()
-      )
+      //      if (logFlags.console) console.log(this.profiler.printAndClearReport(delta))
+      if (logFlags.console)
+        console.log(
+          'Current load',
+          'counter',
+          CycleChain.newest.counter,
+          this.loadDetection.getCurrentLoad()
+        )
     }
   }
 

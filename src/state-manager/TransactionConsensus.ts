@@ -35,8 +35,7 @@ class TransactionConsenus {
 
   txTimestampCache: any
 
-  constructor(stateManager: StateManager,  profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ServerConfiguration) {
-
+  constructor(stateManager: StateManager, profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ServerConfiguration) {
     this.crypto = crypto
     this.app = app
     this.logger = logger
@@ -53,7 +52,6 @@ class TransactionConsenus {
     this.statemanager_fatal = stateManager.statemanager_fatal
     this.txTimestampCache = {}
   }
-
 
   /***
    *    ######## ##    ## ########  ########   #######  #### ##    ## ########  ######
@@ -79,7 +77,7 @@ class TransactionConsenus {
     this.p2p.registerGossipHandler('spread_appliedReceipt', async (payload, sender, tracker) => {
       profilerInstance.scopedProfileSectionStart('spread_appliedReceipt')
       try {
-        let appliedReceipt = payload as AppliedReceipt
+        const appliedReceipt = payload as AppliedReceipt
         let queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(appliedReceipt.txid) // , payload.timestamp)
         if (queueEntry == null) {
           if (queueEntry == null) {
@@ -105,32 +103,30 @@ class TransactionConsenus {
         // TODO STATESHARDING4 ENDPOINTS check payload format
         // TODO STATESHARDING4 ENDPOINTS that this message is from a valid sender (may need to check docs)
 
-        let receiptNotNull = appliedReceipt != null
+        const receiptNotNull = appliedReceipt != null
 
-        if (queueEntry.gossipedReceipt === false){
+        if (queueEntry.gossipedReceipt === false) {
           queueEntry.gossipedReceipt = true
           if (logFlags.debug) this.mainLogger.debug(`spread_appliedReceipt update ${queueEntry.logID} receiptNotNull:${receiptNotNull}`)
 
-
-          if(queueEntry.archived === false){
+          if (queueEntry.archived === false) {
             queueEntry.recievedAppliedReceipt = appliedReceipt
           }
 
           // I think we handle the negative cases later by checking queueEntry.recievedAppliedReceipt vs queueEntry.appliedReceipt
 
           // share the appliedReceipt.
-          let sender = null
-          let gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
+          const sender = null
+          const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
           if (gossipGroup.length > 1) {
             // should consider only forwarding in some cases?
-            this.stateManager.debugNodeGroup(queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp, `share appliedReceipt to neighbors`, gossipGroup)
+            this.stateManager.debugNodeGroup(queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp, 'share appliedReceipt to neighbors', gossipGroup)
             this.p2p.sendGossipIn('spread_appliedReceipt', appliedReceipt, tracker, sender, gossipGroup, false)
           }
         } else {
           // we get here if the receipt has already been shared
           if (logFlags.debug) this.mainLogger.debug(`spread_appliedReceipt skipped ${queueEntry.logID} receiptNotNull:${receiptNotNull} Already Shared`)
         }
-
       } finally {
         profilerInstance.scopedProfileSectionEnd('spread_appliedReceipt')
       }
@@ -183,34 +179,33 @@ class TransactionConsenus {
   async shareAppliedReceipt(queueEntry: QueueEntry) {
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote('shrd_shareAppliedReceipt', `${queueEntry.logID}`, `qId: ${queueEntry.entryID} `)
 
-    let appliedReceipt = queueEntry.appliedReceipt
+    const appliedReceipt = queueEntry.appliedReceipt
 
     // share the appliedReceipt.
-    let sender = null
-    let gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
+    const sender = null
+    const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
 
     // todo only recalc if cycle boundry?
     // let updatedGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry, true)
 
     if (gossipGroup.length > 1) {
-
       if (queueEntry.ourNodeInTransactionGroup === false) {
         return
       }
 
-      if(queueEntry.ourTXGroupIndex > 0){
-        let everyN = Math.max(1,Math.floor(gossipGroup.length * 0.4))
-        let nonce = parseInt('0x' + queueEntry.acceptedTx.txId.substr(0,2))
-        let idxPlusNonce = queueEntry.ourTXGroupIndex + nonce
-        let idxModEveryN = idxPlusNonce % everyN
-        if(idxModEveryN > 0){
+      if (queueEntry.ourTXGroupIndex > 0) {
+        const everyN = Math.max(1, Math.floor(gossipGroup.length * 0.4))
+        const nonce = parseInt('0x' + queueEntry.acceptedTx.txId.substr(0, 2))
+        const idxPlusNonce = queueEntry.ourTXGroupIndex + nonce
+        const idxModEveryN = idxPlusNonce % everyN
+        if (idxModEveryN > 0) {
           nestedCountersInstance.countEvent('transactionQueue', 'shareAppliedReceipt-skipped')
           return
         }
       }
       nestedCountersInstance.countEvent('transactionQueue', 'shareAppliedReceipt-notSkipped')
       // should consider only forwarding in some cases?
-      this.stateManager.debugNodeGroup(queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp, `share appliedReceipt to neighbors`, gossipGroup)
+      this.stateManager.debugNodeGroup(queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp, 'share appliedReceipt to neighbors', gossipGroup)
       this.p2p.sendGossipIn('spread_appliedReceipt', appliedReceipt, '', sender, gossipGroup, true)
     }
   }
@@ -257,25 +252,22 @@ class TransactionConsenus {
 
       //we return true for a false receipt because there is no need to repair our data to match the receipt
       //it is already checked above if we matched the result
-      if(appliedReceipt.result === false){
+      if (appliedReceipt.result === false) {
         if (logFlags.debug) this.mainLogger.debug(`hasAppliedReceiptMatchingPreApply  ${queueEntry.logID} result===false Good Match`)
         return true
       }
 
-
-
       //test our vote against data hashes.
       let wrappedStates = queueEntry.collectedData
       let wrappedStateKeys = Object.keys(queueEntry.collectedData)
-      let vote = appliedReceipt.appliedVotes[0] //queueEntry.ourVote
-
+      const vote = appliedReceipt.appliedVotes[0] //queueEntry.ourVote
 
       // Iff we have accountWrites, then overwrite the keys and wrapped data
-      let appOrderedKeys = []
-      let writtenAccountsMap:WrappedResponses = {}
-      let applyResponse = queueEntry?.preApplyTXResult?.applyResponse
-      if(applyResponse.accountWrites != null && applyResponse.accountWrites.length > 0){
-        for(let wrappedAccount of applyResponse.accountWrites){
+      const appOrderedKeys = []
+      const writtenAccountsMap: WrappedResponses = {}
+      const applyResponse = queueEntry?.preApplyTXResult?.applyResponse
+      if (applyResponse.accountWrites != null && applyResponse.accountWrites.length > 0) {
+        for (const wrappedAccount of applyResponse.accountWrites) {
           appOrderedKeys.push(wrappedAccount.accountId)
           writtenAccountsMap[wrappedAccount.accountId] = wrappedAccount.data
         }
@@ -288,7 +280,7 @@ class TransactionConsenus {
       //If we are not in the execution home then use data that was sent to us for the commit
       // if(queueEntry.globalModification === false && this.stateManager.transactionQueue.executeInOneShard && queueEntry.isInExecutionHome === false){
       //   wrappedStates = {}
-      //   let timestamp = queueEntry.acceptedTx.timestamp        
+      //   let timestamp = queueEntry.acceptedTx.timestamp
       //   for(let key of Object.keys(queueEntry.collectedFinalData)){
       //     let finalAccount = queueEntry.collectedFinalData[key]
       //     let accountId = finalAccount.accountId
@@ -301,11 +293,11 @@ class TransactionConsenus {
       // }
 
       for (let j = 0; j < vote.account_id.length; j++) {
-        let id = vote.account_id[j]
-        let hash = vote.account_state_hash_after[j]
+        const id = vote.account_id[j]
+        const hash = vote.account_state_hash_after[j]
         let found = false
-        for (let key of wrappedStateKeys) {
-          let wrappedState = wrappedStates[key]
+        for (const key of wrappedStateKeys) {
+          const wrappedState = wrappedStates[key]
           if (wrappedState.accountId === id) {
             found = true
             if (wrappedState.stateId !== hash) {
@@ -321,7 +313,7 @@ class TransactionConsenus {
       }
 
       if (logFlags.debug) this.mainLogger.debug(`hasAppliedReceiptMatchingPreApply  ${queueEntry.logID} Good Match`)
-      if (logFlags.playback) this.logger.playbackLogNote('hasAppliedReceiptMatchingPreApply', `${queueEntry.logID}`, `  Good Match`)
+      if (logFlags.playback) this.logger.playbackLogNote('hasAppliedReceiptMatchingPreApply', `${queueEntry.logID}`, '  Good Match')
     }
 
     return true
@@ -344,7 +336,7 @@ class TransactionConsenus {
     //   return null
     // }
 
-    if(queueEntry.appliedReceipt != null){
+    if (queueEntry.appliedReceipt != null) {
       return queueEntry.appliedReceipt
     }
 
@@ -354,23 +346,22 @@ class TransactionConsenus {
     // Design TODO:  should this be the full transaction group or just the consensus group?
     let votingGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
 
-    if(this.stateManager.transactionQueue.executeInOneShard){
+    if (this.stateManager.transactionQueue.executeInOneShard) {
       //use execuiton group instead of full transaciton group, since only the execution group will run the transaction
       votingGroup = queueEntry.executionGroup
     }
 
-    let requiredVotes = Math.round(votingGroup.length * (2 / 3.0))
+    const requiredVotes = Math.round(votingGroup.length * (2 / 3.0))
 
     //hacky for now.  debug code:
     //@ts-ignore
-    if(queueEntry.loggedStats1 == null){
+    if (queueEntry.loggedStats1 == null) {
       //@ts-ignore
       queueEntry.loggedStats1 = true
-      nestedCountersInstance.countEvent('transactionStats', ` votingGroup:${votingGroup.length}`)      
+      nestedCountersInstance.countEvent('transactionStats', ` votingGroup:${votingGroup.length}`)
     }
 
-
-    let numVotes = queueEntry.collectedVotes.length
+    const numVotes = queueEntry.collectedVotes.length
 
     if (numVotes < requiredVotes) {
       // we need more votes
@@ -378,7 +369,7 @@ class TransactionConsenus {
     }
 
     // be smart an only recalculate votes when we see a new vote show up.
-    if(queueEntry.newVotes === false){
+    if (queueEntry.newVotes === false) {
       return null
     }
     queueEntry.newVotes = false
@@ -388,7 +379,7 @@ class TransactionConsenus {
 
     // First Pass: Check if there are enough pass or fail votes to attempt a receipt.
     for (let i = 0; i < numVotes; i++) {
-      let currentVote = queueEntry.collectedVotes[i]
+      const currentVote = queueEntry.collectedVotes[i]
 
       if (currentVote.transaction_result === true) {
         passCount++
@@ -417,20 +408,19 @@ class TransactionConsenus {
     //     sign?: Shardus.Sign
     // };
 
-
     // Second Pass: look at the account hashes and find the most common hash per account
     //let uniqueKeys: {[id: string]: boolean} = {}
-    let topHashByID: { [id: string]: { hash: string; count: number } } = {}
-    let topValuesByIDByHash: { [id: string]: { [id: string]: { count: number } } } = {}
+    const topHashByID: { [id: string]: { hash: string; count: number } } = {}
+    const topValuesByIDByHash: { [id: string]: { [id: string]: { count: number } } } = {}
     if (passed && canProduceReceipt) {
       if (canProduceReceipt === true) {
         for (let i = 0; i < numVotes; i++) {
-          let currentVote = queueEntry.collectedVotes[i]
+          const currentVote = queueEntry.collectedVotes[i]
           if (passed === currentVote.transaction_result) {
-            let vote = currentVote
+            const vote = currentVote
             for (let j = 0; j < vote.account_id.length; j++) {
-              let id = vote.account_id[j]
-              let hash = vote.account_state_hash_after[j]
+              const id = vote.account_id[j]
+              const hash = vote.account_state_hash_after[j]
 
               //uniqueKeys[id] = true
 
@@ -440,7 +430,7 @@ class TransactionConsenus {
               if (topValuesByIDByHash[id][hash] == null) {
                 topValuesByIDByHash[id][hash] = { count: 0 }
               }
-              let count = topValuesByIDByHash[id][hash].count + 1
+              const count = topValuesByIDByHash[id][hash].count + 1
               topValuesByIDByHash[id][hash].count = count
 
               if (topHashByID[id] == null) {
@@ -459,15 +449,15 @@ class TransactionConsenus {
     // test to make sure each account has enough votes for the most popular hash
     if (passed === true) {
       let tooFewVotes = false
-      let uniqueAccounts = Object.keys(topHashByID)
-      for(let accountID of uniqueAccounts){
-        if (topHashByID[accountID].count < requiredVotes ) {
+      const uniqueAccounts = Object.keys(topHashByID)
+      for (const accountID of uniqueAccounts) {
+        if (topHashByID[accountID].count < requiredVotes) {
           tooFewVotes = true
           if (logFlags.playback) this.logger.playbackLogNote('tryProduceReceipt', `${queueEntry.logID}`, `canProduceReceipt: failed. requiredVotes${requiredVotes}  ${utils.stringifyReduce(topHashByID[accountID])}`)
           if (logFlags.info) this.mainLogger.info(`tryProduceReceipt canProduceReceipt: failed. requiredVotes:${requiredVotes}  ${utils.stringifyReduce(topHashByID[accountID])}`)
         }
       }
-      if(tooFewVotes){
+      if (tooFewVotes) {
         return null
       }
     }
@@ -478,7 +468,7 @@ class TransactionConsenus {
     let passingAccountVotesTotal = 0
     // Assemble the receipt from votes that are passing
     if (canProduceReceipt === true) {
-      let appliedReceipt: AppliedReceipt = {
+      const appliedReceipt: AppliedReceipt = {
         txid: queueEntry.acceptedTx.txId,
         result: passed,
         appliedVotes: [],
@@ -486,15 +476,15 @@ class TransactionConsenus {
 
       // grab just the votes that match the winning pass or fail status
       for (let i = 0; i < numVotes; i++) {
-        let currentVote = queueEntry.collectedVotes[i]
+        const currentVote = queueEntry.collectedVotes[i]
         // build a list of applied votes
         if (passed === true) {
           if (currentVote.transaction_result === true) {
             let badVoteMatch = false
             //Test that state after hash values match with the winning vote hashes
             for (let j = 0; j < currentVote.account_id.length; j++) {
-              let id = currentVote.account_id[j]
-              let hash = currentVote.account_state_hash_after[j]
+              const id = currentVote.account_id[j]
+              const hash = currentVote.account_state_hash_after[j]
               if (topHashByID[id].hash === hash) {
                 passingAccountVotesTotal++
               } else {
@@ -526,7 +516,7 @@ class TransactionConsenus {
 
       // one last check to make sure we assembled enough votes.
       // this is needed because our hash counts could have added up but if a vote could still get discarded if any one of its account hashes are wrong
-      if(passed && appliedReceipt.appliedVotes.length < requiredVotes) {
+      if (passed && appliedReceipt.appliedVotes.length < requiredVotes) {
         if (logFlags.playback) this.logger.playbackLogNote('tryProduceReceipt', `${queueEntry.logID}`, `canProduceReceipt:  failed to produce enough votes. passed: ${passed} passCount: ${passCount} failCount: ${failCount} passingAccountVotesTotal:${passingAccountVotesTotal}`)
         if (logFlags.error) this.mainLogger.error(`tryProduceReceipt canProduceReceipt: failed to produce enough votes: ${passed} passCount: ${passCount} failCount: ${failCount} passingAccountVotesTotal:${passingAccountVotesTotal} `)
         return null
@@ -587,13 +577,13 @@ class TransactionConsenus {
 
     let wrappedStates = queueEntry.collectedData
 
-    let applyResponse = queueEntry?.preApplyTXResult?.applyResponse
+    const applyResponse = queueEntry?.preApplyTXResult?.applyResponse
     //if we have values for accountWrites, then build a list wrappedStates from it and use this list instead
     //of the collected data list
-    if(applyResponse != null){
-      let writtenAccountsMap:WrappedResponses = {}
-      if(applyResponse.accountWrites != null && applyResponse.accountWrites.length > 0){
-        for(let writtenAccount of applyResponse.accountWrites){
+    if (applyResponse != null) {
+      const writtenAccountsMap: WrappedResponses = {}
+      if (applyResponse.accountWrites != null && applyResponse.accountWrites.length > 0) {
+        for (const writtenAccount of applyResponse.accountWrites) {
           writtenAccountsMap[writtenAccount.accountId] = writtenAccount.data
         }
         //override wrapped states with writtenAccountsMap which should be more complete if it included
@@ -607,13 +597,13 @@ class TransactionConsenus {
     if (wrappedStates != null) {
       //we need to sort this list and doing it in place seems ok
       //applyResponse.stateTableResults.sort(this.sortByAccountId )
-      for (let key of Object.keys(wrappedStates)) {
-        let wrappedState = wrappedStates[key]
+      for (const key of Object.keys(wrappedStates)) {
+        const wrappedState = wrappedStates[key]
 
         // note this is going to stomp the hash value for the account
         // this used to happen in dapp.updateAccountFull  we now have to save off prevStateId on the wrappedResponse
         //We have to update the hash now! Not sure if this is the greatest place but it needs to be done
-        let updatedHash = this.app.calculateAccountHash(wrappedState.data)
+        const updatedHash = this.app.calculateAccountHash(wrappedState.data)
         wrappedState.stateId = updatedHash
 
         ourVote.account_id.push(wrappedState.accountId)
@@ -626,17 +616,17 @@ class TransactionConsenus {
     // save our vote to our queueEntry
     queueEntry.ourVote = ourVote
     // also append it to the total list of votes
-    let appendWorked = this.tryAppendVote(queueEntry, ourVote)
-    if(appendWorked === false){
+    const appendWorked = this.tryAppendVote(queueEntry, ourVote)
+    if (appendWorked === false) {
       nestedCountersInstance.countEvent('transactionQueue', 'createAndShareVote appendFailed')
     }
     // share the vote via gossip
-    let sender = null
+    const sender = null
     // TODO need to migrate to execution group and then corresponding node tell the receipt at the end
-    let consensusGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)   //.queueEntryGetConsensusGroup(queueEntry)
+    const consensusGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry) //.queueEntryGetConsensusGroup(queueEntry)
     if (consensusGroup.length >= 1) {
       // should consider only forwarding in some cases?
-      this.stateManager.debugNodeGroup(queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp, `share tx vote to neighbors`, consensusGroup)
+      this.stateManager.debugNodeGroup(queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp, 'share tx vote to neighbors', consensusGroup)
       // TODO STATESHARDING4 ENDPOINTS this needs to change from gossip to a tell
       //this.p2p.sendGossipIn('spread_appliedVote', ourVote, '', sender, consensusGroup)
 
@@ -644,12 +634,12 @@ class TransactionConsenus {
       if (logFlags.playback) this.logger.playbackLogNote('createAndShareVote', `${queueEntry.acceptedTx.txId}`, `numNodes: ${consensusGroup.length} ourVote: ${utils.stringifyReduce(ourVote)} `)
 
       // Filter nodes before we send tell()
-      let filteredNodes = this.stateManager.filterValidNodesForInternalMessage(consensusGroup, 'createAndShareVote', true, true)
+      const filteredNodes = this.stateManager.filterValidNodesForInternalMessage(consensusGroup, 'createAndShareVote', true, true)
       if (filteredNodes.length === 0) {
         if (logFlags.error) this.mainLogger.error('createAndShareVote: filterValidNodesForInternalMessage no valid nodes left to try')
         return null
       }
-      let filteredConsensusGroup = filteredNodes
+      const filteredConsensusGroup = filteredNodes
 
       this.p2p.tell(filteredConsensusGroup, 'spread_appliedVote', ourVote)
     } else {
@@ -665,7 +655,7 @@ class TransactionConsenus {
    * @param vote
    */
   tryAppendVote(queueEntry: QueueEntry, vote: AppliedVote): boolean {
-    let numVotes = queueEntry.collectedVotes.length
+    const numVotes = queueEntry.collectedVotes.length
 
     if (logFlags.playback) this.logger.playbackLogNote('tryAppendVote', `${queueEntry.logID}`, `collectedVotes: ${queueEntry.collectedVotes.length}`)
     if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `)
@@ -679,7 +669,7 @@ class TransactionConsenus {
 
     //compare to existing votes.  keep going until we find that this vote is already in the list or our id is at the right spot to insert sorted
     for (let i = 0; i < numVotes; i++) {
-      let currentVote = queueEntry.collectedVotes[i]
+      const currentVote = queueEntry.collectedVotes[i]
 
       if (currentVote.sign.owner === vote.sign.owner) {
         // already in our list so do nothing and return

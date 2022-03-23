@@ -2,19 +2,23 @@ import merge from 'deepmerge'
 
 import Shardus from './shardus'
 import * as ShardusTypes from './shardus/shardus-types'
-import { compareObjectShape } from './utils'
+import {compareObjectShape} from './utils'
 
-export { default as Shardus } from './shardus'
-export { ShardusTypes }
+export {default as Shardus} from './shardus'
+export {ShardusTypes}
 
 // Temporary private export to avoid digging into shardus source code for
 // functions it otherwise wasn't exporting. ATTOW we have not decided on whether
 // a more permanent solution is proper.
-import { addressToPartition, partitionInWrappingRange, findHomeNode } from './state-manager/shardFunctions'
+import {
+  addressToPartition,
+  partitionInWrappingRange,
+  findHomeNode,
+} from './state-manager/shardFunctions'
 export const __ShardFunctions = {
   addressToPartition,
   partitionInWrappingRange,
-  findHomeNode
+  findHomeNode,
 }
 
 const defaultConfigs = {
@@ -30,12 +34,14 @@ export function shardusFactory(configs = {}) {
     arrayMerge: overwriteMerge,
   })
 
-  const { isValid, error } = compareObjectShape(defaultConfigs, mergedConfigs)
+  const {isValid, error} = compareObjectShape(defaultConfigs, mergedConfigs)
 
   if (error) {
     const fRed = '\x1b[31m' //fg red
     const bYellow = '\x1b[43m' //bg yellow
-    const defectiveObjectPath = `${fRed}${bYellow}${error.defectiveChain.join('.')}\x1b[0m`
+    const defectiveObjectPath = `${fRed}${bYellow}${error.defectiveChain.join(
+      '.'
+    )}\x1b[0m`
     const msg = `Unacceptable config object shape, defective settings detected: ${defectiveObjectPath}`
 
     console.log(

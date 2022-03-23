@@ -1,21 +1,21 @@
 import Sntp from '@hapi/sntp'
 import bodyParser from 'body-parser'
 import cors from 'cors'
-import { EventEmitter } from 'events'
-import express, { Application, Handler } from 'express'
+import {EventEmitter} from 'events'
+import express, {Application, Handler} from 'express'
 import Log4js from 'log4js'
 import * as net from 'net'
-import { Sn } from '@shardus/net'
-import { promisify } from 'util'
+import {Sn} from '@shardus/net'
+import {promisify} from 'util'
 import * as httpModule from '../http'
 import Logger, {logFlags} from '../logger'
-import { config, defaultConfigs, logger } from '../p2p/Context'
+import {config, defaultConfigs, logger} from '../p2p/Context'
 import * as utils from '../utils'
-import { profilerInstance } from '../utils/profiler'
+import {profilerInstance} from '../utils/profiler'
 import NatAPI = require('nat-api')
 import * as Shardus from '../shardus/shardus-types'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-import { isDebugMode } from '../debug'
+import {nestedCountersInstance} from '../utils/nestedCounters'
+import {isDebugMode} from '../debug'
 
 /** TYPES */
 export interface IPInfo {
@@ -73,13 +73,11 @@ export class NetworkClass extends EventEmitter {
     this.debugNetworkDelay = 0
     this.statisticsInstance = null
 
-
-    if(config && config.debug && config.debug.fakeNetworkDelay){
+    if (config && config.debug && config.debug.fakeNetworkDelay) {
       this.debugNetworkDelay = config.debug.fakeNetworkDelay
     }
 
-    nestedCountersInstance.countEvent('network','init')
-
+    nestedCountersInstance.countEvent('network', 'init')
   }
 
   setStatisticsInstance(statistics) {
@@ -105,8 +103,8 @@ export class NetworkClass extends EventEmitter {
         }
         next()
       }
-      this.app.use(bodyParser.json({ limit: '50mb' }))
-      this.app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }))
+      this.app.use(bodyParser.json({limit: '50mb'}))
+      this.app.use(bodyParser.urlencoded({limit: '50mb', extended: true}))
       this.app.use(cors())
       this.app.use(storeRequests)
       this._applyExternal()
@@ -130,30 +128,31 @@ export class NetworkClass extends EventEmitter {
       let routeName
       try {
         if (!data) throw new Error('No data provided in request...')
-        const { route, payload } = data
-
+        const {route, payload} = data
 
         routeName = route
         if (!route && payload && payload.isResponse) {
-          if (logFlags.debug) this.mainLogger.debug(
-            'Received response data without any specified route',
-            payload
-          )
+          if (logFlags.debug)
+            this.mainLogger.debug(
+              'Received response data without any specified route',
+              payload
+            )
           return
         }
         if (!route) {
-          if (logFlags.debug) this.mainLogger.debug(
-            'Network: ' +
-              `Unable to read request, payload of received message: ${JSON.stringify(
-                data
-              )}`
-          )
+          if (logFlags.debug)
+            this.mainLogger.debug(
+              'Network: ' +
+                `Unable to read request, payload of received message: ${JSON.stringify(
+                  data
+                )}`
+            )
           throw new Error('Unable to read request, no route specified.')
         }
         if (!this.internalRoutes[route])
           throw new Error('Unable to handle request, invalid route.')
 
-        if(this.debugNetworkDelay > 0){
+        if (this.debugNetworkDelay > 0) {
           await utils.sleep(this.debugNetworkDelay)
         }
         profilerInstance.profileSectionStart('net-internl')
@@ -175,17 +174,20 @@ export class NetworkClass extends EventEmitter {
           )
         }
       } catch (err) {
-        if (logFlags.error) this.mainLogger.error('Network: _setupInternal: ', err)
-        if (logFlags.error) this.mainLogger.error(
-          'DBG',
-          'Network: _setupInternal > sn.listen > callback > data',
-          data
-        )
-        if (logFlags.error) this.mainLogger.error(
-          'DBG',
-          'Network: _setupInternal > sn.listen > callback > remote',
-          remote
-        )
+        if (logFlags.error)
+          this.mainLogger.error('Network: _setupInternal: ', err)
+        if (logFlags.error)
+          this.mainLogger.error(
+            'DBG',
+            'Network: _setupInternal > sn.listen > callback > data',
+            data
+          )
+        if (logFlags.error)
+          this.mainLogger.error(
+            'DBG',
+            'Network: _setupInternal > sn.listen > callback > remote',
+            remote
+          )
       } finally {
         profilerInstance.profileSectionEnd('net-internl')
         profilerInstance.profileSectionEnd(`net-internl-${routeName}`)
@@ -197,7 +199,7 @@ export class NetworkClass extends EventEmitter {
   }
 
   async tell(nodes, route, message, logged = false) {
-    const data = { route, payload: message }
+    const data = {route, payload: message}
     const promises = []
     let id = ''
     if (message.tracker) {
@@ -215,7 +217,7 @@ export class NetworkClass extends EventEmitter {
         )
       this.InternalTellCounter++
       const promise = this.sn.send(node.internalPort, node.internalIp, data)
-      promise.catch((err) => {
+      promise.catch(err => {
         if (logFlags.error) this.mainLogger.error('Network: ' + err)
         if (logFlags.error) this.mainLogger.error(err.stack)
         this.emit('error', node)
@@ -238,14 +240,14 @@ export class NetworkClass extends EventEmitter {
       }
 
       try {
-        if(this.debugNetworkDelay > 0){
+        if (this.debugNetworkDelay > 0) {
           await utils.sleep(this.debugNetworkDelay)
         }
         profilerInstance.profileSectionStart('net-ask')
         profilerInstance.profileSectionStart(`net-ask-${route}`)
 
-        const data = { route, payload: message }
-        const onRes = (res) => {
+        const data = {route, payload: message}
+        const onRes = res => {
           if (!logged)
             this.logger.playbackLog(
               'self',
@@ -258,12 +260,13 @@ export class NetworkClass extends EventEmitter {
           resolve(res)
         }
         const onTimeout = () => {
-          nestedCountersInstance.countEvent('network','timeout')
-          if (this.statisticsInstance) this.statisticsInstance.incrementCounter('networkTimeout')
+          nestedCountersInstance.countEvent('network', 'timeout')
+          if (this.statisticsInstance)
+            this.statisticsInstance.incrementCounter('networkTimeout')
           const err = new Error(
             `Request timed out. ${utils.stringifyReduce(id)}`
           )
-          nestedCountersInstance.countRareEvent('network','timeout ' + route)
+          nestedCountersInstance.countRareEvent('network', 'timeout ' + route)
           if (logFlags.error) this.mainLogger.error('Network: ' + err)
           if (logFlags.error) this.mainLogger.error(err.stack)
           this.emit('timeout', node)
@@ -330,16 +333,26 @@ export class NetworkClass extends EventEmitter {
   }
 
   _registerExternal(method: string, route: string, responseHandler: Handler)
-  _registerExternal(method: string, route: string, authHandler: Handler, responseHandler: Handler)
-  _registerExternal(method: string, route: string, authHandler: Handler, responseHandler?: Handler) {
+  _registerExternal(
+    method: string,
+    route: string,
+    authHandler: Handler,
+    responseHandler: Handler
+  )
+  _registerExternal(
+    method: string,
+    route: string,
+    authHandler: Handler,
+    responseHandler?: Handler
+  ) {
     const formattedRoute = `/${route}`
-    const handlers = [];
+    const handlers = []
 
     // This logic normalizes the optional parameter of the method signature.
     // If the responseHandler is null, then the value set as the authHandler param is actually the responseHandler.
     if (!responseHandler) {
-      responseHandler = authHandler;
-      authHandler = null;
+      responseHandler = authHandler
+      authHandler = null
     }
 
     if (logFlags.playback) {
@@ -350,7 +363,7 @@ export class NetworkClass extends EventEmitter {
           'ExternalHttpReq',
           formattedRoute,
           '',
-          { params: req.params, body: req.body }
+          {params: req.params, body: req.body}
         )
 
         next()
@@ -365,18 +378,18 @@ export class NetworkClass extends EventEmitter {
 
     if (isDebugMode() && ['GET', 'POST'].includes(method)) {
       const wrappedHandler = async (req, res, next) => {
-          profilerInstance.profileSectionStart('net-externl', false)
-          profilerInstance.profileSectionStart(`net-externl-${route}`, false)
+        profilerInstance.profileSectionStart('net-externl', false)
+        profilerInstance.profileSectionStart(`net-externl-${route}`, false)
 
-          let result;
-          try {
-            result = await responseHandler(req, res, next)
-          } finally {
-            profilerInstance.profileSectionEnd('net-externl', false)
-            profilerInstance.profileSectionEnd(`net-externl-${route}`, false)
-          }
+        let result
+        try {
+          result = await responseHandler(req, res, next)
+        } finally {
+          profilerInstance.profileSectionEnd('net-externl', false)
+          profilerInstance.profileSectionEnd(`net-externl-${route}`, false)
+        }
 
-          return result
+        return result
       }
 
       handlers.push(wrappedHandler)
@@ -384,19 +397,19 @@ export class NetworkClass extends EventEmitter {
       handlers.push(responseHandler)
     }
 
-    let expressMethod = ({
+    const expressMethod = {
       GET: 'get',
       POST: 'post',
       PUT: 'put',
       DELETE: 'delete',
-      PATCH: 'patch'
-    })[method]
+      PATCH: 'patch',
+    }[method]
 
     if (!expressMethod) {
       throw new Error(`Fatal: Invalid HTTP method for handler ${method}.`)
     }
 
-    this.externalRoutes.push((app) => {
+    this.externalRoutes.push(app => {
       app[expressMethod](formattedRoute, handlers)
     })
 
@@ -417,32 +430,72 @@ export class NetworkClass extends EventEmitter {
   }
 
   registerExternalGet(route: string, responseHandler: Handler)
-  registerExternalGet(route: string, authHandler: Handler, responseHandler: Handler)
-  registerExternalGet(route: string, authHandler: Handler, responseHandler?: Handler) {
+  registerExternalGet(
+    route: string,
+    authHandler: Handler,
+    responseHandler: Handler
+  )
+  registerExternalGet(
+    route: string,
+    authHandler: Handler,
+    responseHandler?: Handler
+  ) {
     this._registerExternal('GET', route, authHandler, responseHandler)
   }
 
   registerExternalPost(route: string, responseHandler: Handler)
-  registerExternalPost(route: string, authHandler: Handler, responseHandler: Handler)
-  registerExternalPost(route: string, authHandler: Handler, responseHandler?: Handler) {
+  registerExternalPost(
+    route: string,
+    authHandler: Handler,
+    responseHandler: Handler
+  )
+  registerExternalPost(
+    route: string,
+    authHandler: Handler,
+    responseHandler?: Handler
+  ) {
     this._registerExternal('POST', route, authHandler, responseHandler)
   }
 
   registerExternalPut(route: string, responseHandler: Handler)
-  registerExternalPut(route: string, authHandler: Handler, responseHandler: Handler)
-  registerExternalPut(route: string, authHandler: Handler, responseHandler?: Handler) {
+  registerExternalPut(
+    route: string,
+    authHandler: Handler,
+    responseHandler: Handler
+  )
+  registerExternalPut(
+    route: string,
+    authHandler: Handler,
+    responseHandler?: Handler
+  ) {
     this._registerExternal('PUT', route, authHandler, responseHandler)
   }
 
   registerExternalDelete(route: string, responseHandler: Handler)
-  registerExternalDelete(route: string, authHandler: Handler, responseHandler: Handler)
-  registerExternalDelete(route: string, authHandler: Handler, responseHandler?: Handler) {
+  registerExternalDelete(
+    route: string,
+    authHandler: Handler,
+    responseHandler: Handler
+  )
+  registerExternalDelete(
+    route: string,
+    authHandler: Handler,
+    responseHandler?: Handler
+  ) {
     this._registerExternal('DELETE', route, authHandler, responseHandler)
   }
 
   registerExternalPatch(route: string, responseHandler: Handler)
-  registerExternalPatch(route: string, authHandler: Handler, responseHandler: Handler)
-  registerExternalPatch(route: string, authHandler: Handler, responseHandler?: Handler) {
+  registerExternalPatch(
+    route: string,
+    authHandler: Handler,
+    responseHandler: Handler
+  )
+  registerExternalPatch(
+    route: string,
+    authHandler: Handler,
+    responseHandler?: Handler
+  ) {
     this._registerExternal('PATCH', route, authHandler, responseHandler)
   }
 
@@ -508,7 +561,7 @@ export async function init() {
     internalPort,
   }
 
-  if(logFlags.info) {
+  if (logFlags.info) {
     mainLogger.info('This nodes ipInfo:')
     mainLogger.info(JSON.stringify(ipInfo, null, 2))
   }
@@ -559,30 +612,31 @@ async function getNextExternalPort(ip: string) {
 
   // If port is unreachable attempt to forward it with UPnP, then PMP
   if (reachable === false) {
-    const attempts = [{ enablePMP: false }, { enablePMP: true }]
+    const attempts = [{enablePMP: false}, {enablePMP: true}]
 
     for (const opts of attempts) {
-      if(logFlags.info) mainLogger.info(
-        `Forwarding ${port} via ${opts.enablePMP ? 'PMP' : 'UPnP'}...`
-      )
+      if (logFlags.info)
+        mainLogger.info(
+          `Forwarding ${port} via ${opts.enablePMP ? 'PMP' : 'UPnP'}...`
+        )
 
       try {
         await natClient.es6.map(
           Object.assign(
-            { publicPort: port, privatePort: port, protocol: 'TCP' },
+            {publicPort: port, privatePort: port, protocol: 'TCP'},
             opts
           )
         )
-        if(logFlags.info) mainLogger.info('  Success!')
+        if (logFlags.info) mainLogger.info('  Success!')
         break
       } catch (err) {
-        if(logFlags.info) mainLogger.info('  Error:', err.message)
+        if (logFlags.info) mainLogger.info('  Error:', err.message)
       }
     }
   }
 
   // Test it again
-  ;[reachable] = await wrapTest(new ConnectTest(ip, port))
+  [reachable] = await wrapTest(new ConnectTest(ip, port))
   if (reachable) {
     return port
   } else {
@@ -591,21 +645,21 @@ async function getNextExternalPort(ip: string) {
 }
 
 async function wrapTest(test: ConnectTest) {
-  if(logFlags.info) mainLogger.info(`Testing ${test.ip}...`)
+  if (logFlags.info) mainLogger.info(`Testing ${test.ip}...`)
 
-  test.once('port', (port) => {
-    if(logFlags.info) mainLogger.info(`  Listening on ${port}. Connecting...`)
-  }
-  )
+  test.once('port', port => {
+    if (logFlags.info) mainLogger.info(`  Listening on ${port}. Connecting...`)
+  })
 
   let result: [boolean, number]
 
   try {
     const success = await test.start()
     result = [success, test.port]
-    if(logFlags.info) mainLogger.info('  Success!')
+    if (logFlags.info) mainLogger.info('  Success!')
   } catch (err) {
-    if(logFlags.info) mainLogger.info('  Failed:', err.message ? err.message : err)
+    if (logFlags.info)
+      mainLogger.info('  Failed:', err.message ? err.message : err)
     result = [false, test.port]
   }
 
@@ -640,7 +694,7 @@ class ConnectTest extends EventEmitter {
         })
         socket.unref()
         socket.setTimeout(2000)
-        socket.on('error', (err) => {
+        socket.on('error', err => {
           socket.destroy()
           server.close()
           reject(err)
@@ -679,7 +733,7 @@ async function discoverExternalIp(server: string) {
   //
 
   try {
-    const { ip }: { ip: string } = await httpModule.get(server)
+    const {ip}: {ip: string} = await httpModule.get(server)
     return ip
   } catch (err) {
     throw Error(
@@ -690,7 +744,7 @@ async function discoverExternalIp(server: string) {
 }
 
 function closeServer(server) {
-  return new Promise<void>((resolve) => {
+  return new Promise<void>(resolve => {
     server.close()
     server.unref()
     resolve()

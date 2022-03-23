@@ -2,7 +2,7 @@ import Log4js from 'log4js'
 import * as Shardus from '../shardus/shardus-types'
 import fs from 'fs'
 import path from 'path'
-import { Sequelize } from 'sequelize'
+import {Sequelize} from 'sequelize'
 import Profiler from '../utils/profiler'
 import Logger, {logFlags} from '../logger'
 
@@ -40,18 +40,18 @@ class SequelizeStorage {
 
   async init() {
     // Create dbDir if it doesn't exist
-    let dbDir = path.parse(this.storageConfig.options.storage).dir
+    const dbDir = path.parse(this.storageConfig.options.storage).dir
     await _ensureExists(dbDir)
     this.mainLogger.info('Created Database directory.')
     // Start Sequelize and load models
     //@ts-ignore
     this.sequelize = new Sequelize(...Object.values(this.storageConfig))
-    for (let [modelName, modelAttributes] of this.models)
+    for (const [modelName, modelAttributes] of this.models)
       this.sequelize.define(modelName, modelAttributes)
     this.storageModels = this.sequelize.models
     this.initialized = false
     // Create tables for models in DB if they don't exist
-    for (let model of Object.values(this.storageModels) as any) {
+    for (const model of Object.values(this.storageModels) as any) {
       await model.sync()
       this._rawQuery(model, 'PRAGMA synchronous = OFF')
       this._rawQuery(model, 'PRAGMA journal_mode = MEMORY')
@@ -65,7 +65,7 @@ class SequelizeStorage {
   }
 
   async dropAndCreateModel(model) {
-    await model.sync({ force: true })
+    await model.sync({force: true})
   }
 
   _checkInit() {
@@ -78,26 +78,26 @@ class SequelizeStorage {
     return table.create(values, opts)
   }
   _read(table, where, opts) {
-    return table.findAll({ where, ...opts })
+    return table.findAll({where, ...opts})
   }
   _update(table, values, where, opts) {
-    return table.update(values, { where, ...opts })
+    return table.update(values, {where, ...opts})
   }
   _delete(table, where, opts) {
     if (!where) {
-      return table.destroy({ ...opts })
+      return table.destroy({...opts})
     }
-    return table.destroy({ where, ...opts })
+    return table.destroy({where, ...opts})
   }
   _rawQuery(table, query) {
-    return this.sequelize.query(query, { model: table })
+    return this.sequelize.query(query, {model: table})
   }
 }
 
 // From: https://stackoverflow.com/a/21196961
 async function _ensureExists(dir) {
   return new Promise<void>((resolve, reject) => {
-    fs.mkdir(dir, { recursive: true }, err => {
+    fs.mkdir(dir, {recursive: true}, err => {
       if (err) {
         // Ignore err if folder exists
         if (err.code === 'EEXIST') resolve()

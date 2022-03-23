@@ -1,17 +1,17 @@
-import { generateObjectSchema } from '..'
+import {generateObjectSchema} from '..'
 
 test('generateObjectSchema() > should generate proper object schema', () => {
   const obj = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     falsy: -0,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       diverseArr: [1, false, 'str'],
       id: 1,
       debug: true,
@@ -23,7 +23,7 @@ test('generateObjectSchema() > should generate proper object schema', () => {
     fn: 'function',
     falsy: 'number',
     id: 'number',
-    dummyObj: { id: 'number', name: 'string', NRC: 'string' },
+    dummyObj: {id: 'number', name: 'string', NRC: 'string'},
     nestedObj: {
       numArr: 'number[]',
       strArr: 'string[]',
@@ -35,7 +35,7 @@ test('generateObjectSchema() > should generate proper object schema', () => {
     },
   }
 
-  const generatedSchema = generateObjectSchema(obj, { arrTypeDiversity: true })
+  const generatedSchema = generateObjectSchema(obj, {arrTypeDiversity: true})
 
   const isEqual =
     JSON.stringify(generatedSchema) === JSON.stringify(expectedSchema)

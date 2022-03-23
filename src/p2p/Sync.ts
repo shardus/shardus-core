@@ -1,17 +1,17 @@
-import { Handler } from 'express'
-import { Logger } from 'log4js'
+import {Handler} from 'express'
+import {Logger} from 'log4js'
 import util from 'util'
 import * as http from '../http'
-import { P2P } from '@shardus/types'
-import { reversed, validateTypes } from '../utils'
-import { logger, network } from './Context'
+import {P2P} from '@shardus/types'
+import {reversed, validateTypes} from '../utils'
+import {logger, network} from './Context'
 import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
-import { ChangeSquasher, parse } from './CycleParser'
+import {ChangeSquasher, parse} from './CycleParser'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { robustQuery } from './Utils'
-import { profilerInstance } from '../utils/profiler'
+import {robustQuery} from './Utils'
+import {profilerInstance} from '../utils/profiler'
 
 /** STATE */
 
@@ -25,7 +25,7 @@ const newestCycleRoute: P2P.P2PTypes.Route<Handler> = {
   handler: (_req, res) => {
     profilerInstance.scopedProfileSectionStart('sync-newest-cycle')
     const newestCycle = CycleChain.newest ? CycleChain.newest : undefined
-    res.json({ newestCycle })
+    res.json({newestCycle})
     profilerInstance.scopedProfileSectionEnd('sync-newest-cycle')
   },
 }
@@ -36,13 +36,13 @@ const cyclesRoute: P2P.P2PTypes.Route<Handler> = {
   handler: (req, res) => {
     profilerInstance.scopedProfileSectionStart('sync-cycles')
     try {
-      let err = validateTypes(req, { body: 'o' })
+      let err = validateTypes(req, {body: 'o'})
       if (err) {
         warn('sync-cycles bad req ' + err)
         res.json([])
         return
       }
-      err = validateTypes(req.body, { start: 'n?', end: 'n?' })
+      err = validateTypes(req.body, {start: 'n?', end: 'n?'})
       if (err) {
         warn('sync-cycles bad req.body ' + err)
         res.json([])
@@ -53,7 +53,7 @@ const cyclesRoute: P2P.P2PTypes.Route<Handler> = {
       // const cycles = p2p.state.getCycles(start, end)
       const cycles = CycleChain.getCycleChain(start, end)
       res.json(cycles)
-    } catch(e) {
+    } catch (e) {
       warn('sync-cycles', e)
     } finally {
       profilerInstance.scopedProfileSectionEnd('sync-cycles')
@@ -99,9 +99,7 @@ export async function sync(activeNodes: P2P.SyncTypes.ActiveNode[]) {
     const start = end - cyclesToGet
     info(`Getting cycles ${start} - ${end}...`)
     const prevCycles = await getCycles(activeNodes, start, end)
-    info(
-      `Got cycles ${JSON.stringify(prevCycles.map((cycle) => cycle.counter))}`
-    )
+    info(`Got cycles ${JSON.stringify(prevCycles.map(cycle => cycle.counter))}`)
     info(`  ${JSON.stringify(prevCycles)}`)
 
     // If prevCycles is empty, start over
@@ -211,7 +209,7 @@ export async function syncNewCycles(activeNodes: SyncNode[]) {
 
   const progressHistory = 5
   const maxAttempts = 10
-  let progress = []
+  const progress = []
   let attempt = 0
 
   while (CycleChain.newest.counter < newestCycle.counter) {
@@ -267,8 +265,8 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord) {
   applyNodeListChange(changes)
   CycleChain.append(cycle)
 
-  let nodeLimit = 2 //todo set this to a higher number, but for now I want to make sure it works in a small test
-  if(NodeList.activeByIdOrder.length <= nodeLimit){
+  const nodeLimit = 2 //todo set this to a higher number, but for now I want to make sure it works in a small test
+  if (NodeList.activeByIdOrder.length <= nodeLimit) {
     info(`
       Digested C${cycle.counter}
         cycle record: ${JSON.stringify(cycle)}
@@ -284,16 +282,11 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord) {
       node list: too many to list: ${NodeList.nodes.size}
       active nodes: too many to list: ${NodeList.activeByIdOrder.length}
     `)
-
   }
-
-
-
-
 }
 
 function applyNodeListChange(change: P2P.CycleParserTypes.Change) {
-  NodeList.addNodes(change.added.map((joined) => NodeList.createNode(joined)))
+  NodeList.addNodes(change.added.map(joined => NodeList.createNode(joined)))
   NodeList.updateNodes(change.updated)
   NodeList.removeNodes(change.removed)
 }
@@ -322,7 +315,7 @@ export async function getNewestCycle(
   let redundancy = 1
   if (activeNodes.length > 5) redundancy = 2
   if (activeNodes.length > 10) redundancy = 3
-  const { topResult: response, winningNodes: _responders } = await robustQuery(
+  const {topResult: response, winningNodes: _responders} = await robustQuery(
     activeNodes,
     queryFn,
     eqFn,
@@ -352,7 +345,7 @@ async function getCycles(
   const data: {
     start: number
     end?: number
-  } = { start }
+  } = {start}
   if (end !== undefined) data.end = end
   const queryFn = async (node: SyncNode) => {
     const ip = node.ip ? node.ip : node.externalIp
@@ -367,7 +360,7 @@ async function getCycles(
   let redundancy = 1
   if (activeNodes.length > 5) redundancy = 2
   if (activeNodes.length > 10) redundancy = 3
-  const { topResult: response, winningNodes: _responders } = await robustQuery(
+  const {topResult: response, winningNodes: _responders} = await robustQuery(
     activeNodes,
     queryFn,
     util.isDeepStrictEqual,

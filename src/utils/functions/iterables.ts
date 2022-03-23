@@ -6,7 +6,7 @@ export function reversed<T>(thing: Iterable<T>) {
       const done = i < 0
       const value = done ? undefined : arr[i]
       i--
-      return { value, done }
+      return {value, done}
     },
   }
   return {
@@ -28,7 +28,7 @@ export function randomShifted<T>(thing: Iterable<T>) {
       const done = i < 0
       const value = done ? undefined : arr[i]
       i--
-      return { value, done }
+      return {value, done}
     },
   }
   return {

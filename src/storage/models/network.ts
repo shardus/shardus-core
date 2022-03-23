@@ -8,7 +8,7 @@ const network = [
       allowNull: false,
       unique: 'compositeIndex',
     },
-    hash: { type: Sequelize.STRING, allowNull: false },
+    hash: {type: Sequelize.STRING, allowNull: false},
   },
 ]
 

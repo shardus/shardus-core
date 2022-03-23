@@ -1,9 +1,9 @@
-import { makeShortHash } from '../'
+import {makeShortHash} from '../'
 
 const objToString = Object.prototype.toString
 const objKeys =
   Object.keys ||
-  ((obj) => {
+  (obj => {
     const keys = []
     // tslint:disable-next-line: forin
     for (const name in obj) {
@@ -29,7 +29,7 @@ export const stringifyReduce = (val, isArrayProp?: boolean) => {
       } else if (val instanceof Map) {
         // let mapContainer = {stringifyReduce_map_2_array:[...val.entries()]}
         // return stringifyReduce(mapContainer)
-        let mapContainer = {
+        const mapContainer = {
           dataType: 'stringifyReduce_map_2_array',
           value: Array.from(val.entries()), // or with spread: value: [...originalObject]
         }
@@ -181,7 +181,7 @@ export const reviverExpander = (key, value) => {
     }
   }
   if (typeof value === 'string' && value.length === 10 && value[4] === 'x') {
-    let res = value.slice(0, 4) + '0'.repeat(55) + value.slice(5, 5 + 5)
+    const res = value.slice(0, 4) + '0'.repeat(55) + value.slice(5, 5 + 5)
     return res
   }
   return value

@@ -8,7 +8,7 @@ import * as utils from '../utils'
 import Logger, {logFlags} from '../logger'
 
 const Op = Sequelize.Op
-var Sqlite3 = require('better-sqlite3')
+const Sqlite3 = require('better-sqlite3')
 const stringify = require('fast-stable-stringify')
 
 interface BetterSqlite3Storage {
@@ -45,15 +45,15 @@ class BetterSqlite3Storage {
     // this.models = this.sequelize.models
     this.initialized = false
     this.storageModels = {}
-    for (let [modelName, modelAttributes] of models) {
+    for (const [modelName, modelAttributes] of models) {
       this.sqlite3Define(modelName, modelAttributes)
     }
   }
 
   sqlite3Define(modelName, modelAttributes) {
-    let tableName = modelName
+    const tableName = modelName
 
-    let modelData: any = { tableName }
+    const modelData: any = {tableName}
     modelData.columns = []
     modelData.columnsString = ''
     modelData.substitutionString = ''
@@ -62,7 +62,7 @@ class BetterSqlite3Storage {
     for (var key in modelAttributes) {
       if (modelAttributes.hasOwnProperty(key)) {
         modelData.columns.push(key)
-        let value = modelAttributes[key]
+        const value = modelAttributes[key]
 
         let type = value.type
         if (!type) {
@@ -102,7 +102,7 @@ class BetterSqlite3Storage {
 
   async init() {
     // Create dbDir if it doesn't exist
-    let dbDir = path.parse(this.storageConfig.options.storage).dir
+    const dbDir = path.parse(this.storageConfig.options.storage).dir
     await _ensureExists(dbDir)
     this.mainLogger.info('Created Database directory.')
     if (this.storageConfig.options.memoryFile) {
@@ -155,7 +155,7 @@ class BetterSqlite3Storage {
       // return table.bulkCreate(values, opts)
       // todo transaciton or something else
 
-      for (let subObj of object) {
+      for (const subObj of object) {
         // if (logFlags.console) console.log('sub obj: ' + stringify(subObj))
         this._create(table, subObj, opts)
       }
@@ -165,9 +165,9 @@ class BetterSqlite3Storage {
     if (opts && opts.createOrReplace) {
       queryString = table.insertOrReplaceString
     }
-    let inputs = []
+    const inputs = []
     // if (logFlags.console) console.log('columns: ' + stringify(table.columns))
-    for (let column of table.columns) {
+    for (const column of table.columns) {
       let value = object[column]
 
       if (table.isColumnJSON[column]) {
@@ -188,19 +188,18 @@ class BetterSqlite3Storage {
 
     // let valueArray = []
 
-    let paramsArray = this.params2Array(params, table)
+    const paramsArray = this.params2Array(params, table)
 
-    let { whereString, whereValueArray } = this.paramsToWhereStringAndValues(
-      paramsArray
-    )
+    const {whereString, whereValueArray} =
+      this.paramsToWhereStringAndValues(paramsArray)
 
-    let valueArray = whereValueArray
+    const valueArray = whereValueArray
     queryString += whereString
     queryString += this.options2string(opts)
 
     // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(valueArray))
 
-    let results = await this.all(queryString, valueArray)
+    const results = await this.all(queryString, valueArray)
     // optionally parse results!
     if (!opts || !opts.raw) {
       if (table.JSONkeys.length > 0) {
@@ -217,17 +216,15 @@ class BetterSqlite3Storage {
     // return table.update(values, { where, ...opts })
     let queryString = table.updateString
 
-    let valueParams = this.params2Array(values, table)
-    let { resultString, valueArray } = this.paramsToAssignmentStringAndValues(
-      valueParams
-    )
+    const valueParams = this.params2Array(values, table)
+    let {resultString, valueArray} =
+      this.paramsToAssignmentStringAndValues(valueParams)
 
     queryString += resultString
 
-    let whereParams = this.params2Array(where, table)
-    let { whereString, whereValueArray } = this.paramsToWhereStringAndValues(
-      whereParams
-    )
+    const whereParams = this.params2Array(where, table)
+    const {whereString, whereValueArray} =
+      this.paramsToWhereStringAndValues(whereParams)
     queryString += whereString
 
     valueArray = valueArray.concat(whereValueArray)
@@ -245,11 +242,10 @@ class BetterSqlite3Storage {
 
     let queryString = table.deleteString
 
-    let whereParams = this.params2Array(where, table)
-    let { whereString, whereValueArray } = this.paramsToWhereStringAndValues(
-      whereParams
-    )
-    let valueArray = whereValueArray
+    const whereParams = this.params2Array(where, table)
+    const {whereString, whereValueArray} =
+      this.paramsToWhereStringAndValues(whereParams)
+    const valueArray = whereValueArray
     queryString += whereString
     queryString += this.options2string(opts)
 
@@ -267,16 +263,16 @@ class BetterSqlite3Storage {
     if (paramsObj == null) {
       return []
     }
-    let paramsArray = []
-    for (var key in paramsObj) {
+    const paramsArray = []
+    for (const key in paramsObj) {
       if (paramsObj.hasOwnProperty(key)) {
-        let paramEntry: any = { name: key }
+        const paramEntry: any = {name: key}
 
-        let value = paramsObj[key]
+        const value = paramsObj[key]
         if (utils.isObject(value)) {
           // WHERE column_name BETWEEN value1 AND value2;
           if (value[Op.between]) {
-            let between = value[Op.between]
+            const between = value[Op.between]
             paramEntry.type = 'BETWEEN'
             paramEntry.v1 = between[0]
             paramEntry.v2 = between[1]
@@ -285,7 +281,7 @@ class BetterSqlite3Storage {
           }
           // WHERE column_name IN (value1, value2, ...)
           if (value[Op.in]) {
-            let inValues = value[Op.in]
+            const inValues = value[Op.in]
             paramEntry.type = 'IN'
             // paramEntry.v1 = between[0]
             // paramEntry.v2 = between[1]
@@ -301,7 +297,7 @@ class BetterSqlite3Storage {
             paramEntry.vals = paramEntry.vals.concat(inValues)
           }
           if (value[Op.lte]) {
-            let rightHandValue = value[Op.lte]
+            const rightHandValue = value[Op.lte]
             paramEntry.type = 'LTE'
             paramEntry.v1 = rightHandValue
             // paramEntry.v2 = between[1]
@@ -309,7 +305,7 @@ class BetterSqlite3Storage {
             paramEntry.vals = [paramEntry.v1]
           }
           if (value[Op.gte]) {
-            let rightHandValue = value[Op.gte]
+            const rightHandValue = value[Op.gte]
             paramEntry.type = 'GTE'
             paramEntry.v1 = rightHandValue
             // paramEntry.v2 = between[1]
@@ -340,28 +336,28 @@ class BetterSqlite3Storage {
       if (i === 0) {
         whereString += ' WHERE '
       }
-      let paramEntry = paramsArray[i]
+      const paramEntry = paramsArray[i]
       whereString += '(' + paramEntry.sql + ')'
       if (i < paramsArray.length - 1) {
         whereString += ' AND '
       }
       whereValueArray = whereValueArray.concat(paramEntry.vals)
     }
-    return { whereString, whereValueArray }
+    return {whereString, whereValueArray}
   }
 
   paramsToAssignmentStringAndValues(paramsArray) {
     let valueArray = []
     let resultString = ''
     for (let i = 0; i < paramsArray.length; i++) {
-      let paramEntry = paramsArray[i]
+      const paramEntry = paramsArray[i]
       resultString += paramEntry.sql
       if (i < paramsArray.length - 1) {
         resultString += ' , '
       }
       valueArray = valueArray.concat(paramEntry.vals)
     }
-    return { resultString, valueArray }
+    return {resultString, valueArray}
   }
 
   options2string(optionsObj) {
@@ -372,7 +368,7 @@ class BetterSqlite3Storage {
     if (optionsObj.order) {
       optionsString += ' ORDER BY '
       for (let i = 0; i < optionsObj.order.length; i++) {
-        let orderEntry = optionsObj.order[i]
+        const orderEntry = optionsObj.order[i]
         optionsString += ` ${orderEntry[0]} ${orderEntry[1]} `
         if (i < optionsObj.order.length - 1) {
           optionsString += ','
@@ -390,8 +386,8 @@ class BetterSqlite3Storage {
   run(sql, params = []) {
     return new Promise((resolve, reject) => {
       try {
-        const { lastInsertRowid } = this.db.prepare(sql).run(params)
-        resolve({ id: lastInsertRowid })
+        const {lastInsertRowid} = this.db.prepare(sql).run(params)
+        resolve({id: lastInsertRowid})
       } catch (err) {
         if (logFlags.console) console.log('Error running sql ' + sql)
         if (logFlags.console) console.log(err)
@@ -429,7 +425,7 @@ class BetterSqlite3Storage {
 // From: https://stackoverflow.com/a/21196961
 async function _ensureExists(dir) {
   return new Promise<void>((resolve, reject) => {
-    fs.mkdir(dir, { recursive: true }, err => {
+    fs.mkdir(dir, {recursive: true}, err => {
       if (err) {
         // Ignore err if folder exists
         if (err.code === 'EEXIST') resolve()

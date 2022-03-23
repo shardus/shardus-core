@@ -1,40 +1,40 @@
-import deepmerge from 'deepmerge'
-import { Logger } from 'log4js'
-import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
-import * as utils from '../utils'
+import deepmerge from 'deepmerge';
+import {Logger} from 'log4js';
+import {logFlags} from '../logger';
+import {P2P} from '@shardus/types';
+import * as utils from '../utils';
 // don't forget to add new modules here
-import * as Active from './Active'
-import * as Apoptosis from './Apoptosis'
-import * as Archivers from './Archivers'
-import * as Comms from './Comms'
-import { config, crypto, logger, storage } from './Context'
-import * as CycleAutoScale from './CycleAutoScale'
-import * as CycleChain from './CycleChain'
-import * as Join from './Join'
-import * as Lost from './Lost'
-import * as NodeList from './NodeList'
-import { profilerInstance } from '../utils/profiler'
-import * as Refresh from './Refresh'
-import * as Rotation from './Rotation'
-import * as SafetyMode from './SafetyMode'
-import * as Self from './Self'
-import * as Sync from './Sync'
-import { compareQuery, Comparison } from './Utils'
-import { errorToStringFull } from '../utils'
-import { nestedCountersInstance } from '../utils/nestedCounters'
+import * as Active from './Active';
+import * as Apoptosis from './Apoptosis';
+import * as Archivers from './Archivers';
+import * as Comms from './Comms';
+import {config, crypto, logger, storage} from './Context';
+import * as CycleAutoScale from './CycleAutoScale';
+import * as CycleChain from './CycleChain';
+import * as Join from './Join';
+import * as Lost from './Lost';
+import * as NodeList from './NodeList';
+import {profilerInstance} from '../utils/profiler';
+import * as Refresh from './Refresh';
+import * as Rotation from './Rotation';
+import * as SafetyMode from './SafetyMode';
+import * as Self from './Self';
+import * as Sync from './Sync';
+import {compareQuery, Comparison} from './Utils';
+import {errorToStringFull} from '../utils';
+import {nestedCountersInstance} from '../utils/nestedCounters';
 
 /** CONSTANTS */
 
-const SECOND = 1000
-const BEST_CERTS_WANTED = 3
-const DESIRED_CERT_MATCHES = 3
-const DESIRED_MARKER_MATCHES = 2
+const SECOND = 1000;
+const BEST_CERTS_WANTED = 3;
+const DESIRED_CERT_MATCHES = 3;
+const DESIRED_MARKER_MATCHES = 2;
 
 /** STATE */
 
-let p2pLogger: Logger
-let cycleLogger: Logger
+let p2pLogger: Logger;
+let cycleLogger: Logger;
 
 // don't forget to add new modules here
 //   need to keep the Lost module after the Apoptosis module
@@ -48,85 +48,87 @@ export const submodules = [
   Lost,
   SafetyMode,
   CycleAutoScale,
-]
+];
 
-export let currentQuarter = -1 // means we have not started creating cycles
-export let currentCycle = 0
-export let nextQ1Start = 0
+export let currentQuarter = -1; // means we have not started creating cycles
+export let currentCycle = 0;
+export let nextQ1Start = 0;
 
-export let scaleFactor: number = 1
-export let scaleFactorSyncBoost: number = 1
+export let scaleFactor = 1;
+export let scaleFactorSyncBoost = 1;
 
-let madeCycle = false // True if we successfully created the last cycle record, otherwise false
+let madeCycle = false; // True if we successfully created the last cycle record, otherwise false
 // not used anymore
 //let madeCert = false // set to True after we make our own cert and try to gossip it
 
-let txs: P2P.CycleCreatorTypes.CycleTxs
-let record: P2P.CycleCreatorTypes.CycleRecord
-let marker: P2P.CycleCreatorTypes.CycleMarker
-let cert: P2P.CycleCreatorTypes.CycleCert
+let txs: P2P.CycleCreatorTypes.CycleTxs;
+let record: P2P.CycleCreatorTypes.CycleRecord;
+let marker: P2P.CycleCreatorTypes.CycleMarker;
+let cert: P2P.CycleCreatorTypes.CycleCert;
 
-let bestRecord: P2P.CycleCreatorTypes.CycleRecord
-let bestMarker: P2P.CycleCreatorTypes.CycleMarker
-let bestCycleCert: Map<P2P.CycleCreatorTypes.CycleMarker, P2P.CycleCreatorTypes.CycleCert[]>
-let bestCertScore: Map<P2P.CycleCreatorTypes.CycleMarker, number>
+let bestRecord: P2P.CycleCreatorTypes.CycleRecord;
+let bestMarker: P2P.CycleCreatorTypes.CycleMarker;
+let bestCycleCert: Map<
+  P2P.CycleCreatorTypes.CycleMarker,
+  P2P.CycleCreatorTypes.CycleCert[]
+>;
+let bestCertScore: Map<P2P.CycleCreatorTypes.CycleMarker, number>;
 
-const timers = {}
+const timers = {};
 
 // Keeps track of the last saved record in the DB in order to update it
-let lastSavedData: P2P.CycleCreatorTypes.CycleRecord
+let lastSavedData: P2P.CycleCreatorTypes.CycleRecord;
 
 // Keeps track of consecutive fetchLatestCycle fails to initiate apoptosis if it happens too many times
-let fetchLatestRecordFails = 0
-const maxFetchLatestRecordFails = 5
+let fetchLatestRecordFails = 0;
+const maxFetchLatestRecordFails = 5;
 
 /** ROUTES */
 
 interface CompareMarkerReq {
-  marker: P2P.CycleCreatorTypes.CycleMarker
-  txs: P2P.CycleCreatorTypes.CycleTxs
+  marker: P2P.CycleCreatorTypes.CycleMarker;
+  txs: P2P.CycleCreatorTypes.CycleTxs;
 }
 interface CompareMarkerRes {
-  marker: P2P.CycleCreatorTypes.CycleMarker
-  txs?: P2P.CycleCreatorTypes.CycleTxs
+  marker: P2P.CycleCreatorTypes.CycleMarker;
+  txs?: P2P.CycleCreatorTypes.CycleTxs;
 }
 
 interface CompareCertReq {
-  certs: P2P.CycleCreatorTypes.CycleCert[]
-  record: P2P.CycleCreatorTypes.CycleRecord
+  certs: P2P.CycleCreatorTypes.CycleCert[];
+  record: P2P.CycleCreatorTypes.CycleRecord;
 }
 interface CompareCertRes {
-  certs: P2P.CycleCreatorTypes.CycleCert[]
-  record: P2P.CycleCreatorTypes.CycleRecord
+  certs: P2P.CycleCreatorTypes.CycleCert[];
+  record: P2P.CycleCreatorTypes.CycleRecord;
 }
 
 const compareMarkerRoute: P2P.P2PTypes.InternalHandler<
   CompareMarkerReq,
   CompareMarkerRes
 > = (payload, respond, sender) => {
-  profilerInstance.scopedProfileSectionStart('compareMarker')
-  const req = payload
-  respond(compareCycleMarkersEndpoint(req))
-  profilerInstance.scopedProfileSectionStart('compareMarker')
-}
+  profilerInstance.scopedProfileSectionStart('compareMarker');
+  const req = payload;
+  respond(compareCycleMarkersEndpoint(req));
+  profilerInstance.scopedProfileSectionStart('compareMarker');
+};
 
 const compareCertRoute: P2P.P2PTypes.InternalHandler<
   CompareCertReq,
   CompareCertRes,
   P2P.NodeListTypes.Node['id']
 > = (payload, respond, sender) => {
-  profilerInstance.scopedProfileSectionStart('compareCert')
-  respond(compareCycleCertEndpoint(payload, sender))
-  profilerInstance.scopedProfileSectionEnd('compareCert')
-}
+  profilerInstance.scopedProfileSectionStart('compareCert');
+  respond(compareCycleCertEndpoint(payload, sender));
+  profilerInstance.scopedProfileSectionEnd('compareCert');
+};
 
-const gossipCertRoute: P2P.P2PTypes.GossipHandler<CompareCertReq, P2P.NodeListTypes.Node['id']> = (
-  payload,
-  sender,
-  tracker
-) => {
-  gossipHandlerCycleCert(payload, sender, tracker)
-}
+const gossipCertRoute: P2P.P2PTypes.GossipHandler<
+  CompareCertReq,
+  P2P.NodeListTypes.Node['id']
+> = (payload, sender, tracker) => {
+  gossipHandlerCycleCert(payload, sender, tracker);
+};
 
 const routes = {
   internal: {
@@ -136,72 +138,71 @@ const routes = {
   gossip: {
     'gossip-cert': gossipCertRoute,
   },
-}
+};
 
 /** CONTROL FUNCTIONS */
 
 export function init() {
   // Init submodules
   for (const submodule of submodules) {
-    if (submodule.init) submodule.init()
+    if (submodule.init) submodule.init();
   }
 
   // Get a handle to write to p2p.log
-  p2pLogger = logger.getLogger('p2p')
-  cycleLogger = logger.getLogger('cycle')
+  p2pLogger = logger.getLogger('p2p');
+  cycleLogger = logger.getLogger('cycle');
 
   // Init state
-  reset()
+  reset();
 
   // Register routes
   for (const [name, handler] of Object.entries(routes.internal)) {
-    Comms.registerInternal(name, handler)
+    Comms.registerInternal(name, handler);
   }
   for (const [name, handler] of Object.entries(routes.gossip)) {
-    Comms.registerGossipHandler(name, handler)
+    Comms.registerGossipHandler(name, handler);
   }
 }
 
-function updateScaleFactor(){
-  let activeNodeCount = NodeList.activeByIdOrder.length
-  let consensusRange = Math.min(config.sharding.nodesPerConsensusGroup, activeNodeCount) //if we have less activeNodeCount than consensus radius
-                       //  we can only count the minumum of the two. otherwise it would over boost scaling
-  let networkParSize = 75 //num nodes where we want scale to be 1.0.   should be 50-100, can set to 5 for small network testing
-  let consenusParSize = 5 //consenus size where we want the scale to be 1.0
+function updateScaleFactor() {
+  const activeNodeCount = NodeList.activeByIdOrder.length
+  const consensusRange = Math.min(config.sharding.nodesPerConsensusGroup, activeNodeCount) //if we have less activeNodeCount than consensus radius
+  //  we can only count the minumum of the two. otherwise it would over boost scaling
+  const networkParSize = 75 //num nodes where we want scale to be 1.0.   should be 50-100, can set to 5 for small network testing
+  const consenusParSize = 5 //consenus size where we want the scale to be 1.0
 
   // this is a bit hard coded, but basicaly the first 400 nodes in a network get a boost to max syncing allowes
   // this should smooth out the joining process but make it so we dont need such high defaults for syncMax that
   // could become a problem when there are more nodes in the network later on.
-  if(activeNodeCount < 200){
-    scaleFactorSyncBoost = 2
-  } else if (activeNodeCount < 400){
-    scaleFactorSyncBoost = 1.5
+  if (activeNodeCount < 200) {
+    scaleFactorSyncBoost = 2;
+  } else if (activeNodeCount < 400) {
+    scaleFactorSyncBoost = 1.5;
   } else {
-    scaleFactorSyncBoost = 1.5
+    scaleFactorSyncBoost = 1.5;
   }
 
-  scaleFactor = Math.max((consensusRange / consenusParSize) * (activeNodeCount / networkParSize),1)
+  scaleFactor = Math.max(
+    (consensusRange / consenusParSize) * (activeNodeCount / networkParSize),
+    1
+  );
 }
 
 // Resets CycleCreator and submodules
 function reset() {
-
-  updateScaleFactor()
+  updateScaleFactor();
 
   // Reset submodules
-  for (const module of submodules) module.reset()
+  for (const module of submodules) module.reset();
 
   // Reset CycleCreator
-  txs = collectCycleTxs()
-  ;({ record, marker, cert } = makeCycleData(
-    txs,
-    CycleChain.newest || undefined
-  ))
+  txs = collectCycleTxs();
+  ({record, marker, cert} = makeCycleData(txs, CycleChain.newest || undefined));
 
-  bestRecord = undefined
-  bestMarker = undefined
-  bestCycleCert = new Map()
-  bestCertScore = new Map()
+  bestRecord = undefined;
+  bestMarker = undefined;
+  bestCycleCert = new Map();
+  bestCertScore = new Map();
 }
 
 /**
@@ -212,22 +213,22 @@ function reset() {
 export async function startCycles() {
   if (Self.isFirst) {
     // If first node, create cycle record 0, set bestRecord to it
-    const recordZero = makeRecordZero()
-    bestRecord = recordZero
-    madeCycle = true
+    const recordZero = makeRecordZero();
+    bestRecord = recordZero;
+    madeCycle = true;
 
     // Schedule the scheduler to run at cycle zero start
-    const { startQ1 } = calcIncomingTimes(recordZero)
-    await schedule(cycleCreator, startQ1)
+    const {startQ1} = calcIncomingTimes(recordZero);
+    await schedule(cycleCreator, startQ1);
 
-    return
+    return;
   }
 
   // Otherwise, set bestRecord to newest record in cycle chain
-  bestRecord = CycleChain.newest
-  madeCycle = true
+  bestRecord = CycleChain.newest;
+  madeCycle = true;
 
-  await cycleCreator()
+  await cycleCreator();
 }
 
 /**
@@ -237,16 +238,16 @@ export async function startCycles() {
 async function cycleCreator() {
   // Set current quater to 0 while we are setting up the previous record
   //   Routes should use this to not process and just single-forward gossip
-  currentQuarter = 0
+  currentQuarter = 0;
   if (logFlags.p2pNonFatal) {
-    info(`C${currentCycle} Q${currentQuarter}`)
-    info(`madeCycle: ${madeCycle} bestMarker: ${bestMarker}`)
+    info(`C${currentCycle} Q${currentQuarter}`);
+    info(`madeCycle: ${madeCycle} bestMarker: ${bestMarker}`);
   }
   // Get the previous record
   //let prevRecord = madeCycle ? bestRecord : await fetchLatestRecord()
-  let prevRecord = bestRecord
+  let prevRecord = bestRecord;
   if (!prevRecord) {
-    prevRecord = await fetchLatestRecord()
+    prevRecord = await fetchLatestRecord();
   }
   while (!prevRecord) {
     // [TODO] - when there are few nodes in the network, we may not
@@ -256,91 +257,87 @@ async function cycleCreator() {
     //          needed if the number of tries increases.
     warn(
       'CycleCreator: cycleCreator: Could not get prevRecord. Trying again in 1 sec...'
-    )
-    await utils.sleep(1 * SECOND)
-    prevRecord = await fetchLatestRecord()
+    );
+    await utils.sleep(1 * SECOND);
+    prevRecord = await fetchLatestRecord();
   }
 
   // Apply the previous records changes to the NodeList
   //if (madeCycle) {
   if (!CycleChain.newest || CycleChain.newest.counter < prevRecord.counter)
-    Sync.digestCycle(prevRecord)
+    Sync.digestCycle(prevRecord);
   //}
 
   // Save the previous record to the DB
-  const marker = makeCycleMarker(prevRecord)
-  const certificate = makeCycleCert(marker)
-  const data: P2P.CycleCreatorTypes.CycleData = { ...prevRecord, marker, certificate }
+  const marker = makeCycleMarker(prevRecord);
+  const certificate = makeCycleCert(marker);
+  const data: P2P.CycleCreatorTypes.CycleData = {
+    ...prevRecord,
+    marker,
+    certificate,
+  };
   if (lastSavedData) {
-    await storage.updateCycle({ networkId: lastSavedData.networkId }, data)
-    lastSavedData = data
+    await storage.updateCycle({networkId: lastSavedData.networkId}, data);
+    lastSavedData = data;
   } else {
-    await storage.addCycles({ ...prevRecord, marker, certificate })
-    lastSavedData = data
+    await storage.addCycles({...prevRecord, marker, certificate});
+    lastSavedData = data;
   }
 
-  Self.emitter.emit('new_cycle_data', data)
+  Self.emitter.emit('new_cycle_data', data);
 
   // Print combined cycle log entry
-  cycleLogger.info(CycleChain.getDebug() + NodeList.getDebug())
+  cycleLogger.info(CycleChain.getDebug() + NodeList.getDebug());
 
   // Prune the cycle chain
-  pruneCycleChain()
+  pruneCycleChain();
 
   // Send last cycle record, state hashes and receipt hashes to any subscribed archivers
-  Archivers.sendData()
-  ;({
-    cycle: currentCycle,
-    quarter: currentQuarter,
-  } = currentCycleQuarterByTime(prevRecord))
+  Archivers.sendData();
+  ({cycle: currentCycle, quarter: currentQuarter} =
+    currentCycleQuarterByTime(prevRecord));
 
-  const {
-    quarterDuration,
-    startQ1,
-    startQ2,
-    startQ3,
-    startQ4,
-    end,
-  } = calcIncomingTimes(prevRecord)
+  const {quarterDuration, startQ1, startQ2, startQ3, startQ4, end} =
+    calcIncomingTimes(prevRecord);
 
-  nextQ1Start = end
+  nextQ1Start = end;
 
   // Reset cycle marker and cycle certificate creation state
-  reset()
+  reset();
   // Omar moved this to before scheduling the quarters; should not make a difference
-  madeCycle = false
+  madeCycle = false;
 
-  schedule(runQ1, startQ1, { runEvenIfLateBy: quarterDuration - 1 * SECOND }) // if there's at least one sec before Q2 starts, we can start Q1 now
-  schedule(runQ2, startQ2)
-  schedule(runQ3, startQ3)
-  schedule(runQ4, startQ4)
-  schedule(cycleCreator, end, { runEvenIfLateBy: Infinity })
+  schedule(runQ1, startQ1, {runEvenIfLateBy: quarterDuration - 1 * SECOND}); // if there's at least one sec before Q2 starts, we can start Q1 now
+  schedule(runQ2, startQ2);
+  schedule(runQ3, startQ3);
+  schedule(runQ4, startQ4);
+  schedule(cycleCreator, end, {runEvenIfLateBy: Infinity});
 }
 
 /**
  * Handles cycle record creation tasks for quarter 1
  */
 function runQ1() {
-  currentQuarter = 1
-  Self.emitter.emit('cycle_q1_start')
-  profilerInstance.profileSectionStart('CycleCreator-runQ1')
+  currentQuarter = 1;
+  Self.emitter.emit('cycle_q1_start');
+  profilerInstance.profileSectionStart('CycleCreator-runQ1');
 
-  if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`)
+  if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`);
 
   // Tell submodules to sign and send their requests
-  if (logFlags.p2pNonFatal) info('Triggering submodules to send requests...')
-  for (const submodule of submodules) submodule.sendRequests()
+  if (logFlags.p2pNonFatal) info('Triggering submodules to send requests...');
+  for (const submodule of submodules) submodule.sendRequests();
 
-  profilerInstance.profileSectionEnd('CycleCreator-runQ1')
+  profilerInstance.profileSectionEnd('CycleCreator-runQ1');
 }
 
 /**
  * Handles cycle record creation tasks for quarter 2
  */
 function runQ2() {
-  currentQuarter = 2
-  Self.emitter.emit('cycle_q2_start')
-  if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`)
+  currentQuarter = 2;
+  Self.emitter.emit('cycle_q2_start');
+  if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`);
 }
 
 /**
@@ -385,14 +382,14 @@ function runQ2() {
   it has with other nodes.
 */
 async function runQ3() {
-  currentQuarter = 3
-  Self.emitter.emit('cycle_q3_start')
-  if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`)
+  currentQuarter = 3;
+  Self.emitter.emit('cycle_q3_start');
+  if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`);
 
-  profilerInstance.profileSectionStart('CycleCreator-runQ3')
+  profilerInstance.profileSectionStart('CycleCreator-runQ3');
   // Get txs and create this cycle's record, marker, and cert
-  txs = collectCycleTxs()
-  ;({ record, marker, cert } = makeCycleData(txs, CycleChain.newest))
+  txs = collectCycleTxs();
+  ({record, marker, cert} = makeCycleData(txs, CycleChain.newest));
 
   /*
   info(`
@@ -404,8 +401,8 @@ async function runQ3() {
   */
 
   // Compare this cycle's marker with the network
-  const myC = currentCycle
-  const myQ = currentQuarter
+  const myC = currentCycle;
+  const myQ = currentQuarter;
 
   // Omar - decided that we can get by with not doing a round of compareCycleMarkers
   //     and instead going straight to comparing cycle certificates.
@@ -428,78 +425,81 @@ async function runQ3() {
   `)
   */
 
-  madeCycle = true
+  madeCycle = true;
 
   // Gossip your cert for this cycle with the network
-  gossipMyCycleCert()
+  gossipMyCycleCert();
 
-  profilerInstance.profileSectionEnd('CycleCreator-runQ3')
+  profilerInstance.profileSectionEnd('CycleCreator-runQ3');
 }
 
 /**
  * Handles cycle record creation tasks for quarter 4
  */
 async function runQ4() {
-  currentQuarter = 4
-  if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`)
+  currentQuarter = 4;
+  if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`);
 
   // Don't do cert comparison if you didn't make the cycle
   // [TODO] - maybe we should still compare if we have bestCert since we may have got it from gossip
   if (madeCycle === false) {
-    warn('In Q4 nothing to do since we madeCycle is false.')
-    return
+    warn('In Q4 nothing to do since we madeCycle is false.');
+    return;
   }
-  profilerInstance.profileSectionStart('CycleCreator-runQ4')
+  profilerInstance.profileSectionStart('CycleCreator-runQ4');
 
   // Compare your cert for this cycle with the network
-  const myC = currentCycle
-  const myQ = currentQuarter
+  const myC = currentCycle;
+  const myQ = currentQuarter;
 
-  let matched
+  let matched;
   do {
-    matched = await compareCycleCert(myC, myQ, DESIRED_CERT_MATCHES)
+    matched = await compareCycleCert(myC, myQ, DESIRED_CERT_MATCHES);
     if (!matched) {
       if (cycleQuarterChanged(myC, myQ)) {
         warn(
           `In Q4 ran out of time waiting for compareCycleCert with DESIRED_CERT_MATCHES of ${DESIRED_CERT_MATCHES}`
-        )
-        profilerInstance.profileSectionEnd('CycleCreator-runQ4')
-        return
+        );
+        profilerInstance.profileSectionEnd('CycleCreator-runQ4');
+        return;
       }
-      await utils.sleep(100)
+      await utils.sleep(100);
     }
-  } while (!matched)
+  } while (!matched);
 
   if (logFlags.p2pNonFatal)
     info(`
     Certified cycle record: ${JSON.stringify(record)}
     Certified cycle marker: ${JSON.stringify(marker)}
     Certified cycle cert: ${JSON.stringify(cert)}
-  `)
+  `);
 
   // Dont need this any more since we are not doing anything after this
   // if (cycleQuarterChanged(myC, myQ)) return
-  profilerInstance.profileSectionEnd('CycleCreator-runQ4')
+  profilerInstance.profileSectionEnd('CycleCreator-runQ4');
 }
 
 /** HELPER FUNCTIONS */
 
 export function makeRecordZero(): P2P.CycleCreatorTypes.CycleRecord {
-  const txs = collectCycleTxs()
-  return makeCycleRecord(txs)
+  const txs = collectCycleTxs();
+  return makeCycleRecord(txs);
 }
 
-function makeCycleData(txs: P2P.CycleCreatorTypes.CycleTxs, prevRecord?: P2P.CycleCreatorTypes.CycleRecord) {
-  const record = makeCycleRecord(txs, prevRecord)
-  const marker = makeCycleMarker(record)
-  const cert = makeCycleCert(marker)
-  return { record, marker, cert }
+function makeCycleData(
+  txs: P2P.CycleCreatorTypes.CycleTxs,
+  prevRecord?: P2P.CycleCreatorTypes.CycleRecord
+) {
+  const record = makeCycleRecord(txs, prevRecord);
+  const marker = makeCycleMarker(record);
+  const cert = makeCycleCert(marker);
+  return {record, marker, cert};
 }
 
 function collectCycleTxs(): P2P.CycleCreatorTypes.CycleTxs {
   // Collect cycle txs from all submodules
-  const txs = submodules.map((submodule) => submodule.getTxs())
-  return Object.assign({}, ...txs)
+  const txs = submodules.map(submodule => submodule.getTxs());
+  return Object.assign({}, ...txs);
 }
 
 function makeCycleRecord(
@@ -507,14 +507,14 @@ function makeCycleRecord(
   prevRecord?: P2P.CycleCreatorTypes.CycleRecord
 ): P2P.CycleCreatorTypes.CycleRecord {
   const baseRecord: P2P.CycleCreatorTypes.BaseRecord = {
-    networkId: crypto.hash({ rand: Math.floor(Math.random() * 1000000) }),
+    networkId: crypto.hash({rand: Math.floor(Math.random() * 1000000)}),
     counter: prevRecord ? prevRecord.counter + 1 : 0,
     previous: prevRecord ? makeCycleMarker(prevRecord) : '0'.repeat(64),
     start: prevRecord
       ? prevRecord.start + prevRecord.duration
       : utils.getTime('s'),
     duration: prevRecord ? prevRecord.duration : config.p2p.cycleDuration,
-  }
+  };
 
   const cycleRecord = Object.assign(baseRecord, {
     joined: [],
@@ -522,124 +522,129 @@ function makeCycleRecord(
     lost: [],
     refuted: [],
     apoptosized: [],
-  }) as P2P.CycleCreatorTypes.CycleRecord
+  }) as P2P.CycleCreatorTypes.CycleRecord;
 
-  submodules.map((submodule) =>
+  submodules.map(submodule =>
     submodule.updateRecord(cycleTxs, cycleRecord, prevRecord)
-  )
+  );
 
-  return cycleRecord
+  return cycleRecord;
 }
 
 export function makeCycleMarker(record: P2P.CycleCreatorTypes.CycleRecord) {
-  return crypto.hash(record)
+  return crypto.hash(record);
 }
 
-function makeCycleCert(marker: P2P.CycleCreatorTypes.CycleMarker): P2P.CycleCreatorTypes.CycleCert {
-  return crypto.sign({ marker })
+function makeCycleCert(
+  marker: P2P.CycleCreatorTypes.CycleMarker
+): P2P.CycleCreatorTypes.CycleCert {
+  return crypto.sign({marker});
 }
 
 async function compareCycleMarkers(myC: number, myQ: number, desired: number) {
-  if (logFlags.p2pNonFatal) info('Comparing cycle markers...')
+  if (logFlags.p2pNonFatal) info('Comparing cycle markers...');
 
   // Init vars
-  let matches = 0
+  let matches = 0;
 
   // Get random nodes
   // [TODO] Use a randomShifted array
-  const nodes = utils.getRandom(NodeList.activeOthersByIdOrder, 2 * desired)
+  const nodes = utils.getRandom(NodeList.activeOthersByIdOrder, 2 * desired);
 
   for (const node of nodes) {
     // Send marker, txs to /compare-marker endpoint of another node
-    const req: CompareMarkerReq = { marker, txs }
-    const resp: CompareMarkerRes = await Comms.ask(node, 'compare-marker', req)
+    const req: CompareMarkerReq = {marker, txs};
+    const resp: CompareMarkerRes = await Comms.ask(node, 'compare-marker', req);
 
     /**
      * [IMPORTANT] Don't change things if the awaited call took too long
      */
-    if (cycleQuarterChanged(myC, myQ)) return false
+    if (cycleQuarterChanged(myC, myQ)) return false;
 
     if (resp) {
       if (resp.marker === marker) {
         // Increment our matches if they computed the same marker
-        matches++
+        matches++;
 
         // Done if desired matches reached
         if (matches >= desired) {
-          return true
+          return true;
         }
       } else if (resp.txs) {
         // Otherwise, Get missed CycleTxs
-        const unseen = unseenTxs(txs, resp.txs)
-        const validUnseen = dropInvalidTxs(unseen)
+        const unseen = unseenTxs(txs, resp.txs);
+        const validUnseen = dropInvalidTxs(unseen);
 
         // Update this cycle's txs, record, marker, and cert
-        txs = deepmerge(txs, validUnseen)
-        ;({ record, marker, cert } = makeCycleData(txs, CycleChain.newest))
+        txs = deepmerge(txs, validUnseen);
+        ({record, marker, cert} = makeCycleData(txs, CycleChain.newest));
       }
     }
   }
 
-  return true
+  return true;
 }
 
 // This is not being used anymore. If we decide to use it, be sure to validate the inputs.
 function compareCycleMarkersEndpoint(req: CompareMarkerReq): CompareMarkerRes {
   // If your markers matches, just send back a marker
   if (req.marker === marker) {
-    return { marker }
+    return {marker};
   }
 
   // Get txs they have that you missed
-  const unseen = unseenTxs(txs, req.txs)
-  const validUnseen = dropInvalidTxs(unseen)
+  const unseen = unseenTxs(txs, req.txs);
+  const validUnseen = dropInvalidTxs(unseen);
   if (Object.entries(validUnseen).length < 1) {
     // If there are no txs they have that you missed, send back marker + txs
-    return { marker, txs }
+    return {marker, txs};
   }
 
   // Update this cycle's txs, record, marker, and cert
-  txs = deepmerge(txs, validUnseen)
-  ;({ record, marker, cert } = makeCycleData(txs, CycleChain.newest))
+  txs = deepmerge(txs, validUnseen);
+  ({record, marker, cert} = makeCycleData(txs, CycleChain.newest));
 
   // If your newly computed marker matches, just send back a marker
   if (req.marker === marker) {
-    return { marker }
+    return {marker};
   }
 
   // They had txs you missed, you added them, and markers still don't match
   // Send back your marker + txs (they are probably missing some)
-  return { marker, txs }
+  return {marker, txs};
 }
 
-function unseenTxs(ours: P2P.CycleCreatorTypes.CycleTxs, theirs: P2P.CycleCreatorTypes.CycleTxs) {
-  const unseen: Partial<P2P.CycleCreatorTypes.CycleTxs> = {}
+function unseenTxs(
+  ours: P2P.CycleCreatorTypes.CycleTxs,
+  theirs: P2P.CycleCreatorTypes.CycleTxs
+) {
+  const unseen: Partial<P2P.CycleCreatorTypes.CycleTxs> = {};
 
   for (const field in theirs) {
     if (theirs[field] && ours[field]) {
       if (crypto.hash(theirs[field]) !== crypto.hash(ours[field])) {
         // Go through each tx of theirs and see if ours has it
-        const ourTxHashes = new Set(ours[field].map((tx) => crypto.hash(tx)))
+        const ourTxHashes = new Set(ours[field].map(tx => crypto.hash(tx)));
         for (const tx of theirs[field]) {
           if (!ourTxHashes.has(crypto.hash(tx))) {
             // If it doesn't, add it to unseen
-            if (!unseen[field]) unseen[field] = []
-            unseen[field].push(tx)
+            if (!unseen[field]) unseen[field] = [];
+            unseen[field].push(tx);
           }
         }
       }
     } else {
       // Add the whole field from theirs to unseen
-      unseen[field] = theirs[field]
+      unseen[field] = theirs[field];
     }
   }
 
-  return unseen
+  return unseen;
 }
 
 function dropInvalidTxs(txs: Partial<P2P.CycleCreatorTypes.CycleTxs>) {
   // [TODO] Call into each module to validate its relevant CycleTxs
-  return txs
+  return txs;
 }
 
 /**
@@ -648,30 +653,37 @@ function dropInvalidTxs(txs: Partial<P2P.CycleCreatorTypes.CycleTxs>) {
  */
 async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
   try {
-    const oldCounter = CycleChain.newest.counter
-    await Sync.syncNewCycles(NodeList.activeOthersByIdOrder)
+    const oldCounter = CycleChain.newest.counter;
+    await Sync.syncNewCycles(NodeList.activeOthersByIdOrder);
     if (CycleChain.newest.counter <= oldCounter) {
       // We didn't actually sync
-      warn('CycleCreator: fetchLatestRecord: synced record not newer')
-      fetchLatestRecordFails++
-      if (fetchLatestRecordFails > maxFetchLatestRecordFails){
-        warn('CycleCreator: fetchLatestRecord_A: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf ')
-        Apoptosis.apoptosizeSelf()        
+      warn('CycleCreator: fetchLatestRecord: synced record not newer');
+      fetchLatestRecordFails++;
+      if (fetchLatestRecordFails > maxFetchLatestRecordFails) {
+        warn(
+          'CycleCreator: fetchLatestRecord_A: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf '
+        );
+        Apoptosis.apoptosizeSelf();
       }
 
-      return null
+      return null;
     }
   } catch (err) {
-    warn('CycleCreator: fetchLatestRecord: syncNewCycles failed:', errorToStringFull(err))
-    fetchLatestRecordFails++
-    if (fetchLatestRecordFails > maxFetchLatestRecordFails){
-      warn('CycleCreator: fetchLatestRecord_B: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf ')
-      Apoptosis.apoptosizeSelf()      
+    warn(
+      'CycleCreator: fetchLatestRecord: syncNewCycles failed:',
+      errorToStringFull(err)
+    );
+    fetchLatestRecordFails++;
+    if (fetchLatestRecordFails > maxFetchLatestRecordFails) {
+      warn(
+        'CycleCreator: fetchLatestRecord_B: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf '
+      );
+      Apoptosis.apoptosizeSelf();
     }
-    return null
+    return null;
   }
-  fetchLatestRecordFails = 0
-  return CycleChain.newest
+  fetchLatestRecordFails = 0;
+  return CycleChain.newest;
 }
 
 /**
@@ -681,18 +693,18 @@ async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
  * @param record CycleRecord
  */
 function currentCycleQuarterByTime(record: P2P.CycleCreatorTypes.CycleRecord) {
-  const SECOND = 1000
-  const cycleDuration = record.duration * SECOND
-  const quarterDuration = cycleDuration / 4
-  const start = record.start * SECOND + cycleDuration
+  const SECOND = 1000;
+  const cycleDuration = record.duration * SECOND;
+  const quarterDuration = cycleDuration / 4;
+  const start = record.start * SECOND + cycleDuration;
 
-  const now = Date.now()
-  const elapsed = now - start
-  const elapsedQuarters = elapsed / quarterDuration
+  const now = Date.now();
+  const elapsed = now - start;
+  const elapsedQuarters = elapsed / quarterDuration;
 
-  const cycle = record.counter + 1 + Math.trunc(elapsedQuarters / 4)
-  const quarter = Math.abs(Math.ceil(elapsedQuarters % 4))
-  return { cycle, quarter }
+  const cycle = record.counter + 1 + Math.trunc(elapsedQuarters / 4);
+  const quarter = Math.abs(Math.ceil(elapsedQuarters % 4));
+  return {cycle, quarter};
 }
 
 /**
@@ -702,17 +714,17 @@ function currentCycleQuarterByTime(record: P2P.CycleCreatorTypes.CycleRecord) {
  * @param record CycleRecord
  */
 export function calcIncomingTimes(record: P2P.CycleCreatorTypes.CycleRecord) {
-  const cycleDuration = record.duration * SECOND
-  const quarterDuration = cycleDuration / 4
-  const start = record.start * SECOND + cycleDuration
+  const cycleDuration = record.duration * SECOND;
+  const quarterDuration = cycleDuration / 4;
+  const start = record.start * SECOND + cycleDuration;
 
-  const startQ1 = start
-  const startQ2 = start + 1 * quarterDuration
-  const startQ3 = start + 2 * quarterDuration
-  const startQ4 = start + 3 * quarterDuration
-  const end = start + cycleDuration
+  const startQ1 = start;
+  const startQ2 = start + 1 * quarterDuration;
+  const startQ3 = start + 2 * quarterDuration;
+  const startQ4 = start + 3 * quarterDuration;
+  const end = start + cycleDuration;
 
-  return { quarterDuration, startQ1, startQ2, startQ3, startQ4, end }
+  return {quarterDuration, startQ1, startQ2, startQ3, startQ4, end};
 }
 
 /**
@@ -727,162 +739,169 @@ export function calcIncomingTimes(record: P2P.CycleCreatorTypes.CycleRecord) {
 export function schedule<T, U extends unknown[]>(
   callback: (...args: U) => T | Promise<T>,
   time: number,
-  { runEvenIfLateBy = 0 } = {},
+  {runEvenIfLateBy = 0} = {},
   ...args: U
 ) {
-  return new Promise<void>((resolve) => {
-    const now = Date.now()
+  return new Promise<void>(resolve => {
+    const now = Date.now();
     if (now >= time) {
       if (now - time <= runEvenIfLateBy) {
         setImmediate(async () => {
-          await callback(...args)
-          resolve()
-        })
+          await callback(...args);
+          resolve();
+        });
       }
-      return
+      return;
     }
-    const toWait = time - now
-    if (timers[callback.name]) clearTimeout(timers[callback.name])
+    const toWait = time - now;
+    if (timers[callback.name]) clearTimeout(timers[callback.name]);
     timers[callback.name] = setTimeout(async () => {
-      await callback(...args)
-      resolve()
-    }, toWait)
-  })
+      await callback(...args);
+      resolve();
+    }, toWait);
+  });
 }
 
 export function shutdown() {
-  warn('Cycle creator shutdown')
+  warn('Cycle creator shutdown');
   for (const timer of Object.keys(timers)) {
-    warn(`clearing timer ${timer}`)
-    clearTimeout(timers[timer])
+    warn(`clearing timer ${timer}`);
+    clearTimeout(timers[timer]);
   }
-  warn(`current cycle and quarter is: C${currentCycle} Q${currentQuarter}`)
-  currentCycle += 1
-  currentQuarter = 0 // to stop functions which check if we are in the same quarter
-  warn(`changed cycle and quarter to: C${currentCycle} Q${currentQuarter}`)
+  warn(`current cycle and quarter is: C${currentCycle} Q${currentQuarter}`);
+  currentCycle += 1;
+  currentQuarter = 0; // to stop functions which check if we are in the same quarter
+  warn(`changed cycle and quarter to: C${currentCycle} Q${currentQuarter}`);
 }
 
 function cycleQuarterChanged(cycle: number, quarter: number) {
-  return cycle !== currentCycle || quarter !== currentQuarter
+  return cycle !== currentCycle || quarter !== currentQuarter;
 }
 
 function scoreCert(cert: P2P.CycleCreatorTypes.CycleCert): number {
   try {
-    const id = NodeList.byPubKey.get(cert.sign.owner).id // get node id from cert pub key
-    const hid = crypto.hash({ id }) // Omar - use hash of id so the cert is not made by nodes that are near based on node id
-    const out = utils.XOR(cert.marker, hid)
-    return out
+    const id = NodeList.byPubKey.get(cert.sign.owner).id; // get node id from cert pub key
+    const hid = crypto.hash({id}); // Omar - use hash of id so the cert is not made by nodes that are near based on node id
+    const out = utils.XOR(cert.marker, hid);
+    return out;
   } catch (err) {
-    error('scoreCert ERR:', err)
-    return 0
+    error('scoreCert ERR:', err);
+    return 0;
   }
 }
 
-function validateCertSign(certs: P2P.CycleCreatorTypes.CycleCert[], sender: P2P.NodeListTypes.Node['id']) {
+function validateCertSign(
+  certs: P2P.CycleCreatorTypes.CycleCert[],
+  sender: P2P.NodeListTypes.Node['id']
+) {
   for (const cert of certs) {
     const cleanCert: P2P.CycleCreatorTypes.CycleCert = {
       marker: cert.marker,
       sign: cert.sign,
-    }
+    };
     if (NodeList.byPubKey.has(cleanCert.sign.owner) === false) {
-      warn('validateCertSign: bad owner')
-      return false
+      warn('validateCertSign: bad owner');
+      return false;
     }
     if (!crypto.verify(cleanCert)) {
-      warn('validateCertSign: bad sig')
-      return false
+      warn('validateCertSign: bad sig');
+      return false;
     }
   }
-  return true
+  return true;
 }
 
-function validateCerts(certs: P2P.CycleCreatorTypes.CycleCert[], record, sender) {
+function validateCerts(
+  certs: P2P.CycleCreatorTypes.CycleCert[],
+  record,
+  sender
+) {
   if (!certs || !Array.isArray(certs) || certs.length <= 0) {
-    warn('validateCerts: bad certificate format')
+    warn('validateCerts: bad certificate format');
     warn(
       `validateCerts:   sent by: port:${
         NodeList.nodes.get(sender).externalPort
       } id:${JSON.stringify(sender)}`
-    )
-    return false
+    );
+    return false;
   }
-  if (!record || record === null || typeof record !== 'object') return false
+  if (!record || record === null || typeof record !== 'object') return false;
   //  make sure the cycle counter is what we expect
   if (record.counter !== CycleChain.newest.counter + 1) {
     warn(
       `validateCerts: bad cycle record counter; expected ${
         CycleChain.newest.counter + 1
       } but got ${record.counter}`
-    )
+    );
     warn(
       `validateCerts:   sent by: port:${
         NodeList.nodes.get(sender).externalPort
       } id:${JSON.stringify(sender)}`
-    )
-    return false
+    );
+    return false;
   }
   // make sure all the certs are for the same cycle marker
-  const inpMarker = crypto.hash(record)
+  const inpMarker = crypto.hash(record);
   for (let i = 1; i < certs.length; i++) {
     if (inpMarker !== certs[i].marker) {
-      warn('validateCerts: certificates marker does not match hash of record')
+      warn('validateCerts: certificates marker does not match hash of record');
       warn(
         `validateCerts:   sent by: port:${
           NodeList.nodes.get(sender).externalPort
         } id:${JSON.stringify(sender)}`
-      )
-      return false
+      );
+      return false;
     }
   }
   // make sure that the certs are from different owners and not the same node
-  const seen = {}
+  const seen = {};
   for (let i = 0; i < certs.length; i++) {
     if (seen[certs[i].sign.owner]) {
       warn(
         `validateCerts: multiple certificate from same owner ${JSON.stringify(
           certs
         )}`
-      )
+      );
       warn(
         `validateCerts:   sent by: port:${
           NodeList.nodes.get(sender).externalPort
         } id:${JSON.stringify(sender)}`
-      )
-      return false
+      );
+      return false;
     }
-    seen[certs[i].sign.owner] = true
+    seen[certs[i].sign.owner] = true;
   }
   //  checks signatures; more expensive
   if (!validateCertSign(certs, sender)) {
     warn(
       `validateCerts: certificate has bad sign; certs:${JSON.stringify(certs)}`
-    )
+    );
     warn(
       `validateCerts:   sent by: port:${
         NodeList.nodes.get(sender).externalPort
       } id:${JSON.stringify(sender)}`
-    )
-    return false
+    );
+    return false;
   }
-  return true
+  return true;
 }
 
 function validateCertsRecordTypes(inp, caller) {
-  let err = utils.validateTypes(inp, { certs: 'a', record: 'o' })
+  let err = utils.validateTypes(inp, {certs: 'a', record: 'o'});
   if (err) {
-    warn(caller + ' bad input: ' + err + ' ' + JSON.stringify(inp))
-    return false
+    warn(caller + ' bad input: ' + err + ' ' + JSON.stringify(inp));
+    return false;
   }
   for (const cert of inp.certs) {
-    err = utils.validateTypes(cert, { marker: 's', score: 'n', sign: 'o' })
+    err = utils.validateTypes(cert, {marker: 's', score: 'n', sign: 'o'});
     if (err) {
-      warn(caller + ' bad input.certs: ' + err)
-      return false
+      warn(caller + ' bad input.certs: ' + err);
+      return false;
     }
-    err = utils.validateTypes(cert.sign, { owner: 's', sig: 's' })
+    err = utils.validateTypes(cert.sign, {owner: 's', sig: 's'});
     if (err) {
-      warn(caller + ' bad input.sign: ' + err)
-      return false
+      warn(caller + ' bad input.sign: ' + err);
+      return false;
     }
   }
   err = utils.validateTypes(inp.record, {
@@ -905,89 +924,92 @@ function validateCertsRecordTypes(inp, caller) {
     removed: 'a',
     start: 'n',
     syncing: 'n',
-  })
+  });
   if (err) {
-    warn(caller + ' bad input.record: ' + err)
-    return false
+    warn(caller + ' bad input.record: ' + err);
+    return false;
   }
   //  submodules need to validate their part of the record
   for (const submodule of submodules) {
-    err = submodule.validateRecordTypes(inp.record)
+    err = submodule.validateRecordTypes(inp.record);
     if (err) {
-      warn(caller + ' bad input.record.* ' + err)
-      return false
+      warn(caller + ' bad input.record.* ' + err);
+      return false;
     }
   }
-  return true
+  return true;
 }
 
 // Given an array of valid cycle certs, go through them and see if we can improve our best cert
 // return true if we improved it
 // We assume the certs have already been checked
-function improveBestCert(inpCerts: P2P.CycleCreatorTypes.CycleCert[], inpRecord) {
+function improveBestCert(
+  inpCerts: P2P.CycleCreatorTypes.CycleCert[],
+  inpRecord
+) {
   //  warn(`improveBestCert: certs:${JSON.stringify(certs)}`)
   //  warn(`improveBestCert: record:${JSON.stringify(record)}`)
-  let improved = false
+  let improved = false;
   if (inpCerts.length <= 0) {
-    return false
+    return false;
   }
-  let bscore = 0
+  let bscore = 0;
   if (bestMarker) {
     if (bestCertScore.get(bestMarker)) {
-      bscore = bestCertScore.get(bestMarker)
+      bscore = bestCertScore.get(bestMarker);
     }
   }
   //  warn(`improveBestCert: bscore:${JSON.stringify(bscore)}`)
-  const bcerts = bestCycleCert.get(inpCerts[0].marker)
+  const bcerts = bestCycleCert.get(inpCerts[0].marker);
   //  warn(`improveBestCert: bcerts:${JSON.stringify(bcerts)}`)
-  const have = {}
+  const have = {};
   if (bcerts) {
     for (const cert of bcerts) {
-      have[cert.sign.owner] = true
+      have[cert.sign.owner] = true;
     }
   }
   //  warn(`improveBestCert: have:${JSON.stringify(have)}`)
   for (const cert of inpCerts) {
     // make sure we don't store more than one cert from the same owner with the same marker
-    if (have[cert.sign.owner]) continue
-    cert.score = scoreCert(cert)
+    if (have[cert.sign.owner]) continue;
+    cert.score = scoreCert(cert);
     if (!bestCycleCert.get(cert.marker)) {
-      bestCycleCert.set(cert.marker, [cert])
+      bestCycleCert.set(cert.marker, [cert]);
     } else {
-      let added = false
-      const bcerts = bestCycleCert.get(cert.marker)
-      let i = 0
+      let added = false;
+      const bcerts = bestCycleCert.get(cert.marker);
+      let i = 0;
       for (; i < bcerts.length; i++) {
         if (bcerts[i].score < cert.score) {
-          bcerts.splice(i, 0, cert)
-          bcerts.splice(BEST_CERTS_WANTED)
-          added = true
-          break
+          bcerts.splice(i, 0, cert);
+          bcerts.splice(BEST_CERTS_WANTED);
+          added = true;
+          break;
         }
       }
       if (!added && i < BEST_CERTS_WANTED) {
-        bcerts.splice(i, 0, cert)
+        bcerts.splice(i, 0, cert);
       }
     }
   }
   for (const cert of inpCerts) {
-    let score = 0
-    const bcerts = bestCycleCert.get(cert.marker)
+    let score = 0;
+    const bcerts = bestCycleCert.get(cert.marker);
     for (const bcert of bcerts) {
-      score += bcert.score
+      score += bcert.score;
     }
-    bestCertScore.set(cert.marker, score)
+    bestCertScore.set(cert.marker, score);
     if (score > bscore) {
-      bestMarker = cert.marker
-      bestRecord = inpRecord
-      improved = true
+      bestMarker = cert.marker;
+      bestRecord = inpRecord;
+      improved = true;
     }
   }
   //  info(`improveBestCert: bestScore:${bestCertScore.get(bestMarker)}`)
   //  info(`improveBestCert: bestMarker:${bestMarker}`)
   //  info(`improveBestCert: bestCerts:${JSON.stringify(bestCycleCert.get(bestMarker))}`)
   //  info(`improveBestCert: improved:${improved}`)
-  return improved
+  return improved;
 }
 
 function compareCycleCertEndpoint(inp: CompareCertReq, sender) {
@@ -995,23 +1017,23 @@ function compareCycleCertEndpoint(inp: CompareCertReq, sender) {
     // This should almost never happen since we generate and gossip our
     //   cert at the begining of Q3 and don't start comparing certs until
     //   the begining of Q4.
-    warn('compareCycleCertEndpoint - bestMarker is undefined')
-    return { certs: [], record: record } // receiving node will igore our response
+    warn('compareCycleCertEndpoint - bestMarker is undefined');
+    return {certs: [], record: record}; // receiving node will igore our response
   }
 
   if (!validateCertsRecordTypes(inp, 'compareCycleCertEndpoint')) {
-    return { certs: bestCycleCert.get(bestMarker), record: bestRecord }
+    return {certs: bestCycleCert.get(bestMarker), record: bestRecord};
   }
-  const { certs: inpCerts, record: inpRecord } = inp
+  const {certs: inpCerts, record: inpRecord} = inp;
   if (!validateCerts(inpCerts, inpRecord, sender)) {
-    return { certs: bestCycleCert.get(bestMarker), record: bestRecord }
+    return {certs: bestCycleCert.get(bestMarker), record: bestRecord};
   }
-  const inpMarker = inpCerts[0].marker
+  const inpMarker = inpCerts[0].marker;
   if (inpMarker !== makeCycleMarker(inpRecord)) {
-    return { certs: bestCycleCert.get(bestMarker), record: bestRecord }
+    return {certs: bestCycleCert.get(bestMarker), record: bestRecord};
   }
-  improveBestCert(inpCerts, inpRecord)
-  return { certs: bestCycleCert.get(bestMarker), record: bestRecord }
+  improveBestCert(inpCerts, inpRecord);
+  return {certs: bestCycleCert.get(bestMarker), record: bestRecord};
 }
 
 async function compareCycleCert(myC: number, myQ: number, matches: number) {
@@ -1021,47 +1043,53 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
     const req: CompareCertReq = {
       certs: bestCycleCert.get(bestMarker),
       record: bestRecord,
-    }
-    const resp: CompareCertRes = await Comms.ask(node, 'compare-cert', req) // NEED to set the route string
-    if (!validateCertsRecordTypes(resp, 'compareCycleCert')) return [null, node]
+    };
+    const resp: CompareCertRes = await Comms.ask(node, 'compare-cert', req); // NEED to set the route string
+    if (!validateCertsRecordTypes(resp, 'compareCycleCert'))
+      return [null, node];
     // [TODO] - submodules need to validate their part of the record
     if (!(resp && resp.certs && resp.certs[0].marker && resp.record)) {
-      throw new Error('compareCycleCert: Invalid query response')
+      throw new Error('compareCycleCert: Invalid query response');
     }
-    return [resp, node]
-  }
+    return [resp, node];
+  };
 
-  const compareFn = (respArr) => {
+  const compareFn = respArr => {
     /**
      * [IMPORTANT] Don't change things if the awaited call took too long
      */
-    if (cycleQuarterChanged(myC, myQ)) return Comparison.ABORT
+    if (cycleQuarterChanged(myC, myQ)) return Comparison.ABORT;
 
-    const [resp, node] = respArr
-    if (resp === null) return Comparison.WORSE
+    const [resp, node] = respArr;
+    if (resp === null) return Comparison.WORSE;
     if (resp.certs[0].marker === bestMarker) {
       // Our markers match
-      return Comparison.EQUAL
+      return Comparison.EQUAL;
     } else if (!validateCerts(resp.certs, resp.record, node.id)) {
-      return Comparison.WORSE
+      return Comparison.WORSE;
     } else if (improveBestCert(resp.certs, resp.record)) {
       // Their marker is better, change to it and their record
       // don't need the following line anymore since improveBestCert sets bestRecord if it improved
       // bestRecord = resp.record
 
-      nestedCountersInstance.countRareEvent('cycle', `improved cert (better node) ${node.internalIp}:${node.internalPort}`)
-      nestedCountersInstance.countRareEvent('cycle', `improved cert (our node) ${Self.ip}:${Self.port}`)
-      
-      return Comparison.BETTER
+      nestedCountersInstance.countRareEvent(
+        'cycle',
+        `improved cert (better node) ${node.internalIp}:${node.internalPort}`
+      );
+      nestedCountersInstance.countRareEvent(
+        'cycle',
+        `improved cert (our node) ${Self.ip}:${Self.port}`
+
+      return Comparison.BETTER;
     } else {
       // Their marker was worse
-      return Comparison.WORSE
+      return Comparison.WORSE;
     }
-  }
+  };
 
   // Make sure matches makes sense
   if (matches > NodeList.activeOthersByIdOrder.length) {
-    matches = NodeList.activeOthersByIdOrder.length
+    matches = NodeList.activeOthersByIdOrder.length;
   }
 
   /**
@@ -1069,37 +1097,37 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
    * time we have in the quarter
    */
   // We shuffle to spread out the network load of cert comparison
-  const nodesToAsk = [...NodeList.activeOthersByIdOrder]
-  utils.shuffleArray(nodesToAsk)
+  const nodesToAsk = [...NodeList.activeOthersByIdOrder];
+  utils.shuffleArray(nodesToAsk);
 
   // If anything compares better than us, compareQuery starts over
   const errors = await compareQuery<
     P2P.NodeListTypes.Node,
     [CompareCertRes, P2P.NodeListTypes.Node]
-  >(nodesToAsk, queryFn, compareFn, matches)
+  >(nodesToAsk, queryFn, compareFn, matches);
 
   if (errors.length > 0) {
-    warn(`compareCycleCertEndpoint: errors: ${JSON.stringify(errors)}`)
+    warn(`compareCycleCertEndpoint: errors: ${JSON.stringify(errors)}`);
   }
 
   // Anything that's not an error, either matched us or compared worse than us
-  return NodeList.activeOthersByIdOrder.length - errors.length >= matches
+  return NodeList.activeOthersByIdOrder.length - errors.length >= matches;
 }
 
 async function gossipMyCycleCert() {
   // If we're not active dont gossip, unless we are first
-  if (!Self.isActive && !Self.isFirst) return
-  profilerInstance.profileSectionStart('CycleCreator-gossipMyCycleCert')
+  if (!Self.isActive && !Self.isFirst) return;
+  profilerInstance.profileSectionStart('CycleCreator-gossipMyCycleCert');
   // We may have already received certs from other other nodes so gossip only if our cert improves it
   // madeCert = true  // not used
-  if (logFlags.p2pNonFatal) info('About to improveBestCert with our cert...')
+  if (logFlags.p2pNonFatal) info('About to improveBestCert with our cert...');
   if (improveBestCert([cert], record)) {
     // don't need the following line anymore since improveBestCert sets bestRecord if it improved
     // bestRecord = record
-    if (logFlags.p2pNonFatal) info('bestRecord was set to our record')
-    await gossipCycleCert(Self.id)
+    if (logFlags.p2pNonFatal) info('bestRecord was set to our record');
+    await gossipCycleCert(Self.id);
   }
-  profilerInstance.profileSectionEnd('CycleCreator-gossipMyCycleCert')
+  profilerInstance.profileSectionEnd('CycleCreator-gossipMyCycleCert');
 }
 
 function gossipHandlerCycleCert(
@@ -1107,19 +1135,19 @@ function gossipHandlerCycleCert(
   sender: P2P.NodeListTypes.Node['id'],
   tracker: string
 ) {
-  profilerInstance.profileSectionStart('CycleCreator-gossipHandlerCycleCert')
-  if (!validateCertsRecordTypes(inp, 'gossipHandlerCycleCert')) return
+  profilerInstance.profileSectionStart('CycleCreator-gossipHandlerCycleCert');
+  if (!validateCertsRecordTypes(inp, 'gossipHandlerCycleCert')) return;
   // [TODO] - submodules need to validate their part of the record
-  const { certs: inpCerts, record: inpRecord } = inp
+  const {certs: inpCerts, record: inpRecord} = inp;
   if (!validateCerts(inpCerts, inpRecord, sender)) {
-    return
+    return;
   }
   if (improveBestCert(inpCerts, inpRecord)) {
     // don't need the following line anymore since improveBestCert sets bestRecord if it improved
     // bestRecord = inpRecord
-    gossipCycleCert(sender, tracker)
+    gossipCycleCert(sender, tracker);
   }
-  profilerInstance.profileSectionEnd('CycleCreator-gossipHandlerCycleCert')
+  profilerInstance.profileSectionEnd('CycleCreator-gossipHandlerCycleCert');
 }
 
 // This gossips the best cert we have
@@ -1130,29 +1158,36 @@ async function gossipCycleCert(
   const certGossip: CompareCertReq = {
     certs: bestCycleCert.get(bestMarker),
     record: bestRecord,
-  }
-  const signedCertGossip = crypto.sign(certGossip)
-  Comms.sendGossip('gossip-cert', signedCertGossip, tracker, sender, NodeList.byIdOrder, true)
+  };
+  const signedCertGossip = crypto.sign(certGossip);
+  Comms.sendGossip(
+    'gossip-cert',
+    signedCertGossip,
+    tracker,
+    sender,
+    NodeList.byIdOrder,
+    true
+  );
 }
 
 function pruneCycleChain() {
   // Determine number of cycle records to keep
-  const keep = Refresh.cyclesToKeep()
+  const keep = Refresh.cyclesToKeep();
   // Throws away extra cycles
-  CycleChain.prune(keep)
+  CycleChain.prune(keep);
 }
 
 function info(...msg) {
-  const entry = `CycleCreator: ${msg.join(' ')}`
-  p2pLogger.info(entry)
+  const entry = `CycleCreator: ${msg.join(' ')}`;
+  p2pLogger.info(entry);
 }
 
 function warn(...msg) {
-  const entry = `CycleCreator: ${msg.join(' ')}`
-  p2pLogger.warn(entry)
+  const entry = `CycleCreator: ${msg.join(' ')}`;
+  p2pLogger.warn(entry);
 }
 
 function error(...msg) {
-  const entry = `CycleCreator: ${msg.join(' ')}`
-  p2pLogger.error(entry)
+  const entry = `CycleCreator: ${msg.join(' ')}`;
+  p2pLogger.error(entry);
 }

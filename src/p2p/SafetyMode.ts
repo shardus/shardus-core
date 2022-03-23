@@ -1,5 +1,5 @@
-import { Logger } from 'log4js'
-import { P2P } from '@shardus/types'
+import {Logger} from 'log4js'
+import {P2P} from '@shardus/types'
 import * as Snapshot from '../snapshot'
 import * as Comms from './Comms'
 import * as Context from './Context'
@@ -11,7 +11,7 @@ let p2pLogger: Logger
 
 /** ROUTES */
 
-const gossipRoute: P2P.P2PTypes.GossipHandler = (payload) => {}
+const gossipRoute: P2P.P2PTypes.GossipHandler = payload => {}
 
 const routes = {
   internal: {},
@@ -20,9 +20,9 @@ const routes = {
   },
 }
 
-let cycleNumberForNetworkDataHash: number = 0
-let cycleNumberForNetworkReceiptHash: number = 0
-let cycleNumberForNetworkSummaryHash: number = 0
+let cycleNumberForNetworkDataHash = 0
+let cycleNumberForNetworkReceiptHash = 0
+let cycleNumberForNetworkSummaryHash = 0
 
 /** FUNCTIONS */
 
@@ -55,7 +55,9 @@ export function getTxs(): P2P.SafetyModeTypes.Txs {
   return
 }
 
-export function dropInvalidTxs(txs: P2P.SafetyModeTypes.Txs): P2P.SafetyModeTypes.Txs {
+export function dropInvalidTxs(
+  txs: P2P.SafetyModeTypes.Txs
+): P2P.SafetyModeTypes.Txs {
   return
 }
 
@@ -97,41 +99,50 @@ export function updateRecord(
     record.networkDataHash = stateHashes.map(stateHash => {
       return {
         cycle: stateHash.counter,
-        hash: stateHash.networkHash
+        hash: stateHash.networkHash,
       }
     })
     if (record.networkDataHash.length > 0) {
-      cycleNumberForNetworkDataHash = record.networkDataHash[record.networkDataHash.length - 1].cycle + 1
+      cycleNumberForNetworkDataHash =
+        record.networkDataHash[record.networkDataHash.length - 1].cycle + 1
     }
   } else {
     record.networkDataHash = []
   }
 
-  const receiptHashes = Snapshot.getReceiptHashes(cycleNumberForNetworkReceiptHash)
+  const receiptHashes = Snapshot.getReceiptHashes(
+    cycleNumberForNetworkReceiptHash
+  )
   if (receiptHashes && receiptHashes.length > 0) {
     record.networkReceiptHash = receiptHashes.map(receiptHash => {
       return {
         cycle: receiptHash.counter,
-        hash: receiptHash.networkReceiptHash
+        hash: receiptHash.networkReceiptHash,
       }
     })
     if (record.networkReceiptHash.length > 0) {
-      cycleNumberForNetworkReceiptHash = record.networkReceiptHash[record.networkReceiptHash.length - 1].cycle + 1
+      cycleNumberForNetworkReceiptHash =
+        record.networkReceiptHash[record.networkReceiptHash.length - 1].cycle +
+        1
     }
   } else {
     record.networkReceiptHash = []
   }
 
-  const summaryHashes = Snapshot.getSummaryHashes(cycleNumberForNetworkSummaryHash)
+  const summaryHashes = Snapshot.getSummaryHashes(
+    cycleNumberForNetworkSummaryHash
+  )
   if (summaryHashes && summaryHashes.length > 0) {
     record.networkSummaryHash = summaryHashes.map(stateHash => {
       return {
         cycle: stateHash.counter,
-        hash: stateHash.networkSummaryHash
+        hash: stateHash.networkSummaryHash,
       }
     })
     if (record.networkSummaryHash.length > 0) {
-      cycleNumberForNetworkSummaryHash = record.networkSummaryHash[record.networkSummaryHash.length - 1].cycle + 1
+      cycleNumberForNetworkSummaryHash =
+        record.networkSummaryHash[record.networkSummaryHash.length - 1].cycle +
+        1
     }
   } else {
     record.networkSummaryHash = []

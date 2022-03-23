@@ -1,7 +1,7 @@
 import Log4js from 'log4js'
 // const fs = require('fs')
 // const path = require('path')
-import { Op } from 'sequelize'
+import {Op} from 'sequelize'
 import Logger, {logFlags} from '../logger'
 import * as Snapshot from '../snapshot'
 import StateManager from '../state-manager'
@@ -121,10 +121,10 @@ class Storage {
       this.storage._rawQueryOld(query, tableModel) // or queryString, valueArray for non-sequelize
 
     this.initialized = true
-    if (Snapshot.oldDataPath){
+    if (Snapshot.oldDataPath) {
       //temporarily disable safety mode, it seems to break rotation
       //await Snapshot.initSafetyModeVals()
-    } 
+    }
   }
   async close() {
     await this.storage.close()
@@ -218,10 +218,10 @@ class Storage {
     this._checkInit()
     let cycle
     try {
-      ;[cycle] = await this._read(
+      [cycle] = await this._read(
         this.storageModels.cycles,
-        { counter },
-        { attributes: { exclude: ['createdAt', 'updatedAt'] } }
+        {counter},
+        {attributes: {exclude: ['createdAt', 'updatedAt']}}
       )
     } catch (e) {
       throw new Error(e)
@@ -235,10 +235,10 @@ class Storage {
     this._checkInit()
     let cycle
     try {
-      ;[cycle] = await this._read(
+      [cycle] = await this._read(
         this.storageModels.cycles,
-        { marker },
-        { attributes: { exclude: ['createdAt', 'updatedAt'] } }
+        {marker},
+        {attributes: {exclude: ['createdAt', 'updatedAt']}}
       )
     } catch (e) {
       throw new Error(e)
@@ -251,7 +251,7 @@ class Storage {
   async deleteCycleByCounter(counter) {
     this._checkInit()
     try {
-      await this._delete(this.storageModels.cycles, { counter })
+      await this._delete(this.storageModels.cycles, {counter})
     } catch (e) {
       throw new Error(e)
     }
@@ -259,7 +259,7 @@ class Storage {
   async deleteCycleByMarker(marker) {
     this._checkInit()
     try {
-      await this._delete(this.storageModels.cycles, { marker })
+      await this._delete(this.storageModels.cycles, {marker})
     } catch (e) {
       throw new Error(e)
     }
@@ -269,12 +269,12 @@ class Storage {
     let cycles
     try {
       cycles = await this._read(this.storageModels.cycles, null, {
-        attributes: { exclude: ['createdAt', 'updatedAt'] },
+        attributes: {exclude: ['createdAt', 'updatedAt']},
       })
     } catch (e) {
       throw new Error(e)
     }
-    return cycles.map((c) => c.dataValues)
+    return cycles.map(c => c.dataValues)
   }
 
   async listOldCycles() {
@@ -282,7 +282,7 @@ class Storage {
     let cycles
     try {
       cycles = await this._readOld(this.storageModels.cycles, null, {
-        attributes: { exclude: ['createdAt', 'updatedAt'] },
+        attributes: {exclude: ['createdAt', 'updatedAt']},
       })
     } catch (e) {
       throw new Error(e)
@@ -297,7 +297,7 @@ class Storage {
       networkStateHash = await this._readOld(this.storageModels.network, null, {
         limit: 1,
         order: [['cycleNumber', 'DESC']],
-        attributes: { exclude: ['createdAt', 'updatedAt', 'id'] },
+        attributes: {exclude: ['createdAt', 'updatedAt', 'id']},
         raw: true,
       })
     } catch (e) {
@@ -332,7 +332,7 @@ class Storage {
     let nodes
     try {
       nodes = await this._read(this.storageModels.nodes, node, {
-        attributes: { exclude: ['createdAt', 'updatedAt'] },
+        attributes: {exclude: ['createdAt', 'updatedAt']},
         raw: true,
       })
     } catch (e) {
@@ -352,11 +352,12 @@ class Storage {
     this._checkInit()
     const nodeIds = []
     // Attempt to add node to the nodeIds list
-    const addNodeToList = (node) => {
+    const addNodeToList = node => {
       if (!node.id) {
-        if (logFlags.error) this.mainLogger.error(
-          `Node attempted to be deleted without ID: ${JSON.stringify(node)}`
-        )
+        if (logFlags.error)
+          this.mainLogger.error(
+            `Node attempted to be deleted without ID: ${JSON.stringify(node)}`
+          )
         return
       }
       nodeIds.push(node.id)
@@ -369,7 +370,7 @@ class Storage {
       addNodeToList(nodes)
     }
     try {
-      await this._delete(this.storageModels.nodes, { id: { [Op.in]: nodeIds } })
+      await this._delete(this.storageModels.nodes, {id: {[Op.in]: nodeIds}})
     } catch (e) {
       throw new Error(e)
     }
@@ -379,7 +380,7 @@ class Storage {
     let nodes
     try {
       nodes = await this._read(this.storageModels.nodes, null, {
-        attributes: { exclude: ['createdAt', 'updatedAt'] },
+        attributes: {exclude: ['createdAt', 'updatedAt']},
         raw: true,
       })
     } catch (e) {
@@ -391,7 +392,7 @@ class Storage {
   async setProperty(key, value) {
     this._checkInit()
     try {
-      const [prop] = await this._read(this.storageModels.properties, { key })
+      const [prop] = await this._read(this.storageModels.properties, {key})
       if (!prop) {
         await this._create(this.storageModels.properties, {
           key,
@@ -404,7 +405,7 @@ class Storage {
             key,
             value,
           },
-          { key }
+          {key}
         )
       }
     } catch (e) {
@@ -415,7 +416,7 @@ class Storage {
     this._checkInit()
     let prop
     try {
-      ;[prop] = await this._read(this.storageModels.properties, { key })
+      [prop] = await this._read(this.storageModels.properties, {key})
     } catch (e) {
       throw new Error(e)
     }
@@ -427,7 +428,7 @@ class Storage {
   async deleteProperty(key) {
     this._checkInit()
     try {
-      await this._delete(this.storageModels.properties, { key })
+      await this._delete(this.storageModels.properties, {key})
     } catch (e) {
       throw new Error(e)
     }
@@ -443,14 +444,14 @@ class Storage {
     } catch (e) {
       throw new Error(e)
     }
-    return keys.map((k) => k.key)
+    return keys.map(k => k.key)
   }
 
   async clearP2pState() {
     this._checkInit()
     try {
-      await this._delete(this.storageModels.cycles, null, { truncate: true })
-      await this._delete(this.storageModels.nodes, null, { truncate: true })
+      await this._delete(this.storageModels.cycles, null, {truncate: true})
+      await this._delete(this.storageModels.nodes, null, {truncate: true})
     } catch (e) {
       throw new Error(e)
     }
@@ -609,11 +610,11 @@ class Storage {
     try {
       const result = await this._read(
         this.storageModels.acceptedTxs,
-        { timestamp: { [Op.between]: [tsStart, tsEnd] } },
+        {timestamp: {[Op.between]: [tsStart, tsEnd]}},
         {
           limit: limit,
           order: [['timestamp', 'ASC']],
-          attributes: { exclude: ['createdAt', 'updatedAt', 'id'] },
+          attributes: {exclude: ['createdAt', 'updatedAt', 'id']},
           raw: true,
         }
       )
@@ -628,11 +629,11 @@ class Storage {
     try {
       const result = await this._read(
         this.storageModels.acceptedTxs,
-        { id: { [Op.in]: ids } },
+        {id: {[Op.in]: ids}},
         {
           // limit: limit,
           order: [['timestamp', 'ASC']],
-          attributes: { exclude: ['createdAt', 'updatedAt', 'id'] },
+          attributes: {exclude: ['createdAt', 'updatedAt', 'id']},
           raw: true,
         }
       )
@@ -654,8 +655,8 @@ class Storage {
       const result = await this._read(
         this.storageModels.accountStates,
         {
-          accountId: { [Op.between]: [accountStart, accountEnd] },
-          txTimestamp: { [Op.between]: [tsStart, tsEnd] },
+          accountId: {[Op.between]: [accountStart, accountEnd]},
+          txTimestamp: {[Op.between]: [tsStart, tsEnd]},
         },
         {
           limit: limit,
@@ -663,7 +664,7 @@ class Storage {
             ['txTimestamp', 'ASC'],
             ['accountId', 'ASC'],
           ],
-          attributes: { exclude: ['createdAt', 'updatedAt', 'id'] },
+          attributes: {exclude: ['createdAt', 'updatedAt', 'id']},
           raw: true,
         }
       )
@@ -680,12 +681,12 @@ class Storage {
       const result = await this._read(
         this.storageModels.accountStates,
         {
-          txTimestamp: { [Op.between]: [tsStart, tsEnd] },
-          accountId: { [Op.in]: addressList },
+          txTimestamp: {[Op.between]: [tsStart, tsEnd]},
+          accountId: {[Op.in]: addressList},
         },
         {
           order: [['address', 'ASC']],
-          attributes: { exclude: ['createdAt', 'updatedAt', 'id'] },
+          attributes: {exclude: ['createdAt', 'updatedAt', 'id']},
           raw: true,
         }
       )
@@ -707,7 +708,7 @@ class Storage {
       }
       //maxTS?
       const query = `select accountId, txId, max(txTimestamp) txTimestamp, stateBefore, stateAfter from accountStates WHERE accountId IN (${expandQ}) group by accountId `
-      const result = await this._query(query, [ ...accountIDs])
+      const result = await this._query(query, [...accountIDs])
       return result
     } catch (e) {
       throw new Error(e)
@@ -723,11 +724,11 @@ class Storage {
       await this._delete(
         this.storageModels.accountStates,
         {
-          txTimestamp: { [Op.between]: [tsStart, tsEnd] },
-          accountId: { [Op.in]: addressList },
+          txTimestamp: {[Op.between]: [tsStart, tsEnd]},
+          accountId: {[Op.in]: addressList},
         },
         {
-          attributes: { exclude: ['createdAt', 'updatedAt', 'id'] },
+          attributes: {exclude: ['createdAt', 'updatedAt', 'id']},
           raw: true,
         }
       )
@@ -762,9 +763,9 @@ class Storage {
     try {
       await this._delete(
         this.storageModels.acceptedTxs,
-        { timestamp: { [Op.between]: [tsStart, tsEnd] } },
+        {timestamp: {[Op.between]: [tsStart, tsEnd]}},
         {
-          attributes: { exclude: ['createdAt', 'updatedAt', 'id'] },
+          attributes: {exclude: ['createdAt', 'updatedAt', 'id']},
           raw: true,
         }
       )
@@ -797,9 +798,9 @@ class Storage {
     try {
       const result = await this._read(
         this.storageModels.accountStates,
-        { accountId, txTimestamp },
+        {accountId, txTimestamp},
         {
-          attributes: { exclude: ['createdAt', 'updatedAt', 'id'] },
+          attributes: {exclude: ['createdAt', 'updatedAt', 'id']},
           raw: true,
         }
       )
@@ -843,13 +844,13 @@ class Storage {
       const result = await this._read(
         this.storageModels.accountsCopy,
         {
-          cycleNumber: { [Op.lte]: cycleNumber },
-          accountId: { [Op.in]: accountIDs },
+          cycleNumber: {[Op.lte]: cycleNumber},
+          accountId: {[Op.in]: accountIDs},
         },
         {
           // limit: limit,
           // order: [ ['timestamp', 'ASC'] ],
-          attributes: { exclude: ['createdAt', 'updatedAt'] },
+          attributes: {exclude: ['createdAt', 'updatedAt']},
           raw: true,
         }
       )
@@ -884,13 +885,13 @@ class Storage {
       await this._delete(
         this.storageModels.accountsCopy,
         {
-          cycleNumber: { [Op.gte]: cycleNumber },
-          accountId: { [Op.in]: accountIDs },
+          cycleNumber: {[Op.gte]: cycleNumber},
+          accountId: {[Op.in]: accountIDs},
         },
         {
           // limit: limit,
           // order: [ ['timestamp', 'ASC'] ],
-          attributes: { exclude: ['createdAt', 'updatedAt'] },
+          attributes: {exclude: ['createdAt', 'updatedAt']},
           raw: true,
         }
       )

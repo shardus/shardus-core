@@ -12,12 +12,12 @@ class ExitHandler {
   }
 
   // Modules can use this to register synchronous cleanup functions
-  registerSync(who, func) {
+  registerSync(who: string, func: Function) {
     this.syncFuncs.set(who, func)
   }
 
   // Modules can use this to register asynchronous cleanup functions
-  registerAsync(who, func) {
+  registerAsync(who: string, func: Function) {
     this.asyncFuncs.set(who, func)
   }
 
@@ -45,6 +45,7 @@ class ExitHandler {
     } catch (e) {
       console.error(e)
     }
+    // eslint-disable-next-line no-process-exit
     if (exitProcess) process.exit()
   }
 
@@ -57,7 +58,8 @@ class ExitHandler {
     } catch (e) {
       console.error(e)
     }
-    process.exit(1)  // exiting with status 1 causes our modified PM2 to not restart the process
+    // eslint-disable-next-line no-process-exit
+    process.exit(1) // exiting with status 1 causes our modified PM2 to not restart the process
   }
 
   // Used for adding event listeners for the SIGINT and SIGTERM signals

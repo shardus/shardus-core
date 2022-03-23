@@ -1,16 +1,16 @@
 import path from 'path'
 import fs from 'fs'
-import { Readable } from 'stream'
-import { EventEmitter } from 'events'
+import {Readable} from 'stream'
+import {EventEmitter} from 'events'
 import * as utils from '../utils'
-import { nestedCountersInstance } from '../utils/nestedCounters'
+import {nestedCountersInstance} from '../utils/nestedCounters'
 
 interface Statistics {
   intervalDuration: number
   context: any
   counterDefs: any[]
   watcherDefs: any
-  timerDefs: { [name: string]: TimerRing }
+  timerDefs: {[name: string]: TimerRing}
   manualStatDefs: any[]
   interval: NodeJS.Timeout
   snapshotWriteFns: any[]
@@ -19,8 +19,8 @@ interface Statistics {
   counters: any
   watchers: any
   timers: any
-  manualStats: { [name: string]: ManualRing }
-  ringOverrides: {[override:string]: number}
+  manualStats: {[name: string]: ManualRing}
+  ringOverrides: {[override: string]: number}
 }
 
 class Statistics extends EventEmitter {
@@ -32,13 +32,13 @@ class Statistics extends EventEmitter {
       watchers = {},
       timers = [],
       manualStats = [],
-      ringOverrides = {}
+      ringOverrides = {},
     }: {
       counters: string[]
       watchers: any
       timers: any
       manualStats: string[]
-      ringOverrides: {[override:string]: number}
+      ringOverrides: {[override: string]: number}
     },
     context
   ) {
@@ -71,7 +71,10 @@ class Statistics extends EventEmitter {
     this.counters = this._initializeCounters(this.counterDefs)
     this.watchers = this._initializeWatchers(this.watcherDefs, this.context)
     this.timers = this._initializeTimers(this.timerDefs)
-    this.manualStats = this._initializeManualStats(this.manualStatDefs, this.ringOverrides)
+    this.manualStats = this._initializeManualStats(
+      this.manualStatDefs,
+      this.ringOverrides
+    )
   }
 
   getStream() {
@@ -154,7 +157,10 @@ class Statistics extends EventEmitter {
   // Returns the current average of all elements in the given WatcherRing, CounterRing, or TimerRing
   getAverage(name) {
     const ringHolder =
-      this.counters[name] || this.watchers[name] || this.timers[name] || this.manualStats[name]
+      this.counters[name] ||
+      this.watchers[name] ||
+      this.timers[name] ||
+      this.manualStats[name]
     if (!ringHolder.ring) throw new Error(`Ring holder '${name}' is undefined.`)
     return ringHolder.ring.average()
   }
@@ -217,7 +223,7 @@ class Statistics extends EventEmitter {
     const manualStats = {}
     for (const name of counterDefs) {
       let count = 10
-      if(ringOverrides[name] != null){
+      if (ringOverrides[name] != null) {
         count = ringOverrides[name]
       }
       manualStats[name] = new ManualRing(count) //should it be a config
@@ -249,8 +255,9 @@ class Statistics extends EventEmitter {
     }
     for (const timer in this.timers) {
       this.timers[timer].snapshot()
-      tabSeperatedValues += `${timer}-average\t${this.getAverage(timer) /
-        1000}\t${time}\n`
+      tabSeperatedValues += `${timer}-average\t${
+        this.getAverage(timer) / 1000
+      }\t${time}\n`
     }
 
     for (const writeFn of this.snapshotWriteFns) {
@@ -301,26 +308,25 @@ class Ring {
     let total = 0
     let min = Number.MAX_VALUE
     let max = Number.MIN_VALUE
-    let allVals = []
+    const allVals = []
     for (const element of this.elements) {
       if (_exists(element)) {
-        let val = Number(element)
+        const val = Number(element)
         sum += val
         total++
 
-        if(val < min) {
+        if (val < min) {
           min = val
         }
-        if(val > max){
+        if (val > max) {
           max = val
         }
         allVals.push(val)
       }
     }
-    let avg =  total > 0 ? sum / total : 0
+    const avg = total > 0 ? sum / total : 0
     return {min, max, avg, allVals, sum}
   }
-
 
   previous() {
     const prevIndex = (this.index < 1 ? this.elements.length : this.index) - 1
@@ -408,7 +414,6 @@ class TimerRing {
 }
 
 interface ManualRing {
-
   ring: Ring
 }
 
@@ -416,13 +421,11 @@ class ManualRing {
   constructor(length) {
     this.ring = new Ring(length)
   }
-  manualSetValue(value){
+  manualSetValue(value) {
     this.ring.save(value)
   }
-  snapshot() {
-  }
+  snapshot() {}
 }
-
 
 /**
  * Check for a variable that is not undefined or null

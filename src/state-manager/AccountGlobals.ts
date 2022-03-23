@@ -6,7 +6,7 @@ import Profiler, { profilerInstance } from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
-import Logger, {logFlags} from '../logger'
+import Logger, { logFlags } from '../logger'
 import ShardFunctions from './shardFunctions.js'
 import { time } from 'console'
 import StateManager from '.'
@@ -52,7 +52,6 @@ class AccountGlobals {
     crypto: Crypto,
     config: Shardus.ServerConfiguration
   ) {
-
     this.crypto = crypto
     this.app = app
     this.logger = logger
@@ -78,11 +77,11 @@ class AccountGlobals {
     this.p2p.registerInternal('get_globalaccountreport', async (payload: any, respond: (arg0: GlobalAccountReportResp) => any) => {
       profilerInstance.scopedProfileSectionStart('get_globalaccountreport')
       try {
-        let result = { combinedHash: '', accounts: [], ready: this.stateManager.appFinishedSyncing } as GlobalAccountReportResp
+        const result = { combinedHash: '', accounts: [], ready: this.stateManager.appFinishedSyncing } as GlobalAccountReportResp
 
-        let globalAccountKeys = this.globalAccountSet.keys()
+        const globalAccountKeys = this.globalAccountSet.keys()
 
-        let toQuery: string[] = []
+        const toQuery: string[] = []
 
         let responded = false
         console.log('Running get_globalaccountreport', this.stateManager.accountSync.globalAccountsSynced, this.stateManager.appFinishedSyncing)
@@ -110,7 +109,7 @@ class AccountGlobals {
         //   }
         //   result.accounts.push(report)
         // }
-        for (let key of globalAccountKeys) {
+        for (const key of globalAccountKeys) {
           toQuery.push(key)
         }
 
@@ -129,8 +128,8 @@ class AccountGlobals {
         //   }
         // }
 
-        if(result.ready === false){
-          nestedCountersInstance.countEvent(`sync`, `HACKFIX - forgot to return!`)
+        if (result.ready === false) {
+          nestedCountersInstance.countEvent('sync', 'HACKFIX - forgot to return!')
           return
         }
 
@@ -145,7 +144,7 @@ class AccountGlobals {
           this.stateManager.fifoUnlock('accountModification', ourLockID)
         }
         if (accountData != null) {
-          for (let wrappedAccount of accountData) {
+          for (const wrappedAccount of accountData) {
             // let wrappedAccountInQueueRef = wrappedAccount as Shardus.WrappedDataFromQueue
             // wrappedAccountInQueueRef.seenInQueue = false
             // if (this.lastSeenAccountsMap != null) {
@@ -154,7 +153,7 @@ class AccountGlobals {
             //     wrappedAccountInQueueRef.seenInQueue = true
             //   }
             // }
-            let report = { id: wrappedAccount.accountId, hash: wrappedAccount.stateId, timestamp: wrappedAccount.timestamp }
+            const report = { id: wrappedAccount.accountId, hash: wrappedAccount.stateId, timestamp: wrappedAccount.timestamp }
             result.accounts.push(report)
           }
         }
@@ -170,13 +169,9 @@ class AccountGlobals {
     })
   }
 
-
-
   // sortByTimestamp(a: any, b: any): number {
   //   return utils.sortAscProp(a, b, 'timestamp')
   // }
-
-
 
   /**
    * isGlobalAccount
@@ -201,11 +196,11 @@ class AccountGlobals {
    * This will get an early global report (note does not have account data, just id,hash,timestamp)
    */
   async getGlobalListEarly() {
-    let globalReport: GlobalAccountReportResp = await this.stateManager.accountSync.getRobustGlobalReport()
+    const globalReport: GlobalAccountReportResp = await this.stateManager.accountSync.getRobustGlobalReport()
 
     //this.knownGlobals = {}
-    let temp = []
-    for (let report of globalReport.accounts) {
+    const temp = []
+    for (const report of globalReport.accounts) {
       //this.knownGlobals[report.id] = true
 
       temp.push(report.id)
@@ -218,15 +213,15 @@ class AccountGlobals {
     this.hasknownGlobals = true
   }
 
-  getGlobalDebugReport() : {globalAccountSummary:{id:string, state:string, ts:number}[], globalStateHash:string} {
-    let globalAccountSummary = []
-    for (let globalID in this.globalAccountSet.keys()) {
-      let accountHash = this.stateManager.accountCache.getAccountHash(globalID)
-      let summaryObj = { id: globalID, state: accountHash.h, ts: accountHash.t }
+  getGlobalDebugReport(): { globalAccountSummary: { id: string; state: string; ts: number }[]; globalStateHash: string } {
+    const globalAccountSummary = []
+    for (const globalID in this.globalAccountSet.keys()) {
+      const accountHash = this.stateManager.accountCache.getAccountHash(globalID)
+      const summaryObj = { id: globalID, state: accountHash.h, ts: accountHash.t }
       globalAccountSummary.push(summaryObj)
     }
-    let globalStateHash = this.crypto.hash(globalAccountSummary)
-    return {globalAccountSummary, globalStateHash}
+    const globalStateHash = this.crypto.hash(globalAccountSummary)
+    return { globalAccountSummary, globalStateHash }
   }
 }
 

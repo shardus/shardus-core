@@ -1,7 +1,7 @@
-import { Logger } from 'log4js'
-import { P2P } from '@shardus/types'
+import {Logger} from 'log4js'
+import {P2P} from '@shardus/types'
 import * as Comms from './Comms'
-import { logger } from './Context'
+import {logger} from './Context'
 
 /** STATE */
 
@@ -22,7 +22,7 @@ const routes = {
 
 /** CycleCreator Functions */
 
-/* These functions must be defined by all modules that implement a 
+/* These functions must be defined by all modules that implement a
      network action like going active, lost node detection, etc.
      These functions are called by CycleCreator
 */
@@ -49,7 +49,9 @@ export function getTxs(): P2P.TemplateTypes.Txs {
   return
 }
 
-export function dropInvalidTxs(txs: P2P.TemplateTypes.Txs): P2P.TemplateTypes.Txs {
+export function dropInvalidTxs(
+  txs: P2P.TemplateTypes.Txs
+): P2P.TemplateTypes.Txs {
   return
 }
 
@@ -62,7 +64,9 @@ export function updateRecord(
   prev: P2P.CycleCreatorTypes.CycleRecord
 ) {}
 
-export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
+export function parseRecord(
+  record: P2P.CycleCreatorTypes.CycleRecord
+): P2P.CycleParserTypes.Change {
   return
 }
 

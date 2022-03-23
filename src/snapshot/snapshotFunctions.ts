@@ -1,18 +1,18 @@
 import got from 'got'
-import { P2P, StateManager } from '@shardus/types'
+import {P2P, StateManager} from '@shardus/types'
 import stream from 'stream'
 import zlib from 'zlib'
-import { logFlags } from '../logger'
+import {logFlags} from '../logger'
 import * as Context from '../p2p/Context'
 import * as NodeList from '../p2p/NodeList'
 import * as Self from '../p2p/Self'
 import * as ShardusTypes from '../shardus/shardus-types'
 import ShardFunctions from '../state-manager/shardFunctions'
-import { Cycle, CycleShardData } from '../state-manager/state-manager-types'
-import { safetyModeVals, snapshotLogger } from './index'
-import { hashMap } from './partition-gossip'
+import {Cycle, CycleShardData} from '../state-manager/state-manager-types'
+import {safetyModeVals, snapshotLogger} from './index'
+import {hashMap} from './partition-gossip'
 
-const { Transform } = require('stream')
+const {Transform} = require('stream')
 /** TYPES */
 
 const status: 'applied' | 'rejected' = 'applied'
@@ -207,9 +207,7 @@ export async function saveSummaryAndNetworkHashes(
   })
 }
 
-export async function readOldCycleRecord(): Promise<
-  P2P.CycleCreatorTypes.CycleRecord
-> {
+export async function readOldCycleRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
   const oldCycles = await Context.storage.listOldCycles()
   if (oldCycles && oldCycles.length > 0) return oldCycles[0]
 }
@@ -241,7 +239,8 @@ export async function calculateOldDataMap(
   oldPartitionHashMap,
   lastSnapshotCycle: number
 ): Promise<Map<P2P.SnapshotTypes.PartitionNum, ShardusTypes.AccountsCopy[]>> {
-  const partitionShardDataMap: StateManager.shardFunctionTypes.ParititionShardDataMap = new Map()
+  const partitionShardDataMap: StateManager.shardFunctionTypes.ParititionShardDataMap =
+    new Map()
   const oldDataMap: Map<
     P2P.SnapshotTypes.PartitionNum,
     ShardusTypes.AccountsCopy[]
@@ -257,7 +256,7 @@ export async function calculateOldDataMap(
    * [NOTE] [AS] Need to do this because type of 'cycleJoined' field differs
    * between ShardusTypes.Node (number) and P2P/Node (string)
    */
-  const nodes = (NodeList.byIdOrder as unknown) as ShardusTypes.Node[]
+  const nodes = NodeList.byIdOrder as unknown as ShardusTypes.Node[]
 
   ShardFunctions.computeNodePartitionDataMap(
     shardGlobals,
@@ -266,8 +265,8 @@ export async function calculateOldDataMap(
     partitionShardDataMap,
     nodes,
     true,
-    false // this is not the active node list.  Perf will be slower so we may want to 
-          // rework this calculation
+    false // this is not the active node list.  Perf will be slower so we may want to
+    // rework this calculation
   )
 
   // If we have old data, figure out which partitions we have and put into OldDataMap
@@ -275,15 +274,16 @@ export async function calculateOldDataMap(
     try {
       const lowAddress = partitonObj.homeRange.low
       const highAddress = partitonObj.homeRange.high
-      const oldAccountCopiesInPartition = await Context.storage.getOldAccountCopiesByCycleAndRange(
-        lastSnapshotCycle,
-        lowAddress,
-        highAddress
-      )
+      const oldAccountCopiesInPartition =
+        await Context.storage.getOldAccountCopiesByCycleAndRange(
+          lastSnapshotCycle,
+          lowAddress,
+          highAddress
+        )
       if (oldAccountCopiesInPartition) {
         const existingHash = oldPartitionHashMap.get(partitionId)
         const oldAccountsWithoutCycleNumber = oldAccountCopiesInPartition.map(
-          (acc) => {
+          acc => {
             return {
               accountId: acc.accountId,
               data: acc.data,
@@ -320,7 +320,7 @@ export async function calculateOldDataMap(
     )
     if (oldGlobalAccounts) {
       const existingGlobalHash = oldPartitionHashMap.get(-1)
-      const oldGlobalAccWithoutCycleNumber = oldGlobalAccounts.map((acc) => {
+      const oldGlobalAccWithoutCycleNumber = oldGlobalAccounts.map(acc => {
         return {
           accountId: acc.accountId,
           data: acc.data,
@@ -359,15 +359,13 @@ export function getMissingPartitions(
 ) {
   log('Checking missing partitions...')
   const missingPartitions = []
-  const { homePartition } = ShardFunctions.addressToPartition(
+  const {homePartition} = ShardFunctions.addressToPartition(
     shardGlobals,
     Self.id
   )
   log(`Home partition for us is: ${homePartition}`)
-  const {
-    partitionStart,
-    partitionEnd,
-  } = ShardFunctions.calculateStoredPartitions2(shardGlobals, homePartition)
+  const {partitionStart, partitionEnd} =
+    ShardFunctions.calculateStoredPartitions2(shardGlobals, homePartition)
   log('partition start: ', partitionStart)
   log('partition end: ', partitionEnd)
   const partitionsToCheck = []
@@ -422,15 +420,15 @@ export function registerDownloadRoutes(
     res.set('content-disposition', 'attachment; filename="snapshot-data"')
     res.set('content-type', 'application/gzip')
 
-    readerStream.on('error', (err) => console.log('rs Error', err))
-    gzip.on('error', (err) => console.log('gzip Error', err))
-    res.on('error', (err) => console.log('res Error', err))
+    readerStream.on('error', err => console.log('rs Error', err))
+    gzip.on('error', err => console.log('gzip Error', err))
+    res.on('error', err => console.log('res Error', err))
 
     readerStream
       .pipe(gzip)
       .pipe(res)
       .on('end', () => {
-        res.end({ success: true })
+        res.end({success: true})
       })
   })
 }

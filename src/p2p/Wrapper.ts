@@ -1,10 +1,10 @@
-import { EventEmitter } from 'events'
+import {EventEmitter} from 'events'
 import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
 import * as Active from './Active'
-import { apoptosizeSelf } from './Apoptosis'
+import {apoptosizeSelf} from './Apoptosis'
 import * as Comms from './Comms'
-import { config, setConfig } from './Context'
+import {config, setConfig} from './Context'
 import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
@@ -12,7 +12,7 @@ import * as Self from './Self'
 import * as Utils from './Utils'
 import {logFlags} from '../logger'
 import {getNodeRequestingJoin} from './Join'
-import { P2P as P2PTypings } from '@shardus/types'
+import {P2P as P2PTypings} from '@shardus/types'
 import * as CycleAutoScale from './CycleAutoScale'
 
 /* p2p functions */
@@ -131,11 +131,11 @@ class P2P extends EventEmitter {
     return CycleChain.cycles.slice(0 - amount)
   }
 
-  shutdown(){
+  shutdown() {
     CycleCreator.shutdown()
   }
 
-  configUpdated(){
+  configUpdated() {
     //todo, make this nicer!
     CycleAutoScale.configUpdated()
   }
@@ -158,11 +158,12 @@ class State extends EventEmitter {
 
   getNodeByPubKey(pubkey) {
     if (NodeList.byPubKey.has(pubkey) !== true) {
-      if (logFlags.console) console.log(
-        `getNodeByPubKey cant find ${utils.makeShortHash(
-          pubkey
-        )} in set: ${utils.stringifyReduce(NodeList.byPubKey.keys)} `
-      )
+      if (logFlags.console)
+        console.log(
+          `getNodeByPubKey cant find ${utils.makeShortHash(
+            pubkey
+          )} in set: ${utils.stringifyReduce(NodeList.byPubKey.keys)} `
+        )
     }
     return NodeList.byPubKey.get(pubkey)
   }
@@ -193,7 +194,11 @@ class State extends EventEmitter {
   }
 
   getCycleByCounter(counter) {
-    const i = utils.binarySearch(CycleChain.cycles, { counter }, utils.propComparator('counter'))
+    const i = utils.binarySearch(
+      CycleChain.cycles,
+      {counter},
+      utils.propComparator('counter')
+    )
     if (i > -1) return CycleChain.cycles[i]
     return null
   }
@@ -267,7 +272,7 @@ namespace archiver {
   export function sendPartitionData(partitionReceipt, paritionObject) {
     for (const nodeInfo of this.cycleRecipients) {
       const nodeUrl = `http://${nodeInfo.ip}:${nodeInfo.port}/post_partition`
-      http.post(nodeUrl, { partitionReceipt, paritionObject }).catch(err => {
+      http.post(nodeUrl, {partitionReceipt, paritionObject}).catch(err => {
         this.logError(`sendPartitionData: Failed to post to ${nodeUrl} ` + err)
       })
     }
@@ -282,7 +287,7 @@ namespace archiver {
     for (const nodeInfo of this.cycleRecipients) {
       const nodeUrl = `http://${nodeInfo.ip}:${nodeInfo.port}/post_transactions`
       http
-        .post(nodeUrl, { partitionNumber, cycleNumber, transactions })
+        .post(nodeUrl, {partitionNumber, cycleNumber, transactions})
         .catch(err => {
           this.logError(
             `sendTransactionData: Failed to post to ${nodeUrl} ` + err

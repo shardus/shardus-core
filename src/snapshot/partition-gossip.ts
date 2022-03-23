@@ -1,11 +1,11 @@
-import { EventEmitter } from 'events'
-import { registerGossipHandler } from '../p2p/Comms'
+import {EventEmitter} from 'events'
+import {registerGossipHandler} from '../p2p/Comms'
 // import { PartitionHashes, ReceiptMapHashes, SummaryHashes } from './index'
 import * as Comm from '../p2p/Comms'
 import * as NodeList from '../p2p/NodeList'
 import {logFlags} from '../logger'
-import { CycleShardData } from '../state-manager/state-manager-types'
-import { profilerInstance } from '../utils/profiler'
+import {CycleShardData} from '../state-manager/state-manager-types'
+import {profilerInstance} from '../utils/profiler'
 
 /** TYPES */
 
@@ -24,9 +24,9 @@ type Collectors = Map<Message['cycle'], Collector>
 export type Message = {
   cycle: number
   data: {
-    partitionHash: any,
-    receiptMapHash: any,
-    summaryHash: any,
+    partitionHash: any
+    receiptMapHash: any
+    summaryHash: any
   }
   sender: string
 }
@@ -65,17 +65,24 @@ export class Collector extends EventEmitter {
     let cycle
     // Loop through messages and add to hash tally
     for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
-      let message = messages[messageIndex]
+      const message = messages[messageIndex]
       // if (logFlags.console) console.log(`Processing message ${messageIndex}`, message.sender)
-      let partitionHashData = message.data.partitionHash
-      let receiptHashData = message.data.receiptMapHash
-      let summaryHashData = message.data.summaryHash
+      const partitionHashData = message.data.partitionHash
+      const receiptHashData = message.data.receiptMapHash
+      const summaryHashData = message.data.summaryHash
       if (!cycle) cycle = message.cycle
 
       // forward snapshot gossip if gossip cycle is same as current cycle
       if (this.shard.cycleNumber === message.cycle) {
         if (!forwardedGossips.has(message.sender)) {
-          Comm.sendGossip('snapshot_gossip', message, '', null, NodeList.byIdOrder, false)
+          Comm.sendGossip(
+            'snapshot_gossip',
+            message,
+            '',
+            null,
+            NodeList.byIdOrder,
+            false
+          )
           forwardedGossips.set(message.sender, true)
         } else if (forwardedGossips.has(message.sender)) {
           continue
@@ -94,23 +101,23 @@ export class Collector extends EventEmitter {
       }
 
       for (let i = 0; i < Object.keys(partitionHashData).length; i++) {
-        let partitionId = parseInt(Object.keys(partitionHashData)[i])
-          let partitionShardData = parititionShardDataMap.get(partitionId)
+        const partitionId = parseInt(Object.keys(partitionHashData)[i])
+        const partitionShardData = parititionShardDataMap.get(partitionId)
         if (!partitionShardData) {
           // if (logFlags.console) console.log('No partition shard data for partition: ', partitionId)
           continue
         }
-        let coveredBy = partitionShardData.coveredBy
-        let isSenderCoverThePartition = coveredBy[message.sender]
+        const coveredBy = partitionShardData.coveredBy
+        const isSenderCoverThePartition = coveredBy[message.sender]
         if (!isSenderCoverThePartition) {
           // if (logFlags.console) console.log(`Sender ${message.sender} does not cover this partition ${partitionId}`)
           delete partitionHashData[partitionId]
           continue
         }
-        let currentCount = gossipCounterByPartition.get(partitionId)
-        let requiredCount = Math.ceil(Object.keys(coveredBy).length / 2)
-        if(currentCount) {
-          let newCount = currentCount + 1
+        const currentCount = gossipCounterByPartition.get(partitionId)
+        const requiredCount = Math.ceil(Object.keys(coveredBy).length / 2)
+        if (currentCount) {
+          const newCount = currentCount + 1
           gossipCounterByPartition.set(partitionId, newCount)
           if (newCount >= requiredCount) {
             readyPartitions.set(partitionId, true)
@@ -131,7 +138,7 @@ export class Collector extends EventEmitter {
         } else if (this.dataHashCounter.has(partitionId)) {
           const counterMap = this.dataHashCounter.get(partitionId)
           const currentCount = counterMap.get(hash)
-          if(currentCount) counterMap.set(hash, currentCount + 1)
+          if (currentCount) counterMap.set(hash, currentCount + 1)
           else counterMap.set(hash, 1)
         }
       }
@@ -143,7 +150,7 @@ export class Collector extends EventEmitter {
         } else if (this.receiptHashCounter.has(partitionId)) {
           const counterMap = this.receiptHashCounter.get(partitionId)
           const currentCount = counterMap.get(hash)
-          if(currentCount) counterMap.set(hash, currentCount + 1)
+          if (currentCount) counterMap.set(hash, currentCount + 1)
           else counterMap.set(hash, 1)
         }
       }
@@ -155,7 +162,7 @@ export class Collector extends EventEmitter {
         } else if (this.summaryHashCounter.has(partitionId)) {
           const counterMap = this.summaryHashCounter.get(partitionId)
           const currentCount = counterMap.get(hash)
-          if(currentCount) counterMap.set(hash, currentCount + 1)
+          if (currentCount) counterMap.set(hash, currentCount + 1)
           else counterMap.set(hash, 1)
         }
       }
@@ -166,7 +173,10 @@ export class Collector extends EventEmitter {
     // if (logFlags.console) console.log(`Gossip counter for each partition (cycle: ${cycle}): `, gossipCounterByPartition)
     // if (logFlags.console) console.log(`Ready partitions for (cycle: ${cycle}): `, readyPartitions)
 
-    if (readyPartitions.size >= this.shard.shardGlobals.numPartitions && this.dataHashCounter.size === this.shard.shardGlobals.numPartitions + 1) {
+    if (
+      readyPartitions.size >= this.shard.shardGlobals.numPartitions &&
+      this.dataHashCounter.size === this.shard.shardGlobals.numPartitions + 1
+    ) {
       // +1 is for virtual global partition
 
       // decide winner partition hashes based on hash tally
@@ -185,7 +195,11 @@ export class Collector extends EventEmitter {
           }
         }
         possibleHashes = possibleHashes.sort()
-        if (logFlags.console) console.log(`DATA HASH COUNTER: Cycle ${cycle}, Partition ${partitionId} => `, counterMap)
+        if (logFlags.console)
+          console.log(
+            `DATA HASH COUNTER: Cycle ${cycle}, Partition ${partitionId} => `,
+            counterMap
+          )
         if (possibleHashes.length > 0) selectedHash = possibleHashes[0]
         if (selectedHash) this.allDataHashes.set(partitionId, selectedHash)
       }
@@ -209,7 +223,8 @@ export class Collector extends EventEmitter {
 
         // if (logFlags.console) console.log(`RECEIPT HASH COUNTER: Cycle ${cycle}, Partition ${partitionId} => `, counterMap)
         if (possibleHashes.length > 0) selectedHash = possibleHashes[0]
-        if (selectedHash) this.allReceiptMapHashes.set(partitionId, selectedHash)
+        if (selectedHash)
+          this.allReceiptMapHashes.set(partitionId, selectedHash)
       }
 
       // decide winner summary hashes based on hash tally
@@ -247,18 +262,18 @@ export class Collector extends EventEmitter {
 // Registers partition gossip handler
 export function initGossip() {
   if (logFlags.console) console.log('registering gossip handler...')
-  registerGossipHandler('snapshot_gossip', (message) => {
+  registerGossipHandler('snapshot_gossip', message => {
     profilerInstance.scopedProfileSectionStart('snapshot_gossip')
     try {
-      let { cycle } = message
-      let collector = collectors.get(cycle)
+      const {cycle} = message
+      const collector = collectors.get(cycle)
       if (collector) {
         // if (logFlags.console) console.log('A collector exists. Processing new incoming message', message.sender)
         collector.process([message])
       } else {
         // if (logFlags.console) console.log('No collector found. Adding gossip to queue', message.sender)
         if (queue.has(cycle)) {
-          let messageList = queue.get(cycle)
+          const messageList = queue.get(cycle)
           messageList.push(message)
         } else {
           queue.set(cycle, [message])
@@ -272,7 +287,8 @@ export function initGossip() {
 
 // Make a Collector to handle gossip for the given cycle
 export function newCollector(shard: CycleShardData): Collector {
-  if (logFlags.console) console.log(`Initiating a new collector for cycle ${shard.cycleNumber}`)
+  if (logFlags.console)
+    console.log(`Initiating a new collector for cycle ${shard.cycleNumber}`)
   gossipCounterByPartition = new Map()
   readyPartitions = new Map()
   forwardedGossips = new Map()
@@ -286,7 +302,10 @@ export function newCollector(shard: CycleShardData): Collector {
   return collector
 }
 
-export function processMessagesInGossipQueue(shard: CycleShardData, collector: Collector) {
+export function processMessagesInGossipQueue(
+  shard: CycleShardData,
+  collector: Collector
+) {
   // Pass any messages in the queue for the given cycle to this collector
   const messages = queue.get(shard.cycleNumber)
   if (messages) {
@@ -296,8 +315,8 @@ export function processMessagesInGossipQueue(shard: CycleShardData, collector: C
 }
 
 function convertObjectToHashMap(obj): hashMap {
-  let convertedMap = new Map() as hashMap
-  for (let key in obj) {
+  const convertedMap = new Map() as hashMap
+  for (const key in obj) {
     convertedMap.set(parseInt(key), obj[key])
   }
   return convertedMap

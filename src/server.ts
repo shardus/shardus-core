@@ -1,10 +1,7 @@
-import {
-  join,
-  resolve,
-} from 'path'
+import {join, resolve} from 'path'
 
 import Shardus from './shardus'
-import { readJSONDir } from './utils'
+import {readJSONDir} from './utils'
 
 const baseDirPath = resolve(process.argv[2] || './')
 

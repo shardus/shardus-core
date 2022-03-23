@@ -1,4 +1,4 @@
-import { logFlags } from '../../logger'
+import {logFlags} from '../../logger'
 
 type Comparator<T, E = T> = (a: E, b: T) => number
 

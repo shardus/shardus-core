@@ -3,11 +3,11 @@ import * as Sequelize from 'sequelize'
 const acceptedTx = [
   'acceptedTxs',
   {
-    txId: { type: Sequelize.STRING, allowNull: false, primaryKey: true },
-    timestamp: { type: Sequelize.BIGINT, allowNull: false },
-    data: { type: Sequelize.JSON, allowNull: false },
-    keys: { type: Sequelize.JSON, allowNull: false },
-  }
+    txId: {type: Sequelize.STRING, allowNull: false, primaryKey: true},
+    timestamp: {type: Sequelize.BIGINT, allowNull: false},
+    data: {type: Sequelize.JSON, allowNull: false},
+    keys: {type: Sequelize.JSON, allowNull: false},
+  },
 ]
 
 export default acceptedTx

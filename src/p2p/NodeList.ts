@@ -1,15 +1,15 @@
-import { Logger } from 'log4js'
-import { stringify } from '@shardus/crypto-utils'
-import { P2P } from '@shardus/types'
+import {Logger} from 'log4js'
+import {stringify} from '@shardus/crypto-utils'
+import {P2P} from '@shardus/types'
 import {
   binarySearch,
   insertSorted,
   propComparator,
-  propComparator2
+  propComparator2,
 } from '../utils'
-import { crypto, logger } from './Context'
+import {crypto, logger} from './Context'
 import * as CycleChain from './CycleChain'
-import { id } from './Self'
+import {id} from './Self'
 import deepmerge = require('deepmerge')
 
 /** STATE */
@@ -17,7 +17,10 @@ import deepmerge = require('deepmerge')
 let p2pLogger: Logger
 
 export let nodes: Map<P2P.NodeListTypes.Node['id'], P2P.NodeListTypes.Node> // In order of joinRequestTimestamp [OLD, ..., NEW]
-export let byPubKey: Map<P2P.NodeListTypes.Node['publicKey'], P2P.NodeListTypes.Node>
+export let byPubKey: Map<
+  P2P.NodeListTypes.Node['publicKey'],
+  P2P.NodeListTypes.Node
+>
 export let byIpPort: Map<string, P2P.NodeListTypes.Node>
 export let byJoinOrder: P2P.NodeListTypes.Node[] // In order of joinRequestTimestamp [OLD, ..., NEW]
 export let byIdOrder: P2P.NodeListTypes.Node[]
@@ -100,22 +103,22 @@ export function removeNode(id) {
   }
 
   // Remove from arrays
-  idx = binarySearch(activeOthersByIdOrder, { id }, propComparator('id'))
+  idx = binarySearch(activeOthersByIdOrder, {id}, propComparator('id'))
   if (idx >= 0) activeOthersByIdOrder.splice(idx, 1)
 
-  idx = binarySearch(activeByIdOrder, { id }, propComparator('id'))
+  idx = binarySearch(activeByIdOrder, {id}, propComparator('id'))
   if (idx >= 0) activeByIdOrder.splice(idx, 1)
 
-  idx = binarySearch(othersByIdOrder, { id }, propComparator('id'))
+  idx = binarySearch(othersByIdOrder, {id}, propComparator('id'))
   if (idx >= 0) othersByIdOrder.splice(idx, 1)
 
-  idx = binarySearch(byIdOrder, { id }, propComparator('id'))
+  idx = binarySearch(byIdOrder, {id}, propComparator('id'))
   if (idx >= 0) byIdOrder.splice(idx, 1)
 
   const joinRequestTimestamp = nodes.get(id).joinRequestTimestamp
   idx = binarySearch(
     byJoinOrder,
-    { joinRequestTimestamp, id },
+    {joinRequestTimestamp, id},
     propComparator2('joinRequestTimestamp', 'id')
   )
   if (idx >= 0) byJoinOrder.splice(idx, 1)
@@ -138,7 +141,11 @@ export function updateNode(update: P2P.NodeListTypes.Update) {
       node[key] = update[key]
     }
     //test if this node is in the active list already.  if it is not, then we can add it
-    let idx = binarySearch(activeByIdOrder, { id:node.id }, propComparator('id'))
+    const idx = binarySearch(
+      activeByIdOrder,
+      {id: node.id},
+      propComparator('id')
+    )
     if (idx < 0) {
       // Add the node to active arrays, if needed
       if (update.status === P2P.P2PTypes.NodeStatus.ACTIVE) {
@@ -179,24 +186,24 @@ export function getDebug() {
       hash:                  ${crypto.hash(byJoinOrder).slice(0, 5)}
       byJoinOrder:           [${byJoinOrder
         .map(
-          (node) =>
+          node =>
             `${node.externalIp}:${node.externalPort}-${node.counterRefreshed}`
         )
         .join()}]
       byIdOrder:             [${byIdOrder
         .map(
-          (node) =>
+          node =>
             `${node.externalIp}:${node.externalPort}` + '-x' + idTrim(node.id)
         )
         .join()}]
       othersByIdOrder:       [${othersByIdOrder.map(
-        (node) => `${node.externalIp}:${node.externalPort}`
+        node => `${node.externalIp}:${node.externalPort}`
       )}]
       activeByIdOrder:       [${activeByIdOrder.map(
-        (node) => `${node.externalIp}:${node.externalPort}`
+        node => `${node.externalIp}:${node.externalPort}`
       )}]
       activeOthersByIdOrder: [${activeOthersByIdOrder.map(
-        (node) => `${node.externalIp}:${node.externalPort}`
+        node => `${node.externalIp}:${node.externalPort}`
       )}]
       `
   if (VERBOSE)

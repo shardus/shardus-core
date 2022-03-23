@@ -1,9 +1,11 @@
 import deepmerge from 'deepmerge'
-import { P2P } from '@shardus/types'
-import { reversed } from '../utils'
+import {P2P} from '@shardus/types'
+import {reversed} from '../utils'
 import * as CycleCreator from './CycleCreator'
 
-export function parse(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
+export function parse(
+  record: P2P.CycleCreatorTypes.CycleRecord
+): P2P.CycleParserTypes.Change {
   const changes = CycleCreator.submodules.map(submodule =>
     submodule.parseRecord(record)
   )

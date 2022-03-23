@@ -1,22 +1,20 @@
-import { Logger } from 'log4js'
-import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
+import {Logger} from 'log4js'
+import {logFlags} from '../logger'
+import {P2P} from '@shardus/types'
 import * as utils from '../utils'
-import { validateTypes } from '../utils'
+import {validateTypes} from '../utils'
 import * as Comms from './Comms'
-import { config, crypto, logger } from './Context'
+import {config, crypto, logger} from './Context'
 import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { profilerInstance } from '../utils/profiler'
+import {profilerInstance} from '../utils/profiler'
 
 /** ROUTES */
 
-const gossipActiveRoute: P2P.P2PTypes.GossipHandler<P2P.ActiveTypes.SignedActiveRequest> = (
-  payload,
-  sender,
-  tracker
-) => {
+const gossipActiveRoute: P2P.P2PTypes.GossipHandler<
+  P2P.ActiveTypes.SignedActiveRequest
+> = (payload, sender, tracker) => {
   profilerInstance.scopedProfileSectionStart('gossip-active', true)
   try {
     if (logFlags.p2pNonFatal)
@@ -32,7 +30,7 @@ const gossipActiveRoute: P2P.P2PTypes.GossipHandler<P2P.ActiveTypes.SignedActive
       warn('bad input ' + err)
       return
     }
-    err = validateTypes(payload.sign, { owner: 's', sig: 's' })
+    err = validateTypes(payload.sign, {owner: 's', sig: 's'})
     if (err) {
       warn('bad input sign ' + err)
       return
@@ -78,7 +76,7 @@ let p2pLogger: Logger
 let activeRequests: Map<
   P2P.NodeListTypes.Node['publicKey'],
   P2P.ActiveTypes.SignedActiveRequest
-  >
+>
 let queuedRequest: P2P.ActiveTypes.ActiveRequest
 
 /** FUNCTIONS */
@@ -112,7 +110,7 @@ export function getTxs(): P2P.ActiveTypes.Txs {
 }
 
 export function validateRecordTypes(rec: P2P.ActiveTypes.Record): string {
-  let err = validateTypes(rec, {
+  const err = validateTypes(rec, {
     active: 'n',
     activated: 'a',
     activatedPublicKeys: 'a',
@@ -130,8 +128,8 @@ export function validateRecordTypes(rec: P2P.ActiveTypes.Record): string {
 }
 
 export function dropInvalidTxs(txs: P2P.ActiveTypes.Txs): P2P.ActiveTypes.Txs {
-  const active = txs.active.filter((request) => validateActiveRequest(request))
-  return { active }
+  const active = txs.active.filter(request => validateActiveRequest(request))
+  return {active}
 }
 
 export function updateRecord(
@@ -167,7 +165,7 @@ export function parseRecord(
   }
 
   // For all nodes described by activated, make an update to change their status to active
-  const updated = record.activated.map((id) => ({
+  const updated = record.activated.map(id => ({
     id,
     activeTimestamp: record.start,
     status: P2P.P2PTypes.NodeStatus.ACTIVE,
@@ -204,7 +202,7 @@ export function sendRequests() {
     )
 
     Self.emitter.once('active', () => {
-      info(`Went active!`)
+      info('Went active!')
       clearTimeout(activeTimeout)
     })
   }

@@ -2,21 +2,21 @@ import * as events from 'events'
 import got from 'got'
 import * as log4js from 'log4js'
 import * as http from '../http'
-import { logFlags } from '../logger'
+import {logFlags} from '../logger'
 import * as network from '../network'
-import { P2P } from '@shardus/types'
+import {P2P} from '@shardus/types'
 import * as snapshot from '../snapshot'
 import * as utils from '../utils'
 import * as Archivers from './Archivers'
 import * as Comms from './Comms'
 import * as Context from './Context'
 import * as CycleCreator from './CycleCreator'
-import { calcIncomingTimes } from './CycleCreator'
+import {calcIncomingTimes} from './CycleCreator'
 import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
-import { nestedCountersInstance } from '../utils/nestedCounters'
+import {nestedCountersInstance} from '../utils/nestedCounters'
 
 /** STATE */
 
@@ -82,7 +82,7 @@ export async function startup(): Promise<boolean> {
       }
 
       // Otherwise, try to join the network
-      ;({ isFirst, id } = await joinNetwork(activeNodes, firstTime))
+      ({isFirst, id} = await joinNetwork(activeNodes, firstTime))
     } catch (err) {
       warn('Error while joining network:')
       warn(err)
@@ -96,7 +96,7 @@ export async function startup(): Promise<boolean> {
     firstTime = false
   } while (utils.isUndefined(isFirst) || utils.isUndefined(id))
 
-  p2pSyncStart = Date.now() 
+  p2pSyncStart = Date.now()
 
   if (logFlags.p2pNonFatal) info('Emitting `joined` event.')
   emitter.emit('joined', id, publicKey)
@@ -110,8 +110,8 @@ export async function startup(): Promise<boolean> {
   // Start creating cycle records
   await CycleCreator.startCycles()
 
-  p2pSyncEnd = Date.now() 
-  p2pJoinTime = (p2pSyncEnd-p2pSyncStart)/1000
+  p2pSyncEnd = Date.now()
+  p2pJoinTime = (p2pSyncEnd - p2pSyncStart) / 1000
   if (logFlags.p2pNonFatal) info('Emitting `initialized` event.' + p2pJoinTime)
   emitter.emit('initialized')
 
@@ -137,19 +137,22 @@ async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]) {
   return false
 }
 
-async function joinNetwork(activeNodes: P2P.P2PTypes.Node[], firstTime: boolean) {
+async function joinNetwork(
+  activeNodes: P2P.P2PTypes.Node[],
+  firstTime: boolean
+) {
   // Check if you're the first node
   const isFirst = await discoverNetwork(activeNodes)
   if (isFirst) {
     // Join your own network and give yourself an ID
     const id = await Join.firstJoin()
     // Return id and isFirst
-    return { isFirst, id }
+    return {isFirst, id}
   }
 
   // Remove yourself from activeNodes if you are present in them
   const ourIdx = activeNodes.findIndex(
-    (node) =>
+    node =>
       node.ip === network.ipInfo.externalIp &&
       node.port === network.ipInfo.externalPort
   )
@@ -162,7 +165,7 @@ async function joinNetwork(activeNodes: P2P.P2PTypes.Node[], firstTime: boolean)
     // Check if joined by trying to set our node ID
     const id = await Join.fetchJoined(activeNodes)
     if (id) {
-      return { isFirst, id }
+      return {isFirst, id}
     }
   }
 
@@ -173,7 +176,7 @@ async function joinNetwork(activeNodes: P2P.P2PTypes.Node[], firstTime: boolean)
   const request = await Join.createJoinRequest(latestCycle.previous)
 
   // Figure out when Q1 is from the latestCycle
-  const { startQ1, startQ4 } = calcIncomingTimes(latestCycle)
+  const {startQ1, startQ4} = calcIncomingTimes(latestCycle)
   if (logFlags.p2pNonFatal)
     info(`Next cycles Q1 start ${startQ1}; Currently ${Date.now()}`)
 
@@ -194,7 +197,7 @@ async function joinNetwork(activeNodes: P2P.P2PTypes.Node[], firstTime: boolean)
     info('Waiting approx. one cycle then checking again...')
 
   // Wait until a Q4 before we loop ..
-  // This is a bit faster than before and should allow nodes to try joining 
+  // This is a bit faster than before and should allow nodes to try joining
   // without skipping a cycle
   let untilQ4 = startQ4 - Date.now()
   while (untilQ4 < 0) {
@@ -224,7 +227,7 @@ async function syncCycleChain() {
 
       // Remove yourself from activeNodes if you are present in them
       const ourIdx = activeNodes.findIndex(
-        (node) =>
+        node =>
           node.ip === network.ipInfo.externalIp &&
           node.port === network.ipInfo.externalPort
       )
@@ -249,11 +252,8 @@ async function contactArchiver() {
   if (!Context.crypto.verify(activeNodesSigned, archiver.publicKey)) {
     throw Error('Fatal: _getSeedNodes seed list was not signed by archiver!')
   }
-  const joinRequest:
-    | P2P.ArchiversTypes.Request
-    | undefined = activeNodesSigned.joinRequest as
-    | P2P.ArchiversTypes.Request
-    | undefined
+  const joinRequest: P2P.ArchiversTypes.Request | undefined =
+    activeNodesSigned.joinRequest as P2P.ArchiversTypes.Request | undefined
   if (joinRequest) {
     if (Archivers.addJoinRequest(joinRequest) === false) {
       throw Error(
@@ -369,10 +369,15 @@ async function getActiveNodesFromArchiver() {
       nodeListUrl,
       Context.crypto.sign({
         nodeInfo,
-      }), false, 5000
+      }),
+      false,
+      5000
     )
   } catch (e) {
-    nestedCountersInstance.countRareEvent('fatal', 'Could not get seed list from seed node server')
+    nestedCountersInstance.countRareEvent(
+      'fatal',
+      'Could not get seed list from seed node server'
+    )
     throw Error(
       `Fatal: Could not get seed list from seed node server ${nodeListUrl}: ` +
         e.message
@@ -403,9 +408,9 @@ export async function getFullNodesFromArchiver() {
 function getPublicNodeInfo() {
   const publicKey = Context.crypto.getPublicKey()
   const curvePublicKey = Context.crypto.convertPublicKeyToCurve(publicKey)
-  const status = { status: getNodeStatus(id) }
+  const status = {status: getNodeStatus(id)}
   const nodeInfo = Object.assign(
-    { id, publicKey, curvePublicKey },
+    {id, publicKey, curvePublicKey},
     network.ipInfo,
     status
   )
@@ -419,7 +424,7 @@ function getNodeStatus(nodeId) {
 }
 
 export function getThisNodeInfo() {
-  const { externalIp, externalPort, internalIp, internalPort } = network.ipInfo
+  const {externalIp, externalPort, internalIp, internalPort} = network.ipInfo
   const publicKey = Context.crypto.getPublicKey()
   // TODO: Change this to actual selectable address
   const address = publicKey

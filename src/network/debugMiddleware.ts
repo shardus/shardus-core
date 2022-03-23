@@ -1,4 +1,4 @@
-import { isDebugMode } from '../debug'
+import {isDebugMode} from '../debug'
 
 export const isDebugModeMiddleware = (_req, res, next) => {
   const isDebug = isDebugMode()
@@ -6,7 +6,7 @@ export const isDebugModeMiddleware = (_req, res, next) => {
   if (!isDebug) {
     return res.status(403).json({
       status: 403,
-      message: 'FORBIDDEN. Endpoint is only available in debug mode.'
+      message: 'FORBIDDEN. Endpoint is only available in debug mode.',
     })
   }
 

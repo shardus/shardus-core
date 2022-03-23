@@ -1,21 +1,21 @@
 import * as crypto from '@shardus/crypto-utils'
-import Log4js from 'log4js'
-import { fork, ChildProcess } from 'child_process'
+import {ChildProcess, fork} from 'child_process'
+import * as Log4js from 'log4js'
+import Logger from '../logger'
 import * as Shardus from '../shardus/shardus-types'
-import Logger, {logFlags} from '../logger'
 import Storage from '../storage'
 
 interface Crypto {
   config: Shardus.ServerConfiguration
   mainLogger: Log4js.Logger
   storage: Storage
-  keypair: any
+  keypair: crypto.Keypair
   curveKeypair: {
-    publicKey?: crypto.curvePublicKey
-    secretKey?: crypto.curveSecretKey
+    publicKey: crypto.curvePublicKey
+    secretKey: crypto.curveSecretKey
   }
-  powGenerators: { [name: string]: ChildProcess }
-  sharedKeys: { [name: string]: Buffer }
+  powGenerators: {[name: string]: ChildProcess}
+  sharedKeys: {[name: string]: Buffer}
 }
 
 class Crypto {
@@ -27,16 +27,15 @@ class Crypto {
     this.config = config
     this.mainLogger = logger.getLogger('main')
     this.storage = storage
-    this.keypair = {}
-    this.curveKeypair = {}
-    this.powGenerators = {}
-    this.sharedKeys = {}
   }
 
   async init() {
+    if (typeof this?.config?.crypto?.hashKey !== 'string') {
+      throw new Error('config.server.crypto.hashKey is not a string.')
+    }
     crypto.init(this.config.crypto.hashKey)
-    const keypair = await this.storage.getProperty('keypair')
-    if (!keypair) {
+    this.keypair = await this.storage.getProperty('keypair')
+    if (isKeypair(this.keypair) === false) {
       this.mainLogger.info(
         'Keypair unable to be loaded from database. Generating new keypair...'
       )
@@ -47,7 +46,6 @@ class Crypto {
       )
     } else {
       this.mainLogger.info('Keypair loaded successfully from database.')
-      this.keypair = keypair
     }
     this.curveKeypair = {
       secretKey: crypto.convertSkToCurve(this.keypair.secretKey),
@@ -82,43 +80,43 @@ class Crypto {
     return sharedKey
   }
 
-  tag(obj: any, recipientCurvePk: crypto.curvePublicKey) {
+  tag(obj: crypto.LooseObject, recipientCurvePk: crypto.curvePublicKey) {
     const objCopy = JSON.parse(crypto.stringify(obj))
     const sharedKey = this.getSharedKey(recipientCurvePk)
     crypto.tagObj(objCopy, sharedKey)
     return objCopy
   }
 
-  authenticate(obj: any, senderCurvePk: crypto.curvePublicKey) {
+  authenticate(obj: crypto.TaggedObject, senderCurvePk: crypto.curvePublicKey) {
     const sharedKey = this.getSharedKey(senderCurvePk)
     return crypto.authenticateObj(obj, sharedKey)
   }
 
-  sign(obj: any) {
+  sign(obj: crypto.LooseObject) {
     const objCopy = JSON.parse(crypto.stringify(obj))
     crypto.signObj(objCopy, this.keypair.secretKey, this.keypair.publicKey)
     return objCopy
   }
 
-  verify(obj, expectedPk?) {
+  verify(obj: crypto.SignedObject, expectedPk?: string | undefined) {
     if (expectedPk) {
       if (obj.sign.owner !== expectedPk) return false
     }
     return crypto.verifyObj(obj)
   }
 
-  hash(obj) {
+  hash(obj: crypto.LooseObject) {
     if (!obj.sign) {
       return crypto.hashObj(obj)
     }
     return crypto.hashObj(obj, true)
   }
 
-  isGreaterHash(hash1, hash2) {
+  isGreaterHash(hash1: string | number, hash2: string | number) {
     return hash1 > hash2
   }
 
-  getComputeProofOfWork(seed, difficulty) {
+  getComputeProofOfWork(seed: string, difficulty: number) {
     return this._runProofOfWorkGenerator(
       './computePowGenerator.js',
       seed,
@@ -134,13 +132,20 @@ class Crypto {
     this.powGenerators = {}
   }
 
-  _runProofOfWorkGenerator(generator: string, seed, difficulty: number) {
+  _runProofOfWorkGenerator(
+    generator: string,
+    seed: string,
+    difficulty: number
+  ) {
     // Fork a child process to compute the PoW, if it doesn't exist
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore for seems to have a funky definition so ignoring it for now.  could be good to go back and research this.
     if (!this.powGenerators[generator]) {
-      this.powGenerators[generator] = fork(generator, undefined, { cwd: __dirname })
+      this.powGenerators[generator] = fork(generator, undefined, {
+        cwd: __dirname,
+      })
     }
-    const promise = new Promise((resolve, reject) => {
+    const promise = new Promise(resolve => {
       this.powGenerators[generator].on('message', powObj => {
         this._stopProofOfWorkGenerator(generator)
         resolve(powObj)
@@ -148,7 +153,7 @@ class Crypto {
     })
     // Tell child to compute PoW
     if (!this.powGenerators[generator].killed) {
-      this.powGenerators[generator].send({ seed, difficulty })
+      this.powGenerators[generator].send({seed, difficulty})
     }
     // Return a promise the resolves to a valid { nonce, hash }
     return promise
@@ -156,7 +161,7 @@ class Crypto {
 
   _stopProofOfWorkGenerator(generator: string) {
     if (!this.powGenerators[generator]) return Promise.resolve('not running')
-    const promise = new Promise((resolve, reject) => {
+    const promise = new Promise(resolve => {
       this.powGenerators[generator].on('close', signal => {
         delete this.powGenerators[generator]
         resolve(signal)
@@ -167,6 +172,12 @@ class Crypto {
     }
     return promise
   }
+}
+
+function isKeypair(keypair: unknown): keypair is crypto.Keypair {
+  if (typeof (keypair as crypto.Keypair)?.publicKey !== 'string') return false
+  if (typeof (keypair as crypto.Keypair)?.secretKey !== 'string') return false
+  return true
 }
 
 // tslint:disable-next-line: no-default-export

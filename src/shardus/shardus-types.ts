@@ -1,4 +1,4 @@
-import { P2P } from '@shardus/types'
+import {P2P} from '@shardus/types'
 export type Node = P2P.NodeListTypes.Node
 export type Cycle = P2P.CycleCreatorTypes.CycleRecord
 //import { RequestHandler } from "express"; //express was causing problems.
@@ -150,7 +150,7 @@ export interface App {
    *
    * Returns whether tx pass or failed validation plus the reason why
    */
-  validate(tx: OpaqueTransaction): { success: boolean; reason: string }
+  validate(tx: OpaqueTransaction): {success: boolean; reason: string}
 
   /**
    * Cracks open the transaction and returns its timestamp, id (hash), and any
@@ -176,7 +176,10 @@ export interface App {
   /**
    * A function responsible for applying an accepted transaction
    */
-  apply: (inTx: OpaqueTransaction, wrappedStates: { [accountId: string]: WrappedData }) => ApplyResponse
+  apply: (
+    inTx: OpaqueTransaction,
+    wrappedStates: {[accountId: string]: WrappedData}
+  ) => ApplyResponse
 
   /**
    * This is called after consensus has received or produced a receipt and the trasaction is approved.
@@ -221,7 +224,6 @@ export interface App {
   getTimestampFromTransaction: (
     inTx: OpaqueTransaction // it is better to not use IncomingTransaction
   ) => number
-
 
   /**
    * A function that returns the Keys for the accounts involved in the transaction
@@ -342,10 +344,11 @@ export interface ApplyResponse {
    * Can include accounts that were not in the initial list of involved accounts
    */
   accountWrites: {
-    accountId:string,
-    data: WrappedResponse,
-    txId: string,
-    timestamp: number}[]
+    accountId: string
+    data: WrappedResponse
+    txId: string
+    timestamp: number
+  }[]
   /**
    * a blob for the app to define.
    * This gets passed to post apply
@@ -740,41 +743,49 @@ export interface LogsConfiguration {
     appenders?: {
       out?: {
         type?: string
+        filename?: string
       }
       main?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        filename?: string
       }
       fatal?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        filename?: string
       }
       errorFile?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        filename?: string
       }
       errors?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        filename?: string
       }
       net?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        filename?: string
       }
       playback?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        filename?: string
       }
       shardDump?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        filename?: string
       }
     }
   }
@@ -854,4 +865,4 @@ type ObjectAlias = object
 /**
  * OpaqueTransaction is the way shardus should see transactions internally. it should not be able to mess with parameters individually
  */
-export interface OpaqueTransaction extends ObjectAlias {}
+export type OpaqueTransaction = ObjectAlias

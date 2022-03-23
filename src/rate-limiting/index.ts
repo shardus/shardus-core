@@ -1,6 +1,6 @@
 import LoadDetection from '../load-detection'
-import { NodeLoad } from '../utils/profiler'
-import { nestedCountersInstance } from '../utils/nestedCounters'
+import {NodeLoad} from '../utils/profiler'
+import {nestedCountersInstance} from '../utils/nestedCounters'
 
 interface RateLimiting {
   loadDetection: LoadDetection
@@ -17,36 +17,45 @@ class RateLimiting {
 
   calculateThrottlePropotion(load, limit) {
     const throttleRange = 1 - limit
-    const throttleAmount = load- limit
+    const throttleAmount = load - limit
     const throttleProportion = throttleAmount / throttleRange
     return throttleProportion
   }
 
   getWinningLoad(nodeLoad, queueLoad) {
-    let loads = {...nodeLoad, ...queueLoad}
-    let maxThrottle: number = 0
+    const loads = {...nodeLoad, ...queueLoad}
+    let maxThrottle = 0
     let loadType: any
-    for (let key in loads) {
-      if(this.loadLimit[key] == null){
+    for (const key in loads) {
+      if (this.loadLimit[key] == null) {
         continue //not checking load limit for undefined or 0 limit.
       }
       if (loads[key] < this.loadLimit[key]) continue
-      let throttle = this.calculateThrottlePropotion(loads[key], this.loadLimit[key])
+      const throttle = this.calculateThrottlePropotion(
+        loads[key],
+        this.loadLimit[key]
+      )
 
-      nestedCountersInstance.countEvent('loadRelated',`ratelimit reached: ${key} > ${this.loadLimit[key]}`)  
+      nestedCountersInstance.countEvent(
+        'loadRelated',
+        `ratelimit reached: ${key} > ${this.loadLimit[key]}`
+      )
       if (throttle > maxThrottle) {
         maxThrottle = throttle
         loadType = key
       }
     }
 
-    if(loadType){
-      nestedCountersInstance.countEvent('loadRelated',`ratelimit winning load factor: ${loadType}`)  
+    if (loadType) {
+      nestedCountersInstance.countEvent(
+        'loadRelated',
+        `ratelimit winning load factor: ${loadType}`
+      )
     }
 
     return {
       throttle: maxThrottle,
-      loadType
+      loadType,
     }
   }
 
@@ -55,7 +64,7 @@ class RateLimiting {
     const nodeLoad = this.loadDetection.getCurrentNodeLoad()
     const queueLoad = this.loadDetection.getQueueLoad()
 
-    let { throttle, loadType } = this.getWinningLoad(nodeLoad, queueLoad)
+    const {throttle, loadType} = this.getWinningLoad(nodeLoad, queueLoad)
 
     if (throttle > 0) {
       // TODO: add counter to track max load type

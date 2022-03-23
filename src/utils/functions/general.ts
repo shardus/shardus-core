@@ -1,4 +1,4 @@
-export const deepCopy = (obj) => {
+export const deepCopy = obj => {
   if (typeof obj !== 'object') {
     throw Error('Given element is not of type object.')
   }
@@ -56,7 +56,7 @@ export const getClosestHash = (targetHash, hashes) => {
   return closest
 }
 
-export const makeShortHash = (x, n = 4) => {
+export const makeShortHash = (x, n = 4): string => {
   if (!x) {
     return x
   }
@@ -86,7 +86,7 @@ export const short = (x: string, n = 4) => {
 }
 
 export const debugExpand = (value: string) => {
-  let res = value.slice(0, 4) + '0'.repeat(55) + value.slice(5, 5 + 5)
+  const res = value.slice(0, 4) + '0'.repeat(55) + value.slice(5, 5 + 5)
   return res
 }
 
@@ -125,7 +125,7 @@ export function validateTypes(inp, def) {
     o: 'object',
   }
   const fields = Object.keys(def)
-  for (let name of fields) {
+  for (const name of fields) {
     const types = def[name]
     const opt = types.substr(-1, 1) === '?' ? 1 : 0
     if (inp[name] === undefined && !opt) return name + ' is required'
@@ -136,7 +136,7 @@ export function validateTypes(inp, def) {
       for (let t = 0; t < types.length - opt; t++) {
         let it = map[typeof inp[name]]
         it = Array.isArray(inp[name]) ? 'a' : it
-        let is = types.substr(t, 1)
+        const is = types.substr(t, 1)
         if (it === is) {
           found = 1
           break
@@ -148,15 +148,14 @@ export function validateTypes(inp, def) {
   return ''
 }
 
-export function errorToStringFull(error){
+export function errorToStringFull(error) {
   return `${error.name}: ${error.message} at ${error.stack}`
 }
 
-
-export function sumObject(sumObject, toAddObject){
+export function sumObject(sumObject, toAddObject) {
   for (const [key, val] of Object.entries(sumObject)) {
-    let otherVal = toAddObject[key]
-    if(otherVal == null){
+    const otherVal = toAddObject[key]
+    if (otherVal == null) {
       continue
     }
     switch (typeof val) {
@@ -172,7 +171,7 @@ export function sumObject(sumObject, toAddObject){
 // @param {LiteralObject} `obj` object to be genrate schema for
 // @return {LiteralObject} will return schema object
 // This function generate a schema (object) of the object it has been fed
-export function generateObjectSchema(obj, options = { arrTypeDiversity: false }) {
+export function generateObjectSchema(obj, options = {arrTypeDiversity: false}) {
   const schema = {}
 
   if (Array.isArray(obj)) {
@@ -184,9 +183,13 @@ export function generateObjectSchema(obj, options = { arrTypeDiversity: false })
   for (const [key, value] of Object.entries(obj)) {
     if (obj.hasOwnProperty(key) && obj[key] !== null) {
       if (value.constructor === Object) {
-        schema[key] = generateObjectSchema(value, { arrTypeDiversity: options.arrTypeDiversity})
+        schema[key] = generateObjectSchema(value, {
+          arrTypeDiversity: options.arrTypeDiversity,
+        })
       } else if (Array.isArray(value)) {
-        schema[key] = generateArraySchema(value, { diversity: options.arrTypeDiversity})
+        schema[key] = generateArraySchema(value, {
+          diversity: options.arrTypeDiversity,
+        })
       } else {
         schema[key] = typeof value
       }
@@ -206,11 +209,14 @@ export function generateObjectSchema(obj, options = { arrTypeDiversity: false })
 // [new Date(), new Date()]     -> 'object[]'
 // [[1,3,2],[1,3,4]]            -> 'array[]'
 // [new Date(), 'false', 1]     -> 'any[]' if options.diversity set true
-export function generateArraySchema(arr: unknown[], options = { diversity : false}): string {
+export function generateArraySchema(
+  arr: unknown[],
+  options = {diversity: false}
+): string {
   let schema: string
 
   for (let i = 0; i < arr.length; i++) {
-    // let's return 'any' when array is holding multiple types 
+    // let's return 'any' when array is holding multiple types
     if (i > 0 && arr[i].constructor !== arr[i - 1].constructor) {
       if (options.diversity) {
         return 'any[]'
@@ -238,25 +244,27 @@ export function generateArraySchema(arr: unknown[], options = { diversity : fals
 // @param {LiteralObject} idol, This is the object the function will hold standard to
 // @param {LiteralObject} admirer, This is the object the function compare against standard object idol
 // Note: these positional parameter matter at which position the object is passed to
-// This first parameter idol object will be idolized 
+// This first parameter idol object will be idolized
 // and the function will determine if the second parameter (admirer) object fit the idolized object schema
 // Note idol object does not accept type diversive array like this { arr: ['doe', 1, false] } will throw errors.
 export function compareObjectShape(idol, admirer) {
   let isValid
   let error
-  let defectoChain = []
+  const defectoChain = []
 
   let idol_schema
-  try{
-    idol_schema = generateObjectSchema(idol, { arrTypeDiversity: false }) 
+  try {
+    idol_schema = generateObjectSchema(idol, {arrTypeDiversity: false})
   } catch (e) {
     throw new Error('Type varies array detected inside idol object')
   }
-  const admirer_schema = generateObjectSchema(admirer, { arrTypeDiversity: true })
+  const admirer_schema = generateObjectSchema(admirer, {
+    arrTypeDiversity: true,
+  })
 
-  if (JSON.stringify(idol_schema) === JSON.stringify(admirer_schema)){
+  if (JSON.stringify(idol_schema) === JSON.stringify(admirer_schema)) {
     isValid = true
-    return { isValid, error }
+    return {isValid, error}
   }
 
   // this function compare prop types
@@ -286,10 +294,13 @@ export function compareObjectShape(idol, admirer) {
       if (DEFECTOR_FOUND) {
         // save the path to the prop , Example: ['server', 'log']
         defectoChain.push(key)
-        if (worshipped.hasOwnProperty(key) && worshipped[key].constructor === Object) {
+        if (
+          worshipped.hasOwnProperty(key) &&
+          worshipped[key].constructor === Object
+        ) {
           return defectoHunter(worshipped[key], worshipper[key])
         } else {
-          return { [key]: worshipper[key] }
+          return {[key]: worshipper[key]}
         }
       }
     }
@@ -300,5 +311,5 @@ export function compareObjectShape(idol, admirer) {
     defectiveChain: defectoChain,
   }
   isValid = false
-  return { isValid, error }
+  return {isValid, error}
 }

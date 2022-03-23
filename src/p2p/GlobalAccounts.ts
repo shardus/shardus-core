@@ -4,25 +4,27 @@
  * a direct call to whatever Wrapper.p2p was calling
  */
 
-import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
+import {logFlags} from '../logger'
+import {P2P} from '@shardus/types'
 import ShardFunctions from '../state-manager/shardFunctions'
 import * as utils from '../utils'
 import * as Comms from './Comms'
 import * as Context from './Context'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { profilerInstance } from '../utils/profiler'
-import { OpaqueTransaction } from '../shardus/shardus-types'
+import {profilerInstance} from '../utils/profiler'
+import {OpaqueTransaction} from '../shardus/shardus-types'
 
 /** ROUTES */
 // [TODO] - need to add validattion of types to the routes
 
-const makeReceiptRoute: P2P.P2PTypes.Route<P2P.P2PTypes.InternalHandler<
-  P2P.GlobalAccountsTypes.SignedSetGlobalTx,
-  unknown,
-  string
->> = {
+const makeReceiptRoute: P2P.P2PTypes.Route<
+  P2P.P2PTypes.InternalHandler<
+    P2P.GlobalAccountsTypes.SignedSetGlobalTx,
+    unknown,
+    string
+  >
+> = {
   name: 'make-receipt',
   handler: (payload, respond, sender) => {
     profilerInstance.scopedProfileSectionStart('make-receipt')
@@ -34,7 +36,9 @@ const makeReceiptRoute: P2P.P2PTypes.Route<P2P.P2PTypes.InternalHandler<
   },
 }
 
-const setGlobalGossipRoute: P2P.P2PTypes.Route<P2P.P2PTypes.GossipHandler<P2P.GlobalAccountsTypes.Receipt>> = {
+const setGlobalGossipRoute: P2P.P2PTypes.Route<
+  P2P.P2PTypes.GossipHandler<P2P.GlobalAccountsTypes.Receipt>
+> = {
   name: 'set-global',
   handler: (payload, sender, tracker) => {
     profilerInstance.scopedProfileSectionStart('set-global')
@@ -43,8 +47,14 @@ const setGlobalGossipRoute: P2P.P2PTypes.Route<P2P.P2PTypes.GossipHandler<P2P.Gl
       if (processReceipt(payload) === false) return
       /** [TODO] [AS] Replace with Comms.sendGossip() */
       // p2p.sendGossipIn('set-global', payload)
-      Comms.sendGossip('set-global', payload, tracker, sender, NodeList.byIdOrder, false)
-
+      Comms.sendGossip(
+        'set-global',
+        payload,
+        tracker,
+        sender,
+        NodeList.byIdOrder,
+        false
+      )
     } finally {
       profilerInstance.scopedProfileSectionEnd('set-global')
     }
@@ -55,8 +65,14 @@ const setGlobalGossipRoute: P2P.P2PTypes.Route<P2P.P2PTypes.GossipHandler<P2P.Gl
 
 let lastClean = 0
 
-const receipts = new Map<P2P.GlobalAccountsTypes.TxHash, P2P.GlobalAccountsTypes.Receipt>()
-const trackers = new Map<P2P.GlobalAccountsTypes.TxHash, P2P.GlobalAccountsTypes.Tracker>()
+const receipts = new Map<
+  P2P.GlobalAccountsTypes.TxHash,
+  P2P.GlobalAccountsTypes.Receipt
+>()
+const trackers = new Map<
+  P2P.GlobalAccountsTypes.TxHash,
+  P2P.GlobalAccountsTypes.Tracker
+>()
 
 /** FUNCTIONS */
 
@@ -72,7 +88,8 @@ export function init() {
 export function setGlobal(address, value, when, source) {
   /** [TODO] [AS] Replace with Self.id */
   // if (logFlags.console) console.log(`SETGLOBAL: WE ARE: ${p2p.id.substring(0, 5)}`)
-  if (logFlags.console) console.log(`SETGLOBAL: WE ARE: ${Self.id.substring(0, 5)}`)
+  if (logFlags.console)
+    console.log(`SETGLOBAL: WE ARE: ${Self.id.substring(0, 5)}`)
 
   // Only do this if you're active
   /** [TODO] [AS] Replace with Self.isActive */
@@ -83,11 +100,17 @@ export function setGlobal(address, value, when, source) {
   }
 
   // Create a tx for setting a global account
-  const tx: P2P.GlobalAccountsTypes.SetGlobalTx = { address, value, when, source }
+  const tx: P2P.GlobalAccountsTypes.SetGlobalTx = {
+    address,
+    value,
+    when,
+    source,
+  }
   const txHash = Context.crypto.hash(tx)
 
   // Sign tx
-  const signedTx: P2P.GlobalAccountsTypes.SignedSetGlobalTx = Context.crypto.sign(tx)
+  const signedTx: P2P.GlobalAccountsTypes.SignedSetGlobalTx =
+    Context.crypto.sign(tx)
 
   if (Context.stateManager === null) {
     if (logFlags.console) console.log('setGlobal: stateManager == null')
@@ -97,7 +120,8 @@ export function setGlobal(address, value, when, source) {
 
   // Get the nodes that tx will be broadcasted to
   if (!Context.stateManager.currentCycleShardData) {
-    if (logFlags.console) console.log('stateManager.currentCycleShardData == null')
+    if (logFlags.console)
+      console.log('stateManager.currentCycleShardData == null')
 
     return
   }
@@ -107,14 +131,15 @@ export function setGlobal(address, value, when, source) {
     Context.stateManager.currentCycleShardData.parititionShardDataMap
   )
   const consensusGroup = [...homeNode.consensusNodeForOurNodeFull]
-  if (logFlags.console) console.log(
-    `SETGLOBAL: CONSENSUS_GROUP: ${consensusGroup.map((n) =>
-      n.id.substring(0, 5)
-    )}`
-  )
+  if (logFlags.console)
+    console.log(
+      `SETGLOBAL: CONSENSUS_GROUP: ${consensusGroup.map(n =>
+        n.id.substring(0, 5)
+      )}`
+    )
   /** [TODO] [AS] Replace p2p.id with Self.id */
   // const ourIdx = consensusGroup.findIndex(node => node.id === p2p.id)
-  const ourIdx = consensusGroup.findIndex((node) => node.id === Self.id)
+  const ourIdx = consensusGroup.findIndex(node => node.id === Self.id)
   if (ourIdx === -1) return // Return if we're not in the consensusGroup
   consensusGroup.splice(ourIdx, 1) // Remove ourself from consensusGroup
 
@@ -133,8 +158,11 @@ export function setGlobal(address, value, when, source) {
   }
   const timer = setTimeout(onTimeout, timeout)
 
-  const onReceipt = (receipt) => {
-    if (logFlags.console) console.log(`SETGLOBAL: GOT RECEIPT: ${txHash} ${JSON.stringify(receipt)}`)
+  const onReceipt = receipt => {
+    if (logFlags.console)
+      console.log(
+        `SETGLOBAL: GOT RECEIPT: ${txHash} ${JSON.stringify(receipt)}`
+      )
     clearTimeout(timer)
     // Gossip receipt to every node in network to apply to global account
     if (processReceipt(receipt) === false) return
@@ -164,13 +192,14 @@ export function makeReceipt(
   sender: P2P.P2PTypes.NodeInfo['id']
 ) {
   if (!Context.stateManager) {
-    if (logFlags.console) console.log('GlobalAccounts: makeReceipt: stateManager not ready')
+    if (logFlags.console)
+      console.log('GlobalAccounts: makeReceipt: stateManager not ready')
     return
   }
 
   const sign = signedTx.sign
 
-  const tx = { ...signedTx }
+  const tx = {...signedTx}
   delete tx.sign
 
   const txHash = Context.crypto.hash(tx)
@@ -185,14 +214,15 @@ export function makeReceipt(
       consensusGroup,
     }
     receipts.set(txHash, receipt)
-    if (logFlags.console) console.log(
-      `SETGLOBAL: MAKERECEIPT CONSENSUS GROUP FOR ${txHash.substring(
-        0,
-        5
-      )}: ${JSON.stringify(
-        [...receipt.consensusGroup].map((id) => id.substring(0, 5))
-      )}`
-    )
+    if (logFlags.console)
+      console.log(
+        `SETGLOBAL: MAKERECEIPT CONSENSUS GROUP FOR ${txHash.substring(
+          0,
+          5
+        )}: ${JSON.stringify(
+          [...receipt.consensusGroup].map(id => id.substring(0, 5))
+        )}`
+      )
   }
 
   let tracker: P2P.GlobalAccountsTypes.Tracker = trackers.get(txHash)
@@ -212,15 +242,17 @@ export function makeReceipt(
   tracker.timestamp = tx.when
 
   // When a majority (%60) is reached, emit the completion event for this txHash
-  if (logFlags.console) console.log(
-    `SETGLOBAL: GOT SIGNED_SET_GLOBAL_TX FROM ${sender.substring(
-      0,
-      5
-    )}: ${txHash} ${JSON.stringify(signedTx)}`
-  )
-  if (logFlags.console) console.log(
-    `SETGLOBAL: ${receipt.signs.length} RECEIPTS / ${receipt.consensusGroup.size} CONSENSUS_GROUP`
-  )
+  if (logFlags.console)
+    console.log(
+      `SETGLOBAL: GOT SIGNED_SET_GLOBAL_TX FROM ${sender.substring(
+        0,
+        5
+      )}: ${txHash} ${JSON.stringify(signedTx)}`
+    )
+  if (logFlags.console)
+    console.log(
+      `SETGLOBAL: ${receipt.signs.length} RECEIPTS / ${receipt.consensusGroup.size} CONSENSUS_GROUP`
+    )
   if (isReceiptMajority(receipt, receipt.consensusGroup)) {
     const handle = createMakeReceiptHandle(txHash)
     /** [TODO] [AS] Replace with Self.emitter.emit() */
@@ -235,7 +267,12 @@ export function processReceipt(receipt: P2P.GlobalAccountsTypes.Receipt) {
   tracker.timestamp = receipt.tx.when
   if (tracker.gossiped) return false
   Context.shardus.put(receipt.tx.value as OpaqueTransaction, false, true)
-  if (logFlags.console) console.log(`Processed set-global receipt: ${JSON.stringify(receipt)} now:${Date.now()}`)
+  if (logFlags.console)
+    console.log(
+      `Processed set-global receipt: ${JSON.stringify(
+        receipt
+      )} now:${Date.now()}`
+    )
   tracker.gossiped = true
   attemptCleanup()
   return true
@@ -257,16 +294,18 @@ export function attemptCleanup() {
 function validateReceipt(receipt: P2P.GlobalAccountsTypes.Receipt) {
   if (Context.stateManager.currentCycleShardData === null) {
     // we may get this endpoint way before we are ready, so just log it can exit out
-    if (logFlags.console) console.log(
-      'validateReceipt: unable to validate receipt currentCycleShardData not ready'
-    )
+    if (logFlags.console)
+      console.log(
+        'validateReceipt: unable to validate receipt currentCycleShardData not ready'
+      )
     return false
   }
 
   const consensusGroup = new Set(getConsensusGroupIds(receipt.tx.source))
   // Make sure receipt has enough signs
   if (isReceiptMajority(receipt, consensusGroup) === false) {
-    if (logFlags.console) console.log('validateReceipt: Receipt did not have majority')
+    if (logFlags.console)
+      console.log('validateReceipt: Receipt did not have majority')
     return false
   }
   // Make a map of signs that overlap with consensusGroup
@@ -277,16 +316,18 @@ function validateReceipt(receipt: P2P.GlobalAccountsTypes.Receipt) {
     const node = NodeList.byPubKey.get(sign.owner)
 
     if (node === null) {
-      if (logFlags.console) console.log(
-        `validateReceipt: node was null or not found ${utils.stringifyReduce(
-          sign.owner
-        )}`
-      )
+      if (logFlags.console)
+        console.log(
+          `validateReceipt: node was null or not found ${utils.stringifyReduce(
+            sign.owner
+          )}`
+        )
       /** [TODO] [AS] Replace with NodeList.nodes */
-      if (logFlags.console) console.log(
-        // `validateReceipt: nodes: ${utils.stringifyReduce(p2p.state.getNodes())}`
-        `validateReceipt: nodes: ${utils.stringifyReduce(NodeList.nodes)}`
-      )
+      if (logFlags.console)
+        console.log(
+          // `validateReceipt: nodes: ${utils.stringifyReduce(p2p.state.getNodes())}`
+          `validateReceipt: nodes: ${utils.stringifyReduce(NodeList.nodes)}`
+        )
       continue
     }
 
@@ -294,33 +335,37 @@ function validateReceipt(receipt: P2P.GlobalAccountsTypes.Receipt) {
     if (consensusGroup.has(id)) {
       signsInConsensusGroup.push(sign)
     } else {
-      if (logFlags.console) console.log(
-        `validateReceipt: consensusGroup does not have id: ${id} ${utils.stringifyReduce(
-          consensusGroup
-        )}`
-      )
+      if (logFlags.console)
+        console.log(
+          `validateReceipt: consensusGroup does not have id: ${id} ${utils.stringifyReduce(
+            consensusGroup
+          )}`
+        )
     }
   }
   // Make sure signs and consensusGroup overlap >= %60
   if ((signsInConsensusGroup.length / consensusGroup.size) * 100 < 60) {
-    if (logFlags.console) console.log(
-      'validateReceipt: Receipt signature owners and consensus group did not overlap enough'
-    )
+    if (logFlags.console)
+      console.log(
+        'validateReceipt: Receipt signature owners and consensus group did not overlap enough'
+      )
     return false
   }
   // Verify the signs that overlap with consensusGroup are a majority
   let verified = 0
   for (const sign of signsInConsensusGroup) {
-    const signedTx = { ...receipt.tx, sign }
+    const signedTx = {...receipt.tx, sign}
     if (Context.crypto.verify(signedTx)) verified++
   }
   if ((verified / consensusGroup.size) * 100 < 60) {
-    if (logFlags.console) console.log(
-      'validateReceipt: Receipt does not have enough valid signatures'
-    )
+    if (logFlags.console)
+      console.log(
+        'validateReceipt: Receipt does not have enough valid signatures'
+      )
     return false
   }
-  if (logFlags.console) console.log(`validateReceipt: success! ${utils.stringifyReduce(receipt)}`)
+  if (logFlags.console)
+    console.log(`validateReceipt: success! ${utils.stringifyReduce(receipt)}`)
   return true
 }
 
@@ -340,7 +385,7 @@ function getConsensusGroupIds(address) {
     address,
     Context.stateManager.currentCycleShardData.parititionShardDataMap
   )
-  return homeNode.consensusNodeForOurNodeFull.map((node) => node.id)
+  return homeNode.consensusNodeForOurNodeFull.map(node => node.id)
 }
 
 function isReceiptMajority(receipt, consensusGroup) {
@@ -349,7 +394,7 @@ function isReceiptMajority(receipt, consensusGroup) {
 
 function intersect(a, b) {
   const setB = new Set(b)
-  return [...new Set(a)].filter((x) => setB.has(x))
+  return [...new Set(a)].filter(x => setB.has(x))
 }
 
 function intersectCount(a, b) {

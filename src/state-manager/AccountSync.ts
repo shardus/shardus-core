@@ -18,7 +18,18 @@ import * as Context from '../p2p/Context'
 import * as Wrapper from '../p2p/Wrapper'
 import * as Self from '../p2p/Self'
 import { potentiallyRemoved } from '../p2p/NodeList'
-import { SyncTracker, SimpleRange, AccountStateHashReq, AccountStateHashResp, GetAccountStateReq, GetAccountData3Req, GetAccountDataByRangeSmart, GlobalAccountReportResp, GetAccountData3Resp, CycleShardData } from './state-manager-types'
+import {
+  SyncTracker,
+  SimpleRange,
+  AccountStateHashReq,
+  AccountStateHashResp,
+  GetAccountStateReq,
+  GetAccountData3Req,
+  GetAccountDataByRangeSmart,
+  GlobalAccountReportResp,
+  GetAccountData3Resp,
+  CycleShardData,
+} from './state-manager-types'
 import { safetyModeVals } from '../snapshot'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { errorToStringFull } from '../utils'
@@ -26,7 +37,6 @@ import { errorToStringFull } from '../utils'
 const allZeroes64 = '0'.repeat(64)
 
 type SyncStatment = {
-
   p2pJoinTime: number
   timeBeforeDataSync: number
   timeBeforeDataSync2: number
@@ -237,7 +247,6 @@ class AccountSync {
     this.mapAccountData = {}
 
     this.stateManager.fifoLocks = {}
-
   }
 
   /***
@@ -261,9 +270,9 @@ class AccountSync {
     this.p2p.registerInternal('get_account_state_hash', async (payload: AccountStateHashReq, respond: (arg0: AccountStateHashResp) => any) => {
       profilerInstance.scopedProfileSectionStart('get_account_state_hash')
       try {
-        let result = {} as AccountStateHashResp
+        const result = {} as AccountStateHashResp
 
-        if(this.softSync_checkInitialFlag && this.initalSyncFinished === false){
+        if (this.softSync_checkInitialFlag && this.initalSyncFinished === false) {
           //not ready?
           result.ready = false
           result.stateHash = this.stateManager.currentCycleShardData.ourNode.id
@@ -272,7 +281,7 @@ class AccountSync {
         }
 
         // yikes need to potentially hash only N records at a time and return an array of hashes
-        let stateHash = await this.stateManager.transactionQueue.getAccountsStateHash(payload.accountStart, payload.accountEnd, payload.tsStart, payload.tsEnd)
+        const stateHash = await this.stateManager.transactionQueue.getAccountsStateHash(payload.accountStart, payload.accountEnd, payload.tsStart, payload.tsEnd)
         result.stateHash = stateHash
         result.ready = true
         await respond(result)
@@ -295,11 +304,11 @@ class AccountSync {
         throw new Error('this.config.stateManager == null') //TODO TSConversion  would be nice to eliminate some of these config checks.
       }
       profilerInstance.scopedProfileSectionStart('get_account_state')
-      let result = {} as { accountStates: Shardus.StateTableObject[] }
+      const result = {} as { accountStates: Shardus.StateTableObject[] }
 
       // max records set artificially low for better test coverage
       // todo m11: make configs for how many records to query
-      let accountStates = await this.storage.queryAccountStateTable(payload.accountStart, payload.accountEnd, payload.tsStart, payload.tsEnd, this.config.stateManager.stateTableBucketSize)
+      const accountStates = await this.storage.queryAccountStateTable(payload.accountStart, payload.accountEnd, payload.tsStart, payload.tsEnd, this.config.stateManager.stateTableBucketSize)
       result.accountStates = accountStates
       await respond(result)
       profilerInstance.scopedProfileSectionEnd('get_account_state')
@@ -307,7 +316,7 @@ class AccountSync {
 
     this.p2p.registerInternal('get_account_data3', async (payload: GetAccountData3Req, respond: (arg0: { data: GetAccountDataByRangeSmart }) => any) => {
       profilerInstance.scopedProfileSectionStart('get_account_data3')
-      let result = {} as { data: GetAccountDataByRangeSmart } //TSConversion  This is complicated !!(due to app wrapping)  as {data: Shardus.AccountData[] | null}
+      const result = {} as { data: GetAccountDataByRangeSmart } //TSConversion  This is complicated !!(due to app wrapping)  as {data: Shardus.AccountData[] | null}
       let accountData: GetAccountDataByRangeSmart | null = null
       let ourLockID = -1
       try {
@@ -337,7 +346,7 @@ class AccountSync {
     // Updated names:  accountIds, max records
     this.p2p.registerInternal('get_account_data_by_list', async (payload: { accountIds: any }, respond: (arg0: { accountData: Shardus.WrappedData[] | null }) => any) => {
       profilerInstance.scopedProfileSectionStart('get_account_data_by_list')
-      let result = {} as { accountData: Shardus.WrappedData[] | null }
+      const result = {} as { accountData: Shardus.WrappedData[] | null }
       let accountData = null
       let ourLockID = -1
       try {
@@ -363,27 +372,27 @@ class AccountSync {
     Context.network.registerExternalGet('sync-statement-all', isDebugModeMiddleware, async (req, res) => {
       try {
         //wow, why does Context.p2p not work..
-        let activeNodes = Wrapper.p2p.state.getNodes()
+        const activeNodes = Wrapper.p2p.state.getNodes()
         if (activeNodes) {
-          for (let node of activeNodes.values()) {
-            let getResp = await this.logger._internalHackGetWithResp(`${node.externalIp}:${node.externalPort}/sync-statement`)
+          for (const node of activeNodes.values()) {
+            const getResp = await this.logger._internalHackGetWithResp(`${node.externalIp}:${node.externalPort}/sync-statement`)
             console.log('getResp active', getResp.body)
             res.write(`${node.externalIp}:${node.externalPort}/sync-statement\n`)
             res.write(getResp.body ? getResp.body : 'no data')
           }
         }
-        res.write(`joining nodes...\n`)
-        let joiningNodes = Wrapper.p2p.state.getNodesRequestingJoin()
+        res.write('joining nodes...\n')
+        const joiningNodes = Wrapper.p2p.state.getNodesRequestingJoin()
         if (joiningNodes) {
-          for (let node of joiningNodes.values()) {
-            let getResp = await this.logger._internalHackGetWithResp(`${node.externalIp}:${node.externalPort}/sync-statement`)
+          for (const node of joiningNodes.values()) {
+            const getResp = await this.logger._internalHackGetWithResp(`${node.externalIp}:${node.externalPort}/sync-statement`)
             console.log('getResp syncing', getResp.body)
             res.write(`${node.externalIp}:${node.externalPort}/sync-statement\n`)
             res.write(getResp.body ? getResp.body : 'no data')
           }
         }
 
-        res.write(`sending default logs to all nodes\n`)
+        res.write('sending default logs to all nodes\n')
       } catch (e) {
         res.write(`${e}\n`)
       }
@@ -392,12 +401,10 @@ class AccountSync {
     })
 
     Context.network.registerExternalGet('forceFinishSync', isDebugModeMiddleware, (req, res) => {
-      res.write(`sync forcing complete. \n`)
+      res.write('sync forcing complete. \n')
       this.forceSyncComplete = true
       res.end()
     })
-
-
   }
 
   /***
@@ -429,8 +436,8 @@ class AccountSync {
       this.stateManager.accountGlobals.hasknownGlobals = true
       this.readyforTXs = true
       if (logFlags.debug) {
-        if (this.p2p.isFirstSeed) this.mainLogger.debug(`DATASYNC: isFirstSeed = true. skipping sync`)
-        if (safetyMode) this.mainLogger.debug(`DATASYNC: safetyMode = true. skipping sync`)
+        if (this.p2p.isFirstSeed) this.mainLogger.debug('DATASYNC: isFirstSeed = true. skipping sync')
+        if (safetyMode) this.mainLogger.debug('DATASYNC: safetyMode = true. skipping sync')
       }
 
       // various sync statement stats are zeroed out because we are the first node and dont sync
@@ -445,12 +452,12 @@ class AccountSync {
 
       this.syncStatement.p2pJoinTime = Self.p2pJoinTime
 
-      this.syncStatement.timeBeforeDataSync = (Date.now() - Self.p2pSyncEnd)/1000
+      this.syncStatement.timeBeforeDataSync = (Date.now() - Self.p2pSyncEnd) / 1000
       this.syncStatement.timeBeforeDataSync2 = this.syncStatement.timeBeforeDataSync
 
       nestedCountersInstance.countEvent('sync', `sync comlete numCycles: ${this.syncStatement.numCycles} start:${this.syncStatement.cycleStarted} end:${this.syncStatement.cycleEnded}`)
 
-      if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_syncStatement', ` `, `${utils.stringifyReduce(this.syncStatement)}`)
+      if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_syncStatement', ' ', `${utils.stringifyReduce(this.syncStatement)}`)
 
       this.syncStatmentIsComplete()
       this.statemanager_fatal('shrd_sync_syncStatement-tempdebug', `${utils.stringifyReduce(this.syncStatement)}`)
@@ -459,8 +466,7 @@ class AccountSync {
 
     this.isSyncingAcceptedTxs = true
 
-    this.syncStatement.timeBeforeDataSync = (Date.now() - Self.p2pSyncEnd)/1000
-
+    this.syncStatement.timeBeforeDataSync = (Date.now() - Self.p2pSyncEnd) / 1000
 
     await utils.sleep(5000) // Temporary delay to make it easier to attach a debugger
     if (logFlags.console) console.log('syncStateData start')
@@ -468,7 +474,7 @@ class AccountSync {
     await this.storage.clearAppRelatedState()
     await this.app.deleteLocalAccountData()
 
-    if (logFlags.debug) this.mainLogger.debug(`DATASYNC: starting syncStateData`)
+    if (logFlags.debug) this.mainLogger.debug('DATASYNC: starting syncStateData')
 
     this.requiredNodeCount = requiredNodeCount
 
@@ -482,16 +488,16 @@ class AccountSync {
       this.stateManager.getCurrentCycleShardData()
       await utils.sleep(1000)
       if (this.stateManager.currentCycleShardData == null) {
-        if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_waitForShardData', ` `, ` ${utils.stringifyReduce(this.stateManager.currentCycleShardData)} `)
+        if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_waitForShardData', ' ', ` ${utils.stringifyReduce(this.stateManager.currentCycleShardData)} `)
         hasValidShardData = false
       }
       if (this.stateManager.currentCycleShardData != null) {
         if (this.stateManager.currentCycleShardData.hasCompleteData == false) {
-          let temp = this.p2p.state.getActiveNodes(null)
+          const temp = this.p2p.state.getActiveNodes(null)
           if (logFlags.playback)
             this.logger.playbackLogNote(
               'shrd_sync_waitForShardData',
-              ` `,
+              ' ',
               `hasCompleteData:${this.stateManager.currentCycleShardData.hasCompleteData} active:${utils.stringifyReduce(temp)} ${utils.stringifyReduce(this.stateManager.currentCycleShardData)} `
             )
         } else {
@@ -504,7 +510,6 @@ class AccountSync {
     this.syncStatement.syncStartTime = Date.now()
     this.syncStatement.numNodesOnStart = this.stateManager.currentCycleShardData.activeNodes.length
     this.syncStatement.p2pJoinTime = Self.p2pJoinTime
-
 
     // //DO NOT CHECK IN
     // if(this.syncStatement.numNodesOnStart >= 15) {
@@ -530,31 +535,30 @@ class AccountSync {
     rangesToSync = this.initRangesToSync(nodeShardData, homePartition)
     this.syncStatement.syncRanges = rangesToSync.length
 
-    for (let range of rangesToSync) {
+    for (const range of rangesToSync) {
       // let nodes = ShardFunctions.getNodesThatCoverRange(this.stateManager.currentCycleShardData.shardGlobals, range.low, range.high, this.stateManager.currentCycleShardData.ourNode, this.stateManager.currentCycleShardData.activeNodes)
       this.createSyncTrackerByRange(range, cycle, true)
     }
 
-    let useGlobalAccounts = true // this should stay true now.
- 
+    const useGlobalAccounts = true // this should stay true now.
+
     //@ts-ignore
-    if(useGlobalAccounts === true){
+    if (useGlobalAccounts === true) {
       this.createSyncTrackerByForGlobals(cycle, true)
     }
 
-    this.syncStatement.timeBeforeDataSync2 = (Date.now() - Self.p2pSyncEnd)/1000
+    this.syncStatement.timeBeforeDataSync2 = (Date.now() - Self.p2pSyncEnd) / 1000
     //@ts-ignore
-    if(useGlobalAccounts === true){
-    // must get a list of globals before we can listen to any TXs, otherwise the isGlobal function returns bad values
-    await this.stateManager.accountGlobals.getGlobalListEarly()
-    this.readyforTXs = true
-
+    if (useGlobalAccounts === true) {
+      // must get a list of globals before we can listen to any TXs, otherwise the isGlobal function returns bad values
+      await this.stateManager.accountGlobals.getGlobalListEarly()
+      this.readyforTXs = true
     } else {
       //hack force this to true
       this.stateManager.accountGlobals.hasknownGlobals = true
     }
 
-    if(this.useStateTable === true){
+    if (this.useStateTable === true) {
       await utils.sleep(8000) // sleep to make sure we are listening to some txs before we sync them
     }
 
@@ -562,18 +566,17 @@ class AccountSync {
     //The outer while loop can be used to recalculate the list of sync trackers and try again
     let breakCount = 0
     let running = true
-    while(running){
-
-      try{
-        for (let syncTracker of this.syncTrackers) {
-          if(this.dataSyncMainPhaseComplete === true){
+    while (running) {
+      try {
+        for (const syncTracker of this.syncTrackers) {
+          if (this.dataSyncMainPhaseComplete === true) {
             // this get set if we force sync to finish
             running = false
             break
           }
           // let partition = syncTracker.partition
           if (logFlags.console) console.log(`syncTracker start. time:${Date.now()} data: ${utils.stringifyReduce(syncTracker)}}`)
-          if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_trackerRangeStart', ` `, ` ${utils.stringifyReduce(syncTracker.range)} `)
+          if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_trackerRangeStart', ' ', ` ${utils.stringifyReduce(syncTracker.range)} `)
 
           syncTracker.syncStarted = true
 
@@ -589,20 +592,17 @@ class AccountSync {
           }
           syncTracker.syncFinished = true
 
-          if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_trackerRangeEnd', ` `, ` ${utils.stringifyReduce(syncTracker.range)} `)
+          if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_trackerRangeEnd', ' ', ` ${utils.stringifyReduce(syncTracker.range)} `)
           this.clearSyncData()
         }
         //if we get here without an exception that we are finished with the outer loop
         running = false
+      } catch (error) {
+        if (error.message.includes('reset-sync-ranges')) {
+          this.statemanager_fatal('mainSyncLoop_reset-sync-ranges', 'DATASYNC: reset-sync-ranges: ' + errorToStringFull(error))
 
-      } catch (error){
-
-        if(error.message.includes('reset-sync-ranges')){
-
-          this.statemanager_fatal(`mainSyncLoop_reset-sync-ranges`, 'DATASYNC: reset-sync-ranges: ' + errorToStringFull(error))
-
-          if(breakCount > 5){
-            this.statemanager_fatal(`mainSyncLoop_reset-sync-ranges-givingUP`,'too many tries' )
+          if (breakCount > 5) {
+            this.statemanager_fatal('mainSyncLoop_reset-sync-ranges-givingUP', 'too many tries')
             running = false
             this.syncTrackers = []
             continue
@@ -614,10 +614,10 @@ class AccountSync {
           let cleared = 0
           let kept = 0
           let newTrackers = 0
-          let trackersToKeep = []
-          for (let syncTracker of this.syncTrackers){
+          const trackersToKeep = []
+          for (const syncTracker of this.syncTrackers) {
             //keep unfinished global sync trackers
-            if (syncTracker.isGlobalSyncTracker === true && syncTracker.syncFinished === false){
+            if (syncTracker.isGlobalSyncTracker === true && syncTracker.syncFinished === false) {
               trackersToKeep.push(syncTracker)
               kept++
             } else {
@@ -629,23 +629,21 @@ class AccountSync {
           //get fresh nodeShardData, homePartition and cycle so that we can re init the sync ranges.
           nodeShardData = this.stateManager.currentCycleShardData.nodeShardData
           console.log('RETRYSYNC: GOT current cycle ' + '   time:' + utils.stringifyReduce(nodeShardData))
-          let lastCycle = cycle
+          const lastCycle = cycle
           cycle = this.stateManager.currentCycleShardData.cycleNumber
           homePartition = nodeShardData.homePartition
           console.log(`RETRYSYNC: homePartition: ${homePartition} storedPartitions: ${utils.stringifyReduce(nodeShardData.storedPartitions)}`)
 
-
           //init new non global trackers
           rangesToSync = this.initRangesToSync(nodeShardData, homePartition, 4, 4)
           this.syncStatement.syncRanges = rangesToSync.length
-          for (let range of rangesToSync) {
+          for (const range of rangesToSync) {
             this.createSyncTrackerByRange(range, cycle, true)
             newTrackers++
           }
-          nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: lastCycle: ${lastCycle} cycle: ${cycle} ${JSON.stringify({cleared, kept, newTrackers})}`)
+          nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: lastCycle: ${lastCycle} cycle: ${cycle} ${JSON.stringify({ cleared, kept, newTrackers })}`)
 
           continue //resume loop at top!
-
         } else {
           running = false
         }
@@ -655,13 +653,18 @@ class AccountSync {
     if (logFlags.console) console.log('syncStateData end' + '   time:' + Date.now())
   }
 
-  private initRangesToSync(nodeShardData: StateManagerTypes.shardFunctionTypes.NodeShardData, homePartition: number, chunksGuide:number = 4, minSyncRangeGuide:number = 1):StateManagerTypes.shardFunctionTypes.AddressRange[] {
+  private initRangesToSync(
+    nodeShardData: StateManagerTypes.shardFunctionTypes.NodeShardData,
+    homePartition: number,
+    chunksGuide = 4,
+    minSyncRangeGuide = 1
+  ): StateManagerTypes.shardFunctionTypes.AddressRange[] {
     //let chunksGuide = 4
     // todo consider making minSyncRangeGuide = 3 or 4..
-    let syncRangeGoal = Math.max(minSyncRangeGuide, Math.min(chunksGuide, Math.floor(this.stateManager.currentCycleShardData.shardGlobals.numPartitions / chunksGuide)))
+    const syncRangeGoal = Math.max(minSyncRangeGuide, Math.min(chunksGuide, Math.floor(this.stateManager.currentCycleShardData.shardGlobals.numPartitions / chunksGuide)))
     let partitionsCovered = 0
     let partitionsPerRange = 1
-    let rangesToSync = [] //, rangesToSync: StateManagerTypes.shardFunctionTypes.AddressRange[]
+    const rangesToSync = [] //, rangesToSync: StateManagerTypes.shardFunctionTypes.AddressRange[]
 
     if (nodeShardData.storedPartitions.rangeIsSplit === true) {
       partitionsCovered = nodeShardData.storedPartitions.partitionEnd1 - nodeShardData.storedPartitions.partitionStart1
@@ -680,16 +683,15 @@ class AccountSync {
       let i = 0
       while (currentEnd < end) {
         currentEnd = Math.min(currentStart + partitionsPerRange, end)
-        let range = ShardFunctions.partitionToAddressRange2(this.stateManager.currentCycleShardData.shardGlobals, currentStart, currentEnd)
+        const range = ShardFunctions.partitionToAddressRange2(this.stateManager.currentCycleShardData.shardGlobals, currentStart, currentEnd)
 
-        let { address1, address2 } = ShardFunctions.getNextAdjacentAddresses(range.high)
+        const { address1, address2 } = ShardFunctions.getNextAdjacentAddresses(range.high)
         range.high = address1
 
         if (nextLowAddress != null) {
           range.low = nextLowAddress
         }
-        if (logFlags.console)
-          console.log(`range ${i}  s:${currentStart} e:${currentEnd} h: ${homePartition}  a1: ${range.low} a2: ${range.high}`)
+        if (logFlags.console) console.log(`range ${i}  s:${currentStart} e:${currentEnd} h: ${homePartition}  a1: ${range.low} a2: ${range.high}`)
         nextLowAddress = address2
         currentStart = currentEnd
         i++
@@ -704,16 +706,15 @@ class AccountSync {
 
       while (currentEnd < end) {
         currentEnd = Math.min(currentStart + partitionsPerRange, end)
-        let range = ShardFunctions.partitionToAddressRange2(this.stateManager.currentCycleShardData.shardGlobals, currentStart, currentEnd)
+        const range = ShardFunctions.partitionToAddressRange2(this.stateManager.currentCycleShardData.shardGlobals, currentStart, currentEnd)
 
-        let { address1, address2 } = ShardFunctions.getNextAdjacentAddresses(range.high)
+        const { address1, address2 } = ShardFunctions.getNextAdjacentAddresses(range.high)
         range.high = address1
 
         if (nextLowAddress != null) {
           range.low = nextLowAddress
         }
-        if (logFlags.console)
-          console.log(`range ${i}  s:${currentStart} e:${currentEnd} h: ${homePartition} a1: ${range.low} a2: ${range.high}`)
+        if (logFlags.console) console.log(`range ${i}  s:${currentStart} e:${currentEnd} h: ${homePartition} a1: ${range.low} a2: ${range.high}`)
 
         nextLowAddress = address2
         currentStart = currentEnd
@@ -728,8 +729,8 @@ class AccountSync {
           `syncRangeGoal ${syncRangeGoal}  chunksGuide:${chunksGuide} numPartitions:${this.stateManager.currentCycleShardData.shardGlobals.numPartitions} partitionsPerRange:${partitionsPerRange}`
         )
 
-      let start = nodeShardData.storedPartitions.partitionStart
-      let end = nodeShardData.storedPartitions.partitionEnd
+      const start = nodeShardData.storedPartitions.partitionStart
+      const end = nodeShardData.storedPartitions.partitionEnd
 
       let currentStart = start
       let currentEnd = 0
@@ -737,16 +738,15 @@ class AccountSync {
       let i = 0
       while (currentEnd < end) {
         currentEnd = Math.min(currentStart + partitionsPerRange, end)
-        let range = ShardFunctions.partitionToAddressRange2(this.stateManager.currentCycleShardData.shardGlobals, currentStart, currentEnd)
+        const range = ShardFunctions.partitionToAddressRange2(this.stateManager.currentCycleShardData.shardGlobals, currentStart, currentEnd)
 
-        let { address1, address2 } = ShardFunctions.getNextAdjacentAddresses(range.high)
+        const { address1, address2 } = ShardFunctions.getNextAdjacentAddresses(range.high)
         range.high = address1
 
         if (nextLowAddress != null) {
           range.low = nextLowAddress
         }
-        if (logFlags.console)
-          console.log(`range ${i}  s:${currentStart} e:${currentEnd} h: ${homePartition}  a1: ${range.low} a2: ${range.high}`)
+        if (logFlags.console) console.log(`range ${i}  s:${currentStart} e:${currentEnd} h: ${homePartition}  a1: ${range.low} a2: ${range.high}`)
         nextLowAddress = address2
         currentStart = currentEnd
         i++
@@ -756,13 +756,11 @@ class AccountSync {
 
     // if we don't have a range to sync yet manually sync the whole range.
     if (rangesToSync.length === 0) {
-      if (logFlags.console)
-        console.log(`syncStateData ranges: pushing full range, no ranges found`)
-      let range = ShardFunctions.partitionToAddressRange2(this.stateManager.currentCycleShardData.shardGlobals, 0, this.stateManager.currentCycleShardData.shardGlobals.numPartitions - 1)
+      if (logFlags.console) console.log('syncStateData ranges: pushing full range, no ranges found')
+      const range = ShardFunctions.partitionToAddressRange2(this.stateManager.currentCycleShardData.shardGlobals, 0, this.stateManager.currentCycleShardData.shardGlobals.numPartitions - 1)
       rangesToSync.push(range)
     }
-    if (logFlags.console)
-      console.log(`syncStateData ranges: ${utils.stringifyReduce(rangesToSync)}}`)
+    if (logFlags.console) console.log(`syncStateData ranges: ${utils.stringifyReduce(rangesToSync)}}`)
 
     return rangesToSync
   }
@@ -790,14 +788,14 @@ class AccountSync {
 
       this.partitionStartTimeStamp = Date.now()
 
-      let lowAddress = this.addressRange.low
-      let highAddress = this.addressRange.high
+      const lowAddress = this.addressRange.low
+      const highAddress = this.addressRange.high
 
       partition = `${utils.stringifyReduce(lowAddress)} - ${utils.stringifyReduce(highAddress)}`
 
       if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncStateDataForPartition partition: ${partition} `)
 
-      if(this.useStateTable === true){
+      if (this.useStateTable === true) {
         await this.syncStateTableData(lowAddress, highAddress, 0, Date.now() - this.stateManager.syncSettleTime)
       }
       if (logFlags.debug) this.mainLogger.debug(`DATASYNC: partition: ${partition}, syncStateTableData 1st pass done.`)
@@ -815,7 +813,7 @@ class AccountSync {
       //   Wait at least 10T since the Ts_end time of the First Pass
       //   Same as the procedure for First Pass except:
       //   Ts_start should be the Ts_end value from last time and Ts_end value should be current time minus 10T
-      if(this.useStateTable === true){
+      if (this.useStateTable === true) {
         await this.syncStateTableData(lowAddress, highAddress, this.lastStateSyncEndtime, Date.now())
       }
       if (logFlags.debug) this.mainLogger.debug(`DATASYNC: partition: ${partition}, syncStateTableData 2nd pass done.`)
@@ -824,7 +822,7 @@ class AccountSync {
       //   For each account in the Account data make sure the entry in the Account State Table has the same State_after value; if not remove the record from the Account data
       //   For each account in the Account State Table make sure the entry in Account data has the same State_after value; if not save the account id to be looked up later
       //   Use the App.set_account_data function with the Account data to save the data to the application Accounts Table; if any failed accounts are returned save the account id to be looked up later
-      let accountsSaved = await this.processAccountData()
+      const accountsSaved = await this.processAccountData()
       if (logFlags.debug) this.mainLogger.debug(`DATASYNC: partition: ${partition}, processAccountData done.`)
 
       // Sync the failed accounts
@@ -856,27 +854,28 @@ class AccountSync {
         // }
       }
 
-      let keysToRepair = Object.keys(this.stateTableForMissingTXs).length
+      const keysToRepair = Object.keys(this.stateTableForMissingTXs).length
       if (keysToRepair > 0) {
         // alternate repair.
         this.repairMissingTXs()
       }
 
-      nestedCountersInstance.countEvent('sync', `sync partition: ${partition} end: ${this.stateManager.currentCycleShardData.cycleNumber} accountsSynced:${accountsSaved} missing tx to repair: ${keysToRepair}`)
-
+      nestedCountersInstance.countEvent(
+        'sync',
+        `sync partition: ${partition} end: ${this.stateManager.currentCycleShardData.cycleNumber} accountsSynced:${accountsSaved} missing tx to repair: ${keysToRepair}`
+      )
     } catch (error) {
-      if(error.message.includes('reset-sync-ranges')){
-
-        this.statemanager_fatal(`syncStateDataForRange_reset-sync-ranges`, 'DATASYNC: reset-sync-ranges: ' + errorToStringFull(error))
+      if (error.message.includes('reset-sync-ranges')) {
+        this.statemanager_fatal('syncStateDataForRange_reset-sync-ranges', 'DATASYNC: reset-sync-ranges: ' + errorToStringFull(error))
         //buble up:
         throw new Error('reset-sync-ranges')
       } else if (error.message.includes('FailAndRestartPartition')) {
         if (logFlags.debug) this.mainLogger.debug(`DATASYNC: Error Failed at: ${error.stack}`)
-        this.statemanager_fatal(`syncStateDataForRange_ex_failandrestart`, 'DATASYNC: FailAndRestartPartition: ' + errorToStringFull(error))
+        this.statemanager_fatal('syncStateDataForRange_ex_failandrestart', 'DATASYNC: FailAndRestartPartition: ' + errorToStringFull(error))
         await this.failandRestart()
       } else {
-        this.statemanager_fatal(`syncStateDataForRange_ex`, 'syncStateDataForPartition failed: ' + errorToStringFull(error))
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: unexpected error. restaring sync:` + errorToStringFull(error))
+        this.statemanager_fatal('syncStateDataForRange_ex', 'syncStateDataForPartition failed: ' + errorToStringFull(error))
+        if (logFlags.debug) this.mainLogger.debug('DATASYNC: unexpected error. restaring sync:' + errorToStringFull(error))
         await this.failandRestart()
       }
     }
@@ -898,11 +897,11 @@ class AccountSync {
    */
   async syncStateDataGlobals(syncTracker: SyncTracker) {
     try {
-      let partition = 'globals!'
+      const partition = 'globals!'
       // this.currentRange = range
       // this.addressRange = range // this.partitionToAddressRange(partition)
 
-      let globalAccounts = []
+      const globalAccounts = []
       let remainingAccountsToSync = []
       this.partitionStartTimeStamp = Date.now()
 
@@ -915,34 +914,34 @@ class AccountSync {
 
       //Get globals list and hash.
 
-      let globalReport: GlobalAccountReportResp = await this.getRobustGlobalReport()
+      const globalReport: GlobalAccountReportResp = await this.getRobustGlobalReport()
 
       let hasAllGlobalData = false
 
       if (globalReport.accounts.length === 0) {
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC:  syncStateDataGlobals no global accounts `)
+        if (logFlags.debug) this.mainLogger.debug('DATASYNC:  syncStateDataGlobals no global accounts ')
         this.globalAccountsSynced = true
         return // no global accounts
       }
       if (logFlags.debug) this.mainLogger.debug(`DATASYNC:  syncStateDataGlobals globalReport: ${utils.stringifyReduce(globalReport)} `)
 
       let accountReportsByID: { [id: string]: { id: string; hash: string; timestamp: number } } = {}
-      for (let report of globalReport.accounts) {
+      for (const report of globalReport.accounts) {
         remainingAccountsToSync.push(report.id)
 
         accountReportsByID[report.id] = report
       }
       let accountData: Shardus.WrappedData[] = []
-      let accountDataById: { [id: string]: Shardus.WrappedData } = {}
+      const accountDataById: { [id: string]: Shardus.WrappedData } = {}
       let globalReport2: GlobalAccountReportResp = { ready: false, combinedHash: '', accounts: [] }
       let maxTries = 10
       while (hasAllGlobalData === false) {
         maxTries--
         if (maxTries <= 0) {
-          if (logFlags.error) this.mainLogger.error(`DATASYNC: syncStateDataGlobals max tries excceded `)
+          if (logFlags.error) this.mainLogger.error('DATASYNC: syncStateDataGlobals max tries excceded ')
           return
         }
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncStateDataGlobals hasAllGlobalData === false `)
+        if (logFlags.debug) this.mainLogger.debug('DATASYNC: syncStateDataGlobals hasAllGlobalData === false ')
         //Get accounts.
         //this.combinedAccountData = []
 
@@ -954,8 +953,8 @@ class AccountSync {
           continue
         }
 
-        let message = { accountIds: remainingAccountsToSync }
-        let result = await this.p2p.ask(this.dataSourceNode, 'get_account_data_by_list', message)
+        const message = { accountIds: remainingAccountsToSync }
+        const result = await this.p2p.ask(this.dataSourceNode, 'get_account_data_by_list', message)
 
         if (result == null) {
           if (logFlags.verbose) if (logFlags.error) this.mainLogger.error('ASK FAIL syncStateTableData result == null')
@@ -981,21 +980,21 @@ class AccountSync {
         if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncStateDataGlobals get_account_data_by_list ${utils.stringifyReduce(result)} `)
 
         globalReport2 = await this.getRobustGlobalReport()
-        let accountReportsByID2: { [id: string]: { id: string; hash: string; timestamp: number } } = {}
-        for (let report of globalReport2.accounts) {
+        const accountReportsByID2: { [id: string]: { id: string; hash: string; timestamp: number } } = {}
+        for (const report of globalReport2.accounts) {
           accountReportsByID2[report.id] = report
         }
 
         hasAllGlobalData = true
         remainingAccountsToSync = []
-        for (let account of accountData) {
+        for (const account of accountData) {
           accountDataById[account.accountId] = account
           //newer copies will overwrite older ones in this map
         }
         //check the full report for any missing data
-        for (let report of globalReport2.accounts) {
-          if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncStateDataGlobals loop globalReport2.accounts `)
-          let data = accountDataById[report.id]
+        for (const report of globalReport2.accounts) {
+          if (logFlags.debug) this.mainLogger.debug('DATASYNC: syncStateDataGlobals loop globalReport2.accounts ')
+          const data = accountDataById[report.id]
           if (data == null) {
             //we dont have the data
             hasAllGlobalData = false
@@ -1012,22 +1011,22 @@ class AccountSync {
         accountReportsByID = accountReportsByID2
       }
 
-      let dataToSet = []
-      let cycleNumber = this.stateManager.currentCycleShardData.cycleNumber // Math.max(1, this.stateManager.currentCycleShardData.cycleNumber-1 ) //kinda hacky?
+      const dataToSet = []
+      const cycleNumber = this.stateManager.currentCycleShardData.cycleNumber // Math.max(1, this.stateManager.currentCycleShardData.cycleNumber-1 ) //kinda hacky?
 
-      let goodAccounts: Shardus.WrappedData[] = []
+      const goodAccounts: Shardus.WrappedData[] = []
 
       //Write the data! and set global memory data!.  set accounts copy data too.
-      for (let report of globalReport2.accounts) {
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncStateDataGlobals loop globalReport2.accounts 2`)
-        let accountData = accountDataById[report.id]
+      for (const report of globalReport2.accounts) {
+        if (logFlags.debug) this.mainLogger.debug('DATASYNC: syncStateDataGlobals loop globalReport2.accounts 2')
+        const accountData = accountDataById[report.id]
         if (accountData != null) {
           dataToSet.push(accountData)
           goodAccounts.push(accountData)
         }
       }
 
-      let failedHashes = await this.stateManager.checkAndSetAccountData(dataToSet, 'syncStateDataGlobals', true)
+      const failedHashes = await this.stateManager.checkAndSetAccountData(dataToSet, 'syncStateDataGlobals', true)
 
       this.syncStatement.numGlobalAccounts += dataToSet.length
 
@@ -1042,11 +1041,11 @@ class AccountSync {
     } catch (error) {
       if (error.message.includes('FailAndRestartPartition')) {
         if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncStateDataGlobals Error Failed at: ${error.stack}`)
-        this.statemanager_fatal(`syncStateDataGlobals_ex_failandrestart`, 'DATASYNC: syncStateDataGlobals FailAndRestartPartition: ' + errorToStringFull(error))
+        this.statemanager_fatal('syncStateDataGlobals_ex_failandrestart', 'DATASYNC: syncStateDataGlobals FailAndRestartPartition: ' + errorToStringFull(error))
         await this.failandRestart()
       } else {
-        this.statemanager_fatal(`syncStateDataGlobals_ex`, 'syncStateDataGlobals failed: ' + errorToStringFull(error))
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: unexpected error. restaring sync:` + errorToStringFull(error))
+        this.statemanager_fatal('syncStateDataGlobals_ex', 'syncStateDataGlobals failed: ' + errorToStringFull(error))
+        if (logFlags.debug) this.mainLogger.debug('DATASYNC: unexpected error. restaring sync:' + errorToStringFull(error))
         await this.failandRestart()
       }
     }
@@ -1072,14 +1071,14 @@ class AccountSync {
     // this.p2p.registerInternal('get_globalaccountreport', async (payload:any, respond: (arg0: GlobalAccountReportResp) => any) => {
     //   let result = {combinedHash:"", accounts:[]} as GlobalAccountReportResp
 
-    let equalFn = (a: GlobalAccountReportResp, b: GlobalAccountReportResp) => {
+    const equalFn = (a: GlobalAccountReportResp, b: GlobalAccountReportResp) => {
       // these fail cases should not count towards forming an hash consenus
       if (a.combinedHash == null || a.combinedHash === '') {
         return false
       }
       return a.combinedHash === b.combinedHash
     }
-    let queryFn = async (node: Shardus.Node) => {
+    const queryFn = async (node: Shardus.Node) => {
       // Node Precheck!
       if (this.stateManager.isNodeValidForInternalMessage(node.id, 'getRobustGlobalReport', true, true) === false) {
         return { ready: false, msg: `getRobustGlobalReport invalid node to ask: ${utils.stringifyReduce(node.id)}` }
@@ -1105,23 +1104,23 @@ class AccountSync {
       return result
     }
     //can ask any active nodes for global data.
-    let nodes: Shardus.Node[] = this.stateManager.currentCycleShardData.activeNodes
+    const nodes: Shardus.Node[] = this.stateManager.currentCycleShardData.activeNodes
     // let nodes = this.getActiveNodesInRange(lowAddress, highAddress) // this.p2p.state.getActiveNodes(this.p2p.id)
     if (nodes.length === 0) {
-      if (logFlags.debug) this.mainLogger.debug(`no nodes available`)
+      if (logFlags.debug) this.mainLogger.debug('no nodes available')
       return // nothing to do
     }
     if (logFlags.debug) this.mainLogger.debug(`DATASYNC: robustQuery getRobustGlobalReport ${utils.stringifyReduce(nodes.map((node) => utils.makeShortHash(node.id) + ':' + node.externalPort))}`)
     let result
     let winners
     try {
-      let robustQueryResult = await robustQuery(nodes, queryFn, equalFn, 3, false)
+      const robustQueryResult = await robustQuery(nodes, queryFn, equalFn, 3, false)
 
       // if we did not get a result at all wait, log and retry
       if (robustQueryResult === null) {
         if (logFlags.debug) this.mainLogger.debug(`DATASYNC: getRobustGlobalReport results === null wait 10 seconds and try again. nodes:${nodes.length} `)
         if (logFlags.console) console.log(`DATASYNC: getRobustGlobalReport results === null wait 10 seconds and try again. nodes:${nodes.length}  `)
-        nestedCountersInstance.countEvent('sync','DATASYNC: getRobustGlobalReport results === null')
+        nestedCountersInstance.countEvent('sync', 'DATASYNC: getRobustGlobalReport results === null')
         await utils.sleep(10 * 1000) //wait 10 seconds and try again.
         return await this.getRobustGlobalReport()
       }
@@ -1132,16 +1131,16 @@ class AccountSync {
       // if the result is not robust wait, throw an execption
       if (robustQueryResult.isRobustResult == false) {
         if (logFlags.debug) this.mainLogger.debug('getRobustGlobalReport: robustQuery isRobustResult == false')
-        this.statemanager_fatal(`getRobustGlobalReport_nonRobust`, 'getRobustGlobalReport: robustQuery isRobustResult == false')
-        nestedCountersInstance.countEvent('sync','DATASYNC: getRobustGlobalReport: robustQuery isRobustResult == false')
+        this.statemanager_fatal('getRobustGlobalReport_nonRobust', 'getRobustGlobalReport: robustQuery isRobustResult == false')
+        nestedCountersInstance.countEvent('sync', 'DATASYNC: getRobustGlobalReport: robustQuery isRobustResult == false')
         throw new Error('FailAndRestartPartition_globalReport_A')
       }
 
       // if the reports are not ready then wait, log an retry
       if (result.ready === false) {
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: getRobustGlobalReport results not ready wait 10 seconds and try again `)
-        if (logFlags.console) console.log(`DATASYNC: getRobustGlobalReport results not ready wait 10 seconds and try again `)
-        nestedCountersInstance.countEvent('sync','DATASYNC: getRobustGlobalReport results not ready wait 10 seconds and try again')
+        if (logFlags.debug) this.mainLogger.debug('DATASYNC: getRobustGlobalReport results not ready wait 10 seconds and try again ')
+        if (logFlags.console) console.log('DATASYNC: getRobustGlobalReport results not ready wait 10 seconds and try again ')
+        nestedCountersInstance.countEvent('sync', 'DATASYNC: getRobustGlobalReport results not ready wait 10 seconds and try again')
         await utils.sleep(10 * 1000) //wait 10 seconds and try again.
         return await this.getRobustGlobalReport()
       }
@@ -1149,12 +1148,12 @@ class AccountSync {
       // NOTE: no longer expecting an exception from robust query in cases where we do not have enough votes or respones!
       //       but for now if isRobustResult == false then we local code wil throw an exception
       if (logFlags.debug) this.mainLogger.debug('getRobustGlobalReport: robustQuery ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
-      this.statemanager_fatal(`getRobustGlobalReport_ex`, 'getRobustGlobalReport: robustQuery ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
+      this.statemanager_fatal('getRobustGlobalReport_ex', 'getRobustGlobalReport: robustQuery ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
       throw new Error('FailAndRestartPartition_globalReport_B')
     }
     if (!winners || winners.length === 0) {
-      if (logFlags.debug) this.mainLogger.debug(`DATASYNC: getRobustGlobalReport no winners, going to throw fail and restart`)
-      this.statemanager_fatal(`getRobustGlobalReport_noWin`, `DATASYNC: getRobustGlobalReport no winners, going to throw fail and restart`) // todo: consider if this is just an error
+      if (logFlags.debug) this.mainLogger.debug('DATASYNC: getRobustGlobalReport no winners, going to throw fail and restart')
+      this.statemanager_fatal('getRobustGlobalReport_noWin', 'DATASYNC: getRobustGlobalReport no winners, going to throw fail and restart') // todo: consider if this is just an error
       throw new Error('FailAndRestartPartition_globalReport_noWin')
     }
     if (logFlags.debug) this.mainLogger.debug(`DATASYNC: getRobustGlobalReport found a winner.  results: ${utils.stringifyReduce(result)}`)
@@ -1187,8 +1186,7 @@ class AccountSync {
       return
     }
 
-
-    let debugRange = ` ${utils.stringifyReduce(lowAddress)} - ${utils.stringifyReduce(highAddress)}`
+    const debugRange = ` ${utils.stringifyReduce(lowAddress)} - ${utils.stringifyReduce(highAddress)}`
 
     if (logFlags.console) console.log(`syncStateTableData startTime: ${startTime} endTime: ${endTime}` + '   time:' + Date.now())
     if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncStateTableData startTime: ${startTime} endTime: ${endTime} low: ${lowAddress} high: ${highAddress} `)
@@ -1203,9 +1201,9 @@ class AccountSync {
       //   If not try getting the data from another node
       //   If the hash matches then update our Account State Table with the data
       //   Repeat this for each address range or partition
-      let currentTs = Date.now()
+      const currentTs = Date.now()
 
-      let safeTime = currentTs - this.stateManager.syncSettleTime
+      const safeTime = currentTs - this.stateManager.syncSettleTime
       if (endTime >= safeTime) {
         // need to idle for bit
         await utils.sleep(endTime - safeTime)
@@ -1218,15 +1216,15 @@ class AccountSync {
 
       queryLow = lowAddress
       queryHigh = highAddress
-      let message = { accountStart: queryLow, accountEnd: queryHigh, tsStart: startTime, tsEnd: endTime }
+      const message = { accountStart: queryLow, accountEnd: queryHigh, tsStart: startTime, tsEnd: endTime }
 
-      let equalFn = (a: AccountStateHashResp, b: AccountStateHashResp) => {
+      const equalFn = (a: AccountStateHashResp, b: AccountStateHashResp) => {
         if (a.stateHash == null) {
           return false // fail cases will get skipped so that we try more nodes.
         }
         return a.stateHash === b.stateHash
       }
-      let queryFn = async (node: Shardus.Node) => {
+      const queryFn = async (node: Shardus.Node) => {
         // Node Precheck!
         if (this.stateManager.isNodeValidForInternalMessage(node.id, 'get_account_state_hash', true, true) === false) {
           return { ready: false, msg: `get_account_state_hash invalid node to ask: ${utils.stringifyReduce(node.id)}` }
@@ -1252,15 +1250,15 @@ class AccountSync {
         }
 
         if (result != null && result.ready === false) {
-          result = { ready: false, msg: `nodeNotReady` }
+          result = { ready: false, msg: 'nodeNotReady' }
           result = null
         }
         return result
       }
 
-      let centerNode = ShardFunctions.getCenterHomeNode(this.stateManager.currentCycleShardData.shardGlobals, this.stateManager.currentCycleShardData.parititionShardDataMap, lowAddress, highAddress)
+      const centerNode = ShardFunctions.getCenterHomeNode(this.stateManager.currentCycleShardData.shardGlobals, this.stateManager.currentCycleShardData.parititionShardDataMap, lowAddress, highAddress)
       if (centerNode == null) {
-        if (logFlags.debug) this.mainLogger.debug(`centerNode not found`)
+        if (logFlags.debug) this.mainLogger.debug('centerNode not found')
         return
       }
 
@@ -1274,16 +1272,14 @@ class AccountSync {
 
       nodes = nodes.filter(this.removePotentiallyRemovedNodes)
 
-      let filteredNodes = []
-      for(let node of nodes){
-
-        let nodeShardData = this.stateManager.currentCycleShardData.nodeShardDataMap.get(node.id)
-        if(nodeShardData != null){
-
-          if(ShardFunctions.testAddressInRange(queryLow, nodeShardData.consensusPartitions) === false){
+      const filteredNodes = []
+      for (const node of nodes) {
+        const nodeShardData = this.stateManager.currentCycleShardData.nodeShardDataMap.get(node.id)
+        if (nodeShardData != null) {
+          if (ShardFunctions.testAddressInRange(queryLow, nodeShardData.consensusPartitions) === false) {
             continue
           }
-          if(ShardFunctions.testAddressInRange(queryHigh, nodeShardData.consensusPartitions) === false){
+          if (ShardFunctions.testAddressInRange(queryHigh, nodeShardData.consensusPartitions) === false) {
             continue
           }
           filteredNodes.push(node)
@@ -1298,7 +1294,7 @@ class AccountSync {
 
       // let nodes = this.getActiveNodesInRange(lowAddress, highAddress) // this.p2p.state.getActiveNodes(this.p2p.id)
       if (nodes.length === 0) {
-        if (logFlags.debug) this.mainLogger.debug(`no nodes available`)
+        if (logFlags.debug) this.mainLogger.debug('no nodes available')
         return // nothing to do
       }
       if (logFlags.debug)
@@ -1311,8 +1307,8 @@ class AccountSync {
         winners = robustQueryResult.winningNodes
 
         let tries = 3
-        while(result && result.ready === false && tries > 0){
-          nestedCountersInstance.countEvent('sync','majority of nodes not ready, wait and retry')
+        while (result && result.ready === false && tries > 0) {
+          nestedCountersInstance.countEvent('sync', 'majority of nodes not ready, wait and retry')
           //too many nodes not ready
           await utils.sleep(30000) //wait 30 seconds and try again
           robustQueryResult = await robustQuery(nodes, queryFn, equalFn, 3, false)
@@ -1323,23 +1319,22 @@ class AccountSync {
 
         if (robustQueryResult.isRobustResult == false) {
           if (logFlags.debug) this.mainLogger.debug('syncStateTableData: robustQuery ')
-          this.statemanager_fatal(`syncStateTableData_nonRobust`, 'syncStateTableData: robustQuery ' + debugRange)
+          this.statemanager_fatal('syncStateTableData_nonRobust', 'syncStateTableData: robustQuery ' + debugRange)
           throw new Error('FailAndRestartPartition_stateTable_A' + debugRange)
         }
-
       } catch (ex) {
         // NOTE: no longer expecting an exception from robust query in cases where we do not have enough votes or respones!
         //       but for now if isRobustResult == false then we local code wil throw an exception
         if (logFlags.debug) this.mainLogger.debug('syncStateTableData: robustQuery ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
-        this.statemanager_fatal(`syncStateTableData_robustQ`, 'syncStateTableData: robustQuery ' + debugRange + ex.name + ': ' + ex.message + ' at ' + ex.stack)
+        this.statemanager_fatal('syncStateTableData_robustQ', 'syncStateTableData: robustQuery ' + debugRange + ex.name + ': ' + ex.message + ' at ' + ex.stack)
         throw new Error('FailAndRestartPartition_stateTable_B' + debugRange)
       }
 
       if (result && result.stateHash) {
         if (logFlags.debug) this.mainLogger.debug(`DATASYNC: robustQuery returned result: ${result.stateHash}`)
         if (!winners || winners.length === 0) {
-          if (logFlags.debug) this.mainLogger.debug(`DATASYNC: no winners, going to throw fail and restart`)
-          this.statemanager_fatal(`syncStateTableData_noWin`, `DATASYNC: no winners, going to throw fail and restart` + debugRange) // todo: consider if this is just an error
+          if (logFlags.debug) this.mainLogger.debug('DATASYNC: no winners, going to throw fail and restart')
+          this.statemanager_fatal('syncStateTableData_noWin', 'DATASYNC: no winners, going to throw fail and restart' + debugRange) // todo: consider if this is just an error
           throw new Error('FailAndRestartPartition_stateTable_C' + debugRange)
         }
         this.dataSourceNode = winners[0] // Todo random index
@@ -1347,8 +1342,8 @@ class AccountSync {
           this.mainLogger.debug(`DATASYNC: got hash ${result.stateHash} from ${utils.stringifyReduce(winners.map((node: Shardus.Node) => utils.makeShortHash(node.id) + ':' + node.externalPort))}`)
         firstHash = result.stateHash
       } else {
-        let resultStr = utils.stringifyReduce(result)
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: robustQuery get_account_state_hash failed ${result} `  + debugRange)
+        const resultStr = utils.stringifyReduce(result)
+        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: robustQuery get_account_state_hash failed ${result} ` + debugRange)
         throw new Error('FailAndRestartPartition_stateTable_D ' + result + debugRange)
       }
 
@@ -1369,8 +1364,8 @@ class AccountSync {
           continue
         }
 
-        let message = { accountStart: queryLow, accountEnd: queryHigh, tsStart: lowTimeQuery, tsEnd: endTime }
-        let result = await this.p2p.ask(this.dataSourceNode, 'get_account_state', message)
+        const message = { accountStart: queryLow, accountEnd: queryHigh, tsStart: lowTimeQuery, tsEnd: endTime }
+        const result = await this.p2p.ask(this.dataSourceNode, 'get_account_state', message)
 
         if (result == null) {
           if (logFlags.verbose) if (logFlags.error) this.mainLogger.error('ASK FAIL syncStateTableData result == null')
@@ -1387,10 +1382,10 @@ class AccountSync {
           continue
         }
 
-        let accountStateData = result.accountStates
+        const accountStateData = result.accountStates
         // get the timestamp of the last account state received so we can use it as the low timestamp for our next query
         if (accountStateData.length > 0) {
-          let lastAccount = accountStateData[accountStateData.length - 1]
+          const lastAccount = accountStateData[accountStateData.length - 1]
           if (lastAccount.txTimestamp > lowTimeQuery) {
             lowTimeQuery = lastAccount.txTimestamp
           }
@@ -1401,10 +1396,10 @@ class AccountSync {
         let dataDuplicated = true
         if (loopCount > 0) {
           while (accountStateData.length > 0 && dataDuplicated) {
-            let stateData = accountStateData[0]
+            const stateData = accountStateData[0]
             dataDuplicated = false
             for (let i = this.combinedAccountStateData.length - 1; i >= 0; i--) {
-              let existingStateData = this.combinedAccountStateData[i]
+              const existingStateData = this.combinedAccountStateData[i]
               if (existingStateData.txTimestamp === stateData.txTimestamp && existingStateData.accountId === stateData.accountId) {
                 dataDuplicated = true
                 break
@@ -1429,34 +1424,32 @@ class AccountSync {
             )
           this.combinedAccountStateData = this.combinedAccountStateData.concat(accountStateData)
 
-          nestedCountersInstance.countEvent('sync', `statetable written`, accountStateData.length)
+          nestedCountersInstance.countEvent('sync', 'statetable written', accountStateData.length)
 
           loopCount++
         }
       }
 
-      let seenAccounts = new Set()
+      const seenAccounts = new Set()
 
       //only hash one account state per account. the most recent one!
-      let filteredAccountStates = []
-      for(let i = this.combinedAccountStateData.length -1; i>=0; i--){
-        let accountState:Shardus.StateTableObject = this.combinedAccountStateData[i]
+      const filteredAccountStates = []
+      for (let i = this.combinedAccountStateData.length - 1; i >= 0; i--) {
+        const accountState: Shardus.StateTableObject = this.combinedAccountStateData[i]
 
-        if(seenAccounts.has(accountState.accountId) === true){
+        if (seenAccounts.has(accountState.accountId) === true) {
           continue
         }
         seenAccounts.add(accountState.accountId)
         filteredAccountStates.unshift(accountState)
       }
 
-
-
-      let recievedStateDataHash = this.crypto.hash(filteredAccountStates)
+      const recievedStateDataHash = this.crypto.hash(filteredAccountStates)
 
       if (recievedStateDataHash === firstHash) {
         searchingForGoodData = false
       } else {
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncStateTableData finished downloading the requested data but the hash does not match`)
+        if (logFlags.debug) this.mainLogger.debug('DATASYNC: syncStateTableData finished downloading the requested data but the hash does not match')
         // Failed again back through loop! TODO ? record/eval/report blame?
         this.stateManager.recordPotentialBadnode()
         throw new Error('FailAndRestartPartition_stateTable_E' + debugRange)
@@ -1488,14 +1481,14 @@ class AccountSync {
   async syncAccountData(lowAddress: string, highAddress: string) {
     // Sync the Account data
     //   Use the /get_account_data API to get the data from the Account Table using any of the nodes that had a matching hash
-    if (logFlags.console) console.log(`syncAccountData3` + '   time:' + Date.now())
+    if (logFlags.console) console.log('syncAccountData3' + '   time:' + Date.now())
 
     if (this.config.stateManager == null) {
       throw new Error('this.config.stateManager == null')
     }
 
-    let queryLow = lowAddress
-    let queryHigh = highAddress
+    const queryLow = lowAddress
+    const queryHigh = highAddress
 
     let moreDataRemaining = true
 
@@ -1505,12 +1498,12 @@ class AccountSync {
     let startTime = 0
     let lowTimeQuery = startTime
 
-    if(this.useStateTable === false){
+    if (this.useStateTable === false) {
       this.dataSourceNode = null
       this.getDataSourceNode(lowAddress, highAddress)
     }
 
-    if(this.dataSourceNode == null){
+    if (this.dataSourceNode == null) {
       if (logFlags.error) this.mainLogger.error(`syncAccountData: dataSourceNode == null ${lowAddress} - ${highAddress}`)
       //if we see this then getDataSourceNode failed.
       // this is most likely because the ranges selected when we started sync are now invalid and too wide to be filled.
@@ -1530,11 +1523,11 @@ class AccountSync {
       }
 
       // max records artificially low to make testing coverage better.  todo refactor: make it a config or calculate based on data size
-      let message = { accountStart: queryLow, accountEnd: queryHigh, tsStart: startTime, maxRecords: this.config.stateManager.accountBucketSize }
-      let r: GetAccountData3Resp | boolean = await this.p2p.ask(this.dataSourceNode, 'get_account_data3', message) // need the repeatable form... possibly one that calls apply to allow for datasets larger than memory
+      const message = { accountStart: queryLow, accountEnd: queryHigh, tsStart: startTime, maxRecords: this.config.stateManager.accountBucketSize }
+      const r: GetAccountData3Resp | boolean = await this.p2p.ask(this.dataSourceNode, 'get_account_data3', message) // need the repeatable form... possibly one that calls apply to allow for datasets larger than memory
 
       // TSConversion need to consider better error handling here!
-      let result: GetAccountData3Resp = r as GetAccountData3Resp
+      const result: GetAccountData3Resp = r as GetAccountData3Resp
 
       if (result == null) {
         if (logFlags.verbose) if (logFlags.error) this.mainLogger.error(`ASK FAIL syncAccountData result == null node:${this.dataSourceNode.id}`)
@@ -1551,13 +1544,13 @@ class AccountSync {
         continue
       }
       // accountData is in the form [{accountId, stateId, data}] for n accounts.
-      let accountData = result.data.wrappedAccounts
+      const accountData = result.data.wrappedAccounts
 
-      let lastUpdateNeeded = result.data.lastUpdateNeeded
+      const lastUpdateNeeded = result.data.lastUpdateNeeded
 
       // get the timestamp of the last account data received so we can use it as the low timestamp for our next query
       if (accountData.length > 0) {
-        let lastAccount = accountData[accountData.length - 1]
+        const lastAccount = accountData[accountData.length - 1]
         if (lastAccount.timestamp > lowTimeQuery) {
           lowTimeQuery = lastAccount.timestamp
           startTime = lowTimeQuery
@@ -1569,10 +1562,10 @@ class AccountSync {
       let dataDuplicated = true
       if (loopCount > 0) {
         while (accountData.length > 0 && dataDuplicated) {
-          let stateData = accountData[0]
+          const stateData = accountData[0]
           dataDuplicated = false
           for (let i = this.combinedAccountData.length - 1; i >= 0; i--) {
-            let existingStateData = this.combinedAccountData[i]
+            const existingStateData = this.combinedAccountData[i]
             if (existingStateData.timestamp === stateData.timestamp && existingStateData.accountId === stateData.accountId) {
               dataDuplicated = true
               break
@@ -1589,13 +1582,13 @@ class AccountSync {
       }
 
       // if we have any accounts in wrappedAccounts2
-      let accountData2 = result.data.wrappedAccounts2
+      const accountData2 = result.data.wrappedAccounts2
       if (accountData2.length > 0) {
         while (accountData.length > 0 && dataDuplicated) {
-          let stateData = accountData2[0]
+          const stateData = accountData2[0]
           dataDuplicated = false
           for (let i = this.combinedAccountData.length - 1; i >= 0; i--) {
-            let existingStateData = this.combinedAccountData[i]
+            const existingStateData = this.combinedAccountData[i]
             if (existingStateData.timestamp === stateData.timestamp && existingStateData.accountId === stateData.accountId) {
               dataDuplicated = true
               break
@@ -1655,11 +1648,9 @@ class AccountSync {
    * // State data = {accountId, txId, txTimestamp, stateBefore, stateAfter}
    * // accountData is in the form [{accountId, stateId, data}] for n accounts.
    */
-  async processAccountData() : Promise<number> {
-
-    if(this.useStateTable === false){
+  async processAccountData(): Promise<number> {
+    if (this.useStateTable === false) {
       return await this.processAccountDataNoStateTable()
-
     }
 
     this.missingAccountData = []
@@ -1672,26 +1663,26 @@ class AccountSync {
       this.mapAccountData[account.accountId] = account
     }
 
-    let accountKeys = Object.keys(this.mapAccountData)
-    let uniqueAccounts = accountKeys.length
-    let initialCombinedAccountLength = this.combinedAccountData.length
+    const accountKeys = Object.keys(this.mapAccountData)
+    const uniqueAccounts = accountKeys.length
+    const initialCombinedAccountLength = this.combinedAccountData.length
     if (uniqueAccounts < initialCombinedAccountLength) {
       // keep only the newest copies of each account:
       // we need this if using a time based datasync
       this.combinedAccountData = []
-      for (let accountID of accountKeys) {
+      for (const accountID of accountKeys) {
         this.combinedAccountData.push(this.mapAccountData[accountID])
       }
     }
 
     let missingButOkAccounts = 0
-    let missingTXs = 0
+    const missingTXs = 0
     let handledButOk = 0
     let otherMissingCase = 0
     let futureStateTableEntry = 0
-    let missingButOkAccountIDs: { [id: string]: boolean } = {}
+    const missingButOkAccountIDs: { [id: string]: boolean } = {}
 
-    let missingAccountIDs: { [id: string]: boolean } = {}
+    const missingAccountIDs: { [id: string]: boolean } = {}
 
     if (logFlags.debug)
       this.mainLogger.debug(
@@ -1699,7 +1690,7 @@ class AccountSync {
       )
     // For each account in the Account data make sure the entry in the Account State Table has the same State_after value; if not remove the record from the Account data
 
-    for (let stateData of this.inMemoryStateTableData) {
+    for (const stateData of this.inMemoryStateTableData) {
       account = this.mapAccountData[stateData.accountId]
       // does the state data table have a node and we don't have data for it?
       if (account == null) {
@@ -1709,7 +1700,7 @@ class AccountSync {
         // if the account is seend in state table data but this was state table data that was from after time lastStateSyncEndtime
         // then we wont care about missing this account.  receipt repair should take care of it.
         // alternatively this could be fixed with more advance logic on the receipt repair side of things.
-        let time = Number(stateData.txTimestamp)
+        const time = Number(stateData.txTimestamp)
         if (time > this.lastStateSyncEndtime) {
           futureStateTableEntry++
           continue
@@ -1768,7 +1759,7 @@ class AccountSync {
           account.syncData.uptodate = false
           // account.syncData.stateData = stateData
           // chceck if we are missing a tx to handle this.
-          let txRef = this.acceptedTXByHash[stateData.txId]
+          const txRef = this.acceptedTXByHash[stateData.txId]
           if (txRef == null) {
             // account.syncData.missingTX = true
             // if (stateData.txTimestamp > account.syncData.timestamp) {
@@ -1805,13 +1796,13 @@ class AccountSync {
 
     //   For each account in the Account State Table make sure the entry in Account data has the same State_after value; if not save the account id to be looked up later
     this.accountsWithStateConflict = []
-    let goodAccounts: Shardus.WrappedData[] = []
+    const goodAccounts: Shardus.WrappedData[] = []
     let noSyncData = 0
     let noMatches = 0
     let outOfDateNoTxs = 0
     let unhandledCase = 0
     let fix1Worked = 0
-    for (let account of this.combinedAccountData) {
+    for (const account of this.combinedAccountData) {
       if (!account.syncData) {
         // this account was not found in state data
         this.accountsWithStateConflict.push(account)
@@ -1858,8 +1849,7 @@ class AccountSync {
         `DATASYNC: processAccountData saving ${goodAccounts.length} of ${this.combinedAccountData.length} records to db.  noSyncData: ${noSyncData} noMatches: ${noMatches} missingTXs: ${missingTXs} handledButOk: ${handledButOk} otherMissingCase: ${otherMissingCase} outOfDateNoTxs: ${outOfDateNoTxs} futureStateTableEntry:${futureStateTableEntry} unhandledCase:${unhandledCase} fix1Worked:${fix1Worked}`
       )
     // failedHashes is a list of accounts that failed to match the hash reported by the server
-    let failedHashes = await this.stateManager.checkAndSetAccountData(goodAccounts, 'syncNonGlobals:processAccountData', true) // repeatable form may need to call this in batches
-
+    const failedHashes = await this.stateManager.checkAndSetAccountData(goodAccounts, 'syncNonGlobals:processAccountData', true) // repeatable form may need to call this in batches
 
     this.syncStatement.numAccounts += goodAccounts.length
 
@@ -1874,13 +1864,13 @@ class AccountSync {
       // TODO ? record/eval/report blame?
       this.stateManager.recordPotentialBadnode()
       this.failedAccounts = this.failedAccounts.concat(failedHashes)
-      for (let accountId of failedHashes) {
+      for (const accountId of failedHashes) {
         account = this.mapAccountData[accountId]
 
         if (logFlags.verbose) this.mainLogger.debug(`DATASYNC: processAccountData ${accountId}  data: ${utils.stringifyReduce(account)}`)
 
         if (account != null) {
-          if (logFlags.verbose) this.mainLogger.debug(`DATASYNC: processAccountData adding account to list`)
+          if (logFlags.verbose) this.mainLogger.debug('DATASYNC: processAccountData adding account to list')
           this.accountsWithStateConflict.push(account)
         } else {
           if (logFlags.verbose) this.mainLogger.debug(`DATASYNC: processAccountData cant find data: ${accountId}`)
@@ -1892,17 +1882,16 @@ class AccountSync {
       }
     }
 
-    let accountsSaved = await this.stateManager.writeCombinedAccountDataToBackups(goodAccounts, failedHashes)
+    const accountsSaved = await this.stateManager.writeCombinedAccountDataToBackups(goodAccounts, failedHashes)
 
-    nestedCountersInstance.countEvent('sync', `accounts written`, accountsSaved)
+    nestedCountersInstance.countEvent('sync', 'accounts written', accountsSaved)
 
     this.combinedAccountData = [] // we can clear this now.
 
     return accountsSaved
   }
 
-
-  async processAccountDataNoStateTable() : Promise<number> {
+  async processAccountDataNoStateTable(): Promise<number> {
     this.missingAccountData = []
     this.mapAccountData = {}
     this.stateTableForMissingTXs = {}
@@ -1913,26 +1902,26 @@ class AccountSync {
       this.mapAccountData[account.accountId] = account
     }
 
-    let accountKeys = Object.keys(this.mapAccountData)
-    let uniqueAccounts = accountKeys.length
-    let initialCombinedAccountLength = this.combinedAccountData.length
+    const accountKeys = Object.keys(this.mapAccountData)
+    const uniqueAccounts = accountKeys.length
+    const initialCombinedAccountLength = this.combinedAccountData.length
     if (uniqueAccounts < initialCombinedAccountLength) {
       // keep only the newest copies of each account:
       // we need this if using a time based datasync
       this.combinedAccountData = []
-      for (let accountID of accountKeys) {
+      for (const accountID of accountKeys) {
         this.combinedAccountData.push(this.mapAccountData[accountID])
       }
     }
 
-    let missingButOkAccounts = 0
-    let missingTXs = 0
-    let handledButOk = 0
-    let otherMissingCase = 0
-    let futureStateTableEntry = 0
-    let missingButOkAccountIDs: { [id: string]: boolean } = {}
+    const missingButOkAccounts = 0
+    const missingTXs = 0
+    const handledButOk = 0
+    const otherMissingCase = 0
+    const futureStateTableEntry = 0
+    const missingButOkAccountIDs: { [id: string]: boolean } = {}
 
-    let missingAccountIDs: { [id: string]: boolean } = {}
+    const missingAccountIDs: { [id: string]: boolean } = {}
 
     if (logFlags.debug)
       this.mainLogger.debug(
@@ -1940,16 +1929,15 @@ class AccountSync {
       )
     // For each account in the Account data make sure the entry in the Account State Table has the same State_after value; if not remove the record from the Account data
 
-
     //   For each account in the Account State Table make sure the entry in Account data has the same State_after value; if not save the account id to be looked up later
     this.accountsWithStateConflict = []
-    let goodAccounts: Shardus.WrappedData[] = []
-    let noSyncData = 0
-    let noMatches = 0
-    let outOfDateNoTxs = 0
-    let unhandledCase = 0
-    let fix1Worked = 0
-    for (let account of this.combinedAccountData) {
+    const goodAccounts: Shardus.WrappedData[] = []
+    const noSyncData = 0
+    const noMatches = 0
+    const outOfDateNoTxs = 0
+    const unhandledCase = 0
+    const fix1Worked = 0
+    for (const account of this.combinedAccountData) {
       goodAccounts.push(account)
     }
 
@@ -1958,7 +1946,7 @@ class AccountSync {
         `DATASYNC: processAccountData saving ${goodAccounts.length} of ${this.combinedAccountData.length} records to db.  noSyncData: ${noSyncData} noMatches: ${noMatches} missingTXs: ${missingTXs} handledButOk: ${handledButOk} otherMissingCase: ${otherMissingCase} outOfDateNoTxs: ${outOfDateNoTxs} futureStateTableEntry:${futureStateTableEntry} unhandledCase:${unhandledCase} fix1Worked:${fix1Worked}`
       )
     // failedHashes is a list of accounts that failed to match the hash reported by the server
-    let failedHashes = await this.stateManager.checkAndSetAccountData(goodAccounts, 'syncNonGlobals:processAccountDataNoStateTable', true) // repeatable form may need to call this in batches
+    const failedHashes = await this.stateManager.checkAndSetAccountData(goodAccounts, 'syncNonGlobals:processAccountDataNoStateTable', true) // repeatable form may need to call this in batches
 
     this.syncStatement.numAccounts += goodAccounts.length
 
@@ -1973,13 +1961,13 @@ class AccountSync {
       // TODO ? record/eval/report blame?
       this.stateManager.recordPotentialBadnode()
       this.failedAccounts = this.failedAccounts.concat(failedHashes)
-      for (let accountId of failedHashes) {
+      for (const accountId of failedHashes) {
         account = this.mapAccountData[accountId]
 
         if (logFlags.verbose) this.mainLogger.debug(`DATASYNC: processAccountData ${accountId}  data: ${utils.stringifyReduce(account)}`)
 
         if (account != null) {
-          if (logFlags.verbose) this.mainLogger.debug(`DATASYNC: processAccountData adding account to list`)
+          if (logFlags.verbose) this.mainLogger.debug('DATASYNC: processAccountData adding account to list')
           this.accountsWithStateConflict.push(account)
         } else {
           if (logFlags.verbose) this.mainLogger.debug(`DATASYNC: processAccountData cant find data: ${accountId}`)
@@ -1991,20 +1979,16 @@ class AccountSync {
       }
     }
 
-    let accountsSaved = await this.stateManager.writeCombinedAccountDataToBackups(goodAccounts, failedHashes)
+    const accountsSaved = await this.stateManager.writeCombinedAccountDataToBackups(goodAccounts, failedHashes)
 
-    nestedCountersInstance.countEvent('sync', `accounts written`, accountsSaved)
+    nestedCountersInstance.countEvent('sync', 'accounts written', accountsSaved)
 
     this.combinedAccountData = [] // we can clear this now.
 
     return accountsSaved
   }
 
-
-
-
   getDataSourceNode(lowAddress: string, highAddress: string) {
-
     if (this.stateManager.currentCycleShardData == null) {
       return
     }
@@ -2015,9 +1999,9 @@ class AccountSync {
     queryLow = lowAddress
     queryHigh = highAddress
 
-    let centerNode = ShardFunctions.getCenterHomeNode(this.stateManager.currentCycleShardData.shardGlobals, this.stateManager.currentCycleShardData.parititionShardDataMap, lowAddress, highAddress)
+    const centerNode = ShardFunctions.getCenterHomeNode(this.stateManager.currentCycleShardData.shardGlobals, this.stateManager.currentCycleShardData.parititionShardDataMap, lowAddress, highAddress)
     if (centerNode == null) {
-      if (logFlags.error) this.mainLogger.error(`getDataSourceNode: centerNode not found`)
+      if (logFlags.error) this.mainLogger.error('getDataSourceNode: centerNode not found')
       return
     }
 
@@ -2028,20 +2012,18 @@ class AccountSync {
       this.p2p.id,
       40
     )
-    let nodesInProximity = nodes.length
+    const nodesInProximity = nodes.length
     nodes = nodes.filter(this.removePotentiallyRemovedNodes)
-    let filteredNodes1 = nodes.length
-    let filteredNodes = []
-    for(let node of nodes){
-
-      let nodeShardData = this.stateManager.currentCycleShardData.nodeShardDataMap.get(node.id)
-      if(nodeShardData != null){
-
-        if(ShardFunctions.testAddressInRange(queryLow, nodeShardData.consensusPartitions) === false){
+    const filteredNodes1 = nodes.length
+    const filteredNodes = []
+    for (const node of nodes) {
+      const nodeShardData = this.stateManager.currentCycleShardData.nodeShardDataMap.get(node.id)
+      if (nodeShardData != null) {
+        if (ShardFunctions.testAddressInRange(queryLow, nodeShardData.consensusPartitions) === false) {
           if (logFlags.error) this.mainLogger.error(`node cant fit range: queryLow:${queryLow}  ${utils.stringifyReduce(nodeShardData.consensusPartitions)}  `)
           continue
         }
-        if(ShardFunctions.testAddressInRange(queryHigh, nodeShardData.consensusPartitions) === false){
+        if (ShardFunctions.testAddressInRange(queryHigh, nodeShardData.consensusPartitions) === false) {
           if (logFlags.error) this.mainLogger.error(`node cant fit range: queryHigh:${queryHigh}  ${utils.stringifyReduce(nodeShardData.consensusPartitions)}  `)
           continue
         }
@@ -2049,8 +2031,8 @@ class AccountSync {
       }
     }
     nodes = filteredNodes
-    let filteredNodes2 = nodes.length
-    if(nodes.length > 0){
+    const filteredNodes2 = nodes.length
+    if (nodes.length > 0) {
       this.dataSourceNode = nodes[Math.floor(Math.random() * nodes.length)]
       //this next line is not an error: comment it out later
       if (logFlags.error) this.mainLogger.error(`data source nodes found: ${nodes.length}  nodesInProximity:${nodesInProximity} filteredNodes1:${filteredNodes1} filteredNodes2:${filteredNodes2} `)
@@ -2096,16 +2078,16 @@ class AccountSync {
    */
   async syncFailedAcccounts(lowAddress: string, highAddress: string) {
     if (this.accountsWithStateConflict.length === 0 && this.missingAccountData.length === 0) {
-      if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncFailedAcccounts no failed hashes to sync`)
+      if (logFlags.debug) this.mainLogger.debug('DATASYNC: syncFailedAcccounts no failed hashes to sync')
       return
     }
 
     nestedCountersInstance.countEvent('sync', 'syncFailedAcccounts')
     this.syncStatement.failedAccountLoops++
 
-    if (logFlags.verbose) this.mainLogger.debug(`DATASYNC: syncFailedAcccounts start`)
+    if (logFlags.verbose) this.mainLogger.debug('DATASYNC: syncFailedAcccounts start')
     let addressList: string[] = []
-    for (let accountEntry of this.accountsWithStateConflict) {
+    for (const accountEntry of this.accountsWithStateConflict) {
       // //NOTE: fixed with refactor
       // if (accountEntry.data && accountEntry.data.address) {
       //     addressList.push(accountEntry.data.address)
@@ -2132,8 +2114,8 @@ class AccountSync {
       return
     }
 
-    let message = { accountIds: addressList }
-    let result = await this.p2p.ask(this.dataSourceNode, 'get_account_data_by_list', message)
+    const message = { accountIds: addressList }
+    const result = await this.p2p.ask(this.dataSourceNode, 'get_account_data_by_list', message)
 
     nestedCountersInstance.countEvent('sync', 'syncFailedAcccounts accountsFailed', addressList.length)
     this.syncStatement.failedAccounts += addressList.length
@@ -2160,7 +2142,7 @@ class AccountSync {
     this.combinedAccountData = this.combinedAccountData.concat(result.accountData)
 
     if (logFlags.debug) this.mainLogger.debug(`DATASYNC: syncFailedAcccounts combinedAccountData: ${this.combinedAccountData.length} accountData: ${result.accountData.length}`)
-    if(this.useStateTable === true){
+    if (this.useStateTable === true) {
       await this.syncStateTableData(lowAddress, highAddress, this.lastStateSyncEndtime, Date.now())
     }
     // process the new accounts.
@@ -2183,13 +2165,13 @@ class AccountSync {
   async repairMissingTXs() {
     nestedCountersInstance.countEvent('sync', 'repairMissingTXs')
 
-    let keys = Object.keys(this.stateTableForMissingTXs)
+    const keys = Object.keys(this.stateTableForMissingTXs)
 
     if (logFlags.debug) this.mainLogger.debug(`DATASYNC: repairMissingTXs begin: ${keys.length} ${utils.stringifyReduce(keys)}`)
-    for (let key of keys) {
+    for (const key of keys) {
       try {
         this.profiler.profileSectionStart('repairMissingTX')
-        let stateTableData = this.stateTableForMissingTXs[key]
+        const stateTableData = this.stateTableForMissingTXs[key]
 
         if (stateTableData == null) {
           nestedCountersInstance.countEvent('sync', 'repairMissingTXs stateTableData == null')
@@ -2202,16 +2184,16 @@ class AccountSync {
 
         if (logFlags.debug) this.mainLogger.debug(`DATASYNC: repairMissingTXs start: ${utils.stringifyReduce(stateTableData)}`)
         //get receipt for txID
-        let result = await this.stateManager.transactionRepair.requestMissingReceipt(stateTableData.txId, Number(stateTableData.txTimestamp), stateTableData.accountId)
+        const result = await this.stateManager.transactionRepair.requestMissingReceipt(stateTableData.txId, Number(stateTableData.txTimestamp), stateTableData.accountId)
         if (result != null && result.success === true) {
-          let repairOk = await this.stateManager.transactionRepair.repairToMatchReceiptWithoutQueueEntry(result.receipt, stateTableData.accountId)
+          const repairOk = await this.stateManager.transactionRepair.repairToMatchReceiptWithoutQueueEntry(result.receipt, stateTableData.accountId)
           if (logFlags.debug) this.mainLogger.debug(`DATASYNC: repairMissingTXs finished: ok:${repairOk} ${utils.stringifyReduce(stateTableData)}`)
         } else {
           if (logFlags.debug) this.mainLogger.debug(`DATASYNC: repairMissingTXs cant get receipt: ${utils.stringifyReduce(stateTableData)}`)
-          this.statemanager_fatal(`repairMissingTXs_fail`, `repairMissingTXs_fail ${utils.stringifyReduce(stateTableData)} result:${utils.stringifyReduce(result)}`)
+          this.statemanager_fatal('repairMissingTXs_fail', `repairMissingTXs_fail ${utils.stringifyReduce(stateTableData)} result:${utils.stringifyReduce(result)}`)
         }
       } catch (error) {
-        this.statemanager_fatal(`repairMissingTXs_ex`, 'repairMissingTXs ex: ' + errorToStringFull(error))
+        this.statemanager_fatal('repairMissingTXs_ex', 'repairMissingTXs ex: ' + errorToStringFull(error))
       } finally {
         this.profiler.profileSectionEnd('repairMissingTX')
       }
@@ -2222,7 +2204,7 @@ class AccountSync {
    * failandRestart
    */
   async failandRestart() {
-    this.mainLogger.info(`DATASYNC: failandRestart`)
+    this.mainLogger.info('DATASYNC: failandRestart')
     this.logger.playbackLogState('datasyncFail', '', '')
     this.clearSyncData()
 
@@ -2232,20 +2214,18 @@ class AccountSync {
     // }, 1000)
     await utils.sleep(1000)
 
-
-    if(this.forceSyncComplete){
+    if (this.forceSyncComplete) {
       nestedCountersInstance.countEvent('sync', 'forceSyncComplete')
       this.syncStatmentIsComplete()
       this.clearSyncData()
       this.skipSync()
 
       //make sync trackers clean up
-      for (let syncTracker of this.syncTrackers) {
+      for (const syncTracker of this.syncTrackers) {
         syncTracker.syncFinished = true
       }
       return
     }
-
 
     nestedCountersInstance.countEvent('sync', 'fail and restart')
     this.syncStatement.failAndRestart++
@@ -2258,7 +2238,7 @@ class AccountSync {
    * failAndDontRestartSync
    */
   failAndDontRestartSync() {
-    this.mainLogger.info(`DATASYNC: failAndDontRestartSync`)
+    this.mainLogger.info('DATASYNC: failAndDontRestartSync')
     // need to clear more?
     this.clearSyncData()
     this.syncTrackers = []
@@ -2291,30 +2271,29 @@ class AccountSync {
    *    ##     ##  #######  ##    ##    ##    #### ##     ## ########     ######     ##    ##    ##  ######  ##     ## ##     ## ##    ## ########  ######## ######## ##     ##  ######
    */
 
-   /**
-    * updateRuntimeSyncTrackers
-    *
-    * called in update shard values to handle sync trackers that have finished and need to restar TXs
-    */
+  /**
+   * updateRuntimeSyncTrackers
+   *
+   * called in update shard values to handle sync trackers that have finished and need to restar TXs
+   */
   updateRuntimeSyncTrackers() {
     let initalSyncRemaining = 0
     if (this.syncTrackers != null) {
       for (let i = this.syncTrackers.length - 1; i >= 0; i--) {
-        let syncTracker = this.syncTrackers[i]
+        const syncTracker = this.syncTrackers[i]
 
-        if(syncTracker.isPartOfInitialSync){
+        if (syncTracker.isPartOfInitialSync) {
           initalSyncRemaining++
         }
 
         if (syncTracker.syncFinished === true) {
-          if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_trackerRangeClear', ` `, ` ${utils.stringifyReduce(syncTracker.range)} `)
+          if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_trackerRangeClear', ' ', ` ${utils.stringifyReduce(syncTracker.range)} `)
 
           // allow syncing queue entries to resume!
-          for (let queueEntry of syncTracker.queueEntries) {
-
+          for (const queueEntry of syncTracker.queueEntries) {
             //need to decrement this per key
-            for(let key of queueEntry.uniqueKeys){
-              if(syncTracker.keys[key] === true){
+            for (const key of queueEntry.uniqueKeys) {
+              if (syncTracker.keys[key] === true) {
                 queueEntry.syncCounter--
               }
             }
@@ -2322,7 +2301,7 @@ class AccountSync {
 
             if (queueEntry.syncCounter <= 0) {
               // dont adjust a
-              let found = this.stateManager.transactionQueue.getQueueEntry(queueEntry.acceptedTx.txId)
+              const found = this.stateManager.transactionQueue.getQueueEntry(queueEntry.acceptedTx.txId)
               if (!found) {
                 this.logger.playbackLogNote(
                   'shrd_sync_wakeupTX_skip1',
@@ -2341,9 +2320,9 @@ class AccountSync {
                 continue
               }
 
-              let before = queueEntry.ourNodeInTransactionGroup
+              const before = queueEntry.ourNodeInTransactionGroup
               if (queueEntry.ourNodeInTransactionGroup === false) {
-                let old = queueEntry.transactionGroup
+                const old = queueEntry.transactionGroup
                 queueEntry.transactionGroup = null
                 this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
                 //@ts-ignore ourNodeInTransactionGroup is updated by queueEntryGetTransactionGroup
@@ -2387,26 +2366,26 @@ class AccountSync {
           this.syncTrackers.splice(i, 1)
         }
       }
-      if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_trackerRangeClearFinished', ` `, `num trackers left: ${this.syncTrackers.length} `)
+      if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_trackerRangeClearFinished', ' ', `num trackers left: ${this.syncTrackers.length} `)
 
-      if(this.initalSyncRemaining > 0 && initalSyncRemaining === 0){
+      if (this.initalSyncRemaining > 0 && initalSyncRemaining === 0) {
         this.initalSyncFinished = true
         this.initalSyncRemaining = 0
-        if (logFlags.debug) this.mainLogger.debug(`DATASYNC: initalSyncFinished.`)
-        nestedCountersInstance.countEvent('sync',`initialSyncFinished ${this.stateManager.currentCycleShardData.cycleNumber}`)
+        if (logFlags.debug) this.mainLogger.debug('DATASYNC: initalSyncFinished.')
+        nestedCountersInstance.countEvent('sync', `initialSyncFinished ${this.stateManager.currentCycleShardData.cycleNumber}`)
       }
     }
   }
 
-/***
- *     ######  ##    ## ##    ##  ######  ########  ##     ## ##    ## ######## #### ##     ## ######## ######## ########     ###     ######  ##    ## ######## ########   ######
- *    ##    ##  ##  ##  ###   ## ##    ## ##     ## ##     ## ###   ##    ##     ##  ###   ### ##          ##    ##     ##   ## ##   ##    ## ##   ##  ##       ##     ## ##    ##
- *    ##         ####   ####  ## ##       ##     ## ##     ## ####  ##    ##     ##  #### #### ##          ##    ##     ##  ##   ##  ##       ##  ##   ##       ##     ## ##
- *     ######     ##    ## ## ## ##       ########  ##     ## ## ## ##    ##     ##  ## ### ## ######      ##    ########  ##     ## ##       #####    ######   ########   ######
- *          ##    ##    ##  #### ##       ##   ##   ##     ## ##  ####    ##     ##  ##     ## ##          ##    ##   ##   ######### ##       ##  ##   ##       ##   ##         ##
- *    ##    ##    ##    ##   ### ##    ## ##    ##  ##     ## ##   ###    ##     ##  ##     ## ##          ##    ##    ##  ##     ## ##    ## ##   ##  ##       ##    ##  ##    ##
- *     ######     ##    ##    ##  ######  ##     ##  #######  ##    ##    ##    #### ##     ## ########    ##    ##     ## ##     ##  ######  ##    ## ######## ##     ##  ######
- */
+  /***
+   *     ######  ##    ## ##    ##  ######  ########  ##     ## ##    ## ######## #### ##     ## ######## ######## ########     ###     ######  ##    ## ######## ########   ######
+   *    ##    ##  ##  ##  ###   ## ##    ## ##     ## ##     ## ###   ##    ##     ##  ###   ### ##          ##    ##     ##   ## ##   ##    ## ##   ##  ##       ##     ## ##    ##
+   *    ##         ####   ####  ## ##       ##     ## ##     ## ####  ##    ##     ##  #### #### ##          ##    ##     ##  ##   ##  ##       ##  ##   ##       ##     ## ##
+   *     ######     ##    ## ## ## ##       ########  ##     ## ## ## ##    ##     ##  ## ### ## ######      ##    ########  ##     ## ##       #####    ######   ########   ######
+   *          ##    ##    ##  #### ##       ##   ##   ##     ## ##  ####    ##     ##  ##     ## ##          ##    ##   ##   ######### ##       ##  ##   ##       ##   ##         ##
+   *    ##    ##    ##    ##   ### ##    ## ##    ##  ##     ## ##   ###    ##     ##  ##     ## ##          ##    ##    ##  ##     ## ##    ## ##   ##  ##       ##    ##  ##    ##
+   *     ######     ##    ##    ##  ######  ##     ##  #######  ##    ##    ##    #### ##     ## ########    ##    ##     ## ##     ##  ######  ##    ## ######## ##     ##  ######
+   */
 
   /**
    * syncRuntimeTrackers
@@ -2427,41 +2406,40 @@ class AccountSync {
         //   we work on a copy of the list
         //   we start the loop over again if any work was done.  this allows us to pick up changes that got added in later
         startedCount = 0
-        let arrayCopy = this.syncTrackers.slice(0)
-        for (let syncTracker of arrayCopy) {
+        const arrayCopy = this.syncTrackers.slice(0)
+        for (const syncTracker of arrayCopy) {
           if (syncTracker.syncStarted === false) {
             // let partition = syncTracker.partition
             if (logFlags.console) console.log(`rtsyncTracker start. time:${Date.now()} data: ${utils.stringifyReduce(syncTracker)}}`)
-            if (logFlags.playback) this.logger.playbackLogNote('rt_shrd_sync_trackerRangeStart', ` `, ` ${utils.stringifyReduce(syncTracker.range)} `)
+            if (logFlags.playback) this.logger.playbackLogNote('rt_shrd_sync_trackerRangeStart', ' ', ` ${utils.stringifyReduce(syncTracker.range)} `)
 
             syncTracker.syncStarted = true
             startedCount++
             await this.syncStateDataForRange(syncTracker.range)
             syncTracker.syncFinished = true
 
-            if (logFlags.playback) this.logger.playbackLogNote('rt_shrd_sync_trackerRangeEnd', ` `, ` ${utils.stringifyReduce(syncTracker.range)} `)
+            if (logFlags.playback) this.logger.playbackLogNote('rt_shrd_sync_trackerRangeEnd', ' ', ` ${utils.stringifyReduce(syncTracker.range)} `)
             this.clearSyncData()
           }
         }
       } while (startedCount > 0)
     } catch (ex) {
       if (logFlags.debug) this.mainLogger.debug('syncRuntimeTrackers: ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
-      this.statemanager_fatal(`syncRuntimeTrackers_ex`, 'syncRuntimeTrackers: ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
+      this.statemanager_fatal('syncRuntimeTrackers_ex', 'syncRuntimeTrackers: ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
 
       //clear out sync trackers and let repair handle it if needed.
-      let cleared = this.syncTrackers.length
-      let kept = 0
-      let newTrackers = 0
+      const cleared = this.syncTrackers.length
+      const kept = 0
+      const newTrackers = 0
 
-      let cycle = this.stateManager.currentCycleShardData.cycleNumber
-      let lastCycle = cycle - 1
+      const cycle = this.stateManager.currentCycleShardData.cycleNumber
+      const lastCycle = cycle - 1
 
-      nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: runtime. lastCycle: ${lastCycle} cycle: ${cycle} ${JSON.stringify({cleared, kept, newTrackers})}`)
+      nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: runtime. lastCycle: ${lastCycle} cycle: ${cycle} ${JSON.stringify({ cleared, kept, newTrackers })}`)
 
       // clear all sync trackers.
       this.syncTrackers = []
       // may need to think more about this.. what if multiple nodes fail sync and then cast bad votes in subsequent updates?
-
     } finally {
       this.runtimeSyncTrackerSyncing = false
     }
@@ -2483,32 +2461,54 @@ class AccountSync {
    * @param {number} cycle
    * @return {SyncTracker}
    */
-  createSyncTrackerByRange(range: StateManagerTypes.shardFunctionTypes.BasicAddressRange, cycle: number, initalSync: boolean = false): SyncTracker {
+  createSyncTrackerByRange(range: StateManagerTypes.shardFunctionTypes.BasicAddressRange, cycle: number, initalSync = false): SyncTracker {
     // let partition = -1
-    let index = this.syncTrackerIndex++
-    let syncTracker = { range, queueEntries: [], cycle, index, syncStarted: false, syncFinished: false, isGlobalSyncTracker: false, globalAddressMap: {}, isPartOfInitialSync:initalSync, keys:{}  } as SyncTracker // partition,
+    const index = this.syncTrackerIndex++
+    const syncTracker = {
+      range,
+      queueEntries: [],
+      cycle,
+      index,
+      syncStarted: false,
+      syncFinished: false,
+      isGlobalSyncTracker: false,
+      globalAddressMap: {},
+      isPartOfInitialSync: initalSync,
+      keys: {},
+    } as SyncTracker // partition,
     syncTracker.syncStarted = false
     syncTracker.syncFinished = false
 
     this.syncTrackers.push(syncTracker) // we should maintain this order.
 
-    if(initalSync){
+    if (initalSync) {
       this.initalSyncRemaining++
     }
 
     return syncTracker
   }
 
-  createSyncTrackerByForGlobals(cycle: number, initalSync: boolean = false): SyncTracker {
+  createSyncTrackerByForGlobals(cycle: number, initalSync = false): SyncTracker {
     // let partition = -1
-    let index = this.syncTrackerIndex++
-    let syncTracker = { range: {}, queueEntries: [], cycle, index, syncStarted: false, syncFinished: false, isGlobalSyncTracker: true, globalAddressMap: {}, isPartOfInitialSync:initalSync, keys:{} } as SyncTracker // partition,
+    const index = this.syncTrackerIndex++
+    const syncTracker = {
+      range: {},
+      queueEntries: [],
+      cycle,
+      index,
+      syncStarted: false,
+      syncFinished: false,
+      isGlobalSyncTracker: true,
+      globalAddressMap: {},
+      isPartOfInitialSync: initalSync,
+      keys: {},
+    } as SyncTracker // partition,
     syncTracker.syncStarted = false
     syncTracker.syncFinished = false
 
     this.syncTrackers.push(syncTracker) // we should maintain this order.
 
-    if(initalSync){
+    if (initalSync) {
       this.initalSyncRemaining++
     }
 
@@ -2518,7 +2518,7 @@ class AccountSync {
   getSyncTracker(address: string): SyncTracker | null {
     // return the sync tracker.
     for (let i = 0; i < this.syncTrackers.length; i++) {
-      let syncTracker = this.syncTrackers[i]
+      const syncTracker = this.syncTrackers[i]
 
       // need to see if address is in range. if so return the tracker.
       // if (ShardFunctions.testAddressInRange(address, syncTracker.range)) {
@@ -2540,13 +2540,13 @@ class AccountSync {
     if (cycleShardData == null) {
       return null
     }
-    let partitionShardData: StateManagerTypes.shardFunctionTypes.ShardInfo = cycleShardData.parititionShardDataMap.get(partitionID)
+    const partitionShardData: StateManagerTypes.shardFunctionTypes.ShardInfo = cycleShardData.parititionShardDataMap.get(partitionID)
 
-    let addressLow = partitionShardData.homeRange.low
-    let addressHigh = partitionShardData.homeRange.high
+    const addressLow = partitionShardData.homeRange.low
+    const addressHigh = partitionShardData.homeRange.high
     // return the sync tracker.
     for (let i = 0; i < this.syncTrackers.length; i++) {
-      let syncTracker = this.syncTrackers[i]
+      const syncTracker = this.syncTrackers[i]
       // if (syncTracker.isGlobalSyncTracker === true && syncTracker.globalAddressMap[address] === true) {
       //   return syncTracker
       // }
@@ -2573,7 +2573,6 @@ class AccountSync {
    *
    */
   syncStatmentIsComplete() {
-
     this.syncStatement.totalSyncTime = (Date.now() - Self.p2pSyncStart) / 1000
 
     // place to hook in and read or send the sync statement
@@ -2590,19 +2589,18 @@ class AccountSync {
     this.syncStatement.syncComplete = true
 
     this.readyforTXs = true
-    if (logFlags.debug) this.mainLogger.debug(`DATASYNC: isFirstSeed = true. skipping sync`)
+    if (logFlags.debug) this.mainLogger.debug('DATASYNC: isFirstSeed = true. skipping sync')
 
     return
   }
 
-  removePotentiallyRemovedNodes(node){
+  removePotentiallyRemovedNodes(node) {
     return potentiallyRemoved.has(node.id) != true
   }
 
   // onlyConsensusNodes(node){
   //   return potentiallyRemoved.has(node.id) != true
   // }
-
 }
 
 export default AccountSync

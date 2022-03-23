@@ -7,7 +7,7 @@ import Profiler from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
-import Logger, {logFlags} from '../logger'
+import Logger, { logFlags } from '../logger'
 import ShardFunctions from './shardFunctions.js'
 import { time } from 'console'
 import StateManager from '.'
@@ -19,7 +19,7 @@ class PartitionObjects {
   crypto: Crypto
   config: Shardus.ServerConfiguration
   profiler: Profiler
-  
+
   logger: Logger
   p2p: P2P
   storage: Storage
@@ -32,7 +32,6 @@ class PartitionObjects {
   statemanager_fatal: (key: string, log: string) => void
 
   nextCycleReportToSend: PartitionCycleReport
-
 
   lastCycleReported: number
   partitionReportDirty: boolean
@@ -52,8 +51,7 @@ class PartitionObjects {
 
   resetAndApplyPerPartition: boolean
 
-  constructor(stateManager: StateManager,  profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ServerConfiguration) {
-    
+  constructor(stateManager: StateManager, profiler: Profiler, app: Shardus.App, logger: Logger, storage: Storage, p2p: P2P, crypto: Crypto, config: Shardus.ServerConfiguration) {
     this.crypto = crypto
     this.app = app
     this.logger = logger
@@ -106,28 +104,26 @@ class PartitionObjects {
   getPartitionReport(consensusOnly: boolean, smallHashes: boolean): PartitionCycleReport {
     let response: PartitionCycleReport = {} // {res:[], cycleNumber:-1}
     if (this.nextCycleReportToSend != null) {
+      const shardValues = this.stateManager.shardValuesByCycle.get(this.nextCycleReportToSend.cycleNumber)
+      const shardGlobals = shardValues.shardGlobals as StateManagerTypes.shardFunctionTypes.ShardGlobals
+      const consensusStartPartition = shardValues.nodeShardData.consensusStartPartition
+      const consensusEndPartition = shardValues.nodeShardData.consensusEndPartition
 
-      let shardValues = this.stateManager.shardValuesByCycle.get(this.nextCycleReportToSend.cycleNumber)
-      let shardGlobals = shardValues.shardGlobals as StateManagerTypes.shardFunctionTypes.ShardGlobals
-      let consensusStartPartition = shardValues.nodeShardData.consensusStartPartition
-      let consensusEndPartition = shardValues.nodeShardData.consensusEndPartition
-      
-
-      response = {res:[], cycleNumber:this.nextCycleReportToSend.cycleNumber}
+      response = { res: [], cycleNumber: this.nextCycleReportToSend.cycleNumber }
       if (this.lastCycleReported < this.nextCycleReportToSend.cycleNumber || this.partitionReportDirty === true) {
         // consensusOnly hashes
         if (smallHashes === true) {
-          for (let r of this.nextCycleReportToSend.res) {
+          for (const r of this.nextCycleReportToSend.res) {
             r.h = utils.makeShortHash(r.h)
           }
         }
-        for (let r of this.nextCycleReportToSend.res) {
-          if(consensusOnly){
+        for (const r of this.nextCycleReportToSend.res) {
+          if (consensusOnly) {
             //check if partition is in our range!
-            if(ShardFunctions.partitionInWrappingRange(r.i, consensusStartPartition, consensusEndPartition)){
+            if (ShardFunctions.partitionInWrappingRange(r.i, consensusStartPartition, consensusEndPartition)) {
               response.res.push(r)
             }
-          } else{
+          } else {
             response.res.push(r)
           }
         }
@@ -165,9 +161,9 @@ class PartitionObjects {
 
     this.nextCycleReportToSend = { res: [], cycleNumber: cycleShardData.cycleNumber }
 
-    for (let partition of partitions) {
+    for (const partition of partitions) {
       if (mainHashResults.partitionHashResults.has(partition)) {
-        let partitionHashResults = mainHashResults.partitionHashResults.get(partition)
+        const partitionHashResults = mainHashResults.partitionHashResults.get(partition)
         this.nextCycleReportToSend.res.push({ i: partition, h: partitionHashResults.hashOfHashes })
       }
     }
@@ -177,7 +173,7 @@ class PartitionObjects {
    * @param {PartitionObject} partitionObject
    */
   poMicroDebug(partitionObject: PartitionObject) {
-    let header = `c${partitionObject.Cycle_number} p${partitionObject.Partition_id}`
+    const header = `c${partitionObject.Cycle_number} p${partitionObject.Partition_id}`
 
     // need to get a list of compacted TXs in order. also addresses. timestamps?  make it so tools can process easily. (align timestamps view.)
 
@@ -194,11 +190,7 @@ class PartitionObjects {
    *    ######## ##    ## ########        ##         #######  #### ##    ##    ##     ######
    */
 
-  setupHandlers() {
-
-  }
-
-
+  setupHandlers() {}
 }
 
 export default PartitionObjects

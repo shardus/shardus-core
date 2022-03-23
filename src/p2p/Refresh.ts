@@ -10,14 +10,19 @@
  */
 
 import deepmerge from 'deepmerge'
-import { Logger } from 'log4js'
-import { P2P } from '@shardus/types'
-import { propComparator, propComparator2, reversed, validateTypes } from '../utils'
+import {Logger} from 'log4js'
+import {P2P} from '@shardus/types'
+import {
+  propComparator,
+  propComparator2,
+  reversed,
+  validateTypes,
+} from '../utils'
 import * as Archivers from './Archivers'
-import { logger } from './Context'
-import { cycles, newest } from './CycleChain'
+import {logger} from './Context'
+import {cycles, newest} from './CycleChain'
 import * as NodeList from './NodeList'
-import { totalNodeCount } from './Sync'
+import {totalNodeCount} from './Sync'
 
 /** STATE */
 
@@ -41,24 +46,45 @@ export function getTxs(): P2P.RefreshTypes.Txs {
   return {}
 }
 
-export function validateRecordTypes(rec: P2P.RefreshTypes.Record): string{
-  let err = validateTypes(rec,{refreshedArchivers:'a',refreshedConsensors:'a'})
+export function validateRecordTypes(rec: P2P.RefreshTypes.Record): string {
+  let err = validateTypes(rec, {
+    refreshedArchivers: 'a',
+    refreshedConsensors: 'a',
+  })
   if (err) return err
-  for(const item of rec.refreshedArchivers){
-    err = validateTypes(item,{publicKey:'s',ip:'s',port:'n',curvePk:'s'})
-    if (err) return 'in refreshedArchivers array '+err
-  }
-  for(const item of rec.refreshedConsensors){
-    err = validateTypes(item,{activeTimestamp:'n',address:'s',externalIp:'s',externalPort:'n',
-      internalIp:'s',internalPort:'n',joinRequestTimestamp:'n',publicKey:'s',
-      cycleJoined:'s',counterRefreshed:'n',id:'s',curvePublicKey:'s',status:'s'
+  for (const item of rec.refreshedArchivers) {
+    err = validateTypes(item, {
+      publicKey: 's',
+      ip: 's',
+      port: 'n',
+      curvePk: 's',
     })
-    if (err) return 'in joinedConsensors array '+err
+    if (err) return 'in refreshedArchivers array ' + err
+  }
+  for (const item of rec.refreshedConsensors) {
+    err = validateTypes(item, {
+      activeTimestamp: 'n',
+      address: 's',
+      externalIp: 's',
+      externalPort: 'n',
+      internalIp: 's',
+      internalPort: 'n',
+      joinRequestTimestamp: 'n',
+      publicKey: 's',
+      cycleJoined: 's',
+      counterRefreshed: 'n',
+      id: 's',
+      curvePublicKey: 's',
+      status: 's',
+    })
+    if (err) return 'in joinedConsensors array ' + err
   }
   return ''
 }
 
-export function dropInvalidTxs(txs: P2P.RefreshTypes.Txs): P2P.RefreshTypes.Txs {
+export function dropInvalidTxs(
+  txs: P2P.RefreshTypes.Txs
+): P2P.RefreshTypes.Txs {
   return txs
 }
 
@@ -96,7 +122,7 @@ export function parseRecord(
       // If it's in our node list, we update its counterRefreshed
       // (IMPORTANT: update counterRefreshed only if its greater than ours)
       if (record.counter > node.counterRefreshed) {
-        updated.push({ id: refreshed.id, counterRefreshed: record.counter })
+        updated.push({id: refreshed.id, counterRefreshed: record.counter})
       }
     } else {
       // If it's not in our node list, we add it...
@@ -162,11 +188,11 @@ export function cyclesToKeep() {
    * Walk through the cycle chain backwards to calculate how many records we
    * need to build the current node list
    */
-//  const squasher = new CycleParser.ChangeSquasher()
+  //  const squasher = new CycleParser.ChangeSquasher()
   let count = 1
-  let seen = new Map()
+  const seen = new Map()
   for (const record of reversed(cycles)) {
-/*
+    /*
     squasher.addChange(CycleParser.parse(record))
     if (
       squasher.final.updated.length >= activeNodeCount(newest) &&
@@ -180,8 +206,8 @@ export function cyclesToKeep() {
     if (seen.size >= totalNodeCount(newest)) break
     count++
   }
-  info('cycles to keep is '+count)
-//  showNodeCount(newest)
+  info('cycles to keep is ' + count)
+  //  showNodeCount(newest)
   // Keep a few more than that, just to be safe
   return count + 3
 }

@@ -2,7 +2,7 @@ export function isUndefined(thing: unknown) {
   return typeof thing === 'undefined'
 }
 
-export const isObject = (val) => {
+export const isObject = val => {
   if (val === null) {
     return false
   }
@@ -12,10 +12,10 @@ export const isObject = (val) => {
   return typeof val === 'function' || typeof val === 'object'
 }
 
-export const isString = (x) => {
+export const isString = x => {
   return Object.prototype.toString.call(x) === '[object String]'
 }
 
-export const isNumeric = (x) => {
+export const isNumeric = x => {
   return isNaN(x) === false
 }

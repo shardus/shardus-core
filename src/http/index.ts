@@ -1,7 +1,8 @@
-import { parse as parseUrl } from 'url'
-import got from 'got'
+import * as got from 'got'
+import {URL} from 'url'
+import Logger from '../logger'
 
-let _logger = null
+let _logger: Logger
 let getIndex = 1
 let postIndex = -1
 
@@ -16,10 +17,10 @@ function _normalizeUrl(url: string) {
   return normalized
 }
 
-async function _get(url, getResponseObj = false) {
+async function _get(url: got.GotUrl, getResponseObj = false) {
   const res = await got.get(url, {
-    timeout: 1000,   //  Omar - setting this to 1 sec
-    retry: 0,   // Omar - setting this to 0.
+    timeout: 1000, //  Omar - setting this to 1 sec
+    retry: 0, // Omar - setting this to 0.
     json: true,
   })
   if (getResponseObj) return res
@@ -31,8 +32,8 @@ async function _get(url, getResponseObj = false) {
   Returns a promise, resolves parsed JSON response
 */
 async function get(url: string, getResponseObj = false) {
-  let normalized = _normalizeUrl(url)
-  let host = parseUrl(normalized, true)
+  const normalized = _normalizeUrl(url)
+  const host = new URL(normalized)
 
   if (_logger) {
     _logger.playbackLog(
@@ -45,7 +46,7 @@ async function get(url: string, getResponseObj = false) {
     )
   }
 
-  let res = await _get(host, getResponseObj)
+  const res = await _get(host, getResponseObj)
 
   if (_logger) {
     _logger.playbackLog(
@@ -62,10 +63,15 @@ async function get(url: string, getResponseObj = false) {
   return res
 }
 
-async function _post(host, payload, getResponseObj = false, timeout = 1000) {
+async function _post(
+  host: got.GotUrl,
+  payload: {[key: string]: unknown},
+  getResponseObj = false,
+  timeout = 1000
+) {
   const res = await got.post(host, {
-    timeout: timeout,   // Omar - set this to 1 sec
-    retry: 0,   // Omar - set this to 0
+    timeout: timeout, // Omar - set this to 1 sec
+    retry: 0, // Omar - set this to 0
     json: true,
     body: payload,
   })
@@ -77,9 +83,14 @@ async function _post(host, payload, getResponseObj = false, timeout = 1000) {
   Posts a JSON payload to a given host
   Returns a promise, resolves parsed JSON response if successful, rejects on error
 */
-async function post(givenHost, body, getResponseObj = false, timeout = 1000) {
-  let normalized = _normalizeUrl(givenHost)
-  let host = parseUrl(normalized, true)
+async function post(
+  givenHost: string,
+  body: {[key: string]: unknown},
+  getResponseObj = false,
+  timeout = 1000
+) {
+  const normalized = _normalizeUrl(givenHost)
+  const host = new URL(normalized)
   if (_logger) {
     _logger.playbackLog(
       'self',
@@ -91,7 +102,7 @@ async function post(givenHost, body, getResponseObj = false, timeout = 1000) {
     )
   }
 
-  let res = await _post(host, body, getResponseObj, timeout)
+  const res = await _post(host, body, getResponseObj, timeout)
 
   if (_logger) {
     _logger.playbackLog(
@@ -108,8 +119,8 @@ async function post(givenHost, body, getResponseObj = false, timeout = 1000) {
   return res
 }
 
-function setLogger(logger) {
+function setLogger(logger: Logger) {
   _logger = logger
 }
 
-export { get, post, setLogger }
+export {get, post, setLogger}

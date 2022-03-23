@@ -1,15 +1,15 @@
-import path from 'path'
-import { NetworkClass } from '../network'
-import zlib from 'zlib'
+import * as path from 'path'
+import {NetworkClass} from '../network'
+import * as zlib from 'zlib'
 import Trie from 'trie-prefix-tree'
-import { isDebugModeMiddleware } from '../network/debugMiddleware'
-const tar = require('tar-fs')
+import {isDebugModeMiddleware} from '../network/debugMiddleware'
+import tar = require('tar-fs')
 
 interface Debug {
   baseDir: string
   network: NetworkClass
   archiveName: string
-  files: { [name: string]: string }
+  files: {[name: string]: string}
 }
 
 class Debug {
@@ -21,7 +21,7 @@ class Debug {
     this._registerRoutes()
   }
 
-  addToArchive(src, dest) {
+  addToArchive(src: string, dest: string) {
     if (path.isAbsolute(dest))
       throw new Error('"dest" must be a relative path.')
     src = path.isAbsolute(src)
@@ -32,7 +32,7 @@ class Debug {
 
   createArchiveStream() {
     const cwd = process.cwd()
-    const filesRel = {}
+    const filesRel: {[filename: string]: string} = {}
     for (const src in this.files) {
       const srcRel = path.relative(cwd, src)
       const dest = this.files[src]
@@ -42,7 +42,7 @@ class Debug {
     const trie = Trie(entries)
     const pack = tar.pack(cwd, {
       entries,
-      map: function(header) {
+      map: function (header: tar.Headers) {
         // Find the closest entry for this item
         let entry = header.name
         while (!trie.isPrefix(entry)) {
@@ -61,16 +61,20 @@ class Debug {
   }
 
   _registerRoutes() {
-    this.network.registerExternalGet('debug', isDebugModeMiddleware, (req, res) => {
-      const archive = this.createArchiveStream()
-      const gzip = zlib.createGzip()
-      res.set(
-        'content-disposition',
-        `attachment; filename="${this.archiveName}"`
-      )
-      res.set('content-type', 'application/gzip')
-      archive.pipe(gzip).pipe(res)
-    })
+    this.network.registerExternalGet(
+      'debug',
+      isDebugModeMiddleware,
+      (req, res) => {
+        const archive = this.createArchiveStream()
+        const gzip = zlib.createGzip()
+        res.set(
+          'content-disposition',
+          `attachment; filename="${this.archiveName}"`
+        )
+        res.set('content-type', 'application/gzip')
+        archive.pipe(gzip).pipe(res)
+      }
+    )
   }
 }
 

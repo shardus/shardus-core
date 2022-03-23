@@ -1,38 +1,38 @@
-import { compareObjectShape } from '..'
+import {compareObjectShape} from '..'
 
 test('compareObjectShape() > two identical object should return true', () => {
   const idol = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       id: 1,
       debug: false,
     },
   }
   const admirer = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       id: 1,
       debug: false,
     },
   }
 
-  const { isValid, error } = compareObjectShape(idol, admirer)
+  const {isValid, error} = compareObjectShape(idol, admirer)
 
   expect(isValid).toBe(true)
   expect(error).toBe(undefined)
@@ -42,15 +42,15 @@ test('compareObjectShape() > should be fatal for array diversity in idol object'
   expect.assertions(1)
   const idol = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       diverseArr: [1, false, 'str'],
       id: 1,
       debug: false,
@@ -58,15 +58,15 @@ test('compareObjectShape() > should be fatal for array diversity in idol object'
   }
   const admirer = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       diverseArr: ['str', 'str', 'str'],
       id: 1,
       debug: false,
@@ -83,15 +83,15 @@ test('compareObjectShape() > should be fatal for array diversity in idol object'
 test('compareObjectShape() > should detect missing property', () => {
   const idol = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       Arr: ['doe', 'doe', 'str'],
       id: 1,
       debug: false,
@@ -99,24 +99,24 @@ test('compareObjectShape() > should detect missing property', () => {
   }
   const admirer = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     debug: true,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       id: 1,
       debug: false,
     },
   }
 
-  const { isValid, error } = compareObjectShape(idol, admirer)
+  const {isValid, error} = compareObjectShape(idol, admirer)
 
   const expectedError = {
-    defectiveProp: { Arr: undefined },
+    defectiveProp: {Arr: undefined},
     defectiveChain: ['nestedObj', 'Arr'],
   }
 
@@ -127,40 +127,40 @@ test('compareObjectShape() > should detect missing property', () => {
 test('compareObjectShape() > should detect extra props', () => {
   const idol = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       id: 1,
       debug: false,
     },
   }
   const admirer = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
-      extraProp: { id: 1, name: 'doe' },
+      nestedArr: [{id: 1}, {id: 2}],
+      extraProp: {id: 1, name: 'doe'},
       id: 1,
       debug: false,
     },
   }
 
-  const { isValid, error } = compareObjectShape(idol, admirer)
+  const {isValid, error} = compareObjectShape(idol, admirer)
 
   const expectedError = {
-    defectiveProp: { extraProp: { id: 'number', name: 'string' } },
+    defectiveProp: {extraProp: {id: 'number', name: 'string'}},
     defectiveChain: ['nestedObj', 'extraProp'],
   }
   expect(isValid).toBe(false)
@@ -169,41 +169,41 @@ test('compareObjectShape() > should detect extra props', () => {
 
 test('compareObjectShape() > should return error object on property type mismatch', () => {
   const idol = {
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       timestamp: new Date(),
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       numArr: [1, 3, 4],
       id: 1,
       debug: false,
     },
   }
   const admirer = {
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
-      timestamp: { reason: 'defector' },
+      timestamp: {reason: 'defector'},
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
-      extraProp: { id: 1, name: 'doe' },
+      nestedArr: [{id: 1}, {id: 2}],
+      extraProp: {id: 1, name: 'doe'},
       id: 1,
       debug: false,
     },
   }
 
-  const { isValid, error } = compareObjectShape(idol, admirer)
+  const {isValid, error} = compareObjectShape(idol, admirer)
 
   const expectedError = {
-    defectiveProp: { timestamp: { reason: 'string' } },
+    defectiveProp: {timestamp: {reason: 'string'}},
     defectiveChain: ['nestedObj', 'timestamp'],
   }
 
@@ -213,39 +213,39 @@ test('compareObjectShape() > should return error object on property type mismatc
 
 test('compareObjectShape() > should return error object on array type mismatch', () => {
   const idol = {
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       numArr: [1, 3, 4],
       id: 1,
       debug: false,
     },
   }
   const admirer = {
-    fn: (str) => str,
+    fn: str => str,
     debug: false,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 'any'],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
-      extraProp: { id: 1, name: 'doe' },
+      nestedArr: [{id: 1}, {id: 2}],
+      extraProp: {id: 1, name: 'doe'},
       id: 1,
       debug: false,
     },
   }
 
-  const { isValid, error } = compareObjectShape(idol, admirer)
+  const {isValid, error} = compareObjectShape(idol, admirer)
 
   const expectedError = {
-    defectiveProp: { numArr: 'any[]'},
+    defectiveProp: {numArr: 'any[]'},
     defectiveChain: ['nestedObj', 'numArr'],
   }
 
@@ -255,36 +255,36 @@ test('compareObjectShape() > should return error object on array type mismatch',
 test('compareObjectShape() > should not fail when property possess falsy value', () => {
   const idol = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     falsy: 0,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       id: 1,
       debug: false,
     },
   }
   const admirer = {
     timestamp: new Date(),
-    fn: (str) => str,
+    fn: str => str,
     falsy: 20,
     id: 1,
-    dummyObj: { id: 1, name: 'john doe', NRC: '23403492340' }, // this information is purely made up
+    dummyObj: {id: 1, name: 'john doe', NRC: '23403492340'}, // this information is purely made up
     nestedObj: {
       numArr: [1, 3, 4],
       strArr: ['name1', 'name2'],
       multiDiArr: [[12, 32]],
-      nestedArr: [{ id: 1 }, { id: 2 }],
+      nestedArr: [{id: 1}, {id: 2}],
       id: 1,
       debug: true,
     },
   }
 
-  const { isValid, error } = compareObjectShape(idol, admirer)
+  const {isValid, error} = compareObjectShape(idol, admirer)
 
   expect(isValid).toBe(true)
   expect(error).toBe(undefined)

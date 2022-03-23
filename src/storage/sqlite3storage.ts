@@ -8,7 +8,7 @@ import * as Shardus from '../shardus/shardus-types'
 import * as Snapshot from '../snapshot'
 import * as utils from '../utils'
 import Profiler from '../utils/profiler'
-import { config, crypto, logger } from '../p2p/Context'
+import {config, crypto, logger} from '../p2p/Context'
 import {logFlags} from '../logger'
 
 const Op = Sequelize.Op
@@ -51,7 +51,7 @@ class Sqlite3Storage {
   sqlite3Define(modelName, modelAttributes) {
     const tableName = modelName
 
-    const modelData: any = { tableName }
+    const modelData: any = {tableName}
     modelData.columns = []
     modelData.columnsString = ''
     modelData.substitutionString = ''
@@ -110,7 +110,9 @@ class Sqlite3Storage {
       oldDirPath = dbDir + '-old-' + Date.now()
       fs.renameSync(dbDir, oldDirPath)
       if (oldDirPath) {
-        this.mainLogger.info('Setting old data path. this will cause safety mode?' + oldDirPath)
+        this.mainLogger.info(
+          'Setting old data path. this will cause safety mode?' + oldDirPath
+        )
         Snapshot.setOldDataPath(oldDirPath)
         this.oldDb = new sqlite3.Database(`${oldDirPath}/db.sqlite`)
       }
@@ -173,165 +175,159 @@ class Sqlite3Storage {
   }
 
   _create(table, object, opts) {
-    try{
-    this.profiler.profileSectionStart('db')
-    // if (logFlags.console) console.log('_create2: ' + stringify(object))
-    if (Array.isArray(object)) {
-      // return table.bulkCreate(values, opts)
-      // todo transaciton or something else
+    try {
+      this.profiler.profileSectionStart('db')
+      // if (logFlags.console) console.log('_create2: ' + stringify(object))
+      if (Array.isArray(object)) {
+        // return table.bulkCreate(values, opts)
+        // todo transaciton or something else
 
-      for (const subObj of object) {
-        // if (logFlags.console) console.log('sub obj: ' + stringify(subObj))
-        this._create(table, subObj, opts)
+        for (const subObj of object) {
+          // if (logFlags.console) console.log('sub obj: ' + stringify(subObj))
+          this._create(table, subObj, opts)
+        }
+        return
       }
-      return
-    }
-    let queryString = table.insertString
-    if (opts && opts.createOrReplace) {
-      queryString = table.insertOrReplaceString
-    }
-    const inputs = []
-    // if (logFlags.console) console.log('columns: ' + stringify(table.columns))
-    for (const column of table.columns) {
-      let value = object[column]
-
-      if (table.isColumnJSON[column]) {
-        value = stringify(value)
+      let queryString = table.insertString
+      if (opts && opts.createOrReplace) {
+        queryString = table.insertOrReplaceString
       }
-      // if (logFlags.console) console.log(`column: ${column}  ${value}`)
-      inputs.push(value)
-    }
-    queryString += this.options2string(opts)
+      const inputs = []
+      // if (logFlags.console) console.log('columns: ' + stringify(table.columns))
+      for (const column of table.columns) {
+        let value = object[column]
 
-    // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(inputs))
-    return this.run(queryString, inputs)
-    
+        if (table.isColumnJSON[column]) {
+          value = stringify(value)
+        }
+        // if (logFlags.console) console.log(`column: ${column}  ${value}`)
+        inputs.push(value)
+      }
+      queryString += this.options2string(opts)
+
+      // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(inputs))
+      return this.run(queryString, inputs)
     } finally {
       this.profiler.profileSectionEnd('db')
     }
   }
 
   async _read(table, params, opts) {
-    try{
+    try {
       this.profiler.profileSectionStart('db')
-    // return table.findAll({ where, ...opts })
-    let queryString = table.selectString
+      // return table.findAll({ where, ...opts })
+      let queryString = table.selectString
 
-    // let valueArray = []
+      // let valueArray = []
 
-    const paramsArray = this.params2Array(params, table)
+      const paramsArray = this.params2Array(params, table)
 
-    const { whereString, whereValueArray } = this.paramsToWhereStringAndValues(
-      paramsArray
-    )
+      const {whereString, whereValueArray} =
+        this.paramsToWhereStringAndValues(paramsArray)
 
-    const valueArray = whereValueArray
-    queryString += whereString
-    queryString += this.options2string(opts)
+      const valueArray = whereValueArray
+      queryString += whereString
+      queryString += this.options2string(opts)
 
-    // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(valueArray))
+      // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(valueArray))
 
-    const results = await this.all(queryString, valueArray)
-    // optionally parse results!
-    if (!opts || !opts.raw) {
-      if (table.JSONkeys.length > 0) {
-        // for (let i = 0; i < results.length; i++) {
-        //   let result = results[i]
-        //   if (logFlags.console) console.log('todo parse this??? ' + result)
-        // }
+      const results = await this.all(queryString, valueArray)
+      // optionally parse results!
+      if (!opts || !opts.raw) {
+        if (table.JSONkeys.length > 0) {
+          // for (let i = 0; i < results.length; i++) {
+          //   let result = results[i]
+          //   if (logFlags.console) console.log('todo parse this??? ' + result)
+          // }
+        }
       }
-    }
-    return results
+      return results
     } finally {
       this.profiler.profileSectionEnd('db')
     }
   }
   async _readOld(table, params, opts) {
-    try{
+    try {
       this.profiler.profileSectionStart('db')
-    // return table.findAll({ where, ...opts })
-    let queryString = table.selectString
+      // return table.findAll({ where, ...opts })
+      let queryString = table.selectString
 
-    // let valueArray = []
+      // let valueArray = []
 
-    const paramsArray = this.params2Array(params, table)
+      const paramsArray = this.params2Array(params, table)
 
-    const { whereString, whereValueArray } = this.paramsToWhereStringAndValues(
-      paramsArray
-    )
+      const {whereString, whereValueArray} =
+        this.paramsToWhereStringAndValues(paramsArray)
 
-    const valueArray = whereValueArray
-    queryString += whereString
-    queryString += this.options2string(opts)
+      const valueArray = whereValueArray
+      queryString += whereString
+      queryString += this.options2string(opts)
 
-    // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(valueArray))
+      // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(valueArray))
 
-    const results = await this.allOld(queryString, valueArray)
-    // optionally parse results!
-    if (!opts || !opts.raw) {
-      if (table.JSONkeys.length > 0) {
-        // for (let i = 0; i < results.length; i++) {
-        //   let result = results[i]
-        //   if (logFlags.console) console.log('todo parse this??? ' + result)
-        // }
+      const results = await this.allOld(queryString, valueArray)
+      // optionally parse results!
+      if (!opts || !opts.raw) {
+        if (table.JSONkeys.length > 0) {
+          // for (let i = 0; i < results.length; i++) {
+          //   let result = results[i]
+          //   if (logFlags.console) console.log('todo parse this??? ' + result)
+          // }
+        }
       }
-    }
-    return results
+      return results
     } finally {
       this.profiler.profileSectionEnd('db')
     }
   }
 
   _update(table, values, where, opts) {
-    try{
+    try {
       this.profiler.profileSectionStart('db')
-    // return table.update(values, { where, ...opts })
-    let queryString = table.updateString
+      // return table.update(values, { where, ...opts })
+      let queryString = table.updateString
 
-    const valueParams = this.params2Array(values, table)
-    // eslint-disable-next-line prefer-const
-    let { resultString, valueArray } = this.paramsToAssignmentStringAndValues(
-      valueParams
-    )
+      const valueParams = this.params2Array(values, table)
+      // eslint-disable-next-line prefer-const
+      let {resultString, valueArray} =
+        this.paramsToAssignmentStringAndValues(valueParams)
 
-    queryString += resultString
+      queryString += resultString
 
-    const whereParams = this.params2Array(where, table)
-    const { whereString, whereValueArray } = this.paramsToWhereStringAndValues(
-      whereParams
-    )
-    queryString += whereString
+      const whereParams = this.params2Array(where, table)
+      const {whereString, whereValueArray} =
+        this.paramsToWhereStringAndValues(whereParams)
+      queryString += whereString
 
-    valueArray = valueArray.concat(whereValueArray)
+      valueArray = valueArray.concat(whereValueArray)
 
-    queryString += this.options2string(opts)
+      queryString += this.options2string(opts)
 
-    // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(valueArray))
-    return this.run(queryString, valueArray)
+      // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(valueArray))
+      return this.run(queryString, valueArray)
     } finally {
       this.profiler.profileSectionEnd('db')
     }
   }
   _delete(table, where, opts) {
-    try{
+    try {
       this.profiler.profileSectionStart('db')
-    // if (!where) {
-    //   return table.destroy({ ...opts })
-    // }
-    // return table.destroy({ where, ...opts })
+      // if (!where) {
+      //   return table.destroy({ ...opts })
+      // }
+      // return table.destroy({ where, ...opts })
 
-    let queryString = table.deleteString
+      let queryString = table.deleteString
 
-    const whereParams = this.params2Array(where, table)
-    const { whereString, whereValueArray } = this.paramsToWhereStringAndValues(
-      whereParams
-    )
-    const valueArray = whereValueArray
-    queryString += whereString
-    queryString += this.options2string(opts)
+      const whereParams = this.params2Array(where, table)
+      const {whereString, whereValueArray} =
+        this.paramsToWhereStringAndValues(whereParams)
+      const valueArray = whereValueArray
+      queryString += whereString
+      queryString += this.options2string(opts)
 
-    // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(valueArray))
-    return this.run(queryString, valueArray)
+      // if (logFlags.console) console.log(queryString + '  VALUES: ' + stringify(valueArray))
+      return this.run(queryString, valueArray)
     } finally {
       this.profiler.profileSectionEnd('db')
     }
@@ -339,9 +335,9 @@ class Sqlite3Storage {
 
   _rawQuery(queryString, valueArray) {
     // return this.sequelize.query(query, { model: table })
-    try{
+    try {
       this.profiler.profileSectionStart('db')
-    return this.all(queryString, valueArray)
+      return this.all(queryString, valueArray)
     } finally {
       this.profiler.profileSectionEnd('db')
     }
@@ -349,9 +345,9 @@ class Sqlite3Storage {
 
   _rawQueryOld(queryString, valueArray) {
     // return this.sequelize.query(query, { model: table })
-    try{
+    try {
       this.profiler.profileSectionStart('db')
-    return this.allOld(queryString, valueArray)
+      return this.allOld(queryString, valueArray)
     } finally {
       this.profiler.profileSectionEnd('db')
     }
@@ -365,7 +361,7 @@ class Sqlite3Storage {
     for (const key in paramsObj) {
       // eslint-disable-next-line no-prototype-builtins
       if (paramsObj.hasOwnProperty(key)) {
-        const paramEntry: any = { name: key }
+        const paramEntry: any = {name: key}
 
         const value = paramsObj[key]
         if (
@@ -445,7 +441,7 @@ class Sqlite3Storage {
       }
       whereValueArray = whereValueArray.concat(paramEntry.vals)
     }
-    return { whereString, whereValueArray }
+    return {whereString, whereValueArray}
   }
 
   paramsToAssignmentStringAndValues(paramsArray) {
@@ -459,7 +455,7 @@ class Sqlite3Storage {
       }
       valueArray = valueArray.concat(paramEntry.vals)
     }
-    return { resultString, valueArray }
+    return {resultString, valueArray}
   }
 
   options2string(optionsObj) {
@@ -493,7 +489,7 @@ class Sqlite3Storage {
           if (logFlags.console) console.log(err)
           reject(err)
         } else {
-          resolve({ id: this.lastID })
+          resolve({id: this.lastID})
         }
       })
     })
@@ -543,7 +539,7 @@ class Sqlite3Storage {
 // From: https://stackoverflow.com/a/21196961
 async function _ensureExists(dir) {
   return new Promise<void>((resolve, reject) => {
-    fs.mkdir(dir, { recursive: true }, (err) => {
+    fs.mkdir(dir, {recursive: true}, err => {
       if (err) {
         // Ignore err if folder exists
         if (err.code === 'EEXIST') resolve()

@@ -1,12 +1,12 @@
-import { Logger } from 'log4js'
-import { setIsUpTs } from '../p2p/Lost'
+import {Logger} from 'log4js'
+import {setIsUpTs} from '../p2p/Lost'
 import * as utils from '../utils'
-import { config, crypto, logger, network } from './Context'
+import {config, crypto, logger, network} from './Context'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { P2P } from '@shardus/types'
+import {P2P} from '@shardus/types'
 import {logFlags} from '../logger'
-import { nestedCountersInstance } from '../utils/nestedCounters'
+import {nestedCountersInstance} from '../utils/nestedCounters'
 
 /** ROUTES */
 
@@ -43,7 +43,7 @@ let gossipRecv = 0
 const gossipTypeSent = {}
 const gossipTypeRecv = {}
 
-let commsCounters = true
+const commsCounters = true
 
 /** FUNCTIONS */
 export function setAcceptInternal(enabled: boolean) {
@@ -99,7 +99,7 @@ function _authenticateByNode(message, node) {
 }
 
 function _extractPayload(wrappedPayload, nodeGroup) {
-  let err = utils.validateTypes(wrappedPayload, { error: 's?' })
+  let err = utils.validateTypes(wrappedPayload, {error: 's?'})
   if (err) {
     warn(
       'extractPayload: bad wrappedPayload: ' +
@@ -165,7 +165,7 @@ function _wrapAndTagMessage(msg, tracker = '', recipientNode) {
   const wrapped = {
     payload: msg,
     sender: Self.id,
-    tracker
+    tracker,
   }
   const tagged = crypto.tag(wrapped, recipientNode.curvePublicKey)
   return tagged
@@ -198,27 +198,46 @@ export async function tell(
   route,
   message,
   logged = false,
-  tracker = '',
+  tracker = ''
 ) {
   if (tracker === '') {
     tracker = createMsgTracker()
   }
   const promises = []
 
-  if(commsCounters){
-    nestedCountersInstance.countEvent('comms-route', `tell ${route}`, nodes.length)
-    nestedCountersInstance.countEvent('comms-route x recipients', `tell ${route} recipients:${nodes.length}`, nodes.length)
-    nestedCountersInstance.countEvent('comms-recipients', `tell recipients: ${nodes.length}`, nodes.length) 
-    nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `tell ${route} recipients:${nodes.length}`)  
+  if (commsCounters) {
+    nestedCountersInstance.countEvent(
+      'comms-route',
+      `tell ${route}`,
+      nodes.length
+    )
+    nestedCountersInstance.countEvent(
+      'comms-route x recipients',
+      `tell ${route} recipients:${nodes.length}`,
+      nodes.length
+    )
+    nestedCountersInstance.countEvent(
+      'comms-recipients',
+      `tell recipients: ${nodes.length}`,
+      nodes.length
+    )
+    nestedCountersInstance.countEvent(
+      'comms-route x recipients (logical count)',
+      `tell ${route} recipients:${nodes.length}`
+    )
   }
 
   for (const node of nodes) {
     if (node.id === Self.id) {
-      if(logFlags.p2pNonFatal) info('p2p/Comms:tell: Not telling self')
+      if (logFlags.p2pNonFatal) info('p2p/Comms:tell: Not telling self')
       continue
     }
     const signedMessage = _wrapAndTagMessage(message, tracker, node)
-    if(logFlags.p2pNonFatal) info(`signed and tagged gossip`, utils.stringifyReduceLimit(signedMessage))
+    if (logFlags.p2pNonFatal)
+      info(
+        'signed and tagged gossip',
+        utils.stringifyReduceLimit(signedMessage)
+      )
     promises.push(network.tell([node], route, signedMessage, logged))
   }
   try {
@@ -240,15 +259,21 @@ export async function ask(
     tracker = createMsgTracker()
   }
   if (node.id === Self.id) {
-    if(logFlags.p2pNonFatal) info('p2p/Comms:ask: Not asking self')
+    if (logFlags.p2pNonFatal) info('p2p/Comms:ask: Not asking self')
     return false
   }
 
-  if(commsCounters){
+  if (commsCounters) {
     nestedCountersInstance.countEvent('comms-route', `ask ${route}`)
-    nestedCountersInstance.countEvent('comms-route x recipients', `ask ${route} recipients: 1`)
-    nestedCountersInstance.countEvent('comms-recipients', `ask recipients: 1`)
-    nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `ask ${route} recipients: 1`)
+    nestedCountersInstance.countEvent(
+      'comms-route x recipients',
+      `ask ${route} recipients: 1`
+    )
+    nestedCountersInstance.countEvent('comms-recipients', 'ask recipients: 1')
+    nestedCountersInstance.countEvent(
+      'comms-route x recipients (logical count)',
+      `ask ${route} recipients: 1`
+    )
   }
 
   const signedMessage = _wrapAndTagMessage(message, tracker, node)
@@ -278,27 +303,32 @@ export async function ask(
 export function registerInternal(route, handler) {
   // Create function that wraps handler function
   const wrappedHandler = async (wrappedPayload, respond) => {
-    if(logFlags.p2pNonFatal) info("registerInternal wrappedPayload", utils.stringifyReduceLimit(wrappedPayload))
+    if (logFlags.p2pNonFatal)
+      info(
+        'registerInternal wrappedPayload',
+        utils.stringifyReduceLimit(wrappedPayload)
+      )
     internalRecvCounter++
     // We have internal requests turned off until we have a node id
     if (!acceptInternal) {
-      if(logFlags.p2pNonFatal) info('We are not currently accepting internal requests...')
+      if (logFlags.p2pNonFatal)
+        info('We are not currently accepting internal requests...')
       return
     }
     let tracker = ''
     // Create wrapped respond function for sending back signed data
-    const respondWrapped = async (response) => {
+    const respondWrapped = async response => {
       /**
        * [TODO] [AS]
        * If sender is not found in nodelist, _wrapAndTagMessage will try to access
-       * a property of undefined and error out. This might cause some trouble for 
+       * a property of undefined and error out. This might cause some trouble for
        * registerInternal handlers that use the respond fn handed to their callbacks
        * to reply to requests. They might have to be try/catched to avoid crashing
        * shardus
        */
       const node = NodeList.nodes.get(sender)
       const signedResponse = _wrapAndTagMessage(
-        { ...response, isResponse: true },
+        {...response, isResponse: true},
         tracker,
         node
       )
@@ -380,7 +410,7 @@ export async function sendGossip(
   if (logFlags.verbose && logFlags.p2pNonFatal) {
     info(`Start of sendGossipIn(${utils.stringifyReduce(payload)})`)
   }
-  const gossipPayload = { type, data: payload }
+  const gossipPayload = {type, data: payload}
 
   /*
   const gossipHash = crypto.hash(gossipPayload)
@@ -396,13 +426,13 @@ export async function sendGossip(
   nodes.sort(sortByID)
   const nodeIdxs = new Array(nodes.length).fill(0).map((curr, idx) => idx) // [TODO]  - we need to make sure that we never iterate, or copy the full nodes list. Assume it could be a million nodes.
   // Find out your own index in the nodes array
-  const myIdx = nodes.findIndex((node) => node.id === Self.id)
+  const myIdx = nodes.findIndex(node => node.id === Self.id)
   if (myIdx < 0) {
     // throw new Error('Could not find self in nodes array')
-    error(`Failed to sendGossip. Could not find self in nodes array`)
+    error('Failed to sendGossip. Could not find self in nodes array')
     return
   }
-  
+
   const gossipFactor = config.p2p.gossipFactor
   let recipientIdxs
   let originNode
@@ -410,17 +440,30 @@ export async function sendGossip(
 
   if (payload.sign) {
     originNode = NodeList.byPubKey.get(payload.sign.owner)
-    if(originNode) originIdx = nodes.findIndex((node) => node.id === originNode.id)
+    if (originNode)
+      originIdx = nodes.findIndex(node => node.id === originNode.id)
   }
-  
-  if (originIdx !== undefined && originIdx >= 0) { // If it is protocol tx signed by a node in the network
-    recipientIdxs = utils.getLinearGossipBurstList(nodeIdxs.length, gossipFactor, myIdx, originIdx)
-  } else { // If it is app tx which is not signed by a node in the network
-    recipientIdxs = utils.getLinearGossipList(nodeIdxs.length, gossipFactor, myIdx, isOrigin)
+
+  if (originIdx !== undefined && originIdx >= 0) {
+    // If it is protocol tx signed by a node in the network
+    recipientIdxs = utils.getLinearGossipBurstList(
+      nodeIdxs.length,
+      gossipFactor,
+      myIdx,
+      originIdx
+    )
+  } else {
+    // If it is app tx which is not signed by a node in the network
+    recipientIdxs = utils.getLinearGossipList(
+      nodeIdxs.length,
+      gossipFactor,
+      myIdx,
+      isOrigin
+    )
   }
 
   // Map back recipient idxs to node objects
-  let recipients = recipientIdxs.map((idx) => nodes[idx])
+  let recipients = recipientIdxs.map(idx => nodes[idx])
   if (sender != null) {
     recipients = utils.removeNodesByID(recipients, [sender])
   }
@@ -429,7 +472,7 @@ export async function sendGossip(
       info(
         `GossipingIn ${type} request to these nodes: ${utils.stringifyReduce(
           recipients.map(
-            (node) => utils.makeShortHash(node.id) + ':' + node.externalPort
+            node => utils.makeShortHash(node.id) + ':' + node.externalPort
           )
         )}`
       )
@@ -447,11 +490,26 @@ export async function sendGossip(
       gossipTypeSent[type] = gossipTypeSent[type] ? gossipTypeSent[type] + 1 : 1
     }
 
-    if(commsCounters){
-      nestedCountersInstance.countEvent('comms-route', `sendGossip ${type}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-route x recipients', `sendGossip ${type} recipients: ${recipients.length}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-recipients', `sendGossip recipients: ${recipients.length}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossip ${type} recipients: ${recipients.length}`)
+    if (commsCounters) {
+      nestedCountersInstance.countEvent(
+        'comms-route',
+        `sendGossip ${type}`,
+        recipients.length
+      )
+      nestedCountersInstance.countEvent(
+        'comms-route x recipients',
+        `sendGossip ${type} recipients: ${recipients.length}`,
+        recipients.length
+      )
+      nestedCountersInstance.countEvent(
+        'comms-recipients',
+        `sendGossip recipients: ${recipients.length}`,
+        recipients.length
+      )
+      nestedCountersInstance.countEvent(
+        'comms-route x recipients (logical count)',
+        `sendGossip ${type} recipients: ${recipients.length}`
+      )
     }
 
     await tell(recipients, 'gossip', gossipPayload, true, tracker)
@@ -490,7 +548,7 @@ export async function sendGossipAll(
   if (logFlags.verbose) {
     p2pLogger.debug(`Start of sendGossipIn(${utils.stringifyReduce(payload)})`)
   }
-  const gossipPayload = { type, data: payload }
+  const gossipPayload = {type, data: payload}
 
   const gossipHash = crypto.hash(gossipPayload)
   // if (gossipedHashesSent.has(gossipHash)) {
@@ -503,10 +561,10 @@ export async function sendGossipAll(
   nodes.sort(sortByID)
   const nodeIdxs = new Array(nodes.length).fill(0).map((curr, idx) => idx)
   // Find out your own index in the nodes array
-  const myIdx = nodes.findIndex((node) => node.id === Self.id)
+  const myIdx = nodes.findIndex(node => node.id === Self.id)
   if (myIdx < 0) {
     // throw new Error('Could not find self in nodes array')
-    error(`Failed to sendGossip. Could not find self in nodes array`)
+    error('Failed to sendGossip. Could not find self in nodes array')
     return
   }
 
@@ -519,7 +577,7 @@ export async function sendGossipAll(
       p2pLogger.debug(
         `GossipingIn ${type} request to these nodes: ${utils.stringifyReduce(
           recipients.map(
-            (node) => utils.makeShortHash(node.id) + ':' + node.externalPort
+            node => utils.makeShortHash(node.id) + ':' + node.externalPort
           )
         )}`
       )
@@ -535,11 +593,26 @@ export async function sendGossipAll(
       )
     }
 
-    if(commsCounters){
-      nestedCountersInstance.countEvent('comms-route', `sendGossipAll ${type}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-route x recipients', `sendGossipAll ${type} recipients: ${recipients.length}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-recipients', `sendGossipAll recipients: ${recipients.length}`, recipients.length)
-      nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossipAll ${type} recipients: ${recipients.length}`)
+    if (commsCounters) {
+      nestedCountersInstance.countEvent(
+        'comms-route',
+        `sendGossipAll ${type}`,
+        recipients.length
+      )
+      nestedCountersInstance.countEvent(
+        'comms-route x recipients',
+        `sendGossipAll ${type} recipients: ${recipients.length}`,
+        recipients.length
+      )
+      nestedCountersInstance.countEvent(
+        'comms-recipients',
+        `sendGossipAll recipients: ${recipients.length}`,
+        recipients.length
+      )
+      nestedCountersInstance.countEvent(
+        'comms-route x recipients (logical count)',
+        `sendGossipAll ${type} recipients: ${recipients.length}`
+      )
     }
 
     await tell(recipients, 'gossip', gossipPayload, true, tracker)
@@ -570,7 +643,7 @@ export async function handleGossip(payload, sender, tracker = '') {
     info(`Start of handleGossip(${utils.stringifyReduce(payload)})`)
   }
 
-  const err = utils.validateTypes(payload, { type: 's', data: 'o' })
+  const err = utils.validateTypes(payload, {type: 's', data: 'o'})
   if (err) {
     warn('handleGossip: bad payload: ' + err)
     return
@@ -681,7 +754,7 @@ export function unregisterGossipHandler(type) {
 // We don't need to prune gossip hashes since we are not creating them anymore.
 function pruneGossipHashes() {
   //  warn(`gossipedHashesRecv:${gossipedHashesRecv.size} gossipedHashesSent:${gossipedHashesSent.size}`)
-  if(logFlags.p2pNonFatal) {
+  if (logFlags.p2pNonFatal) {
     info(`Total  gossipSent:${gossipSent} gossipRecv:${gossipRecv}`)
     info(`Sent gossip by type: ${JSON.stringify(gossipTypeSent)}`)
     info(`Recv gossip by type: ${JSON.stringify(gossipTypeRecv)}`)

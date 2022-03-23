@@ -1,16 +1,17 @@
-import Statistics from '../statistics'
 // import { Ring } from '../statistics'
-import { EventEmitter } from 'events'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-import { profilerInstance, NodeLoad } from '../utils/profiler'
+import {EventEmitter} from 'events'
+import {isDebugModeMiddleware} from '../network/debugMiddleware'
 import * as Context from '../p2p/Context'
-import { memoryReportingInstance } from '../utils/memoryReporting'
-import { isDebugModeMiddleware } from '../network/debugMiddleware'
+import {ServerConfiguration} from '../shardus/shardus-types'
+import Statistics from '../statistics'
+import {memoryReportingInstance} from '../utils/memoryReporting'
+import {nestedCountersInstance} from '../utils/nestedCounters'
+import {NodeLoad, profilerInstance} from '../utils/profiler'
 interface LoadDetection {
   highThreshold: number /** if load > highThreshold, then scale up request */
-  lowThreshold: number  /** if load < lowThreshold, then scale down request */
+  lowThreshold: number /** if load < lowThreshold, then scale down request */
   desiredTxTime: number /** max desired average time for the age of a TX.  */
-  queueLimit: number    /** max desired TXs in queue. note TXs must spend a minimum 6 seconds in the before they can process*/
+  queueLimit: number /** max desired TXs in queue. note TXs must spend a minimum 6 seconds in the before they can process*/
   statistics: Statistics
   load: number /** load is what matters for scale up or down. it is the max of scaledTimeInQueue and scaledQueueLength. */
   nodeLoad: NodeLoad /** this nodes perf related load. does not determine scale up/down, but can cause rate-limiting */
@@ -18,11 +19,27 @@ interface LoadDetection {
   scaledQueueLength: number /** 0-1 value on how close to queueLimit this nodes is */
   dbg: boolean
 }
-let lastMeasuredTimestamp = 0
 
 class LoadDetection extends EventEmitter {
-  constructor(config, statistics) {
+  constructor(
+    config: ServerConfiguration['loadDetection'],
+    statistics: Statistics
+  ) {
     super()
+    if (typeof config?.highThreshold !== 'number')
+      throw new Error(
+        'config.server.loadDetection.highThreshold is not a number'
+      )
+    if (typeof config?.lowThreshold !== 'number')
+      throw new Error(
+        'config.server.loadDetection.lowThreshold is not a number'
+      )
+    if (typeof config?.desiredTxTime !== 'number')
+      throw new Error(
+        'config.server.loadDetection.desiredTxTime is not a number'
+      )
+    if (typeof config?.queueLimit !== 'number')
+      throw new Error('config.server.loadDetection.queueLimit is not a number')
     this.highThreshold = config.highThreshold
     this.lowThreshold = config.lowThreshold
     this.desiredTxTime = config.desiredTxTime
@@ -40,26 +57,34 @@ class LoadDetection extends EventEmitter {
 
     /**
      * Sets load to DESIRED_LOAD (should be between 0 and 1)
-     * 
+     *
      * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/loadset?load=<DESIRED_LOAD>
      */
-    Context.network.registerExternalGet('loadset', isDebugModeMiddleware, (req, res) => {
-      if (req.query.load == null) return
-      this.dbg = true
-      this.load = Number(req.query.load)
-      console.log(`set load to ${this.load}`)
-      res.send(`set load to ${this.load}`)
-    })
+    Context.network.registerExternalGet(
+      'loadset',
+      isDebugModeMiddleware,
+      (req, res) => {
+        if (!req.query.load) return
+        this.dbg = true
+        this.load = Number(req.query.load)
+        console.log(`set load to ${this.load}`)
+        res.send(`set load to ${this.load}`)
+      }
+    )
     /**
      * Resets load detection to normal behavior
-     * 
+     *
      * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/loadreset
      */
-    Context.network.registerExternalGet('loadreset', isDebugModeMiddleware, (req, res) => {
-      this.dbg = false
-      console.log('reset load detection to normal behavior')
-      res.send('reset load detection to normal behavior')
-    })
+    Context.network.registerExternalGet(
+      'loadreset',
+      isDebugModeMiddleware,
+      (req, res) => {
+        this.dbg = false
+        console.log('reset load detection to normal behavior')
+        res.send('reset load detection to normal behavior')
+      }
+    )
   }
 
   /**
@@ -90,12 +115,12 @@ class LoadDetection extends EventEmitter {
       // }
 
       //need 20 samples in the queue before we start worrying about them being there too long
-      if(queueLength < 20){
-      //if(scaledQueueLength < (this.lowThreshold)){ //tried to get fancy, but going back to 20 as a constant.
-        if(scaledTxTimeInQueue > this.highThreshold){
+      if (queueLength < 20) {
+        //if(scaledQueueLength < (this.lowThreshold)){ //tried to get fancy, but going back to 20 as a constant.
+        if (scaledTxTimeInQueue > this.highThreshold) {
           nestedCountersInstance.countEvent(
             'loadRelated',
-            `scaledTxTimeInQueue clamped due to low scaledQueueLength`
+            'scaledTxTimeInQueue clamped due to low scaledQueueLength'
           )
         }
         scaledTxTimeInQueue = 0
@@ -104,37 +129,31 @@ class LoadDetection extends EventEmitter {
       this.scaledTxTimeInQueue = scaledTxTimeInQueue
       this.scaledQueueLength = scaledQueueLength
 
-      if (profilerInstance != null) {
-        let dutyCycleLoad = profilerInstance.getTotalBusyInternal()
+      if (profilerInstance) {
+        const dutyCycleLoad = profilerInstance.getTotalBusyInternal()
         if (dutyCycleLoad.duty > 0.8) {
-          nestedCountersInstance.countEvent(
-            'loadRelated',
-            `note-dutyCycle 0.8`
-          )
-        }
-        else if (dutyCycleLoad.duty > 0.6) {
-          nestedCountersInstance.countEvent(
-            'loadRelated',
-            `note-dutyCycle 0.6`
-          )
-        }
-        else if (dutyCycleLoad.duty > 0.4) {
-          nestedCountersInstance.countEvent(
-            'loadRelated',
-            'note-dutyCycle 0.4'
-          )
+          nestedCountersInstance.countEvent('loadRelated', 'note-dutyCycle 0.8')
+        } else if (dutyCycleLoad.duty > 0.6) {
+          nestedCountersInstance.countEvent('loadRelated', 'note-dutyCycle 0.6')
+        } else if (dutyCycleLoad.duty > 0.4) {
+          nestedCountersInstance.countEvent('loadRelated', 'note-dutyCycle 0.4')
         }
 
-        this.statistics.setManualStat('netInternalDuty', dutyCycleLoad.netInternlDuty)
-        this.statistics.setManualStat('netExternalDuty', dutyCycleLoad.netInternlDuty)
+        this.statistics.setManualStat(
+          'netInternalDuty',
+          dutyCycleLoad.netInternlDuty
+        )
+        this.statistics.setManualStat(
+          'netExternalDuty',
+          dutyCycleLoad.netInternlDuty
+        )
 
-        let cpuPercent = memoryReportingInstance.cpuPercent()
+        const cpuPercent = memoryReportingInstance.cpuPercent()
         this.statistics.setManualStat('cpuPercent', cpuPercent)
-        
 
-        let internalDutyAvg = this.statistics.getAverage('netInternalDuty')
-        let externalDutyAvg = this.statistics.getAverage('netExternalDuty')
-      
+        const internalDutyAvg = this.statistics.getAverage('netInternalDuty')
+        const externalDutyAvg = this.statistics.getAverage('netExternalDuty')
+
         this.nodeLoad = {
           internal: internalDutyAvg, //dutyCycleLoad.netInternlDuty,
           external: externalDutyAvg, //dutyCycleLoad.netExternlDuty,
@@ -143,13 +162,13 @@ class LoadDetection extends EventEmitter {
 
       load = Math.max(scaledTxTimeInQueue, scaledQueueLength)
 
-      if(scaledQueueLength > this.highThreshold){
+      if (scaledQueueLength > this.highThreshold) {
         nestedCountersInstance.countEvent(
           'loadRelated',
           'highThreshold-scaledQueueLength'
         )
       }
-      if(scaledTxTimeInQueue > this.highThreshold){
+      if (scaledTxTimeInQueue > this.highThreshold) {
         nestedCountersInstance.countEvent(
           'loadRelated',
           'highThreshold-scaledTxTimeInQueue'
@@ -158,13 +177,13 @@ class LoadDetection extends EventEmitter {
     }
 
     //If our max load is higher than the threshold send highLoad event that will create scale up gossip
-    if (load > this.highThreshold){
+    if (load > this.highThreshold) {
       this.emit('highLoad')
-    } 
+    }
     //If our max load is lower than threshold send a scale down message.
-    if (load < this.lowThreshold){
+    if (load < this.lowThreshold) {
       this.emit('lowLoad')
-    } 
+    }
     this.load = load
   }
 
