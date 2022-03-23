@@ -2261,7 +2261,7 @@ class TransactionQueue {
     delete queueEntry.appliedReceiptForRepair
     //delete queueEntry.appliedReceiptFinal
 
-    delete queueEntry.preApplyTXResult
+    // delete queueEntry.preApplyTXResult // temporary disable it, the data is needed when generating receiptMap
 
     this.archivedQueueEntries.push(queueEntry)
 

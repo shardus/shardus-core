@@ -2726,10 +2726,11 @@ class StateManager {
     //init results per partition
     let receiptMapByPartition: Map<number, StateManagerTypes.StateManagerTypes.ReceiptMapResult> = new Map()
     for (let i = 0; i < this.currentCycleShardData.shardGlobals.numPartitions; i++) {
-      let mapResult: StateManagerTypes.StateManagerTypes.ReceiptMapResult = {
+      let mapResult: any = {
         cycle: cycleToSave,
         partition: i,
         receiptMap: {},
+        txsMap: {},
         txCount: 0,
       }
       receiptMapByPartition.set(i, mapResult)
@@ -2744,7 +2745,7 @@ class StateManager {
         let receipt = this.getReceipt(queueEntry)
         if (receipt == null) {
           //check  && queueEntry.globalModification === false because global accounts will not get a receipt, should this change?
-          if(logFlags.error && queueEntry.globalModification === false) this.mainLogger.error(`generateReceiptMapResults found entry in with no receipt in newAcceptedTxQueue. ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
+          if (logFlags.error && queueEntry.globalModification === false) this.mainLogger.error(`generateReceiptMapResults found entry in with no receipt in newAcceptedTxQueue. ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
         } else {
           queueEntriesToSave.push(queueEntry)
         }
@@ -2757,7 +2758,7 @@ class StateManager {
         let receipt = this.getReceipt(queueEntry)
         if (receipt == null) {
           //check  && queueEntry.globalModification === false
-          if(logFlags.error && queueEntry.globalModification === false) this.mainLogger.error(`generateReceiptMapResults found entry in with no receipt in archivedQueueEntries. ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
+          if (logFlags.error && queueEntry.globalModification === false) this.mainLogger.error(`generateReceiptMapResults found entry in with no receipt in archivedQueueEntries. ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
         } else {
           queueEntriesToSave.push(queueEntry)
         }
@@ -2767,6 +2768,7 @@ class StateManager {
     const netId: string = '123abc'
     //go over the save list..
     for (let queueEntry of queueEntriesToSave) {
+      let accountData = queueEntry.preApplyTXResult.applyResponse.accountData
       for (let partition of queueEntry.involvedPartitions) {
         let receipt = this.getReceipt(queueEntry)
 
@@ -2776,11 +2778,12 @@ class StateManager {
         let txIdShort = utils.short(txHash)
         let txResult = utils.short(txResultFullHash)
         if (receiptMapByPartition.has(partition)) {
-          let mapResult: StateManagerTypes.StateManagerTypes.ReceiptMapResult = receiptMapByPartition.get(partition)
+          let mapResult: any = receiptMapByPartition.get(partition)
           //create an array if we have not seen this index yet
           if (mapResult.receiptMap[txIdShort] == null) {
             mapResult.receiptMap[txIdShort] = []
           }
+          mapResult.txsMap[txIdShort] = accountData // For tx data to save in Explorer
           //push the result.  note the order is not deterministic unless we were to sort at the end.
           mapResult.receiptMap[txIdShort].push(txResult)
           mapResult.txCount++
