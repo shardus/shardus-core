@@ -40,7 +40,7 @@ const gossipActiveRoute: P2P.P2PTypes.GossipHandler<
     if (!signer) {
       warn('Got active request from unknown node')
     }
-    const isOrig = signer.id === sender
+    const isOrig = signer && signer.id ? signer.id === sender : false
 
     // Only accept original txs in quarter 1
     if (isOrig && CycleCreator.currentQuarter > 1) return
@@ -77,7 +77,7 @@ let activeRequests: Map<
   P2P.NodeListTypes.Node['publicKey'],
   P2P.ActiveTypes.SignedActiveRequest
 >
-let queuedRequest: P2P.ActiveTypes.ActiveRequest
+let queuedRequest: P2P.ActiveTypes.ActiveRequest | undefined
 
 /** FUNCTIONS */
 
@@ -138,8 +138,8 @@ export function updateRecord(
   _prev: P2P.CycleCreatorTypes.CycleRecord
 ) {
   const active = NodeList.activeByIdOrder.length
-  const activated = []
-  const activatedPublicKeys = []
+  const activated: string[] = []
+  const activatedPublicKeys: string[] = []
 
   for (const request of txs.active) {
     const publicKey = request.sign.owner
@@ -196,10 +196,11 @@ export function sendRequests() {
     )
 
     // Check if we went active and try again if we didn't in 1 cycle duration
-    const activeTimeout = setTimeout(
-      requestActive,
-      config.p2p.cycleDuration * 1000 + 500
-    )
+    const cycleDuration =
+      config && config.p2p && config.p2p.cycleDuration
+        ? config.p2p.cycleDuration
+        : 30
+    const activeTimeout = setTimeout(requestActive, cycleDuration * 1000 + 500)
 
     Self.emitter.once('active', () => {
       info('Went active!')

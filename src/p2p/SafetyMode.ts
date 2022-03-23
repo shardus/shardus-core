@@ -52,13 +52,21 @@ export function init() {
 export function reset() {}
 
 export function getTxs(): P2P.SafetyModeTypes.Txs {
-  return
+  return {
+    safetyMode: [],
+    safetyNum: [],
+    networkStateHash: [],
+  }
 }
 
 export function dropInvalidTxs(
   txs: P2P.SafetyModeTypes.Txs
 ): P2P.SafetyModeTypes.Txs {
-  return
+  return {
+    safetyMode: [],
+    safetyNum: [],
+    networkStateHash: [],
+  }
 }
 
 /*

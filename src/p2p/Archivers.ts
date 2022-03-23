@@ -1,4 +1,4 @@
-import deepmerge from 'deepmerge'
+import * as deepmerge from 'deepmerge'
 import {
   getStateHashes,
   getReceiptHashes,
@@ -272,6 +272,7 @@ export function addDataRecipient(
     P2P.CycleCreatorTypes.CycleRecord | P2P.SnapshotTypes.StateMetaData
   >[]
 ) {
+  // eslint-disable-next-line prefer-rest-params
   if (logFlags.console) console.log('Adding data recipient..', arguments)
   const recipient = {
     nodeInfo,
@@ -310,7 +311,7 @@ export function sendData() {
           >
           // Get latest cycles since lastData
           const cycleRecords = getCycleChain(typedRequest.lastData + 1)
-          const cyclesWithMarker = []
+          const cyclesWithMarker: any[] = []
           for (let i = 0; i < cycleRecords.length; i++) {
             cyclesWithMarker.push({
               ...cycleRecords[i],
@@ -541,7 +542,7 @@ export function registerRoutes() {
     const dataRequestCycle = dataRequest.dataRequestCycle
     const dataRequestStateMetaData = dataRequest.dataRequestStateMetaData
 
-    const dataRequests = []
+    const dataRequests: any[] = []
     if (dataRequestCycle) {
       dataRequests.push(dataRequestCycle)
     }
@@ -551,7 +552,7 @@ export function registerRoutes() {
     if (dataRequests.length > 0) {
       addDataRecipient(dataRequest.nodeInfo, dataRequests)
     }
-    res.json({success: true})
+    return res.json({success: true})
   })
 
   network.registerExternalPost('querydata', (req, res) => {
@@ -587,14 +588,14 @@ export function registerRoutes() {
       [key: number]:
         | StateManager.StateManagerTypes.ReceiptMapResult[]
         | StateManager.StateManagerTypes.StatsClump
-    }
+    } = {}
     if (queryRequest.type === 'RECEIPT_MAP') {
       data = getReceiptMap(queryRequest.lastData)
     } else if (queryRequest.type === 'SUMMARY_BLOB') {
       data = getSummaryBlob(queryRequest.lastData)
       // console.log('Summary blob to send', data)
     }
-    res.json({success: true, data: data})
+    return res.json({success: true, data: data})
   })
 
   network.registerExternalGet('archivers', (req, res) => {

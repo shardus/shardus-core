@@ -61,7 +61,7 @@ export function insertSorted<T>(arr: T[], item: T, comparator?: Comparator<T>) {
  */
 export function binaryLowest<T>(ar: T[], comparator?: Comparator<T>) {
   if (ar.length < 1) return -1
-  if (comparator == null) {
+  if (comparator === null) {
     // Emulate the default Array.sort() comparator
     comparator = (a, b) => {
       return a > b ? 1 : a < b ? -1 : 0
@@ -112,7 +112,7 @@ export function binarySearch<T, E = Partial<T>>(
   el: E,
   comparator?: Comparator<T, typeof el>
 ) {
-  if (comparator == null) {
+  if (comparator === null) {
     // Emulate the default Array.sort() comparator
     comparator = (a, b) => {
       return a.toString() > b.toString()

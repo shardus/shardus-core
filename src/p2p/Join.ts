@@ -1,4 +1,4 @@
-import deepmerge from 'deepmerge'
+import * as deepmerge from 'deepmerge'
 import {Handler} from 'express'
 import {isDeepStrictEqual} from 'util'
 import {version} from '../../package.json'
@@ -536,22 +536,23 @@ export async function fetchJoined(activeNodes) {
       activeNodes,
       queryFn
     )
-    if (!response) return
-    if (!response.node) return
+    if (!response) return undefined
+    if (!response.node) return undefined
     let err = utils.validateTypes(response, {node: 'o'})
     if (err) {
       warn('fetchJoined invalid response response.node' + err)
-      return
+      return undefined
     }
     err = validateTypes(response.node, {id: 's'})
     if (err) {
       warn('fetchJoined invalid response response.node.id' + err)
-      return
+      return undefined
     }
     const node = response.node as P2P.NodeListTypes.Node
     return node.id
   } catch (err) {
     warn('Self: fetchNodeId: robustQuery failed: ', err)
+    return undefined
   }
 }
 

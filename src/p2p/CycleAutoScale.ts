@@ -1,4 +1,4 @@
-import deepmerge from 'deepmerge'
+import * as deepmerge from 'deepmerge'
 import {Logger} from 'log4js'
 import {logFlags} from '../logger'
 import {P2P} from '@shardus/types'
@@ -106,10 +106,11 @@ function createScaleRequest(scaleType): P2P.CycleAutoScaleTypes.ScaleRequest {
     case P2P.CycleAutoScaleTypes.ScaleType.DOWN:
       request.scale = P2P.CycleAutoScaleTypes.ScaleType.DOWN
       break
-    default:
+    default: {
       const err = new Error(`Invalid scaling request type: ${scaleType}`)
       error(err)
       throw err
+    }
   }
   const signedReq = crypto.sign(request)
   return signedReq
@@ -199,7 +200,7 @@ function validateScalingRequest(
     )
     return false
   }
-  if (node == null) {
+  if (node === null) {
     warn(
       `Invalid scaling request, not a known node. Request: ${JSON.stringify(
         scalingRequest
@@ -235,7 +236,7 @@ function _checkScaling() {
 
   // lazy init of desiredCount
   // if we have a good value in our cycle chane for desired nodes update our desired count.
-  if (CycleChain.newest != null && CycleChain.newest.desired != null) {
+  if (CycleChain.newest !== null && CycleChain.newest.desired !== null) {
     desiredCount = CycleChain.newest.desired
   }
 

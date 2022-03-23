@@ -203,7 +203,7 @@ export async function tell(
   if (tracker === '') {
     tracker = createMsgTracker()
   }
-  const promises = []
+  const promises: any[] = []
 
   if (commsCounters) {
     nestedCountersInstance.countEvent(
@@ -394,7 +394,7 @@ export async function sendGossip(
   type,
   payload,
   tracker = '',
-  sender = null,
+  sender: any = null,
   inpNodes = NodeList.byIdOrder, // Joining nodes need gossip too; we don't send to ourself
   isOrigin = false
 ) {
@@ -433,7 +433,8 @@ export async function sendGossip(
     return
   }
 
-  const gossipFactor = config.p2p.gossipFactor
+  // TODO This is temporary find better solution possibly helper function
+  const gossipFactor = config?.p2p?.gossipFactor
   let recipientIdxs
   let originNode
   let originIdx
@@ -464,7 +465,7 @@ export async function sendGossip(
 
   // Map back recipient idxs to node objects
   let recipients = recipientIdxs.map(idx => nodes[idx])
-  if (sender != null) {
+  if (sender !== null) {
     recipients = utils.removeNodesByID(recipients, [sender])
   }
   try {
@@ -513,7 +514,7 @@ export async function sendGossip(
     }
 
     await tell(recipients, 'gossip', gossipPayload, true, tracker)
-  } catch (ex) {
+  } catch (ex: any) {
     if (logFlags.verbose) {
       error(
         `Failed to sendGossip(${utils.stringifyReduce(
@@ -569,7 +570,7 @@ export async function sendGossipAll(
   }
 
   let recipients = nodes
-  if (sender != null) {
+  if (sender !== null) {
     recipients = utils.removeNodesByID(recipients, [sender])
   }
   try {
@@ -616,7 +617,7 @@ export async function sendGossipAll(
     }
 
     await tell(recipients, 'gossip', gossipPayload, true, tracker)
-  } catch (ex) {
+  } catch (ex: any) {
     if (logFlags.verbose) {
       p2pLogger.error(
         `Failed to sendGossip(${utils.stringifyReduce(

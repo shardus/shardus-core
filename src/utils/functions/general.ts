@@ -155,7 +155,7 @@ export function errorToStringFull(error) {
 export function sumObject(sumObject, toAddObject) {
   for (const [key, val] of Object.entries(sumObject)) {
     const otherVal = toAddObject[key]
-    if (otherVal == null) {
+    if (otherVal === null) {
       continue
     }
     switch (typeof val) {
@@ -181,7 +181,7 @@ export function generateObjectSchema(obj, options = {arrTypeDiversity: false}) {
   }
 
   for (const [key, value] of Object.entries(obj)) {
-    if (obj.hasOwnProperty(key) && obj[key] !== null) {
+    if (key in obj && obj[key] !== null) {
       if (value.constructor === Object) {
         schema[key] = generateObjectSchema(value, {
           arrTypeDiversity: options.arrTypeDiversity,
@@ -250,6 +250,7 @@ export function generateArraySchema(
 export function compareObjectShape(idol, admirer) {
   let isValid
   let error
+  error = {} // this is required to supress false positive eslint gimicks
   const defectoChain = []
 
   let idol_schema
@@ -294,10 +295,7 @@ export function compareObjectShape(idol, admirer) {
       if (DEFECTOR_FOUND) {
         // save the path to the prop , Example: ['server', 'log']
         defectoChain.push(key)
-        if (
-          worshipped.hasOwnProperty(key) &&
-          worshipped[key].constructor === Object
-        ) {
+        if (key in worshipped && worshipped[key].constructor === Object) {
           return defectoHunter(worshipped[key], worshipper[key])
         } else {
           return {[key]: worshipper[key]}

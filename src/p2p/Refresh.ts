@@ -9,7 +9,7 @@
  * less to sync the cycle chain.
  */
 
-import deepmerge from 'deepmerge'
+import * as deepmerge from 'deepmerge'
 import {Logger} from 'log4js'
 import {P2P} from '@shardus/types'
 import {

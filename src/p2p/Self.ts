@@ -1,5 +1,5 @@
 import * as events from 'events'
-import got from 'got'
+import * as got from 'got'
 import * as log4js from 'log4js'
 import * as http from '../http'
 import {logFlags} from '../logger'
@@ -82,8 +82,9 @@ export async function startup(): Promise<boolean> {
       }
 
       // Otherwise, try to join the network
+      // eslint-disable-next-line prettier/prettier
       ({isFirst, id} = await joinNetwork(activeNodes, firstTime))
-    } catch (err) {
+    } catch (err: any) {
       warn('Error while joining network:')
       warn(err)
       warn(err.stack)
@@ -373,7 +374,7 @@ async function getActiveNodesFromArchiver() {
       false,
       5000
     )
-  } catch (e) {
+  } catch (e: any) {
     nestedCountersInstance.countRareEvent(
       'fatal',
       'Could not get seed list from seed node server'
@@ -394,7 +395,7 @@ export async function getFullNodesFromArchiver() {
   let fullNodeList
   try {
     fullNodeList = await http.get(nodeListUrl)
-  } catch (e) {
+  } catch (e: any) {
     throw Error(
       `Fatal: Could not get seed list from seed node server ${nodeListUrl}: ` +
         e.message

@@ -183,7 +183,12 @@ export function init() {
   for (const route of routes.external) {
     // [TODO] - Add Comms.registerExternalGet and Post that pass through to network.*
     //          so that we can always just use Comms.* instead of network.*
-    network._registerExternal(route.method, route.name, route.handler)
+    // [TODO] - Please review if this tarnary operator does any problem. Or if we could remove `?` in type def.
+    network._registerExternal(
+      route.method ? route.method : '',
+      route.name,
+      route.handler
+    )
   }
   for (const route of routes.internal) {
     Comms.registerInternal(route.name, route.handler)
@@ -233,7 +238,7 @@ export function updateRecord(
   txs: P2P.ApoptosisTypes.Txs,
   record: P2P.ApoptosisTypes.Record
 ) {
-  const apoptosized = []
+  const apoptosized: string[] = []
   for (const request of txs.apoptosis) {
     const publicKey = request.sign.owner
     const node = byPubKey.get(publicKey)

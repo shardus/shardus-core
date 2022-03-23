@@ -1,4 +1,4 @@
-import deepmerge from 'deepmerge'
+import * as deepmerge from 'deepmerge'
 import {P2P} from '@shardus/types'
 import {reversed} from '../utils'
 import * as CycleCreator from './CycleCreator'

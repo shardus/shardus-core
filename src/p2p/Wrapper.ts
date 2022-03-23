@@ -1,3 +1,4 @@
+/* stylelint-disable @typescript-eslint/no-namespace */
 import {EventEmitter} from 'events'
 import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
@@ -196,7 +197,7 @@ class State extends EventEmitter {
   getCycleByCounter(counter) {
     const i = utils.binarySearch(
       CycleChain.cycles,
-      {counter},
+      {counter}  as any,
       utils.propComparator('counter')
     )
     if (i > -1) return CycleChain.cycles[i]
@@ -245,7 +246,7 @@ p2p['state'] = state
 
 /* all this does is returns an array of nodes with our node removed from it */
 /*    it is given an obj of ids -> nodes */
-function getSubsetOfNodeList(nodes, self = null) {
+function getSubsetOfNodeList(this: any, nodes, self = null) {
   if (!self) return Object.values(nodes)
   // Check if self in node list
   if (!nodes[self]) {
@@ -269,17 +270,26 @@ const http = require('../http')
 
 namespace archiver {
   // copied from p2p-archiver.js
-  export function sendPartitionData(partitionReceipt, paritionObject) {
+  export function sendPartitionData(
+    this: any,
+    partitionReceipt,
+    paritionObject
+  ) {
     for (const nodeInfo of this.cycleRecipients) {
       const nodeUrl = `http://${nodeInfo.ip}:${nodeInfo.port}/post_partition`
-      http.post(nodeUrl, {partitionReceipt, paritionObject}).catch(err => {
-        this.logError(`sendPartitionData: Failed to post to ${nodeUrl} ` + err)
-      })
+      http
+        .post(nodeUrl, {partitionReceipt, paritionObject})
+        .catch((err: any) => {
+          this.logError(
+            `sendPartitionData: Failed to post to ${nodeUrl} ` + err
+          )
+        })
     }
   }
 
   // copied from p2p-archiver.js
   export function sendTransactionData(
+    this: any,
     partitionNumber,
     cycleNumber,
     transactions
@@ -288,7 +298,7 @@ namespace archiver {
       const nodeUrl = `http://${nodeInfo.ip}:${nodeInfo.port}/post_transactions`
       http
         .post(nodeUrl, {partitionNumber, cycleNumber, transactions})
-        .catch(err => {
+        .catch((err: any) => {
           this.logError(
             `sendTransactionData: Failed to post to ${nodeUrl} ` + err
           )

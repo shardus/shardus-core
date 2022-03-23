@@ -103,22 +103,22 @@ export function removeNode(id) {
   }
 
   // Remove from arrays
-  idx = binarySearch(activeOthersByIdOrder, {id}, propComparator('id'))
+  idx = binarySearch(activeOthersByIdOrder, {id} as any, propComparator('id'))
   if (idx >= 0) activeOthersByIdOrder.splice(idx, 1)
 
-  idx = binarySearch(activeByIdOrder, {id}, propComparator('id'))
+  idx = binarySearch(activeByIdOrder, {id} as any, propComparator('id'))
   if (idx >= 0) activeByIdOrder.splice(idx, 1)
 
-  idx = binarySearch(othersByIdOrder, {id}, propComparator('id'))
+  idx = binarySearch(othersByIdOrder, {id} as any, propComparator('id'))
   if (idx >= 0) othersByIdOrder.splice(idx, 1)
 
-  idx = binarySearch(byIdOrder, {id}, propComparator('id'))
+  idx = binarySearch(byIdOrder, {id} as any, propComparator('id'))
   if (idx >= 0) byIdOrder.splice(idx, 1)
 
   const joinRequestTimestamp = nodes.get(id).joinRequestTimestamp
   idx = binarySearch(
     byJoinOrder,
-    {joinRequestTimestamp, id},
+    {joinRequestTimestamp, id} as any,
     propComparator2('joinRequestTimestamp', 'id')
   )
   if (idx >= 0) byJoinOrder.splice(idx, 1)
@@ -143,7 +143,7 @@ export function updateNode(update: P2P.NodeListTypes.Update) {
     //test if this node is in the active list already.  if it is not, then we can add it
     const idx = binarySearch(
       activeByIdOrder,
-      {id: node.id},
+      {id: node.id, ...node},
       propComparator('id')
     )
     if (idx < 0) {

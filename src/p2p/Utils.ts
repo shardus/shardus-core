@@ -1,4 +1,4 @@
-import util from 'util'
+import * as util from 'util'
 import * as utils from '../utils'
 import FastRandomIterator from '../utils/FastRandomIterator'
 import {logFlags} from '../logger'
@@ -119,7 +119,7 @@ export async function sequentialQuery<Node = unknown, Response = unknown>(
         continue
       }
       result = response
-    } catch (error) {
+    } catch (error: any) {
       errors.push({
         node,
         error,

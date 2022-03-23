@@ -1,6 +1,6 @@
 import {Handler} from 'express'
 import {Logger} from 'log4js'
-import util from 'util'
+import * as util from 'util'
 import * as http from '../http'
 import {P2P} from '@shardus/types'
 import {reversed, validateTypes} from '../utils'

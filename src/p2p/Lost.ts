@@ -67,7 +67,7 @@ const lostReportRoute: P2P.P2PTypes.Route<
 }
 
 const lostDownRoute: P2P.P2PTypes.GossipHandler = (
-  payload: P2P.LostTypes.SignedDownGossipMessage,
+  payload: any,
   sender,
   tracker
 ) => {
@@ -80,7 +80,7 @@ const lostDownRoute: P2P.P2PTypes.GossipHandler = (
 }
 
 const lostUpRoute: P2P.P2PTypes.GossipHandler = (
-  payload: P2P.LostTypes.SignedUpGossipMessage,
+  payload: any,
   sender,
   tracker
 ) => {
@@ -428,7 +428,7 @@ function checkReport(report, expectCycle) {
     return [false, 'no cycle field']
   if (!report.sign || typeof report.sign !== 'object')
     return [false, 'no sign field']
-  if (report.target == Self.id) return [false, 'target is self'] // Don' accept if target is our node
+  if (report.target === Self.id) return [false, 'target is self'] // Don' accept if target is our node
   const cyclediff = expectCycle - report.cycle
   if (cyclediff < 0)
     return [false, 'reporter cycle is not as expected; too new']
@@ -512,7 +512,7 @@ export function isNodeLost(nodeId: string): boolean {
   // First check the isUp isDown caches to see if we already checked this node before
   const key = `${nodeId}-${currentCycle}`
   const lostRec = lost.get(key)
-  if (lostRec != null) {
+  if (lostRec !== null) {
     return true
   }
   return false
@@ -623,7 +623,8 @@ function downGossipHandler(
     warn(`cycle:${currentCycle} quarter:${currentQuarter} sender:${sender}`)
     return
   }
-  [valid, reason] = checkDownMsg(payload, currentCycle)
+  // eslint-disable-next-line prettier/prettier
+  [valid, reason] = checkDownMsg(payload, currentCycle);
   if (!valid) {
     warn(
       `Bad downGossip message. reason:${reason}. message:${JSON.stringify(

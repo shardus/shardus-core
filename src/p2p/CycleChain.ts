@@ -117,7 +117,7 @@ export function getCycleNumberFromTimestamp(
     offsetTimestamp = timestamp + stateManager.syncSettleTime
   }
 
-  if (timestamp < 1 || timestamp == null) {
+  if (timestamp < 1 || timestamp === null) {
     const stack = new Error().stack
     stateManager.statemanager_fatal(
       `getCycleNumberFromTimestamp ${timestamp}`,
@@ -130,7 +130,7 @@ export function getCycleNumberFromTimestamp(
     currentCycleShardData.timestamp <= offsetTimestamp &&
     offsetTimestamp < currentCycleShardData.timestampEndCycle
   ) {
-    if (currentCycleShardData.cycleNumber == null) {
+    if (currentCycleShardData.cycleNumber === null) {
       stateManager.statemanager_fatal(
         'getCycleNumberFromTimestamp failed. cycleNumber == null',
         'currentCycleShardData.cycleNumber == null'
@@ -145,7 +145,7 @@ export function getCycleNumberFromTimestamp(
         cycle,
         timestamp
       )
-      if (cycle != null) {
+      if (cycle !== null) {
         stateManager.statemanager_fatal(
           'getCycleNumberFromTimestamp failed fatal redeemed',
           'currentCycleShardData.cycleNumber == null, fatal redeemed'
@@ -172,7 +172,7 @@ export function getCycleNumberFromTimestamp(
     }
   }
 
-  if (currentCycleShardData.cycleNumber == null) {
+  if (currentCycleShardData.cycleNumber === null) {
     nestedCountersInstance.countEvent(
       'getCycleNumberFromTimestamp',
       'currentCycleShardData.cycleNumber == null'
@@ -203,12 +203,12 @@ export function getCycleNumberFromTimestamp(
     //cycle is in the past, by process of elimination
     // let offsetSeconds = Math.floor(offsetTimestamp * 0.001)
     const cycle = getStoredCycleByTimestamp(offsetTimestamp)
-    if (cycle != null) {
+    if (cycle !== null) {
       nestedCountersInstance.countEvent(
         'getCycleNumberFromTimestamp',
         'p2p lookup'
       )
-      if (cycle.counter == null) {
+      if (cycle.counter === null) {
         stateManager.statemanager_fatal(
           'getCycleNumberFromTimestamp  unexpected cycle.cycleNumber == null',
           'getCycleNumberFromTimestamp unexpected cycle.cycleNumber == null'
