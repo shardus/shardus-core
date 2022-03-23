@@ -247,7 +247,7 @@ class StateManager {
 
     this.feature_receiptMapResults = true
     this.feature_partitionHashes = true
-    this.feature_generateStats = true
+    this.feature_generateStats = false
 
     this.feature_useNewParitionReport = true
 
