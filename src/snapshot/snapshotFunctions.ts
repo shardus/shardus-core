@@ -207,10 +207,12 @@ export async function saveSummaryAndNetworkHashes(
   })
 }
 
-export async function readOldCycleRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
+export async function readOldCycleRecord(): Promise<
+  P2P.CycleCreatorTypes.CycleRecord | undefined
+> {
   const oldCycles = await Context.storage.listOldCycles()
   if (oldCycles && oldCycles.length > 0) return oldCycles[0]
-  // need review - kaung/aamir
+  return undefined
 }
 
 export async function readOldNetworkHash() {

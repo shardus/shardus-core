@@ -1109,7 +1109,6 @@ class Shardus extends EventEmitter {
     return this.stateManager.isNodeInDistance(hash, nodeId, distance)
   }
 
-  // need review - kaung/aamir
   createApplyResponse(txId: string, txTimestamp: number) {
     const replyObject = {
       stateTableResults: [],

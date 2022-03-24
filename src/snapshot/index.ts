@@ -757,8 +757,6 @@ async function sendOfferToNode(node, offer, isSuggestedByNetwork = false) {
   }
 }
 
-// need review - kaung/aamir
-// id: string
 function increaseNotNeededNodes(id: string) {
   notNeededRepliedNodes.set(id, true)
 }

@@ -299,9 +299,7 @@ class AccountCache {
     return this.accountsHashCache3.accountHashMap.has(accountId)
   }
 
-  // need review - kaung/aamir
-  // issue: not all code paths has return, did: add `return null` at the end of the func
-  getAccountHash(accountId: string): AccountHashCache | null {
+  getAccountHash(accountId: string): AccountHashCache | null | undefined {
     if (this.accountsHashCache3.accountHashMap.has(accountId) === false) {
       return null
     }
@@ -310,7 +308,7 @@ class AccountCache {
       //0 is the newest?
       return accountHashCacheHistory.accountHashList[0]
     }
-    return null
+    return undefined
   }
 
   sortByTimestampIdAsc(first, second): number {
