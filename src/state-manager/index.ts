@@ -1039,8 +1039,8 @@ class StateManager {
 
     this.depricated.setupHandlers()
 
-    if(this.partitionObjects != null){
-      this.partitionObjects.setupHandlers()      
+    if (this.partitionObjects != null) {
+      this.partitionObjects.setupHandlers()
     }
 
     this.transactionQueue.setupHandlers()
@@ -2158,13 +2158,13 @@ class StateManager {
     // if (this.depricated.repairTrackingByCycleById == null) {
     //   return
     // }
-    if(this.partitionObjects != null){
+    if (this.partitionObjects != null) {
       if (this.partitionObjects.allPartitionResponsesByCycleByPartition == null) {
         return
       }
       if (this.partitionObjects.ourPartitionResultsByCycle == null) {
         return
-      }      
+      }
     }
 
     if (this.shardValuesByCycle == null) {
@@ -2198,28 +2198,27 @@ class StateManager {
     // }
 
     // cleanup old partition objects / receipts.
-    if(this.partitionObjects != null){
-      for (let cycleKey of Object.keys(this.partitionObjects.allPartitionResponsesByCycleByPartition)) {
-        let cycle = cycleKey.slice(1)
-        let cycleNum = parseInt(cycle, 10)
-      if (cycleNum < oldestCycle) {
-        // delete old cycle
-        delete this.partitionObjects.allPartitionResponsesByCycleByPartition[cycleKey]
-        removedallPartitionResponsesByCycleByPartition++
+    if (this.partitionObjects != null) {
+      for (const cycleKey of Object.keys(this.partitionObjects.allPartitionResponsesByCycleByPartition)) {
+        const cycle = cycleKey.slice(1)
+        const cycleNum = parseInt(cycle, 10)
+        if (cycleNum < oldestCycle) {
+          // delete old cycle
+          delete this.partitionObjects.allPartitionResponsesByCycleByPartition[cycleKey]
+          removedallPartitionResponsesByCycleByPartition++
+        }
       }
-    }
 
-    for (const cycleKey of Object.keys(this.partitionObjects.ourPartitionResultsByCycle)) {
-      const cycle = cycleKey.slice(1)
-      const cycleNum = parseInt(cycle, 10)
-      if (cycleNum < oldestCycle) {
-        // delete old cycle
+      for (const cycleKey of Object.keys(this.partitionObjects.ourPartitionResultsByCycle)) {
+        const cycle = cycleKey.slice(1)
+        const cycleNum = parseInt(cycle, 10)
+        if (cycleNum < oldestCycle) {
+          // delete old cycle
           delete this.partitionObjects.ourPartitionResultsByCycle[cycleKey]
           removedourPartitionResultsByCycle++
         }
-      }      
+      }
     }
-
 
     // cleanup this.shardValuesByCycle
     for (const cycleKey of this.shardValuesByCycle.keys()) {
@@ -2252,11 +2251,11 @@ class StateManager {
     const removedrepairUpdateDataByCycle = 0
     let removedpartitionObjectsByCycle = 0
 
-    if(this.partitionObjects != null){
+    if (this.partitionObjects != null) {
       // cleanup this.partitionObjects.txByCycleByPartition
-      for (let cycleKey of Object.keys(this.partitionObjects.txByCycleByPartition)) {
-        let cycle = cycleKey.slice(1)
-        let cycleNum = parseInt(cycle, 10)
+      for (const cycleKey of Object.keys(this.partitionObjects.txByCycleByPartition)) {
+        const cycle = cycleKey.slice(1)
+        const cycleNum = parseInt(cycle, 10)
         if (cycleNum < oldestCycle) {
           // delete old cycle
           delete this.partitionObjects.txByCycleByPartition[cycleKey]
@@ -2264,15 +2263,15 @@ class StateManager {
         }
       }
       // cleanup this.partitionObjects.recentPartitionObjectsByCycleByHash
-      for (let cycleKey of Object.keys(this.partitionObjects.recentPartitionObjectsByCycleByHash)) {
-        let cycle = cycleKey.slice(1)
-        let cycleNum = parseInt(cycle, 10)
+      for (const cycleKey of Object.keys(this.partitionObjects.recentPartitionObjectsByCycleByHash)) {
+        const cycle = cycleKey.slice(1)
+        const cycleNum = parseInt(cycle, 10)
         if (cycleNum < oldestCycle) {
           // delete old cycle
           delete this.partitionObjects.recentPartitionObjectsByCycleByHash[cycleKey]
           removedrecentPartitionObjectsByCycleByHash++
         }
-      }      
+      }
     }
 
     // // cleanup this.depricated.repairUpdateDataByCycle
@@ -2285,11 +2284,11 @@ class StateManager {
     //     removedrepairUpdateDataByCycle++
     //   }
     // }
-    if(this.partitionObjects != null){
+    if (this.partitionObjects != null) {
       // cleanup this.partitionObjects.partitionObjectsByCycle
-      for (let cycleKey of Object.keys(this.partitionObjects.partitionObjectsByCycle)) {
-        let cycle = cycleKey.slice(1)
-        let cycleNum = parseInt(cycle, 10)
+      for (const cycleKey of Object.keys(this.partitionObjects.partitionObjectsByCycle)) {
+        const cycle = cycleKey.slice(1)
+        const cycleNum = parseInt(cycle, 10)
         if (cycleNum < oldestCycle) {
           // delete old cycle
           delete this.partitionObjects.partitionObjectsByCycle[cycleKey]
@@ -2506,17 +2505,17 @@ class StateManager {
       if (cycleShardValues && cycleShardValues.ourNode.status === 'active') {
         this.profiler.profileSectionStart('stateManager_processPreviousCycleSummaries_buildPartitionHashesForNode')
         mainHashResults = this.accountCache.buildPartitionHashesForNode(cycleShardValues) //This needs to be replaced by something that
-                    //processes data for a completed cycle in a consistent way.  mainHash reults are not needed anymore.
-                    //they will not scale well with a large number of accounts.
+        //processes data for a completed cycle in a consistent way.  mainHash reults are not needed anymore.
+        //they will not scale well with a large number of accounts.
         this.profiler.profileSectionEnd('stateManager_processPreviousCycleSummaries_buildPartitionHashesForNode')
 
         this.profiler.profileSectionStart('stateManager_updatePartitionReport_updateTrie')
         //Note: the main work is happening in accountCache.buildPartitionHashesForNode, this just
         // uses that data to create our old report structure for reporting to the monitor-server
         // this.partitionObjects.updatePartitionReport(cycleShardValues, mainHashResults) //this needs to go away along all of partitionObjects I think
-              //this is used in the reporter and account dump, but these features cant scale to hundreds of nodes.
-              //
-        this.accountPatcher.updateTrieAndBroadCast(lastCycle.counter) 
+        //this is used in the reporter and account dump, but these features cant scale to hundreds of nodes.
+        //
+        this.accountPatcher.updateTrieAndBroadCast(lastCycle.counter)
         this.profiler.profileSectionEnd('stateManager_updatePartitionReport_updateTrie')
       }
     }
@@ -2538,23 +2537,23 @@ class StateManager {
         this.lastShardReport = utils.stringifyReduce(partitionDump)
         this.shardLogger.debug(this.lastShardReport)
       } else {
-        if(this.partitionObjects != null){
-          this.dumpAccountDebugData2(mainHashResults) //more detailed work          
+        if (this.partitionObjects != null) {
+          this.dumpAccountDebugData2(mainHashResults) //more detailed work
         }
       }
     }
 
-    if(this.partitionObjects != null){
+    if (this.partitionObjects != null) {
       // pre-allocate the next two cycles if needed
       for (let i = 1; i <= 2; i++) {
-        let prekey = 'c' + (cycle.counter + i)
+        const prekey = 'c' + (cycle.counter + i)
         if (this.partitionObjects.partitionObjectsByCycle[prekey] == null) {
           this.partitionObjects.partitionObjectsByCycle[prekey] = []
         }
         if (this.partitionObjects.ourPartitionResultsByCycle[prekey] == null) {
           this.partitionObjects.ourPartitionResultsByCycle[prekey] = []
         }
-      }      
+      }
     }
 
     // if (this.oldFeature_GeneratePartitionReport === true && this.oldFeature_BroadCastPartitionReport === true) {
@@ -2659,7 +2658,7 @@ class StateManager {
     // if cycle times are long enough to have more than 5000 txs on a node.
     // I think we should maybe be working on these as we go rather than processing them in a batch.
 
-    for (let queueEntry of this.transactionQueue.archivedQueueEntries) {
+    for (const queueEntry of this.transactionQueue.archivedQueueEntries) {
       if (queueEntry.cycleToRecordOn === cycleToSave) {
         // make sure we have a receipt
         const receipt = this.getReceipt(queueEntry)

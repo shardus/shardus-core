@@ -520,13 +520,13 @@ class Shardus extends EventEmitter {
 
     this.reporter = this.config.reporting.report
       ? new Reporter(
-        this.config.reporting,
-        this.logger,
-        this.statistics,
-        this.stateManager,
-        this.profiler,
-        this.loadDetection
-      )
+          this.config.reporting,
+          this.logger,
+          this.statistics,
+          this.stateManager,
+          this.profiler,
+          this.loadDetection
+        )
       : null
     Context.setReporterContext(this.reporter)
 
@@ -1368,7 +1368,7 @@ class Shardus extends EventEmitter {
           tx,
           wrappedStates,
           applyResponse
-        ) { }
+        ) {}
       }
 
       if (typeof application.transactionReceiptFail === 'function') {
@@ -1383,7 +1383,7 @@ class Shardus extends EventEmitter {
           tx,
           wrappedStates,
           applyResponse
-        ) { }
+        ) {}
       }
 
       if (typeof application.updateAccountFull === 'function') {
@@ -1666,11 +1666,11 @@ class Shardus extends EventEmitter {
       )
       this.fatalLogger.fatal(
         '_getApplicationInterface: ' +
-        ex.name +
-        ': ' +
-        ex.message +
-        ' at ' +
-        ex.stack
+          ex.name +
+          ': ' +
+          ex.message +
+          ' at ' +
+          ex.stack
       )
       throw new Error(ex)
     }
@@ -1718,20 +1718,20 @@ class Shardus extends EventEmitter {
         } catch (ex: any) {
           this.mainLogger.debug(
             'testGlobalAccountTX:' +
-            ex.name +
-            ': ' +
-            ex.message +
-            ' at ' +
-            ex.stack
+              ex.name +
+              ': ' +
+              ex.message +
+              ' at ' +
+              ex.stack
           )
           this.shardus_fatal(
             'registerExternalPost_ex',
             'testGlobalAccountTX:' +
-            ex.name +
-            ': ' +
-            ex.message +
-            ' at ' +
-            ex.stack
+              ex.name +
+              ': ' +
+              ex.message +
+              ' at ' +
+              ex.stack
           )
         }
       }
@@ -1751,20 +1751,20 @@ class Shardus extends EventEmitter {
         } catch (ex: any) {
           this.mainLogger.debug(
             'testGlobalAccountTXSet:' +
-            ex.name +
-            ': ' +
-            ex.message +
-            ' at ' +
-            ex.stack
+              ex.name +
+              ': ' +
+              ex.message +
+              ' at ' +
+              ex.stack
           )
           this.shardus_fatal(
             'registerExternalPost2_ex',
             'testGlobalAccountTXSet:' +
-            ex.name +
-            ': ' +
-            ex.message +
-            ' at ' +
-            ex.stack
+              ex.name +
+              ': ' +
+              ex.message +
+              ' at ' +
+              ex.stack
           )
         }
       }

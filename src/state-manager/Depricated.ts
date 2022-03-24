@@ -5394,8 +5394,8 @@ class Depricated {
 
   //   let ourNodeShardData: StateManagerTypes.shardFunctionTypes.NodeShardData = this.currentCycleShardData.nodeShardData
   //   // partittions:
-  //   let partitionDump: DebugDumpPartitions = { partitions: [], cycle: 0, rangesCovered: {} as DebugDumpRangesCovered, 
-  //   nodesCovered: {} as DebugDumpNodesCovered, allNodeIds: [], globalAccountIDs: [], globalAccountSummary: [], 
+  //   let partitionDump: DebugDumpPartitions = { partitions: [], cycle: 0, rangesCovered: {} as DebugDumpRangesCovered,
+  //   nodesCovered: {} as DebugDumpNodesCovered, allNodeIds: [], globalAccountIDs: [], globalAccountSummary: [],
   //   globalStateHash: '', calculationTime: this.currentCycleShardData.calculationTime }
   //   partitionDump.cycle = this.currentCycleShardData.cycleNumber
 
@@ -5493,7 +5493,6 @@ class Depricated {
   //   this.shardLogger.debug(this.lastShardReport)
   // }
 
-
   //   /**
   //  * dumpAccountDebugData2 a temporary version that also uses stats data
   //  */
@@ -5501,34 +5500,34 @@ class Depricated {
   //     if (this.currentCycleShardData == null) {
   //       return
   //     }
-  
+
   //     // hmm how to deal with data that is changing... it cant!!
   //     let partitionMap = this.currentCycleShardData.parititionShardDataMap
-  
+
   //     let ourNodeShardData: StateManagerTypes.shardFunctionTypes.NodeShardData = this.currentCycleShardData.nodeShardData
   //     // partittions:
-  //     let partitionDump: DebugDumpPartitions = { partitions: [], cycle: 0, rangesCovered: {} as DebugDumpRangesCovered, 
-  //     nodesCovered: {} as DebugDumpNodesCovered, allNodeIds: [], globalAccountIDs: [], globalAccountSummary: [], 
+  //     let partitionDump: DebugDumpPartitions = { partitions: [], cycle: 0, rangesCovered: {} as DebugDumpRangesCovered,
+  //     nodesCovered: {} as DebugDumpNodesCovered, allNodeIds: [], globalAccountIDs: [], globalAccountSummary: [],
   //     globalStateHash: '', calculationTime: this.currentCycleShardData.calculationTime }
   //     partitionDump.cycle = this.currentCycleShardData.cycleNumber
-  
+
   //     // todo port this to a static stard function!
   //     // check if we are in the consenus group for this partition
   //     let minP = ourNodeShardData.consensusStartPartition // storedPartitions.partitionStart
   //     let maxP = ourNodeShardData.consensusEndPartition // storedPartitions.partitionEnd
-  
+
   //     // let minP = ourNodeShardData.storedPartitions.partitionStart
   //     // let maxP = ourNodeShardData.storedPartitions.partitionEnd
-  
+
   //     let cMin = ourNodeShardData.consensusStartPartition
   //     let cMax = ourNodeShardData.consensusEndPartition
-  
+
   //     partitionDump.rangesCovered = { ipPort: `${ourNodeShardData.node.externalIp}:${ourNodeShardData.node.externalPort}`, id: utils.makeShortHash(ourNodeShardData.node.id), fracID: ourNodeShardData.nodeAddressNum / 0xffffffff, hP: ourNodeShardData.homePartition, cMin: cMin, cMax: cMax, stMin: ourNodeShardData.storedPartitions.partitionStart, stMax: ourNodeShardData.storedPartitions.partitionEnd, numP: this.currentCycleShardData.shardGlobals.numPartitions }
-  
+
   //     // todo print out coverage map by node index
-  
+
   //     partitionDump.nodesCovered = { idx: ourNodeShardData.ourNodeIndex, ipPort: `${ourNodeShardData.node.externalIp}:${ourNodeShardData.node.externalPort}`, id: utils.makeShortHash(ourNodeShardData.node.id), fracID: ourNodeShardData.nodeAddressNum / 0xffffffff, hP: ourNodeShardData.homePartition, consensus: [], stored: [], extra: [], numP: this.currentCycleShardData.shardGlobals.numPartitions }
-  
+
   //     for (let node of ourNodeShardData.consensusNodeForOurNode) {
   //       let nodeData = this.currentCycleShardData.nodeShardDataMap.get(node.id)
   //       //@ts-ignore just debug junk
@@ -5539,12 +5538,12 @@ class Depricated {
   //       //@ts-ignore just debug junk
   //       partitionDump.nodesCovered.stored.push({ idx: nodeData.ourNodeIndex, hp: nodeData.homePartition })
   //     }
-  
+
   //     if (this.currentCycleShardData.ourNode.status === 'active') {
   //       for (var [key, value] of partitionMap) {
   //         let partition: DebugDumpPartition = { parititionID: key, accounts: [], accounts2: [], skip: {} as DebugDumpPartitionSkip }
   //         partitionDump.partitions.push(partition)
-  
+
   //         // normal case
   //         if (maxP > minP) {
   //           // are we outside the min to max range
@@ -5564,11 +5563,11 @@ class Depricated {
   //             continue
   //           }
   //         }
-  
+
   //         let partitionShardData = value
   //         let accountStart = partitionShardData.homeRange.low
   //         let accountEnd = partitionShardData.homeRange.high
-  
+
   //         if (this.debugFeature_dumpAccountDataFromSQL === true) {
   //           let wrappedAccounts = await this.app.getAccountData(accountStart, accountEnd, 10000000)
   //           // { accountId: account.address, stateId: account.hash, data: account, timestamp: account.timestamp }
@@ -5584,10 +5583,10 @@ class Depricated {
   //             }
   //             partition.accounts.push({ id: wrappedAccount.accountId, hash: wrappedAccount.stateId, v: v })
   //           }
-  
+
   //           partition.accounts.sort(this._sortByIdAsc)
   //         }
-  
+
   //         // Take the cache data report and fill out accounts2 and partitionHash2
   //         if (mainHashResults.partitionHashResults.has(partition.parititionID)) {
   //           let partitionHashResults = mainHashResults.partitionHashResults.get(partition.parititionID)
@@ -5600,23 +5599,23 @@ class Depricated {
   //           partition.partitionHash2 = partitionHashResults.hashOfHashes
   //         }
   //       }
-  
+
   //       //partitionDump.allNodeIds = []
   //       for (let node of this.currentCycleShardData.activeNodes) {
   //         partitionDump.allNodeIds.push(utils.makeShortHash(node.id))
   //       }
-  
+
   //       partitionDump.globalAccountIDs = Array.from(this.accountGlobals.globalAccountSet.keys())
   //       partitionDump.globalAccountIDs.sort()
   //       // dump information about consensus group and edge nodes for each partition
   //       // for (var [key, value] of this.currentCycleShardData.parititionShardDataMap){
-  
+
   //       // }
-  
+
   //       let {globalAccountSummary, globalStateHash} = this.accountGlobals.getGlobalDebugReport()
   //       partitionDump.globalAccountSummary = globalAccountSummary
   //       partitionDump.globalStateHash = globalStateHash
-  
+
   //     } else {
   //       if (this.currentCycleShardData != null && this.currentCycleShardData.activeNodes.length > 0) {
   //         for (let node of this.currentCycleShardData.activeNodes) {
@@ -5624,14 +5623,11 @@ class Depricated {
   //         }
   //       }
   //     }
-  
+
   //     this.lastShardReport = utils.stringifyReduce(partitionDump)
   //     this.shardLogger.debug(this.lastShardReport)
   //     //this.shardLogger.debug(utils.stringifyReduce(partitionDump))
   //   }
-
-
-
 }
 
 export default Depricated

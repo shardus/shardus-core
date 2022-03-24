@@ -811,13 +811,13 @@ export type AccountHashCacheList = {
 
 // METHOD 3 stuff below here:
 export type AccountHashCacheMain3 = {
-    currentCalculationCycle: number
+  currentCalculationCycle: number
 
-    workingHistoryList:AccountHashCacheList
-    accountHashMap: Map<string, AccountHashCacheHistory>
+  workingHistoryList: AccountHashCacheList
+  accountHashMap: Map<string, AccountHashCacheHistory>
 
-    //queue stuff here that we are not ready for yet
-    futureHistoryList:AccountHashCacheList
+  //queue stuff here that we are not ready for yet
+  futureHistoryList: AccountHashCacheList
 }
 
 // export type AccountReport = {
@@ -860,20 +860,20 @@ export type TrieAccount = {
 }
 
 export type HashTrieNode = {
-    radix: string; //node key.  The root value is and empty string.  Radix is depth characters long.
-                   //accounts are under this node if radix is a prefix of their address
-    hash: string;  //hash of the node.  This is a hash of the child hashes
-    childHashes: string[]; //len16 array of child hashes.  Blank entries are ok.     
+  radix: string //node key.  The root value is and empty string.  Radix is depth characters long.
+  //accounts are under this node if radix is a prefix of their address
+  hash: string //hash of the node.  This is a hash of the child hashes
+  childHashes: string[] //len16 array of child hashes.  Blank entries are ok.
 
-    children: HashTrieNode[]; // len 16. empty entries are ok. (not on leaf nodes.)
-    nonSparseChildCount:number //count of child nodes that are not null. max 16
+  children: HashTrieNode[] // len 16. empty entries are ok. (not on leaf nodes.)
+  nonSparseChildCount: number //count of child nodes that are not null. max 16
 
-    updated: boolean; // has this trie node or its children been updated
-    isIncomplete: boolean; //flag used to propigate incomplete status upwards.
+  updated: boolean // has this trie node or its children been updated
+  isIncomplete: boolean //flag used to propigate incomplete status upwards.
 
-    // leaf node only features below.  Thes occur at treeMaxDepth
-    accounts?: TrieAccount[]; //any length, sorted by id.  only on leaf nodes
-    accountTempMap?: Map<string, TrieAccount>; //map of accounts by hash for perf reasons  
+  // leaf node only features below.  Thes occur at treeMaxDepth
+  accounts?: TrieAccount[] //any length, sorted by id.  only on leaf nodes
+  accountTempMap?: Map<string, TrieAccount> //map of accounts by hash for perf reasons
 }
 
 export type ShardedHashTrie = {

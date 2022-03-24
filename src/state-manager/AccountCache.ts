@@ -39,8 +39,8 @@ class AccountCache {
 
   accountsHashCache3: AccountHashCacheMain3 //This is the main storage
 
-  currentMainHashResults: MainHashResults //one of the main outputs produced by account cache.  However this was important for accounting 
-                                          //for values in a given partition, and that does not scale
+  currentMainHashResults: MainHashResults //one of the main outputs produced by account cache.  However this was important for accounting
+  //for values in a given partition, and that does not scale
 
   statemanager_fatal: (key: string, log: string) => void
   stateManager: Required<StateManager>
@@ -110,10 +110,10 @@ class AccountCache {
 
     //update main cycle number if needed..  not sure this is perfect.. may be better as a function that can be smart?
     //
-    if(this.accountsHashCache3.currentCalculationCycle === -1){
-      if(this.stateManager?.currentCycleShardData != null){
-        this.accountsHashCache3.currentCalculationCycle = this.stateManager.currentCycleShardData.cycleNumber -1
-        if(this.accountsHashCache3.currentCalculationCycle < 0){
+    if (this.accountsHashCache3.currentCalculationCycle === -1) {
+      if (this.stateManager?.currentCycleShardData != null) {
+        this.accountsHashCache3.currentCalculationCycle = this.stateManager.currentCycleShardData.cycleNumber - 1
+        if (this.accountsHashCache3.currentCalculationCycle < 0) {
           this.accountsHashCache3.currentCalculationCycle = 0
         }
       } else {
@@ -171,7 +171,7 @@ class AccountCache {
           //clean up list if is too long
           while (accountHashList.length > 3 && accountHashList[accountHashList.length - 1].c < this.accountsHashCache3.currentCalculationCycle) {
             //remove from end.  but only if the data older than the current working cycle
-            accountHashList.pop()  //hmm could this axe data too soon? i.e. push out cache entries before they get put in a report.
+            accountHashList.pop() //hmm could this axe data too soon? i.e. push out cache entries before they get put in a report.
           }
           nestedCountersInstance.countEvent('cache', 'updateAccountHash: new cycle update')
 
@@ -374,7 +374,7 @@ class AccountCache {
 
       //is the line below causing a whole extra cycle of delay in the system?
 
-      //if index 0 entry is not for this cycle then look through the list for older cycles. 
+      //if index 0 entry is not for this cycle then look through the list for older cycles.
       while (index < accountCacheHistory.accountHashList.length - 1 && accountCacheHistory.accountHashList[index].c > cycleToProcess) {
         index++
       }
@@ -690,33 +690,25 @@ class AccountCache {
     return mainHashResults
   }
 
-  getAccountDebugObject(id: string) :any {
-
-    let accountHashFull = this.stateManager.accountCache.accountsHashCache3.accountHashMap.get(id)
+  getAccountDebugObject(id: string): any {
+    const accountHashFull = this.stateManager.accountCache.accountsHashCache3.accountHashMap.get(id)
     return accountHashFull
   }
 
   //temp to hide some internal fields
   getDebugStats(): any[] {
-
-    let workingAccounts = this.accountsHashCache3.workingHistoryList.accountIDs.length
+    const workingAccounts = this.accountsHashCache3.workingHistoryList.accountIDs.length
     //this.addToReport('StateManager','AccountsCache', 'workingAccounts', cacheCount )
-    let mainMap = this.accountsHashCache3.accountHashMap.size
+    const mainMap = this.accountsHashCache3.accountHashMap.size
     //this.addToReport('StateManager','AccountsCache', 'mainMap', cacheCount2 )
 
     return [workingAccounts, mainMap]
-
   }
 
-  getAccountHashHistoryItem(accountID:string): AccountHashCacheHistory{
-
-    let accountHashCacheHistory: AccountHashCacheHistory = this.stateManager.accountCache.accountsHashCache3.accountHashMap.get(accountID)
+  getAccountHashHistoryItem(accountID: string): AccountHashCacheHistory {
+    const accountHashCacheHistory: AccountHashCacheHistory = this.stateManager.accountCache.accountsHashCache3.accountHashMap.get(accountID)
     return accountHashCacheHistory
-
   }
-
-
-
 }
 
 export default AccountCache

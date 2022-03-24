@@ -20,7 +20,7 @@ import * as packageJson from '../../package.json'
 import {isDebugModeAnd} from '../debug'
 import {nestedCountersInstance} from '../utils/nestedCounters'
 import {memoryReportingInstance} from '../utils/memoryReporting'
-import { SyncStatment } from '../state-manager/AccountSync'
+import {SyncStatment} from '../state-manager/AccountSync'
 
 const http = require('../http')
 const allZeroes64 = '0'.repeat(64)
@@ -75,7 +75,7 @@ class Reporter {
 
     this.lastTime = Date.now()
 
-    this.doConsoleReport = isDebugModeAnd(config => config.profiler) 
+    this.doConsoleReport = isDebugModeAnd(config => config.profiler)
 
     this.hasRecipient = this.config.recipient != null
     this.resetStatisticsReport()
@@ -277,14 +277,13 @@ class Reporter {
     let partitionReport = null
     let globalSync = null
     if (this.stateManager != null) {
-
       //todo need to get rid of / no-op partition report.  It can't scale with # of accounts. (at least not without some advanements in how handle hashing)
       //A report using trie hashes would be smarter / more usefull as a replacement.
-      if(this.stateManager.partitionObjects != null){
+      if (this.stateManager.partitionObjects != null) {
         partitionReport = this.stateManager.partitionObjects.getPartitionReport(
           true,
           true
-        )        
+        )
       }
 
       globalSync = this.stateManager.isStateGood()

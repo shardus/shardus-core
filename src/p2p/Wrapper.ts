@@ -197,7 +197,7 @@ class State extends EventEmitter {
   getCycleByCounter(counter) {
     const i = utils.binarySearch(
       CycleChain.cycles,
-      {counter}  as any,
+      {counter} as any,
       utils.propComparator('counter')
     )
     if (i > -1) return CycleChain.cycles[i]

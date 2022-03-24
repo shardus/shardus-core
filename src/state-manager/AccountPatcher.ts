@@ -637,36 +637,36 @@ class AccountPatcher {
     }
 
     //process accounts that need updating.  Create nodes as needed
-    for(let i =0; i< this.accountUpdateQueue.length; i++){
-      let tx = this.accountUpdateQueue[i]
-      let key = tx.accountID.slice(0,currentLayer)
+    for (let i = 0; i < this.accountUpdateQueue.length; i++) {
+      const tx = this.accountUpdateQueue[i]
+      const key = tx.accountID.slice(0, currentLayer)
       let leafNode = currentMap.get(key)
-      if(leafNode == null){
+      if (leafNode == null) {
         //init a leaf node.
         //leaf nodes will have a list of accounts that share the same radix.
-        leafNode = {radix:key, children:[], childHashes:[], accounts:[], hash:'', accountTempMap:new Map(), updated:true, isIncomplete: false, nonSparseChildCount:0} //this map will cause issues with update
+        leafNode = { radix: key, children: [], childHashes: [], accounts: [], hash: '', accountTempMap: new Map(), updated: true, isIncomplete: false, nonSparseChildCount: 0 } //this map will cause issues with update
         currentMap.set(key, leafNode)
         updateStats.leafsCreated++
         treeNodeQueue.push(leafNode)
       }
 
       //this can happen if the depth gets smaller after being larger
-      if(leafNode.accountTempMap == null){
+      if (leafNode.accountTempMap == null) {
         leafNode.accountTempMap = new Map()
       }
-      if(leafNode.accounts == null){
+      if (leafNode.accounts == null) {
         leafNode.accounts = []
       }
 
-      if(leafNode.accountTempMap.has(tx.accountID) === false){
+      if (leafNode.accountTempMap.has(tx.accountID) === false) {
         this.totalAccounts++
       }
       leafNode.accountTempMap.set(tx.accountID, tx)
-      if(leafNode.updated === false){
+      if (leafNode.updated === false) {
         treeNodeQueue.push(leafNode)
         updateStats.leafsUpdated++
       }
-      leafNode.updated= true
+      leafNode.updated = true
 
       if (logFlags.verbose)
         if (logFlags.playback)
@@ -2015,8 +2015,8 @@ class AccountPatcher {
           //This is less likely to be hit here now that similar logic checking the hash happens upstream in findBadAccounts()
           if (wrappedData.timestamp === accountMemData.t) {
             // if we got here make sure to update the last seen cycle in case the cache needs to know it has current enough data
-            let accountHashCacheHistory: AccountHashCacheHistory = this.stateManager.accountCache.getAccountHashHistoryItem(wrappedData.accountId)
-            if(accountHashCacheHistory != null && accountHashCacheHistory.lastStaleCycle >= accountHashCacheHistory.lastSeenCycle ){
+            const accountHashCacheHistory: AccountHashCacheHistory = this.stateManager.accountCache.getAccountHashHistoryItem(wrappedData.accountId)
+            if (accountHashCacheHistory != null && accountHashCacheHistory.lastStaleCycle >= accountHashCacheHistory.lastSeenCycle) {
               // nestedCountersInstance.countEvent('accountPatcher', `checkAndSetAccountData updateSameTS update lastSeenCycle c:${cycle}`)
               filterStats.sameTSFix++
               accountHashCacheHistory.lastSeenCycle = cycle
