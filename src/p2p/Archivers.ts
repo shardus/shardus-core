@@ -584,11 +584,13 @@ export function registerRoutes() {
     }
     delete queryRequest.publicKey
     delete queryRequest.tag
-    let data: {
-      [key: number]:
-        | StateManager.StateManagerTypes.ReceiptMapResult[]
-        | StateManager.StateManagerTypes.StatsClump
-    } = {}
+    let data:
+      | {
+          [key: number]:
+            | StateManager.StateManagerTypes.ReceiptMapResult[]
+            | StateManager.StateManagerTypes.StatsClump
+        }
+      | undefined
     if (queryRequest.type === 'RECEIPT_MAP') {
       data = getReceiptMap(queryRequest.lastData)
     } else if (queryRequest.type === 'SUMMARY_BLOB') {

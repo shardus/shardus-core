@@ -1,10 +1,10 @@
 {
   "extends": "./node_modules/gts/tsconfig-google.json",
   "compilerOptions": {
-    "resolveJsonModule": true,
-    "strictNullChecks": false,
-    "noImplicitReturns": false,
-    "noImplicitAny": false,
+    // "resolveJsonModule": true,
+    // "strictNullChecks": false,
+    // "noImplicitReturns": false,
+    // "noImplicitAny": false,
     "lib": ["ES2021"],
     "target": "ES2021",
     "rootDir": ".",

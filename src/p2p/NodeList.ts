@@ -103,7 +103,11 @@ export function removeNode(id) {
   }
 
   // Remove from arrays
-  idx = binarySearch(activeOthersByIdOrder, {id} as any, propComparator('id'))
+  idx = binarySearch<P2P.NodeListTypes.Node, Partial<P2P.NodeListTypes.Node>>(
+    activeOthersByIdOrder,
+    {id},
+    propComparator<Partial<P2P.NodeListTypes.Node>>('id')
+  )
   if (idx >= 0) activeOthersByIdOrder.splice(idx, 1)
 
   idx = binarySearch(activeByIdOrder, {id} as any, propComparator('id'))

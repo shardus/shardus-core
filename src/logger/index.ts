@@ -274,8 +274,8 @@ class Logger {
   }
 
   playbackLog(
-    from: string,
-    to: string,
+    from: unknown,
+    to: unknown,
     type: string,
     endpoint: string,
     id: string | number,

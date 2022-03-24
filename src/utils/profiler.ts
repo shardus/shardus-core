@@ -215,7 +215,7 @@ class Profiler {
         this.profileSectionStart('_totalBusy', true)
         this.profileSectionStart('_internal_totalBusy', true)
       }
-      if (sectionName === 'net-internl') {
+      if (sectionName === 'net-internal') {
         this.netInternalStackHeight++
         if (this.netInternalStackHeight === 1) {
           this.profileSectionStart('_internal_net-internl', true)
@@ -252,7 +252,7 @@ class Profiler {
         this.profileSectionEnd('_totalBusy', true)
         this.profileSectionEnd('_internal_totalBusy', true)
       }
-      if (sectionName === 'net-internl') {
+      if (sectionName === 'net-internal') {
         this.netInternalStackHeight--
         if (this.netInternalStackHeight === 0) {
           this.profileSectionEnd('_internal_net-internl', true)
