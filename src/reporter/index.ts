@@ -1,4 +1,4 @@
-import Log4js from 'log4js'
+import * as Log4js from 'log4js'
 import LoadDetection from '../load-detection'
 import Logger, {logFlags} from '../logger'
 import {ipInfo} from '../network'
@@ -16,10 +16,11 @@ import * as Rotation from '../p2p/Rotation'
 import StateManager from '../state-manager'
 import Statistics from '../statistics'
 import Profiler from '../utils/profiler'
-import packageJson from '../../package.json'
+import * as packageJson from '../../package.json'
 import {isDebugModeAnd} from '../debug'
 import {nestedCountersInstance} from '../utils/nestedCounters'
 import {memoryReportingInstance} from '../utils/memoryReporting'
+import { SyncStatment } from '../state-manager/AccountSync'
 
 const http = require('../http')
 const allZeroes64 = '0'.repeat(64)
@@ -74,7 +75,7 @@ class Reporter {
 
     this.lastTime = Date.now()
 
-    this.doConsoleReport = isDebugModeAnd(config => config.profiler)
+    this.doConsoleReport = isDebugModeAnd(config => config.profiler) 
 
     this.hasRecipient = this.config.recipient != null
     this.resetStatisticsReport()
@@ -108,7 +109,7 @@ class Reporter {
       : 0
   }
 
-  async reportJoining(publicKey) {
+  async reportJoining(publicKey: string) {
     if (!this.hasRecipient) {
       return
     }
@@ -118,7 +119,7 @@ class Reporter {
         publicKey,
         nodeIpInfo,
       })
-    } catch (e) {
+    } catch (e: any) {
       if (logFlags.error)
         this.mainLogger.error(
           'reportJoining: ' + e.name + ': ' + e.message + ' at ' + e.stack
@@ -127,7 +128,7 @@ class Reporter {
     }
   }
 
-  async reportJoined(nodeId, publicKey) {
+  async reportJoined(nodeId: string, publicKey: string) {
     if (!this.hasRecipient) {
       return
     }
@@ -138,7 +139,7 @@ class Reporter {
         nodeId,
         nodeIpInfo,
       })
-    } catch (e) {
+    } catch (e: any) {
       if (logFlags.error)
         this.mainLogger.error(
           'reportJoined: ' + e.name + ': ' + e.message + ' at ' + e.stack
@@ -147,13 +148,13 @@ class Reporter {
     }
   }
 
-  async reportActive(nodeId) {
+  async reportActive(nodeId: string) {
     if (!this.hasRecipient) {
       return
     }
     try {
       await http.post(`${this.config.recipient}/active`, {nodeId})
-    } catch (e) {
+    } catch (e: any) {
       if (logFlags.error)
         this.mainLogger.error(
           'reportActive: ' + e.name + ': ' + e.message + ' at ' + e.stack
@@ -162,7 +163,7 @@ class Reporter {
     }
   }
 
-  async reportSyncStatement(nodeId, syncStatement) {
+  async reportSyncStatement(nodeId: string, syncStatement: SyncStatment) {
     if (!this.hasRecipient) {
       return
     }
@@ -171,7 +172,7 @@ class Reporter {
         nodeId,
         syncStatement,
       })
-    } catch (e) {
+    } catch (e: any) {
       if (logFlags.error)
         this.mainLogger.error(
           'reportSyncStatement: ' + e.name + ': ' + e.message + ' at ' + e.stack
@@ -180,13 +181,13 @@ class Reporter {
     }
   }
 
-  async reportRemoved(nodeId) {
+  async reportRemoved(nodeId: string) {
     if (!this.hasRecipient) {
       return
     }
     try {
       await http.post(`${this.config.recipient}/removed`, {nodeId})
-    } catch (e) {
+    } catch (e: any) {
       if (logFlags.error)
         this.mainLogger.error(
           'reportRemoved: ' + e.name + ': ' + e.message + ' at ' + e.stack
@@ -199,7 +200,7 @@ class Reporter {
   }
 
   // Sends a report
-  async _sendReport(data) {
+  async _sendReport(data: any) {
     if (!this.hasRecipient) {
       return
     }
@@ -211,7 +212,7 @@ class Reporter {
     }
     try {
       await http.post(`${this.config.recipient}/heartbeat`, report)
-    } catch (e) {
+    } catch (e: any) {
       if (logFlags.error)
         this.mainLogger.error(
           '_sendReport: ' + e.name + ': ' + e.message + ' at ' + e.stack
@@ -228,7 +229,7 @@ class Reporter {
     }
   }
 
-  checkIsNodeLost(nodeId) {
+  checkIsNodeLost(nodeId: string) {
     const lostNodeIds = CycleChain.getNewest().lost
     if (lostNodeIds.length === 0) return false
     const foundId = lostNodeIds.find(lostId => lostId === nodeId)
@@ -236,7 +237,7 @@ class Reporter {
     return false
   }
 
-  checkIsNodeRefuted(nodeId) {
+  checkIsNodeRefuted(nodeId: string) {
     const refutedNodeIds = CycleChain.getNewest().refuted
     if (refutedNodeIds.length === 0) return false
     const foundId = refutedNodeIds.find(refutedId => refutedId === nodeId)
@@ -295,11 +296,11 @@ class Reporter {
     }
 
     let partitions = 0
-    let partitionsCovered = 0
-    if (this.stateManager != null) {
+    let partitionsCovered: number | undefined = 0
+    if (this.stateManager !== null) {
       /** @type {CycleShardData} */
       const shardData = this.stateManager.currentCycleShardData //   getShardDataForCycle(cycleCounter)
-      if (shardData != null) {
+      if (shardData !== null) {
         partitions = shardData.shardGlobals.numPartitions
         partitionsCovered =
           shardData.nodeShardData.storedPartitions.partitionsCovered
@@ -359,7 +360,7 @@ class Reporter {
         isRefuted: isNodeRefuted,
         shardusVersion: packageJson.version,
       })
-    } catch (e) {
+    } catch (e: any) {
       if (logFlags.error)
         this.mainLogger.error(
           'startReporting: ' + e.name + ': ' + e.message + ' at ' + e.stack

@@ -9,25 +9,28 @@ interface RateLimiting {
 }
 
 class RateLimiting {
-  constructor(config, loadDetection) {
+  constructor(config: RateLimiting, loadDetection: any) {
     this.loadDetection = loadDetection
     this.limitRate = config.limitRate
     this.loadLimit = config.loadLimit
   }
 
-  calculateThrottlePropotion(load, limit) {
+  calculateThrottlePropotion(load: number, limit: number) {
     const throttleRange = 1 - limit
     const throttleAmount = load - limit
     const throttleProportion = throttleAmount / throttleRange
     return throttleProportion
   }
 
-  getWinningLoad(nodeLoad, queueLoad) {
+  getWinningLoad(nodeLoad: {}, queueLoad: {}) {
     const loads = {...nodeLoad, ...queueLoad}
     let maxThrottle = 0
     let loadType: any
-    for (const key in loads) {
-      if (this.loadLimit[key] == null) {
+    for (const _key in loads) {
+      //this trick fix alot of TS errors
+      const key = _key as keyof typeof loads
+
+      if (this.loadLimit[key] === null) {
         continue //not checking load limit for undefined or 0 limit.
       }
       if (loads[key] < this.loadLimit[key]) continue

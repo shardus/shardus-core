@@ -88,7 +88,7 @@ export function setOldDataPath(path) {
 export function getStateHashes(
   start: Cycle['counter'] = 0,
   end?: Cycle['counter']
-): P2P.SnapshotTypes.StateHashes[] {
+): Required<P2P.SnapshotTypes.StateHashes[]> {
   const collector: P2P.SnapshotTypes.StateHashes[] = []
   for (const [key] of stateHashesByCycle) {
     if (key >= start) {
@@ -757,7 +757,9 @@ async function sendOfferToNode(node, offer, isSuggestedByNetwork = false) {
   }
 }
 
-function increaseNotNeededNodes(id) {
+// need review - kaung/aamir
+// id: string
+function increaseNotNeededNodes(id: string) {
   notNeededRepliedNodes.set(id, true)
 }
 
@@ -779,7 +781,7 @@ async function storeDataToNewDB(dataMap) {
   await Context.stateManager._commitAccountCopies(accountCopies)
 }
 
-function processDownloadedMissingData(missingData) {
+function processDownloadedMissingData(missingData: any[]) {
   if (missingPartitions.length === 0) return // we don't have missing data anymore
   log('Processing downloaded data')
   for (const partitionId in missingData) {

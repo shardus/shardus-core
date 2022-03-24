@@ -22,6 +22,7 @@ import {
   AccountHashCacheList,
   PartitionHashResults,
 } from './state-manager-types'
+import { ArrayDataType } from 'sequelize/types'
 
 class AccountCache {
   app: Shardus.App
@@ -42,7 +43,7 @@ class AccountCache {
                                           //for values in a given partition, and that does not scale
 
   statemanager_fatal: (key: string, log: string) => void
-  stateManager: StateManager
+  stateManager: Required<StateManager>
 
   constructor(stateManager: StateManager, profiler: Profiler, app: Shardus.App, logger: Logger, crypto: Crypto, config: Shardus.ServerConfiguration) {
     this.crypto = crypto
@@ -51,7 +52,7 @@ class AccountCache {
     this.config = config
     this.profiler = profiler
 
-    if (logger == null) {
+    if (logger === null) {
       return // for debug
     }
 
@@ -264,11 +265,11 @@ class AccountCache {
     // find new spot
     for (index = accountHashesSorted.length - 1; index >= 0; index--) {
       const accountHashCache: AccountHashCache = accountHashesSorted[index]
-      if (accountHashCache == null) {
+      if (accountHashCache === null) {
         continue //empty
       }
       // todo consider this special case where t=0 goes to end of list.. (it will still sort by address)
-      if (accountHashData.t != 0 && accountHashData.t < accountHashCache.t) {
+      if (accountHashData.t !== 0 && accountHashData.t < accountHashCache.t) {
         continue
       } else if (accountHashData.t === accountHashCache.t) {
         if (accountId < accountIDs[index]) {
@@ -278,7 +279,7 @@ class AccountCache {
       //found a spot
       break
     }
-    if (index == -1) {
+    if (index === -1) {
       gotToEnd = true
     }
     //push or insert
@@ -298,16 +299,18 @@ class AccountCache {
     return this.accountsHashCache3.accountHashMap.has(accountId)
   }
 
-  //just gets the newest seen hash.  does that cause issues?
-  getAccountHash(accountId: string): AccountHashCache {
+  // need review - kaung/aamir
+  // issue: not all code paths has return, did: add `return null` at the end of the func
+  getAccountHash(accountId: string): AccountHashCache | null {
     if (this.accountsHashCache3.accountHashMap.has(accountId) === false) {
       return null
     }
-    const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountId)
+    const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountId) as AccountHashCacheHistory
     if (accountHashCacheHistory.accountHashList.length > 0) {
       //0 is the newest?
       return accountHashCacheHistory.accountHashList[0]
     }
+    return null
   }
 
   sortByTimestampIdAsc(first, second): number {
@@ -327,7 +330,7 @@ class AccountCache {
   }
 
   // currently a sync function, dont have correct buffers for async
-  buildPartitionHashesForNode(cycleShardData: CycleShardData, debugAC3: AccountHashCacheMain3 = null, debugAccount: string = null): MainHashResults {
+  buildPartitionHashesForNode(cycleShardData: CycleShardData, debugAC3: AccountHashCacheMain3 | null = null, debugAccount: string | undefined = null): MainHashResults {
     // OFFLINE DEBUGGING
     // if(debugAC3 != null){
     //   this.accountsHashCache3 = debugAC3
@@ -382,7 +385,7 @@ class AccountCache {
       }
 
       const entry = accountCacheHistory.accountHashList[index]
-      if (entry == null) {
+      if (entry === null) {
         this.statemanager_fatal(
           'buildPartitionHashesForNode: entry==null',
           `buildPartitionHashesForNode: entry==null :${index} cycle: ${cycleToProcess} key:${utils.stringifyReduce(key)}:  ${utils.stringifyReduce(accountCacheHistory)}`
@@ -410,7 +413,7 @@ class AccountCache {
       this.accountsHashCache3.workingHistoryList.accountHashesSorted.push(entry.entry)
       this.accountsHashCache3.workingHistoryList.accountIDs.push(entry.id)
 
-      const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(entry.id)
+      const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(entry.id) as AccountHashCacheHistory
       accountHashCacheHistory.lastSeenSortIndex = newIndex
       newIndex++
     }
@@ -438,7 +441,7 @@ class AccountCache {
       //Start building the mainHashResults structure
 
       //split data into partitions.  Get the partition for this account
-      let partitionHashResults: PartitionHashResults = null
+      let partitionHashResults: PartitionHashResults
       const { homePartition: partition } = ShardFunctions.addressToPartition(cycleShardData.shardGlobals, accountID)
 
       //if we do not store this partition then dont put it in a report.  tell the trie to remove it.
@@ -446,7 +449,7 @@ class AccountCache {
       if (ShardFunctions.testInRange(partition, cycleShardData.nodeShardData.storedPartitions) === false) {
         this.stateManager.accountPatcher.removeAccountHash(accountID)
 
-        const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountID)
+        const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountID) as AccountHashCacheHistory
         if (cycleToProcess > accountHashCacheHistory.lastStaleCycle) {
           accountHashCacheHistory.lastStaleCycle = cycleToProcess
         }
@@ -477,7 +480,7 @@ class AccountCache {
 
     // build a hash over all the data hashes per partition
     for (const partition of mainHashResults.partitionHashResults.keys()) {
-      const partitionHashResults: PartitionHashResults = mainHashResults.partitionHashResults.get(partition)
+      const partitionHashResults: PartitionHashResults = mainHashResults.partitionHashResults.get(partition) as PartitionHashResults
 
       partitionHashResults.hashOfHashes = this.crypto.hash(partitionHashResults.hashes)
     }
@@ -488,7 +491,7 @@ class AccountCache {
     //rebuild our future working list.
     for (let index = 0; index < this.accountsHashCache3.futureHistoryList.accountHashesSorted.length; index++) {
       const accountHashData: AccountHashCache = this.accountsHashCache3.futureHistoryList.accountHashesSorted[index]
-      if (accountHashData == null) {
+      if (accountHashData === null) {
         continue
       }
       const accountID = this.accountsHashCache3.futureHistoryList.accountIDs[index]
@@ -499,7 +502,7 @@ class AccountCache {
       //   ii++
       // }
 
-      if (this.accountsHashCache3.accountHashMap.has(accountID) == false) {
+      if (this.accountsHashCache3.accountHashMap.has(accountID) === false) {
         if (logFlags.error)
           this.mainLogger.error(`buildPartitionHashesForNode: missing accountID:${accountID} index:${index} len:${this.accountsHashCache3.futureHistoryList.accountHashesSorted.length}`)
         continue
@@ -512,7 +515,7 @@ class AccountCache {
       }
       nextFutureList.accountHashesSorted.push(accountHashData)
       nextFutureList.accountIDs.push(accountID)
-      const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountID)
+      const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountID) as AccountHashCacheHistory
       accountHashCacheHistory.queueIndex = { id: accountHashData.c, idx: newIndex }
       newIndex++
     }
@@ -532,7 +535,7 @@ class AccountCache {
     const shardGlobals = shardValues.shardGlobals as StateManagerTypes.shardFunctionTypes.ShardGlobals
 
     for (const partition of mainHashResults.partitionHashResults.keys()) {
-      const partitionHashResults: PartitionHashResults = mainHashResults.partitionHashResults.get(partition)
+      const partitionHashResults: PartitionHashResults = mainHashResults.partitionHashResults.get(partition) as PartitionHashResults
       if (ShardFunctions.testInRange(partitionHashResults.partition, shardValues.nodeShardData.storedPartitions) === false) {
       }
     }
@@ -565,19 +568,19 @@ class AccountCache {
     //rebuild our future working list.
     for (let index = 0; index < this.accountsHashCache3.futureHistoryList.accountHashesSorted.length; index++) {
       const accountHashData: AccountHashCache = this.accountsHashCache3.futureHistoryList.accountHashesSorted[index]
-      if (accountHashData == null) {
+      if (accountHashData === null) {
         //holes++
         continue
       }
       const accountID = this.accountsHashCache3.futureHistoryList.accountIDs[index]
 
-      if (this.accountsHashCache3.accountHashMap.has(accountID) == false) {
+      if (this.accountsHashCache3.accountHashMap.has(accountID) === false) {
         if (logFlags.error)
           this.mainLogger.error(`buildPartitionHashesForNode: missing accountID:${accountID} index:${index} len:${this.accountsHashCache3.futureHistoryList.accountHashesSorted.length}`)
         continue
       }
 
-      const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountID)
+      const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountID) as AccountHashCacheHistory
       if (accountHashData.c <= cycleToProcess) {
         this.accountsHashCache3.workingHistoryList.accountHashesSorted.push(accountHashData)
         this.accountsHashCache3.workingHistoryList.accountIDs.push(accountID)
@@ -613,13 +616,13 @@ class AccountCache {
     // process the working list.  split data into partitions and build a new list with nulled spots cleared out
     for (let index = 0; index < this.accountsHashCache3.workingHistoryList.accountHashesSorted.length; index++) {
       const accountHashData: AccountHashCache = this.accountsHashCache3.workingHistoryList.accountHashesSorted[index]
-      if (accountHashData == null) {
+      if (accountHashData === null) {
         //if this is null then it is blank entry (by design how we remove from the array at run time and retain perf)
         holes++
         continue
       }
       const accountID = this.accountsHashCache3.workingHistoryList.accountIDs[index]
-      if (accountID == null) {
+      if (accountID === null) {
         //should never be null if accountHashData was not null
         this.statemanager_fatal('buildPartitionHashesForNode: accountID==null unexpected', `buildPartitionHashesForNode: accountID==null unexpected:${utils.stringifyReduce(accountHashData)} `)
         continue
@@ -627,7 +630,7 @@ class AccountCache {
       //Start building the mainHashResults structure
 
       //split data into partitions.  Get the partition for this account
-      let partitionHashResults: PartitionHashResults = null
+      let partitionHashResults: PartitionHashResults
       const { homePartition: partition } = ShardFunctions.addressToPartition(cycleShardData.shardGlobals, accountID)
       if (mainHashResults.partitionHashResults.has(partition) === false) {
         //if we dont have an entry for this partition yet initilize one
@@ -640,7 +643,7 @@ class AccountCache {
         }
         mainHashResults.partitionHashResults.set(partition, partitionHashResults)
       } else {
-        partitionHashResults = mainHashResults.partitionHashResults.get(partition)
+        partitionHashResults = mainHashResults.partitionHashResults.get(partition) as PartitionHashResults
       }
       //Push out account info into correct partition hash results structure
       partitionHashResults.ids.push(accountID)
@@ -650,7 +653,7 @@ class AccountCache {
 
     // build a hash over all the data hashes per partition
     for (const partition of mainHashResults.partitionHashResults.keys()) {
-      const partitionHashResults: PartitionHashResults = mainHashResults.partitionHashResults.get(partition)
+      const partitionHashResults: PartitionHashResults = mainHashResults.partitionHashResults.get(partition) as PartitionHashResults
       partitionHashResults.hashOfHashes = this.crypto.hash(partitionHashResults.hashes)
     }
     this.currentMainHashResults = mainHashResults
@@ -669,14 +672,14 @@ class AccountCache {
       nextWorkingIndex = 0
       for (let index = 0; index < this.accountsHashCache3.workingHistoryList.accountHashesSorted.length; index++) {
         const accountHashData: AccountHashCache = this.accountsHashCache3.workingHistoryList.accountHashesSorted[index]
-        if (accountHashData == null) {
+        if (accountHashData === null) {
           continue
         }
         const accountID = this.accountsHashCache3.workingHistoryList.accountIDs[index]
-        if (accountID == null) {
+        if (accountID === null) {
           continue
         }
-        const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountID)
+        const accountHashCacheHistory: AccountHashCacheHistory = this.accountsHashCache3.accountHashMap.get(accountID) as AccountHashCacheHistory
         compactedWorkingList.accountHashesSorted.push(accountHashData)
         compactedWorkingList.accountIDs.push(accountID)
         accountHashCacheHistory.lastSeenSortIndex = nextWorkingIndex

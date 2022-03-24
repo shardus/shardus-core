@@ -1,4 +1,4 @@
-let _crypto
+let _crypto: any
 try {
   _crypto = require('crypto')
 } catch (err) {
@@ -10,7 +10,7 @@ const generateSeed = () => {
   return bytes.toString('hex')
 }
 
-const parseSeed = seed => {
+const parseSeed = (seed: string) => {
   if (typeof seed !== 'string' || seed.length !== 32) {
     return false
   }
@@ -27,7 +27,7 @@ const parseSeed = seed => {
 }
 
 // From StackOverflow: https://stackoverflow.com/a/47593316
-const sfc32 = (a, b, c, d) => {
+const sfc32 = (a: number, b: number, c: number, d: number) => {
   return () => {
     a >>>= 0
     b >>>= 0
@@ -44,7 +44,7 @@ const sfc32 = (a, b, c, d) => {
   }
 }
 
-const generateContext = seed => {
+const generateContext = (seed: string) => {
   if (!seed) {
     seed = generateSeed()
   }
@@ -54,7 +54,7 @@ const generateContext = seed => {
 
   const rand = sfc32(parsedSeed[0], parsedSeed[1], parsedSeed[2], parsedSeed[3])
 
-  const randomInt = (min, max) => {
+  const randomInt = (min: number, max: number) => {
     return Math.floor(rand() * (max - min + 1)) + min
   }
 

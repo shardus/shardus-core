@@ -1,7 +1,7 @@
-import got from 'got'
+import * as got from 'got'
 import {P2P, StateManager} from '@shardus/types'
-import stream from 'stream'
-import zlib from 'zlib'
+import * as stream from 'stream'
+import * as zlib from 'zlib'
 import {logFlags} from '../logger'
 import * as Context from '../p2p/Context'
 import * as NodeList from '../p2p/NodeList'
@@ -210,6 +210,7 @@ export async function saveSummaryAndNetworkHashes(
 export async function readOldCycleRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
   const oldCycles = await Context.storage.listOldCycles()
   if (oldCycles && oldCycles.length > 0) return oldCycles[0]
+  // need review - kaung/aamir
 }
 
 export async function readOldNetworkHash() {
@@ -420,9 +421,9 @@ export function registerDownloadRoutes(
     res.set('content-disposition', 'attachment; filename="snapshot-data"')
     res.set('content-type', 'application/gzip')
 
-    readerStream.on('error', err => console.log('rs Error', err))
-    gzip.on('error', err => console.log('gzip Error', err))
-    res.on('error', err => console.log('res Error', err))
+    readerStream.on('error', (err: any) => console.log('rs Error', err))
+    gzip.on('error', (err: any) => console.log('gzip Error', err))
+    res.on('error', (err: any) => console.log('res Error', err))
 
     readerStream
       .pipe(gzip)
@@ -433,7 +434,7 @@ export function registerDownloadRoutes(
   })
 }
 
-export async function downloadDataFromNode(url) {
+export async function downloadDataFromNode(url: string) {
   log('Downloading snapshot data from server...', url)
   const res = await got(url, {
     timeout: 1000, //  Omar - setting this to 1 sec
@@ -467,14 +468,14 @@ export function convertMapToObj(inputMap) {
   }
   return obj
 }
-export function convertArrayToObj(inputArr) {
-  const obj = {}
+export function convertArrayToObj(inputArr: any[]) {
+  const obj: any = {}
   for (let i = 0; i < inputArr.length; i++) {
     obj[i] = inputArr[i]
   }
   return obj
 }
 
-function log(...things) {
+function log(...things: any[]) {
   if (logFlags.console) console.log('DBG', 'SNAPSHOT', ...things)
 }

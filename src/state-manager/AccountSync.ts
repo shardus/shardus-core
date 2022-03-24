@@ -36,7 +36,7 @@ import { errorToStringFull } from '../utils'
 
 const allZeroes64 = '0'.repeat(64)
 
-type SyncStatment = {
+export type SyncStatment = {
   p2pJoinTime: number
   timeBeforeDataSync: number
   timeBeforeDataSync2: number
