@@ -3,6 +3,7 @@ import {crypto, logger, stateManager} from './Context'
 import {P2P} from '@shardus/types'
 import {nodes} from './NodeList'
 import {nestedCountersInstance} from '../utils/nestedCounters'
+import {CycleRecord} from '@shardus/types/build/src/p2p/CycleCreatorTypes'
 
 /** STATE */
 
@@ -63,7 +64,8 @@ export function validate(
   return true
 }
 
-export function getCycleChain(start, end = start + 100) {
+// need review - kaung/aamir
+export function getCycleChain(start: number, end = start + 100): CycleRecord[] {
   // Limit how many are returned
   if (end - start > 100) end = start + 100
 
@@ -85,7 +87,7 @@ export function getCycleChain(start, end = start + 100) {
  * getCycleNumberFromTimestamp() will allow for predictions about future or past cycles.
  * @param timestamp
  */
-export function getStoredCycleByTimestamp(timestamp) {
+export function getStoredCycleByTimestamp(timestamp: number) {
   const secondsTs = Math.floor(timestamp * 0.001)
   // search from end, to improve normal case perf
   for (let i = cycles.length - 1; i >= 0; i--) {
@@ -104,6 +106,9 @@ export function getStoredCycleByTimestamp(timestamp) {
  * @param allowOlder this allows calculating a cycle number for a cycle that is not stored.
  * @param addSyncSettleTime add in the sync settle time to the request.
  */
+// need review - kaung/aamir
+// Didnt modified
+// TS tightening of this area requires major logic changes
 export function getCycleNumberFromTimestamp(
   timestamp: number,
   allowOlder = true,
@@ -260,7 +265,9 @@ export function prune(keep: number) {
 
 /** HELPER FUNCTIONS */
 
-export function computeCycleMarker(fields) {
+export function computeCycleMarker(
+  fields: P2P.CycleCreatorTypes.CycleRecord
+): string {
   const cycleMarker = crypto.hash(fields)
   return cycleMarker
 }

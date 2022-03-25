@@ -23,6 +23,10 @@ import * as Sync from './Sync'
 import {compareQuery, Comparison} from './Utils'
 import {errorToStringFull} from '../utils'
 import {nestedCountersInstance} from '../utils/nestedCounters'
+import {
+  CycleCert,
+  CycleRecord,
+} from '@shardus/types/build/src/p2p/CycleCreatorTypes'
 
 /** CONSTANTS */
 
@@ -654,7 +658,9 @@ function dropInvalidTxs(txs: Partial<P2P.CycleCreatorTypes.CycleTxs>) {
  * Syncs the CycleChain to the newest cycle record of the network, and returns
  * the newest cycle record.
  */
-async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
+// need review - kaung/aamir
+// unioned return type (allowed null)
+async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord | null> {
   try {
     const oldCounter = CycleChain.newest.counter
     await Sync.syncNewCycles(NodeList.activeOthersByIdOrder)
@@ -814,10 +820,11 @@ function validateCertSign(
   return true
 }
 
+// need review - kaung/aamir
 function validateCerts(
   certs: P2P.CycleCreatorTypes.CycleCert[],
-  record,
-  sender
+  record: P2P.CycleCreatorTypes.CycleRecord,
+  sender: string
 ) {
   if (!certs || !Array.isArray(certs) || certs.length <= 0) {
     warn('validateCerts: bad certificate format')
@@ -889,7 +896,11 @@ function validateCerts(
   return true
 }
 
-function validateCertsRecordTypes(inp, caller) {
+// need review - kaung/aamir
+function validateCertsRecordTypes(
+  inp: CompareCertReq,
+  caller: string
+): boolean {
   let err = utils.validateTypes(inp, {certs: 'a', record: 'o'})
   if (err) {
     warn(caller + ' bad input: ' + err + ' ' + JSON.stringify(inp))
@@ -948,7 +959,7 @@ function validateCertsRecordTypes(inp, caller) {
 // We assume the certs have already been checked
 function improveBestCert(
   inpCerts: P2P.CycleCreatorTypes.CycleCert[],
-  inpRecord
+  inpRecord: P2P.CycleCreatorTypes.CycleRecord
 ) {
   //  warn(`improveBestCert: certs:${JSON.stringify(certs)}`)
   //  warn(`improveBestCert: record:${JSON.stringify(record)}`)
@@ -959,7 +970,7 @@ function improveBestCert(
   let bscore = 0
   if (bestMarker) {
     if (bestCertScore.get(bestMarker)) {
-      bscore = bestCertScore.get(bestMarker)
+      bscore = bestCertScore.get(bestMarker) as number
     }
   }
   //  warn(`improveBestCert: bscore:${JSON.stringify(bscore)}`)
@@ -1015,7 +1026,8 @@ function improveBestCert(
   return improved
 }
 
-function compareCycleCertEndpoint(inp: CompareCertReq, sender) {
+// need review - kaung/aamir
+function compareCycleCertEndpoint(inp: CompareCertReq, sender: string) {
   if (bestMarker === undefined) {
     // This should almost never happen since we generate and gossip our
     //   cert at the begining of Q3 and don't start comparing certs until
@@ -1039,12 +1051,13 @@ function compareCycleCertEndpoint(inp: CompareCertReq, sender) {
   return {certs: bestCycleCert.get(bestMarker), record: bestRecord}
 }
 
+// need review kaung/aamir
 async function compareCycleCert(myC: number, myQ: number, matches: number) {
   const queryFn = async (
     node: P2P.NodeListTypes.Node
-  ): Promise<[CompareCertRes, P2P.NodeListTypes.Node]> => {
+  ): Promise<[CompareCertRes | null, P2P.NodeListTypes.Node]> => {
     const req: CompareCertReq = {
-      certs: bestCycleCert.get(bestMarker),
+      certs: bestCycleCert.get(bestMarker) as CycleCert[],
       record: bestRecord,
     }
     const resp: CompareCertRes = await Comms.ask(node, 'compare-cert', req) // NEED to set the route string
@@ -1056,7 +1069,7 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
     return [resp, node]
   }
 
-  const compareFn = respArr => {
+  const compareFn = (respArr: any[]) => {
     /**
      * [IMPORTANT] Don't change things if the awaited call took too long
      */
@@ -1158,7 +1171,7 @@ async function gossipCycleCert(
   tracker?: string
 ) {
   const certGossip: CompareCertReq = {
-    certs: bestCycleCert.get(bestMarker),
+    certs: bestCycleCert.get(bestMarker) as CycleCert[],
     record: bestRecord,
   }
   const signedCertGossip = crypto.sign(certGossip)
@@ -1179,17 +1192,17 @@ function pruneCycleChain() {
   CycleChain.prune(keep)
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `CycleCreator: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `CycleCreator: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `CycleCreator: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

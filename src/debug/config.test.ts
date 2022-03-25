@@ -75,7 +75,7 @@ test('debug > isDebugModeAnd > Should NOT run the predicate if config is not deb
 })
 
 test('debug > isDebugModeAnd > Should provide the debug configurations to the predicate', () => {
-  const debugConfig: DebugConfigurations = {}
+  const debugConfig: Partial<DebugConfigurations> = {}
   const config: Partial<ServerConfiguration> = {
     mode: ServerMode.Debug,
     debug: debugConfig,

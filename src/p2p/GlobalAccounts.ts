@@ -158,7 +158,7 @@ export function setGlobal(address, value, when, source) {
   }
   const timer = setTimeout(onTimeout, timeout)
 
-  const onReceipt = receipt => {
+  const onReceipt = (receipt: P2P.GlobalAccountsTypes.Receipt) => {
     if (logFlags.console)
       console.log(
         `SETGLOBAL: GOT RECEIPT: ${txHash} ${JSON.stringify(receipt)}`
@@ -205,7 +205,9 @@ export function makeReceipt(
   const txHash = Context.crypto.hash(tx)
 
   // Put into correct Receipt and Tracker
-  let receipt: P2P.GlobalAccountsTypes.Receipt = receipts.get(txHash)
+  let receipt: P2P.GlobalAccountsTypes.Receipt = receipts.get(
+    txHash
+  ) as P2P.GlobalAccountsTypes.Receipt
   if (!receipt) {
     const consensusGroup = new Set(getConsensusGroupIds(tx.source))
     receipt = {
@@ -225,7 +227,9 @@ export function makeReceipt(
       )
   }
 
-  let tracker: P2P.GlobalAccountsTypes.Tracker = trackers.get(txHash)
+  let tracker: P2P.GlobalAccountsTypes.Tracker = trackers.get(
+    txHash
+  ) as P2P.GlobalAccountsTypes.Tracker
   if (!tracker) {
     tracker = createTracker(txHash)
   }
@@ -313,7 +317,7 @@ function validateReceipt(receipt: P2P.GlobalAccountsTypes.Receipt) {
   for (const sign of receipt.signs) {
     /** [TODO] [AS] Replace with NodeList.byPubKey.get() */
     // const node = p2p.state.getNodeByPubKey(sign.owner)
-    const node = NodeList.byPubKey.get(sign.owner)
+    const node = NodeList.byPubKey.get(sign.owner) as P2P.NodeListTypes.Node
 
     if (node === null) {
       if (logFlags.console)
@@ -369,7 +373,7 @@ function validateReceipt(receipt: P2P.GlobalAccountsTypes.Receipt) {
   return true
 }
 
-function createTracker(txHash) {
+function createTracker(txHash: string) {
   const tracker = {
     seen: new Set<P2P.P2PTypes.NodeInfo['id']>(),
     timestamp: 0,
@@ -379,7 +383,7 @@ function createTracker(txHash) {
   return tracker
 }
 
-function getConsensusGroupIds(address) {
+function getConsensusGroupIds(address: string) {
   const homeNode = ShardFunctions.findHomeNode(
     Context.stateManager.currentCycleShardData.shardGlobals,
     address,
@@ -388,19 +392,24 @@ function getConsensusGroupIds(address) {
   return homeNode.consensusNodeForOurNodeFull.map(node => node.id)
 }
 
-function isReceiptMajority(receipt, consensusGroup) {
+function isReceiptMajority(
+  receipt: P2P.GlobalAccountsTypes.Receipt,
+  consensusGroup: Set<string>
+): boolean {
   return (receipt.signs.length / consensusGroup.size) * 100 >= 60
 }
 
-function intersect(a, b) {
+// need review - kaung/aamir
+// this last 3 function doesn't seem to be use anywhere
+function intersect(a: any, b: any) {
   const setB = new Set(b)
   return [...new Set(a)].filter(x => setB.has(x))
 }
 
-function intersectCount(a, b) {
+function intersectCount(a: any, b: any) {
   return intersect(a, b).length
 }
 
-function percentOverlap(a, b) {
+function percentOverlap(a: any, b: any) {
   return (a.length / b.length) * 100
 }

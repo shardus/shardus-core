@@ -7,6 +7,7 @@ import * as Self from './Self'
 import {P2P} from '@shardus/types'
 import {logFlags} from '../logger'
 import {nestedCountersInstance} from '../utils/nestedCounters'
+import { Handler } from 'express'
 
 /** ROUTES */
 
@@ -742,7 +743,9 @@ export async function handleGossip(payload, sender, tracker = '') {
  * @param {string} type
  * @param {handleGossipCallback} handler
  */
-export function registerGossipHandler(type, handler) {
+// need review - kaung/aamir
+// Kaung specified types -> type: string, handler: Handler
+export function registerGossipHandler(type: string, handler: Function) {
   gossipHandlers[type] = handler
 }
 

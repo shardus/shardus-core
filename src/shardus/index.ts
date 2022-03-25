@@ -95,11 +95,7 @@ class Shardus extends EventEmitter {
     server: config,
     logs: logsConfig,
     storage: storageConfig,
-  }: {
-    server: Required<ShardusTypes.ServerConfiguration>
-    logs: Required<ShardusTypes.LogsConfiguration>
-    storage: Required<ShardusTypes.StorageConfiguration>
-  }) {
+  }: ShardusTypes.ShardusConfiguration) {
     super()
     this.nestedCounters = new NestedCounters()
     this.memoryReporting = new MemoryReporting(this)
@@ -1942,11 +1938,11 @@ class Shardus extends EventEmitter {
     }
   }
 
-  setGlobal(address, value, when, source) {
+  setGlobal(address, value, when, source: string) {
     GlobalAccounts.setGlobal(address, value, when, source)
   }
 
-  shardus_fatal(key, log, log2 = null) {
+  shardus_fatal(key: any, log: any, log2 = null) {
     nestedCountersInstance.countEvent('fatal-log', key)
 
     if (log2 !== null) {

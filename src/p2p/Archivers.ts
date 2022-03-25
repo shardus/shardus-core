@@ -16,10 +16,11 @@ import * as CycleParser from './CycleParser'
 import {logFlags} from '../logger'
 import {P2P, StateManager} from '@shardus/types'
 import {profilerInstance} from '../utils/profiler'
+import {Logger} from 'log4js'
 
 /** STATE */
 
-let p2pLogger
+let p2pLogger: Logger
 
 export let archivers: Map<
   P2P.ArchiversTypes.JoinedArchiver['publicKey'],
@@ -469,7 +470,7 @@ export function registerRoutes() {
 
   Comms.registerGossipHandler(
     'leavingarchiver',
-    async (payload, sender, tracker) => {
+    async (payload, sender: any, tracker: string | undefined) => {
       profilerInstance.scopedProfileSectionStart('leavingarchiver')
       try {
         if (logFlags.console)
@@ -609,18 +610,18 @@ export function registerRoutes() {
   })
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Archiver: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Archiver: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Archiver: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

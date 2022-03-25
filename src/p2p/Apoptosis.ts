@@ -30,6 +30,7 @@ import * as Self from './Self'
 import {robustQuery} from './Utils'
 import {isDebugMode} from '../debug'
 import {profilerInstance} from '../utils/profiler'
+import {Logger} from 'log4js'
 
 /** STATE */
 
@@ -40,7 +41,7 @@ export const cycleUpdatesName = 'apoptosis'
 const internalRouteName = 'apoptosize'
 const gossipRouteName = 'apoptosis'
 
-let p2pLogger
+let p2pLogger: Logger
 const proposals: {[id: string]: P2P.ApoptosisTypes.SignedApoptosisProposal} = {}
 
 /** ROUTES */
@@ -296,7 +297,7 @@ export async function apoptosizeSelf() {
 //  await p2p.tell(activeNodes, internalRouteName, proposal)
   await Comms.tell(activeNodes, internalRouteName, proposal)
 */
-  const qF = async node => {
+  const qF = async (node: P2P.NodeListTypes.Node) => {
     //  use ask instead of tell and expect the node to
     //          acknowledge it received the request by sending 'pass'
     if (node.id === Self.id) return null
@@ -377,17 +378,17 @@ function validateProposal(payload: unknown): boolean {
   return true
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Apoptosis: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Apoptosis: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Apoptosis: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

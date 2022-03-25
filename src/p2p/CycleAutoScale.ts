@@ -10,14 +10,15 @@ import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
 import {profilerInstance} from '../utils/profiler'
+import { ScaleRequest, SignedScaleRequest } from '@shardus/types/build/src/p2p/CycleAutoScaleTypes'
 
 /** STATE */
 
 let p2pLogger: Logger
 
 export let scalingRequested: boolean
-export let requestedScalingType: string
-export let approvedScalingType: string
+export let requestedScalingType: string 
+export let approvedScalingType: string 
 export let lastScalingType: string
 
 export let scalingRequestsCollector: Map<
@@ -92,8 +93,9 @@ export function getDesiredCount(): number {
   return desiredCount
 }
 
-function createScaleRequest(scaleType): P2P.CycleAutoScaleTypes.ScaleRequest {
-  const request: P2P.CycleAutoScaleTypes.ScaleRequest = {
+// need review - kaung/aamir
+function createScaleRequest(scaleType: P2P.CycleAutoScaleTypes.ScaleType.UP | P2P.CycleAutoScaleTypes.ScaleType.DOWN): SignedScaleRequest {
+  const request: Partial<P2P.CycleAutoScaleTypes.ScaleRequest> = {
     nodeId: Self.id,
     timestamp: Date.now(),
     counter: CycleCreator.currentCycle,
@@ -112,16 +114,17 @@ function createScaleRequest(scaleType): P2P.CycleAutoScaleTypes.ScaleRequest {
       throw err
     }
   }
-  const signedReq = crypto.sign(request)
+  const signedReq: SignedScaleRequest = crypto.sign(request)
   return signedReq
 }
 
-function _requestNetworkScaling(upOrDown) {
+// need review - kaung/aamir
+function _requestNetworkScaling(upOrDown: P2P.CycleAutoScaleTypes.ScaleType.UP | P2P.CycleAutoScaleTypes.ScaleType.DOWN) {
   //scalingRequested makes sure we only request scaling on our own once per cycle
   if (!Self.isActive || scalingRequested) return
   const signedRequest = createScaleRequest(upOrDown)
   // await _waitUntilEndOfCycle()
-  addExtScalingRequest(signedRequest)
+  addExtScalingRequest(signedRequest as SignedScaleRequest)
   Comms.sendGossip('scaling', signedRequest, '', null, NodeList.byIdOrder, true)
   scalingRequested = true
   requestedScalingType = signedRequest.scale //only set this when our node requests scaling
@@ -143,13 +146,14 @@ export function requestNetworkDownsize() {
   _requestNetworkScaling(P2P.CycleAutoScaleTypes.ScaleType.DOWN)
 }
 
-function addExtScalingRequest(scalingRequest): boolean {
+// need review - kaung/aamir
+function addExtScalingRequest(scalingRequest: Required<SignedScaleRequest>): boolean {
   const added = _addScalingRequest(scalingRequest)
   return added
 }
 
 function validateScalingRequest(
-  scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest
+  scalingRequest: Required<P2P.CycleAutoScaleTypes.SignedScaleRequest>
 ): boolean {
   // Check existence of fields
   if (
@@ -188,9 +192,9 @@ function validateScalingRequest(
     return false
   }
   // Try to get the node who supposedly signed this request
-  let node
+  let node: P2P.NodeListTypes.Node 
   try {
-    node = NodeList.nodes.get(scalingRequest.nodeId)
+    node = NodeList.nodes.get(scalingRequest.nodeId) as P2P.NodeListTypes.Node
   } catch (e) {
     warn(e)
     warn(
@@ -209,7 +213,7 @@ function validateScalingRequest(
     return false
   }
   // Return false if fails validation for signature
-  if (!crypto.verify(scalingRequest, node.publicKey)) {
+  if (!crypto.verify(scalingRequest, node?.publicKey)) {
     warn(
       `Invalid scaling request, signature is not valid. Request: ${JSON.stringify(
         scalingRequest
@@ -224,7 +228,7 @@ function _checkScaling() {
   // Keep a flag if we have changed our metadata.scaling at all
   let changed = false
 
-  lastScalingType = approvedScalingType
+  lastScalingType = approvedScalingType as string
   if (approvedScalingType === P2P.CycleAutoScaleTypes.ScaleType.UP) {
     warn('Already set to scale up this cycle. No need to scale up anymore.')
     return
@@ -274,7 +278,7 @@ function _checkScaling() {
     }
   }
 
-  lastScalingType = approvedScalingType
+  lastScalingType = approvedScalingType as string
   // At this point, we have changed our scaling type flag (approvedScalingType)
   let newDesired
   switch (approvedScalingType) {
@@ -314,7 +318,9 @@ export function configUpdated() {
   }
 }
 
-export function queueRequest(request) {}
+// need review - kaung/aamir
+// this function doesn't seem to be use anywhere
+export function queueRequest(request: P2P.ActiveTypes.ActiveRequest) {}
 
 export function sendRequests() {}
 
@@ -375,7 +381,7 @@ function getScaleDownRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
   return requests
 }
 
-function _addToScalingRequests(scalingRequest): boolean {
+function _addToScalingRequests(scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest): boolean {
   switch (scalingRequest.scale) {
     case P2P.CycleAutoScaleTypes.ScaleType.UP:
       // This was blocking other votes from comming in.. need to check this in _requestNetworkScaling
@@ -456,17 +462,17 @@ async function _waitUntilEndOfCycle() {
   await sleep(timeToWait)
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Active: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Active: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Active: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

@@ -497,7 +497,7 @@ export class NetworkClass extends EventEmitter {
     this._registerExternal('PATCH', route, authHandler, responseHandler)
   }
 
-  registerInternal(route: string, handler: ) {
+  registerInternal(route: string, handler: Handler) {
     if (this.internalRoutes[route])
       throw Error('Handler already exists for specified internal route.')
     this.internalRoutes[route] = handler
@@ -579,7 +579,7 @@ function initNatClient() {
   }
 }
 
-async function getExternalIp() {
+async function getExternalIp(): Promise<string | undefined> {
   if (typeof config.p2p.ipServer !== 'string') throw new Error('')
   initNatClient()
 
@@ -602,9 +602,10 @@ async function getExternalIp() {
       )
     }
   }
+  return undefined
 }
 
-async function getNextExternalPort(ip: string) {
+async function getNextExternalPort(ip: string): Promise<number | undefined> {
   initNatClient()
 
   // Get the next available port from the OS and test it
@@ -639,12 +640,13 @@ async function getNextExternalPort(ip: string) {
 
   // Test it again
   // eslint-disable-next-line prettier/prettier
-  ;[reachable] = await wrapTest(new ConnectTest(ip, port))
+  [reachable] = await wrapTest(new ConnectTest(ip, port))
   if (reachable) {
     return port
   } else {
     mainLogger.warn('Failed to get next external port')
   }
+  return undefined
 }
 
 async function wrapTest(test: ConnectTest) {
