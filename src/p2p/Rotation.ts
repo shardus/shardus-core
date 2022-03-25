@@ -105,7 +105,7 @@ export function parseRecord(
   }
 }
 
-export function queueRequest(request) {}
+export function queueRequest(request: any) {}
 
 export function sendRequests() {}
 
@@ -116,7 +116,8 @@ export function getExpiredRemoved(
   desired: P2P.CycleCreatorTypes.CycleRecord['desired']
 ) {
   let expired = 0
-  const removed = []
+  // need review - kaung/aamir
+  const removed: string[] = []
   NodeList.potentiallyRemoved.clear()
 
   // Don't expire/remove any if nodeExpiryAge is negative
@@ -177,17 +178,17 @@ export function getExpiredRemoved(
   return {expired, removed}
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

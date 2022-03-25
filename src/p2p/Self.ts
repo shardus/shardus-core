@@ -24,8 +24,9 @@ export const emitter = new events.EventEmitter()
 
 let p2pLogger: log4js.Logger
 
-export let id: string
-export let isFirst: boolean
+// need review - kaung/aamir
+export let id: string | undefined
+export let isFirst: boolean | undefined
 export let isActive = false
 export let ip: string
 export let port: number
@@ -262,10 +263,15 @@ async function contactArchiver() {
       )
     }
   }
-  const dataRequestCycle = activeNodesSigned.dataRequestCycle
-  const dataRequestStateMetaData = activeNodesSigned.dataRequestStateMetaData
+  // need review - kaung/aamir
+  const dataRequestCycle =
+    activeNodesSigned.dataRequestCycle as P2P.ArchiversTypes.DataRequest<P2P.CycleCreatorTypes.CycleRecord>
+  const dataRequestStateMetaData =
+    activeNodesSigned.dataRequestStateMetaData as P2P.ArchiversTypes.DataRequest<P2P.SnapshotTypes.StateMetaData>
 
-  const dataRequest = []
+  const dataRequest: P2P.ArchiversTypes.DataRequest<
+    P2P.CycleCreatorTypes.CycleRecord | P2P.SnapshotTypes.StateMetaData
+  >[] = []
   if (dataRequestCycle) {
     dataRequest.push(dataRequestCycle)
   }
@@ -278,7 +284,7 @@ async function contactArchiver() {
   return activeNodesSigned.nodeList
 }
 
-async function discoverNetwork(seedNodes) {
+async function discoverNetwork(seedNodes: P2P.P2PTypes.Node[]) {
   /**
    * [AS] [TODO] [2020-02-05]
    * We don't need this code anymore since we check time sync
@@ -345,7 +351,7 @@ async function calculateTimeDifference() {
 //   throw Error('Unable to check local time against time servers.')
 // }
 
-function checkIfFirstSeedNode(seedNodes) {
+function checkIfFirstSeedNode(seedNodes: P2P.P2PTypes.Node[]) {
   if (!seedNodes.length) throw new Error('Fatal: No seed nodes in seed list!')
   if (seedNodes.length > 1) return false
   const seed = seedNodes[0]
@@ -450,12 +456,12 @@ export function setActive() {
   isActive = true
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Self: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Self: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }

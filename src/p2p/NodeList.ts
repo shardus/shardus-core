@@ -92,7 +92,8 @@ export function addNodes(newNodes: P2P.NodeListTypes.Node[]) {
   for (const node of newNodes) addNode(node)
 }
 
-export function removeNode(id) {
+// need review - kaung/aamir
+export function removeNode(id: string) {
   let idx
 
   // Omar added this so we don't crash if a node gets remove more than once
@@ -119,7 +120,7 @@ export function removeNode(id) {
   idx = binarySearch(byIdOrder, {id} as any, propComparator('id'))
   if (idx >= 0) byIdOrder.splice(idx, 1)
 
-  const joinRequestTimestamp = nodes.get(id).joinRequestTimestamp
+  const joinRequestTimestamp = nodes.get(id)?.joinRequestTimestamp
   idx = binarySearch(
     byJoinOrder,
     {joinRequestTimestamp, id} as any,
@@ -128,7 +129,7 @@ export function removeNode(id) {
   if (idx >= 0) byJoinOrder.splice(idx, 1)
 
   // Remove from maps
-  const node = nodes.get(id)
+  const node = nodes.get(id) as P2P.NodeListTypes.Node
   byIpPort.delete(ipPort(node.internalIp, node.internalPort))
   byPubKey.delete(node.publicKey)
   nodes.delete(id)
@@ -180,7 +181,8 @@ export function ipPort(ip: string, port: number) {
   return ip + ':' + port
 }
 
-function idTrim(id) {
+// need review - kaung/aamir
+function idTrim(id: string) {
   return id.substr(0, 4)
 }
 
@@ -220,17 +222,17 @@ export function getDebug() {
 
 /** ROUTES */
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Refresh: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Refresh: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Refresh: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

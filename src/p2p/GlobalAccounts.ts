@@ -85,7 +85,13 @@ export function init() {
   )
 }
 
-export function setGlobal(address, value, when, source) {
+// need review - kaung/aamir
+export function setGlobal(
+  address: string,
+  value: any,
+  when: number,
+  source: string
+) {
   /** [TODO] [AS] Replace with Self.id */
   // if (logFlags.console) console.log(`SETGLOBAL: WE ARE: ${p2p.id.substring(0, 5)}`)
   if (logFlags.console)

@@ -45,13 +45,13 @@ export function init() {
 
 export function reset() {}
 
-export function getTxs(): P2P.TemplateTypes.Txs {
+export function getTxs(): P2P.TemplateTypes.Txs | undefined {
   return
 }
 
 export function dropInvalidTxs(
   txs: P2P.TemplateTypes.Txs
-): P2P.TemplateTypes.Txs {
+): P2P.TemplateTypes.Txs | undefined {
   return
 }
 
@@ -66,27 +66,28 @@ export function updateRecord(
 
 export function parseRecord(
   record: P2P.CycleCreatorTypes.CycleRecord
-): P2P.CycleParserTypes.Change {
+): P2P.CycleParserTypes.Change | undefined {
   return
 }
 
-export function queueRequest(request) {}
+export function queueRequest(request: any) {}
 
 export function sendRequests() {}
 
 /** Module Functions */
 
-function info(...msg) {
+// maybe string[] ?
+function info(...msg: any[]) {
   const entry = `[CHANGE ME]: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `[CHANGE ME]: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `[CHANGE ME]: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

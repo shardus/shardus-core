@@ -18,13 +18,14 @@ import {currentCycle, currentQuarter} from './CycleCreator'
 import {activeByIdOrder, byIdOrder, nodes} from './NodeList'
 import * as Self from './Self'
 import {profilerInstance} from '../utils/profiler'
+import {Logger} from 'log4js'
 
 /** STATE */
 
 // [TODO] - This enables the /kill /killother debug route and should be set to false after testing
 const allowKillRoute = true
 
-let p2pLogger
+let p2pLogger: Logger
 
 let lost: Map<string, P2P.LostTypes.LostRecord>
 export const isDown = {}
@@ -118,7 +119,7 @@ export function init() {
   for (const route of routes.external) {
     // [TODO] - Add Comms.registerExternalGet and Post that pass through to network.*
     //          so that we can always just use Comms.* instead of network.*
-    network._registerExternal(route.method, route.name, route.handler)
+    network._registerExternal(route.method as string, route.name, route.handler)
   }
   for (const route of routes.internal) {
     Comms.registerInternal(route.name, route.handler)
@@ -340,9 +341,9 @@ export function reportLost(target, reason) {
   Comms.tell([checker], 'lost-report', msg)
 }
 
-function getCheckerNode(id, cycle) {
+function getCheckerNode(id: string, cycle: number) {
   const near = crypto.hash({id, cycle})
-  function compareNodes(i, r) {
+  function compareNodes(i: any, r: any) {
     return i > r.id ? 1 : i < r.id ? -1 : 0
   }
   let idx = binarySearch(activeByIdOrder, near, compareNodes)
@@ -384,7 +385,7 @@ async function lostReportHandler(payload, response, sender) {
       warn('bad input sign ' + err)
       return
     }
-    if (stopReporting[payload.target]) return // this node already appeared in the lost field of the cycle record, we dont need to keep reporting
+    if (stopReporting[payload.target as keyof typeof stopReporting]) return // this node already appeared in the lost field of the cycle record, we dont need to keep reporting
     const key = `${payload.target}-${payload.cycle}`
     if (lost.get(key)) return // we have already seen this node for this cycle
     const [valid, reason] = checkReport(payload, currentCycle + 1)
@@ -402,11 +403,13 @@ async function lostReportHandler(payload, response, sender) {
     }
     lost.set(key, obj)
     // check if we already know that this node is down
-    if (isDown[payload.target]) {
+    if (isDown[payload.target as keyof typeof isDown]) {
       obj.status = 'down'
       return
     }
-    let result = await isDownCache(nodes.get(payload.target))
+    let result = await isDownCache(
+      nodes.get(payload.target) as P2P.NodeListTypes.Node
+    )
     if (allowKillRoute && payload.killother) result = 'down'
     if (obj.status === 'checking') obj.status = result
     if (logFlags.p2pNonFatal) info('Status after checking is ' + obj.status)
@@ -416,7 +419,11 @@ async function lostReportHandler(payload, response, sender) {
   }
 }
 
-function checkReport(report, expectCycle) {
+// need review - kaung/aamir
+function checkReport(
+  report: P2P.LostTypes.SignedLostReport,
+  expectCycle: number
+) {
   if (!report || typeof report !== 'object') return [false, 'no report given']
   if (!report.reporter || typeof report.reporter !== 'string')
     return [false, 'no reporter field']
@@ -451,7 +458,7 @@ function checkReport(report, expectCycle) {
       false,
       `checker node should be ${checkerNode.id} and not ${report.checker}`,
     ] // we should be the checker based on our own calculations
-  if (!crypto.verify(report, nodes.get(report.reporter).publicKey))
+  if (!crypto.verify(report, nodes.get(report.reporter)?.publicKey))
     return [false, 'bad sign from reporter'] // the report should be properly signed
   return [true, '']
 }
@@ -470,11 +477,12 @@ But if it returns true it means that the node was found to be down recently.
 Also if isUp returns false it does not mean that a node is actually up, but if it
 returns true it means that it was found to be up recently.
 */
-async function isDownCache(node) {
+// need review - kaung/aamir
+async function isDownCache(node: P2P.NodeListTypes.Node) {
   // First check the isUp isDown caches to see if we already checked this node before
   const id = node.id
-  if (isDown[id]) return 'down'
-  if (isUp[id]) return 'up'
+  if (isDown[id as keyof typeof isDown]) return 'down'
+  if (isUp[id as keyof typeof isUp]) return 'up'
   const status = await isDownCheck(node)
   if (status === 'down') isDown[id] = currentCycle
   else isUp[id] = currentCycle
@@ -490,7 +498,7 @@ export function isNodeUpRecent(
   nodeId: string,
   maxAge: number
 ): {upRecent: boolean; state: string; age: number} {
-  const lastCheck = isUpTs[nodeId]
+  const lastCheck = isUpTs[nodeId as keyof typeof isUpTs]
   const age = Date.now() - lastCheck
 
   if (isNaN(age)) {
@@ -503,8 +511,8 @@ export function isNodeUpRecent(
 
 export function isNodeDown(nodeId: string): {down: boolean; state: string} {
   // First check the isUp isDown caches to see if we already checked this node before
-  if (isDown[nodeId]) return {down: true, state: 'down'}
-  if (isUp[nodeId]) return {down: false, state: 'up'}
+  if (isDown[nodeId as keyof typeof isDown]) return {down: true, state: 'down'}
+  if (isUp[nodeId as keyof typeof isUp]) return {down: false, state: 'up'}
   return {down: false, state: 'noLastState'}
 }
 
@@ -541,7 +549,8 @@ function pruneStopReporting() {
 //    and could break if they are changed.
 // [TODO] - create our own APIs to test the internal and external connection.
 //          Although this could allow a rouge node to more easily fool checks.
-async function isDownCheck(node) {
+// need review - kaung/aamir
+async function isDownCheck(node: P2P.NodeListTypes.Node) {
   // Check the internal route
   // The timeout for this is controled by the network.timeout paramater in server.json
   if (logFlags.p2pNonFatal) info(`Checking internal connection for ${node.id}`)
@@ -551,7 +560,7 @@ async function isDownCheck(node) {
   } catch {
     return 'down'
   }
-  if (node.externalIp === node.interalIp) return 'up'
+  if (node.externalIp === node.internalIp) return 'up'
   if (logFlags.p2pNonFatal) info(`Checking external connection for ${node.id}`)
   // Check the external route if ip is different than internal
   const queryExt = async node => {
@@ -574,8 +583,8 @@ async function isDownCheck(node) {
 
 function downGossipHandler(
   payload: P2P.LostTypes.SignedDownGossipMessage,
-  sender,
-  tracker
+  sender: any,
+  tracker: string
 ) {
   if (logFlags.p2pNonFatal) info(`Got downGossip: ${JSON.stringify(payload)}`)
   let err = ''
@@ -645,7 +654,7 @@ function downGossipHandler(
   // After message has been gossiped in Q1 and Q2 we wait for getTxs() to be invoked in Q3
 }
 
-function checkQuarter(source, sender) {
+function checkQuarter(source: string, sender: string) {
   if (![1, 2].includes(currentQuarter)) return [false, 'not in Q1 or Q2']
   if (sender === source && currentQuarter === 2)
     return [false, 'originator cannot gossip in Q2']
@@ -654,18 +663,23 @@ function checkQuarter(source, sender) {
 
 function checkDownMsg(
   payload: P2P.LostTypes.SignedDownGossipMessage,
-  expectedCycle
+  expectedCycle: number
 ) {
   if (payload.cycle !== expectedCycle)
     return [false, 'checker cycle is not as expected']
   const [valid, reason] = checkReport(payload.report, expectedCycle - 1)
   if (!valid) return [valid, reason]
-  if (!crypto.verify(payload, nodes.get(payload.report.checker).publicKey))
+  if (!crypto.verify(payload, nodes.get(payload.report.checker)?.publicKey))
     return [false, 'bad sign from checker.']
   return [true, '']
 }
 
-function upGossipHandler(payload, sender, tracker) {
+// need review - kaung/aamir
+function upGossipHandler(
+  payload: P2P.LostTypes.SignedUpGossipMessage,
+  sender: any,
+  tracker: string
+) {
   if (logFlags.p2pNonFatal) info(`Got upGossip: ${JSON.stringify(payload)}`)
   let err = ''
   err = validateTypes(payload, {
@@ -683,7 +697,8 @@ function upGossipHandler(payload, sender, tracker) {
     warn('bad input sign ' + err)
     return
   }
-  if (!stopReporting[payload.target]) {
+  // need review - kaung/aamir
+  if (!stopReporting[payload.target as keyof typeof stopReporting]) {
     warn(
       'Bad upGossip. We did not see this node in the lost field, but got a up msg from it; ignoring it'
     )
@@ -724,7 +739,7 @@ function upGossipHandler(payload, sender, tracker) {
 
 function checkUpMsg(
   payload: P2P.LostTypes.SignedUpGossipMessage,
-  expectedCycle
+  expectedCycle: number
 ) {
   if (!nodes.has(payload.target))
     return [
@@ -733,22 +748,22 @@ function checkUpMsg(
         activeByIdOrder
       )}`,
     ]
-  if (!crypto.verify(payload, nodes.get(payload.target).publicKey))
+  if (!crypto.verify(payload, nodes.get(payload.target)?.publicKey))
     return [false, 'bad sign from target']
   return [true, '']
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Lost: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Lost: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Lost: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

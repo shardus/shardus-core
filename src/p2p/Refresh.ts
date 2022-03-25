@@ -144,7 +144,7 @@ export function parseRecord(
   }
 }
 
-export function queueRequest(request) {}
+export function queueRequest(request: any) {}
 
 export function sendRequests() {}
 
@@ -212,17 +212,17 @@ export function cyclesToKeep() {
   return count + 3
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Refresh: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Refresh: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Refresh: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

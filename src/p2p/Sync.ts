@@ -71,7 +71,7 @@ export function init() {
   p2pLogger = logger.getLogger('p2p')
 
   for (const route of routes.external) {
-    network._registerExternal(route.method, route.name, route.handler)
+    network._registerExternal(route.method as string, route.name, route.handler)
   }
 }
 
@@ -99,16 +99,23 @@ export async function sync(activeNodes: P2P.SyncTypes.ActiveNode[]) {
     const start = end - cyclesToGet
     info(`Getting cycles ${start} - ${end}...`)
     const prevCycles = await getCycles(activeNodes, start, end)
-    info(`Got cycles ${JSON.stringify(prevCycles.map(cycle => cycle.counter))}`)
+    // need review - kaung/aamir
+    // check the commit
+    info(
+      `Got cycles ${JSON.stringify(prevCycles?.map(cycle => cycle.counter))}`
+    )
     info(`  ${JSON.stringify(prevCycles)}`)
 
     // If prevCycles is empty, start over
-    if (prevCycles.length < 1) throw new Error('Got empty previous cycles')
+    if (prevCycles && prevCycles.length < 1)
+      throw new Error('Got empty previous cycles')
 
     // Add prevCycles to our cycle chain
     let prepended = 0
 
-    for (const prevCycle of reversed(prevCycles)) {
+    for (const prevCycle of reversed(
+      prevCycles as P2P.CycleCreatorTypes.CycleRecord[]
+    )) {
       const marker = CycleChain.computeCycleMarker(prevCycle)
       // If you already have this cycle, skip it
       if (CycleChain.cyclesByMarker[marker]) {
@@ -211,12 +218,12 @@ export async function syncNewCycles(activeNodes: SyncNode[]) {
   const maxAttempts = 10
   const progress = []
   let attempt = 0
-
+  // need review - kaung/aamir
   while (CycleChain.newest.counter < newestCycle.counter) {
-    const nextCycles = await getCycles(
+    const nextCycles = (await getCycles(
       activeNodes,
       CycleChain.newest.counter + 1 // [DONE] maybe we should +1 so that we don't get the record we already have
-    )
+    )) as P2P.CycleCreatorTypes.CycleRecord[]
 
     const oldCounter = CycleChain.newest.counter
     for (const nextCycle of nextCycles) {
@@ -303,7 +310,7 @@ export async function getNewestCycle(
     const resp = await http.get(`${ip}:${port}/sync-newest-cycle`)
     return resp
   }
-  const eqFn = (item1, item2) => {
+  const eqFn = (item1: any, item2: any) => {
     console.log(`item is: ${JSON.stringify(item1)}`)
     try {
       if (item1.newestCycle.counter === item2.newestCycle.counter) return true
@@ -333,11 +340,13 @@ export async function getNewestCycle(
 }
 
 // This tries to get the cycles with counter from start to end inclusively.
+// need review - kaung/aamir
+// does not alter code behavior, rather simply make it more explicit
 async function getCycles(
   activeNodes: SyncNode[],
   start: number,
   end?: number
-): Promise<P2P.CycleCreatorTypes.CycleRecord[]> {
+): Promise<P2P.CycleCreatorTypes.CycleRecord[] | undefined> {
   if (start < 0) start = 0
   if (end !== undefined) {
     if (start > end) start = end
@@ -373,6 +382,7 @@ async function getCycles(
 
   const valid = validateCycles(cycles)
   if (valid) return cycles
+  return
 }
 
 export function activeNodeCount(cycle: P2P.CycleCreatorTypes.CycleRecord) {
@@ -562,17 +572,17 @@ function validateCycles(cycles: P2P.CycleCreatorTypes.CycleRecord[]) {
   return true
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Sync: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Sync: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Sync: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

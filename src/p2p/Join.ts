@@ -16,10 +16,10 @@ import * as Self from './Self'
 import {robustQuery} from './Utils'
 import {profilerInstance} from '../utils/profiler'
 import {nestedCountersInstance} from '../utils/nestedCounters'
-
+import {Logger} from 'log4js'
 /** STATE */
 
-let p2pLogger
+let p2pLogger: Logger
 
 let requests: P2P.JoinTypes.JoinRequest[]
 let seen: Set<P2P.P2PTypes.Node['publicKey']>
@@ -129,7 +129,7 @@ export function init() {
 
   // Register routes
   for (const route of routes.external) {
-    network._registerExternal(route.method, route.name, route.handler)
+    network._registerExternal(route.method as string, route.name, route.handler)
   }
   for (const [name, handler] of Object.entries(routes.gossip)) {
     Comms.registerGossipHandler(name, handler)
@@ -309,12 +309,12 @@ export function parseRecord(
 export function sendRequests() {}
 
 /** Not used by Join */
-export function queueRequest(request) {}
+export function queueRequest(request: any) {}
 
 /** Module Functions */
 
 export async function createJoinRequest(
-  cycleMarker
+  cycleMarker: string
 ): Promise<P2P.JoinTypes.JoinRequest & P2P.P2PTypes.SignedObject> {
   // Build and return a join request
   const nodeInfo = Self.getThisNodeInfo()
@@ -473,13 +473,14 @@ export async function firstJoin() {
   return computeNodeId(crypto.keypair.publicKey, zeroMarker)
 }
 
-export async function fetchCycleMarker(nodes) {
-  const queryFn = async node => {
+// need review - kaung/aamir
+export async function fetchCycleMarker(nodes: P2P.P2PTypes.Node[]) {
+  const queryFn = async (node: P2P.P2PTypes.Node) => {
     const marker = await http.get(`${node.ip}:${node.port}/cyclemarker`)
     return marker
   }
 
-  function _isSameCycleMarkerInfo(info1, info2) {
+  function _isSameCycleMarkerInfo(info1: any, info2: any) {
     const cm1 = utils.deepCopy(info1)
     const cm2 = utils.deepCopy(info2)
     delete cm1.currentTime
@@ -525,8 +526,8 @@ export async function submitJoin(
   await Promise.all(promises)
 }
 
-export async function fetchJoined(activeNodes) {
-  const queryFn = async node => {
+export async function fetchJoined(activeNodes: P2P.P2PTypes.Node[]) {
+  const queryFn = async (node: P2P.P2PTypes.Node) => {
     const publicKey = crypto.keypair.publicKey
     const res = await http.get(`${node.ip}:${node.port}/joined/${publicKey}`)
     return res
@@ -561,7 +562,8 @@ function validateJoinRequest(request: P2P.JoinTypes.JoinRequest) {
   return true
 }
 
-export function computeNodeId(publicKey, cycleMarker) {
+// need review - kaung/aamir
+export function computeNodeId(publicKey: string, cycleMarker: string) {
   const nodeId = crypto.hash({publicKey, cycleMarker})
   if (logFlags.p2pNonFatal) {
     info(
@@ -572,17 +574,17 @@ export function computeNodeId(publicKey, cycleMarker) {
   return nodeId
 }
 
-function info(...msg) {
+function info(...msg: any[]) {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: any[]) {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
