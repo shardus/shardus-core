@@ -68,17 +68,17 @@ export class NetworkClass extends EventEmitter {
   mainLogger: Log4js.Logger
   netLogger: Log4js.Logger
   timeout: number
-  internalRoutes: {[route: string]: any}
+  internalRoutes: {[route: string]: Handler}
   externalRoutes: Array<(app: Application) => void>
-  extServer: any
-  intServer: any
+  extServer: net.Server | undefined
+  intServer: net.Server | undefined
   verboseLogsNet: boolean | undefined
   InternalTellCounter: number
   InternalAskCounter: number
-  ipInfo: any
-  externalCatchAll: any
+  ipInfo!: IPInfo
+  externalCatchAll: Handler | undefined
   debugNetworkDelay: number
-  statisticsInstance: any
+  statisticsInstance: Statistics | undefined
 
   constructor(config: Shardus.ServerConfiguration, logger: Logger) {
     super()
@@ -91,13 +91,10 @@ export class NetworkClass extends EventEmitter {
     this.timeout = config.network.timeout * 1000
     this.internalRoutes = {}
     this.externalRoutes = []
-    this.extServer = null
-    this.intServer = null
 
     this.InternalTellCounter = 1
     this.InternalAskCounter = 1
     this.debugNetworkDelay = 0
-    this.statisticsInstance = null
 
     if (config && config.debug && config.debug.fakeNetworkDelay) {
       this.debugNetworkDelay = config.debug.fakeNetworkDelay
@@ -456,7 +453,7 @@ export class NetworkClass extends EventEmitter {
     }
   }
 
-  setExternalCatchAll(handler: any) {
+  setExternalCatchAll(handler: Handler) {
     this.externalCatchAll = handler
   }
 
@@ -500,7 +497,7 @@ export class NetworkClass extends EventEmitter {
     this._registerExternal('PATCH', route, authHandler, responseHandler)
   }
 
-  registerInternal(route: string, handler: Handler) {
+  registerInternal(route: string, handler: ) {
     if (this.internalRoutes[route])
       throw Error('Handler already exists for specified internal route.')
     this.internalRoutes[route] = handler
@@ -611,6 +608,7 @@ async function getNextExternalPort(ip: string) {
   initNatClient()
 
   // Get the next available port from the OS and test it
+  // eslint-disable-next-line prefer-const
   let [reachable, port] = await wrapTest(new ConnectTest(ip))
 
   // If port is unreachable attempt to forward it with UPnP, then PMP
@@ -632,13 +630,15 @@ async function getNextExternalPort(ip: string) {
         )
         if (logFlags.info) mainLogger.info('  Success!')
         break
-      } catch (err) {
+      } catch (_err) {
+        const err = _err as Error
         if (logFlags.info) mainLogger.info('  Error:', err.message)
       }
     }
   }
 
   // Test it again
+  // eslint-disable-next-line prettier/prettier
   ;[reachable] = await wrapTest(new ConnectTest(ip, port))
   if (reachable) {
     return port
@@ -660,7 +660,8 @@ async function wrapTest(test: ConnectTest) {
     const success = await test.start()
     result = [success, test.port]
     if (logFlags.info) mainLogger.info('  Success!')
-  } catch (err) {
+  } catch (_err) {
+    const err = _err as Error
     if (logFlags.info)
       mainLogger.info('  Failed:', err.message ? err.message : err)
     result = [false, test.port]
@@ -738,7 +739,8 @@ async function discoverExternalIp(server: string) {
   try {
     const {ip}: {ip: string} = await httpModule.get(server)
     return ip
-  } catch (err) {
+  } catch (_err) {
+    const err = _err as Error
     throw Error(
       `p2p/Self:discoverExternalIp: Could not discover IP from external IP server ${server}: ` +
         err.message

@@ -140,17 +140,15 @@ class Logger {
   // Add filenames to each appender of type 'file'
   _addFileNamesToAppenders() {
     const conf = this.log4Conf
-    if (!conf) throw new Error('config.logs.options is falsy')
     for (const key in conf.appenders) {
       const appender = conf.appenders[key as keyof typeof conf.appenders]
-      if (!appender) throw new Error('config.logs.options.')
       if (appender.type !== 'file') continue
       appender.filename = `${this.logDir}/${key}.log`
     }
   }
 
   _configureLogs() {
-    return log4js.configure(this.log4Conf as log4js.Configuration)
+    return log4js.configure(this.log4Conf as unknown as log4js.Configuration)
   }
 
   // Get the specified logger

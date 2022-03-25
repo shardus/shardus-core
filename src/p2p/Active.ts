@@ -244,17 +244,17 @@ function validateActiveRequest(request: P2P.ActiveTypes.SignedActiveRequest) {
   return true
 }
 
-function info(...msg) {
+function info(...msg: string[]) {
   const entry = `Active: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: string[]) {
   const entry = `Active: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: any[]) {
   const entry = `Active: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }

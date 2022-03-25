@@ -9,7 +9,7 @@ type RequestHandler = any
 // Project: Shardus Enterprise Server
 // Definitions by: Erik Xavier
 // export class Shardus {
-//   constructor(configs?: ShardusConfiguration)
+//   constructor(configs: ShardusConfiguration)
 //   /**
 //    * Setups an application to run within the shardus enterprise server instance
 //    * @param App The provided application
@@ -20,7 +20,7 @@ type RequestHandler = any
 //    * @param exitProcOnFail Sets if the process should terminate on any error
 //    *
 //    */
-//   start(exitProcOnFail?: boolean): void
+//   start(exitProcOnFail: boolean): void
 //   /**
 //    * Register an external endpoint to shardus enterprise server
 //    * https://shardus.gitlab.io/docs/developer/main-concepts/building-a-poc-app/shardus-app-interface/register-external-get.html
@@ -65,9 +65,9 @@ type RequestHandler = any
 //    * Handle incoming transaction requests
 //    *
 //    * @param tx the transaction
-//    * @param set?
+//    * @param set
 //    */
-//   put(tx: object, set?: boolean): IncomingTransactionResult
+//   put(tx: object, set: boolean): IncomingTransactionResult
 //   /**
 //    * Handle incoming set requests
 //    *
@@ -87,7 +87,7 @@ type RequestHandler = any
 //    * A function that executes a cleanup and terminates the server
 //    * @param exitProcess Flag to define if process.exit() should be called or not. Default: true
 //    */
-//   shutdown(exitProcess?: boolean): void
+//   shutdown(exitProcess: boolean): void
 
 //   /**
 //    * Returns the application associated with the shardus module
@@ -138,7 +138,7 @@ type RequestHandler = any
 //   getClosestNodes(hash: string, number: number): string[]
 
 //   getNode(nodeId: string): Node
-//   // not sure where this def should go?
+//   // not sure where this def should go
 //   // profiler: any
 //   p2p: any
 // }
@@ -165,12 +165,12 @@ export interface App {
   }
 
   // DEPRECATED . This was previously a deep validate for buisness logic but it is up to the dapp to handle this as part of apply
-  validateTransaction?: (...data: any) => any
+  validateTransaction: (...data: any) => any
   /**
    * A function responsible for validation the incoming transaction fields
    */
   // DEPRECATED in favor of `validate`
-  validateTxnFields?: (
+  validateTxnFields: (
     inTx: OpaqueTransaction // it is better to not use IncomingTransaction
   ) => IncomingTransactionResult
   /**
@@ -186,7 +186,7 @@ export interface App {
    * Do not change any of the values passes in.
    * This is a place to generate other transactions, or do off chain work like send and email.
    */
-  transactionReceiptPass?: (
+  transactionReceiptPass: (
     inTx: OpaqueTransaction,
     wrappedStates: any,
     applyResponse: ApplyResponse
@@ -198,7 +198,7 @@ export interface App {
    * This is a place to generate other transactions, or do off chain work like send and email.
    */
 
-  transactionReceiptFail?: (
+  transactionReceiptFail: (
     inTx: OpaqueTransaction,
     wrappedStates: any,
     applyResponse: ApplyResponse
@@ -229,20 +229,20 @@ export interface App {
    * A function that returns the Keys for the accounts involved in the transaction
    */
   // DEPRECATED in favor of `crack`
-  getKeyFromTransaction?: (inTx: OpaqueTransaction) => TransactionKeys
+  getKeyFromTransaction: (inTx: OpaqueTransaction) => TransactionKeys
   /**
    * A function that returns the State ID for a given Account Address
    */
-  getStateId?: (accountAddress: string, mustExist?: boolean) => string
+  getStateId: (accountAddress: string, mustExist: boolean) => string
   /**
    * A function that returns the timestamp for a given Account Address
    */
-  getAccountTimestamp?: (accountAddress: string, mustExist?: boolean) => number
+  getAccountTimestamp: (accountAddress: string, mustExist: boolean) => number
 
   /**
    * A function that allows the app to look at a passed in account ane return the hash and timestamp
    */
-  getTimestampAndHashFromAccount?: (account: any) => {
+  getTimestampAndHashFromAccount: (account: any) => {
     timestamp: number
     hash: string
   }
@@ -280,22 +280,22 @@ export interface App {
 
   getAccountDebugValue: (wrappedAccount: WrappedData) => string
 
-  canDebugDropTx?: (tx: unknown) => boolean
+  canDebugDropTx: (tx: unknown) => boolean
 
   /**
    * This gives the application a chance to sync or load initial data before going active.
    * If it is the first node it can use .set() to set data
    * If it is not the first node it could use getLocalOrRemote() to query data it needs.
    */
-  sync?: () => any
+  sync: () => any
 
-  dataSummaryInit?: (blob: any, accountData: any) => void
-  dataSummaryUpdate?: (
+  dataSummaryInit: (blob: any, accountData: any) => void
+  dataSummaryUpdate: (
     blob: any,
     accountDataBefore: any,
     accountDataAfter: any
   ) => void
-  txSummaryUpdate?: (blob: any, tx: any, wrappedStates: any) => void
+  txSummaryUpdate: (blob: any, tx: any, wrappedStates: any) => void
 }
 
 export interface TransactionKeys {
@@ -320,7 +320,7 @@ export interface TransactionKeys {
   /**
    * debug info string
    */
-  debugInfo?: string
+  debugInfo: string
 }
 export interface ApplyResponse {
   /**
@@ -364,7 +364,7 @@ export interface AccountData {
   /** Transaction ID */
   txId: string
   /** Timestamp */
-  timestamp: number // is it ok to use string here, how about data?
+  timestamp: number // is it ok to use string here, how about data
   /** Account hash */
   hash: string
 }
@@ -390,7 +390,7 @@ export interface WrappedData {
   timestamp: number
 
   /** optional data related to sync process */
-  syncData?: any
+  syncData: any
 }
 
 export interface WrappedResponse extends WrappedData {
@@ -398,17 +398,17 @@ export interface WrappedResponse extends WrappedData {
   isPartial: boolean
 
   //Set by setPartialData
-  userTag?: any
-  localCache?: any // TODO CODEREIVEW: use by partial data, but really need to code review everything localCache related.
+  userTag: any
+  localCache: any // TODO CODEREIVEW: use by partial data, but really need to code review everything localCache related.
   // LocalCache was supposed to be a full copy of the account before tx was applied. This would allow for
   // sending partial account data out for a TX but still doing the full transform when it is local
   // for some reason localCache is also getting check for logic to determin if the account should be saved locally,
   // a more explicit mechanism would be nicer
 
   // state manager tracking
-  prevStateId?: string
+  prevStateId: string
   // need a before copy of the data for stats system. may not be super effcient. possibly merge this with original data on the queue entry
-  prevDataCopy?: any
+  prevDataCopy: any
 }
 
 // old version:
@@ -489,9 +489,9 @@ export interface IncomingTransaction {
   /** Source account address for the transaction */
   srcAct: string
   /** Target account address for the transaction */
-  tgtActs?: string
+  tgtActs: string
   /** Target account addresses for the transaction */
-  tgtAct?: string
+  tgtAct: string
   /** The transaction type */
   txnType: string
   /** The transaction amount */
@@ -501,7 +501,7 @@ export interface IncomingTransaction {
   /** The transaction signature */
   sign: Sign
   /** The transaction timestamp */
-  txnTimestamp?: string
+  txnTimestamp: string
 }
 
 export interface Sign {
@@ -517,7 +517,7 @@ export interface IncomingTransactionResult {
   /** The reason for the transaction result */
   reason: string
   /** The timestamp for the result */
-  txnTimestamp?: number
+  txnTimestamp: number
 }
 
 export enum ServerMode {
@@ -527,323 +527,323 @@ export enum ServerMode {
 
 export interface ServerConfiguration {
   /** The heartbeatInterval parameter is an Integer that defines the number of seconds between each heartbeat logged within shardus */
-  heartbeatInterval?: number
+  heartbeatInterval: number
   /** The baseDir parameter is a String that defines the relative base directory for this running instance of shardus */
-  baseDir?: string
+  baseDir: string
   /** The transactionExpireTime parameter is an Integer that defines the amount of time (in seconds) allowed to pass before a transaction will expire and be rejected by the network. */
-  transactionExpireTime?: number
+  transactionExpireTime: number
   /** Crypto module configuration */
-  crypto?: {
+  crypto: {
     /** The hashkey parameter is a String that is used to initialize the crypto module, which is used for the cryptographic functions within shardus */
-    hashKey?: string
+    hashKey: string
   }
   /** P2P module configuration */
-  p2p?: {
+  p2p: {
     /** The ipServer parameter is a String that specifies a the url for the ipServer. */
-    ipServer?: string
+    ipServer: string
     /** The timeServers parameter is an Array of String that specifies where to get time critical data. */
-    timeServers?: string[]
+    timeServers: string[]
     /**  */
-    existingArchivers?: Array<{
+    existingArchivers: Array<{
       ip: string
       port: number
       publicKey: string
     }>
     /** The syncLimit parameter is an Integer that specifies the amount of time (in seconds) a node’s local time can differ from the network’s time. */
-    syncLimit?: number
+    syncLimit: number
     /** The cycleDuration parameter is an Integer specifying the amount of time (in seconds) it takes for a shardus network cycle to complete. */
-    cycleDuration?: number
+    cycleDuration: number
     /** The maxRejoinTime parameter is an Integer specifying the amount of time (in seconds) between network heartbeats before a node must ask to rejoin. */
-    maxRejoinTime?: number
+    maxRejoinTime: number
     /** The seedList parameter is a String specifying the url for the seedNode server that the application will communicate with. */
-    seedList?: string
+    seedList: string
     /** The difficulty parameter is an Integer specifying the proof of work difficulty to prevent network spam. */
-    difficulty?: number
+    difficulty: number
     /** The queryDelay parameter is an Integer specifying the amount of time (in seconds) to delay between cycle phase. */
-    queryDelay?: number
+    queryDelay: number
     /** The netadmin parameter is a String specifying the public key of the network admin for emergency network alerts, updates, or broadcasts. */
-    netadmin?: string
+    netadmin: string
     /** The gossipRecipients parameter is an Integer specifying the number of nodes to send gossip to in the network after receiving a message.
      * Shardus groups nodes with neighbors, who they can gossip the message to, so you can set this pretty low and still expect it to be
      * propogated through the entire network. (It’s recommended to set this to AT LEAST 3, 4 is recommended, and 5 would be even safer,
      * but maybe overkill). Shardus will send 2 gossips to neighboring nodes, and send the remaining number left over in the parameter to
      * random nodes in the network, so messages will be propagated very quickly.
      **/
-    gossipRecipients?: number
-    gossipFactor?: number
+    gossipRecipients: number
+    gossipFactor: number
     /** The gossipTimeout parameter is an Integer specifying the amount of time (in seconds) before an old gossip is deleted from a node. */
-    gossipTimeout?: number
+    gossipTimeout: number
     /** The maxSeedNodes parameter is an Integer specifying the maximum number of seedNodes used to be used. */
-    maxSeedNodes?: number
+    maxSeedNodes: number
     /** The minNodesToAllowTxs parameter is an Integer specifying the minimum number of active nodes needed in the network to process txs. */
-    minNodesToAllowTxs?: number
+    minNodesToAllowTxs: number
     /** The minNodes parameter is an Integer specifying the minimum number of nodes that need to be active in the network in order to process transactions. */
-    minNodes?: number
+    minNodes: number
     /** The maxNodes parameter is an Integer specifying the maximum number of nodes that can be active in the network at once. */
-    maxNodes?: number
+    maxNodes: number
     /** The seedNodeOffset parameter is an Integer specifying the number of seedNodes to remove when producing the seedList */
-    seedNodeOffset?: number
+    seedNodeOffset: number
     /** The nodeExpiryAge parameter is an Integer specifying the amount of time (in seconds) before a node can be in the network before getting rotated out. */
-    nodeExpiryAge?: number
+    nodeExpiryAge: number
 
     /** The maxJoinedPerCycle parameter is an Integer specifying the maximum number of nodes that can join the syncing phase each cycle. */
-    maxJoinedPerCycle?: number
+    maxJoinedPerCycle: number
     /** The maxSyncingPerCycle parameter is an Integer specifying the maximum number of nodes that can be in the syncing phase each cycle. */
-    maxSyncingPerCycle?: number
+    maxSyncingPerCycle: number
     /** The maxRotatedPerCycle parameter is an Integer specifying the maximum number of nodes that can that can be rotated out of the network each cycle. */
-    maxRotatedPerCycle?: number
+    maxRotatedPerCycle: number
     /** A fixed boost to let more nodes in when we have just the one seed node in the network */
-    firstCycleJoin?: number
+    firstCycleJoin: number
 
     /** The maxPercentOfDelta parameter is an Integer specifying the percent out of 100 that additional nodes can be accepted to the network. */
-    maxPercentOfDelta?: number
+    maxPercentOfDelta: number
     /** The minScaleReqsNeeded parameter is an Integer specyifying the number of internal scaling requests shardus needs to receive before scaling up or down the number of desired nodes in the network.
      *  This is just the minimum votes needed, scaleConsensusRequired is a 0-1 fraction of num nodes required.
      *  The votes needed is  Math.Max(minScaleReqsNeeded,  numNodes * scaleConsensusRequired )
      */
-    minScaleReqsNeeded?: number
+    minScaleReqsNeeded: number
     /** The maxScaleReqs parameter is an Integer specifying the maximum number of scaling requests the network will process before scaling up or down. */
-    maxScaleReqs?: number
+    maxScaleReqs: number
     /** What fraction 0-1 of numNodes is required for a scale up or down vote */
-    scaleConsensusRequired?: number
+    scaleConsensusRequired: number
     /** The amountToGrow parameter is an Integer specifying the amount of nodes to ADD to the number of desired nodes the network wants. */
-    amountToGrow?: number
+    amountToGrow: number
     /** The amountToShrink parameter is an Integer specifying the amount of nodes to REMOVE from the number of desired nodes the network wants. */
-    amountToShrink?: number
+    amountToShrink: number
     /** If witenss mode is true, node will not join the network but help other nodes to sync the data */
-    startInWitnessMode?: boolean
+    startInWitnessMode: boolean
   }
   /** Server IP configuration */
-  ip?: {
+  ip: {
     /** The IP address the server will run the external API */
-    externalIp?: string | 'auto'
+    externalIp: string | 'auto'
     /** The port the server will run the external API */
-    externalPort?: number | 'auto'
+    externalPort: number | 'auto'
     /** The IP address the server will run the internal comunication API */
-    internalIp?: string | 'auto'
+    internalIp: string | 'auto'
     /** The port the server will run the internal comunication API  */
-    internalPort?: number | 'auto'
+    internalPort: number | 'auto'
   }
   /** Server Network module configuration */
-  network?: {
+  network: {
     /** The timeout parameter is an Integer specifying the amount of time (in seconds) given to an internal network request made by the node until it gets timed out. */
-    timeout?: number
+    timeout: number
   }
   /** Server Report module configuration */
-  reporting?: {
+  reporting: {
     /** The report parameter is an Boolean specifying whether or not to report data to a monitor server / client. */
-    report?: boolean
+    report: boolean
     /** The recipient parameter is an String specifying the url of the recipient of the data that will be reported if report is set to true. */
-    recipient?: string
+    recipient: string
     /** The interval paramter is an Integer specifying the amount of time (in seconds) between the reported data updates. */
-    interval?: number
+    interval: number
     /** The console parameter is an Boolean specifying whether or not to report data updates to the console. */
-    console?: boolean
+    console: boolean
   }
   /** Server's current mode or environment to be run in. Can be 'release' or 'debug' with 'release' being the default. */
-  mode?: ServerMode
+  mode: ServerMode
   /** Server Debug module configuration */
-  debug?: {
+  debug: {
     /** The loseReceiptChance parameter is a Float specifying a percentage chance to randomly drop a receipt (currently doesn’t do anything) */
-    loseReceiptChance?: number
+    loseReceiptChance: number
     /** The loseTxChance parameter is a Float specifying a percentage chance to randomly drop a transaction. */
-    loseTxChance?: number
+    loseTxChance: number
     /** The canDataRepair parameter is a boolean that allows dataRepair to be turned on/off by the application (true = on | false = off) */
-    //canDataRepair?: boolean
+    //canDataRepair: boolean
     /** Disable voting consensus for TXs (true = on | false = off) */
-    debugNoTxVoting?: boolean
+    debugNoTxVoting: boolean
     /** ignore initial incomming receipt */
-    ignoreRecieptChance?: number
+    ignoreRecieptChance: number
     /** ignore initial incomming vote */
-    ignoreVoteChance?: number
+    ignoreVoteChance: number
     /** chance to fail making a receipt */
-    failReceiptChance?: number
+    failReceiptChance: number
     /** chance to flip our vote */
-    voteFlipChance?: number
+    voteFlipChance: number
     /** chance to fail a TX and the TX repair */
-    failNoRepairTxChance?: number
+    failNoRepairTxChance: number
     /** use the new stats data for partition state reports to monitor server */
-    useNewParitionReport?: boolean
+    useNewParitionReport: boolean
     /** is the old partition checking system enabled */
-    oldPartitionSystem?: boolean
+    oldPartitionSystem: boolean
     /** slow old reporting that queries sql for account values */
-    dumpAccountReportFromSQL?: boolean
+    dumpAccountReportFromSQL: boolean
     /** enable the built in profiling */
-    profiler?: boolean
+    profiler: boolean
     /** starts the node in fatals mode, use endpoints to turn back on default logs */
-    startInFatalsLogMode?: boolean
+    startInFatalsLogMode: boolean
     /** starts the node in error mode, use endpoints to turn back on default logs */
-    startInErrorLogMode?: boolean
+    startInErrorLogMode: boolean
     /** fake network delay in ms */
-    fakeNetworkDelay?: number
+    fakeNetworkDelay: number
     /** disable snapshots */
-    disableSnapshots?: boolean
+    disableSnapshots: boolean
     /** start counting endpoints */
-    countEndpointStart?: number
+    countEndpointStart: number
     /** stop counting endpoints */
-    countEndpointStop?: number
+    countEndpointStop: number
   }
   /** Options for the statistics module */
-  statistics?: {
+  statistics: {
     /** The save parameter is a Boolean specifying whether or not statistics will be gathered and saved when running the network. */
-    save?: boolean
+    save: boolean
     /** The interval parameter is a Integer specifying the amount of time (in seconds) between each generated stats data. */
-    interval?: number
+    interval: number
   }
   /**  */
-  loadDetection?: {
+  loadDetection: {
     /**
      * The queueLimit parameter is an Integer which specifies one of the two possible limits to check whether the network is under heavy load.
      * It does this by checking it’s set value against the current transaction queue. The threshold will be equal to the number of transactions
      * in the queue / the queueLimit.
      **/
-    queueLimit?: number
+    queueLimit: number
     /** The desiredTxTime parameter is an Integer which specifies the other condition to check whether the network is under heavy load. */
-    desiredTxTime?: number
+    desiredTxTime: number
     /** The highThreshold parameter is an Integer which specifies the high end of the load the network can take. Reaching this threshold will cause the network to increase the desired nodes. */
-    highThreshold?: number
+    highThreshold: number
     /** The lowThreshold parameter is an Integer which specifies the low end of the load the network can take. Reaching this threshold will cause the network to decrease the desired nodes. */
-    lowThreshold?: number
+    lowThreshold: number
   }
   /** Options for rate limiting */
-  rateLimiting?: {
+  rateLimiting: {
     /** The limitRate parameter is a Boolean indicating whether or not the network should rate limit in any way. */
-    limitRate?: boolean
+    limitRate: boolean
     /**
      * The loadLimit parameter is a Float (between 0 and 1) indicating the maximum level of load the network can handle before starting to drop transactions.
      * With loadLimit set to 0.5, at 75% or 0.75 load, the network would drop 50% of incoming transactions.
      * (The percentage of chance to drop a transaction scales linearly as the load increases past the threshold).
      **/
-    loadLimit?: number
+    loadLimit: number
   }
   /** Server State manager module configuration */
-  stateManager?: {
+  stateManager: {
     /** The stateTableBucketSize parameter is an Integer which defines the max number of accountRecords that the p2p module will ask for in it’s get_account_state call. */
-    stateTableBucketSize?: number
+    stateTableBucketSize: number
     /** The accountBucketSize This is also currently used as input to a p2p ask method for the max number of account records */
-    accountBucketSize?: number
+    accountBucketSize: number
   }
   /** Options for sharding calculations */
-  sharding?: {
+  sharding: {
     /** The nodesPerConsensusGroup parameter defines how many nodes will be contained within a shard */
-    nodesPerConsensusGroup?: number
+    nodesPerConsensusGroup: number
   }
 }
 
 export interface LogsConfiguration {
-  saveConsoleOutput?: boolean
-  dir?: string
-  files?: {
-    main?: string
-    fatal?: string
-    net?: string
-    app?: string
+  saveConsoleOutput: boolean
+  dir: string
+  files: {
+    main: string
+    fatal: string
+    net: string
+    app: string
   }
-  options?: {
-    appenders?: {
-      out?: {
-        type?: string
-        filename?: string
+  options: {
+    appenders: {
+      out: {
+        type: string
+        filename: string
       }
-      main?: {
-        type?: string
-        maxLogSize?: number
-        backups?: number
-        filename?: string
+      main: {
+        type: string
+        maxLogSize: number
+        backups: number
+        filename: string
       }
-      fatal?: {
-        type?: string
-        maxLogSize?: number
-        backups?: number
-        filename?: string
+      fatal: {
+        type: string
+        maxLogSize: number
+        backups: number
+        filename: string
       }
-      errorFile?: {
-        type?: string
-        maxLogSize?: number
-        backups?: number
-        filename?: string
+      errorFile: {
+        type: string
+        maxLogSize: number
+        backups: number
+        filename: string
       }
-      errors?: {
-        type?: string
-        maxLogSize?: number
-        backups?: number
-        filename?: string
+      errors: {
+        type: string
+        maxLogSize: number
+        backups: number
+        filename: string
       }
-      net?: {
-        type?: string
-        maxLogSize?: number
-        backups?: number
-        filename?: string
+      net: {
+        type: string
+        maxLogSize: number
+        backups: number
+        filename: string
       }
-      playback?: {
-        type?: string
-        maxLogSize?: number
-        backups?: number
-        filename?: string
+      playback: {
+        type: string
+        maxLogSize: number
+        backups: number
+        filename: string
       }
-      shardDump?: {
-        type?: string
-        maxLogSize?: number
-        backups?: number
-        filename?: string
+      shardDump: {
+        type: string
+        maxLogSize: number
+        backups: number
+        filename: string
       }
     }
   }
-  categories?: {
-    default?: {
-      appenders?: string[]
-      level?: string
+  categories: {
+    default: {
+      appenders: string[]
+      level: string
     }
-    main?: {
-      appenders?: string[]
-      level?: string
+    main: {
+      appenders: string[]
+      level: string
     }
-    fatal?: {
-      appenders?: string[]
-      level?: string
+    fatal: {
+      appenders: string[]
+      level: string
     }
-    net?: {
-      appenders?: string[]
-      level?: string
+    net: {
+      appenders: string[]
+      level: string
     }
-    playback?: {
-      appenders?: string[]
-      level?: string
+    playback: {
+      appenders: string[]
+      level: string
     }
-    shardDump?: {
-      appenders?: string[]
-      level?: string
+    shardDump: {
+      appenders: string[]
+      level: string
     }
   }
 }
 
 export interface StorageConfiguration {
-  database?: string
-  username?: string
-  password?: string
-  options?: {
-    logging?: false
-    host?: string
-    dialect?: string
-    operatorsAliases?: false
-    pool?: {
-      max?: number
-      min?: number
-      acquire?: number
-      idle?: number
+  database: string
+  username: string
+  password: string
+  options: {
+    logging: false
+    host: string
+    dialect: string
+    operatorsAliases: false
+    pool: {
+      max: number
+      min: number
+      acquire: number
+      idle: number
     }
-    storage?: string
-    sync?: {
-      force?: false
+    storage: string
+    sync: {
+      force: false
     }
-    memoryFile?: false
+    memoryFile: false
   }
 }
 
 export interface ShardusConfiguration {
-  server?: ServerConfiguration
-  logs?: LogsConfiguration
-  storage?: StorageConfiguration
+  server: ServerConfiguration
+  logs: LogsConfiguration
+  storage: StorageConfiguration
 }
 
 export interface AcceptedTx {
@@ -855,7 +855,7 @@ export interface AcceptedTx {
 
 export interface TxReceipt {
   txHash: string
-  sign?: Sign
+  sign: Sign
   time: number //transaction timestamp
   stateId: string //hash of the source account.  this should be phased out or modified to handle multiple sources
   targetStateId: string //hash of the target account.  this should be phased out or modified to handle multiple targets

@@ -26,20 +26,6 @@ class LoadDetection extends EventEmitter {
     statistics: Statistics
   ) {
     super()
-    if (typeof config?.highThreshold !== 'number')
-      throw new Error(
-        'config.server.loadDetection.highThreshold is not a number'
-      )
-    if (typeof config?.lowThreshold !== 'number')
-      throw new Error(
-        'config.server.loadDetection.lowThreshold is not a number'
-      )
-    if (typeof config?.desiredTxTime !== 'number')
-      throw new Error(
-        'config.server.loadDetection.desiredTxTime is not a number'
-      )
-    if (typeof config?.queueLimit !== 'number')
-      throw new Error('config.server.loadDetection.queueLimit is not a number')
     this.highThreshold = config.highThreshold
     this.lowThreshold = config.lowThreshold
     this.desiredTxTime = config.desiredTxTime

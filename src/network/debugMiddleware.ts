@@ -1,6 +1,7 @@
+import {Handler} from 'express'
 import {isDebugMode} from '../debug'
 
-export const isDebugModeMiddleware = (_req, res, next) => {
+export const isDebugModeMiddleware: Handler = (_req, res, next) => {
   const isDebug = isDebugMode()
 
   if (!isDebug) {
@@ -10,5 +11,5 @@ export const isDebugModeMiddleware = (_req, res, next) => {
     })
   }
 
-  next()
+  return next()
 }
