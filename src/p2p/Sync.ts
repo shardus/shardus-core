@@ -12,6 +12,9 @@ import * as NodeList from './NodeList'
 import * as Self from './Self'
 import { robustQuery } from './Utils'
 import { profilerInstance } from '../utils/profiler'
+import stringify from 'fast-stable-stringify'
+
+export const newExperimentCycleSync = true
 
 /** STATE */
 
@@ -27,6 +30,27 @@ const newestCycleRoute: P2P.P2PTypes.Route<Handler> = {
     const newestCycle = CycleChain.newest ? CycleChain.newest : undefined
     res.json({ newestCycle })
     profilerInstance.scopedProfileSectionEnd('sync-newest-cycle')
+  },
+}
+
+// Move this type declaration to nicer place
+export interface NewestNodeList {
+  cycleRecord: P2P.CycleCreatorTypes.CycleRecord
+  nodeIDList: P2P.NodeListTypes.Node['id'][]
+}
+
+const newestNodeListRoute: P2P.P2PTypes.Route<Handler> = {
+  method: 'GET',
+  name: 'sync-newest-nodelist',
+  handler: (_req, res) => {
+    profilerInstance.scopedProfileSectionStart('sync-newest-nodelist')
+    const newestNodeList: NewestNodeList = {
+      cycleRecord: CycleChain.newest ? CycleChain.newest : undefined,
+      nodeIDList: NodeList.currentNodeIDList
+      // nodeIDList: NodeList.byJoinOrder.map(node => node.id)
+    }
+    res.json({ newestNodeList })
+    profilerInstance.scopedProfileSectionEnd('sync-newest-nodelist')
   },
 }
 
@@ -62,7 +86,7 @@ const cyclesRoute: P2P.P2PTypes.Route<Handler> = {
 }
 
 const routes = {
-  external: [newestCycleRoute /** unfinishedCycleRoute */, cyclesRoute],
+  external: [newestCycleRoute /** unfinishedCycleRoute */, cyclesRoute, newestNodeListRoute],
 }
 
 /** FUNCTIONS */
@@ -200,6 +224,110 @@ export async function sync(activeNodes: P2P.SyncTypes.ActiveNode[]) {
   return true
 }
 
+export async function newSync(activeNodes: P2P.SyncTypes.ActiveNode[]) {
+  // Flush existing cycles/nodes
+  CycleChain.reset()
+  NodeList.reset()
+
+  // Get the networks newest cycle as the anchor point for sync
+  info('Getting newest cycle...')
+  const newestNodeListInfo = await getNewestNodeList(activeNodes)
+  info('newestNodeListInfo', newestNodeListInfo)
+  const cycleToSyncTo = newestNodeListInfo.cycleRecord
+  info(`Syncing till cycle ${cycleToSyncTo.counter}...`)
+  const cyclesToGet = 2 * Math.floor(Math.sqrt(cycleToSyncTo.active)) + 2
+  info(`Cycles to get is ${cyclesToGet}`)
+
+  let seenNodeList = []
+  let combinedPrevCycles = []
+
+  let end = cycleToSyncTo.counter - 1
+
+  for (const n of cycleToSyncTo.refreshedConsensors) {
+    if (newestNodeListInfo.nodeIDList.includes(n.id) && !seenNodeList.includes(n.id)) {
+      seenNodeList.push(n.id)
+    }
+  }
+  for (const n of cycleToSyncTo.joinedConsensors) {
+    if (newestNodeListInfo.nodeIDList.includes(n.id) && !seenNodeList.includes(n.id)) {
+      seenNodeList.push(n.id)
+    }
+  }
+
+  do {
+    // Get prevCycles from the network
+    const start = end - cyclesToGet
+    info(`Getting cycles ${start} - ${end}...`)
+    const prevCycles = await getCycles(activeNodes, start, end)
+    info(
+      `Got cycles ${JSON.stringify(prevCycles.map((cycle) => cycle.counter))}`
+    )
+    info(`  ${JSON.stringify(prevCycles)}`)
+
+    // If prevCycles is empty, start over
+    if (prevCycles.length < 1) throw new Error('Got empty previous cycles')
+
+    for (const prevCycle of reversed(prevCycles)) {
+      for (const n of prevCycle.refreshedConsensors) {
+        if (newestNodeListInfo.nodeIDList.includes(n.id) && !seenNodeList.includes(n.id)) {
+          seenNodeList.push(n.id)
+        }
+      }
+      for (const n of prevCycle.joinedConsensors) {
+        if (newestNodeListInfo.nodeIDList.includes(n.id) && !seenNodeList.includes(n.id)) {
+          seenNodeList.push(n.id)
+        }
+      }
+      combinedPrevCycles.push(prevCycle)
+      if (seenNodeList.length >= newestNodeListInfo.nodeIDList.length) {
+        break
+      }
+    }
+    end = start
+  } while (seenNodeList.length < newestNodeListInfo.nodeIDList.length)
+      
+  const squasher = new ChangeSquasher()
+
+  CycleChain.prepend(cycleToSyncTo)
+  squasher.addChange(parse(CycleChain.oldest))
+
+  for (const prevCycle of combinedPrevCycles) {
+    const marker = CycleChain.computeCycleMarker(prevCycle)
+    // If you already have this cycle, skip it
+    if (CycleChain.cyclesByMarker[marker]) {
+      warn(`Record ${prevCycle.counter} already in cycle chain`)
+      continue
+    }
+    // Stop prepending prevCycles if one of them is invalid
+    if (CycleChain.validate(prevCycle, CycleChain.oldest) === false) {
+      warn(`Record ${prevCycle.counter} failed validation`)
+      break
+    }
+    // Prepend the cycle to our cycle chain
+    CycleChain.prepend(prevCycle)
+    squasher.addChange(parse(prevCycle))
+  }
+
+  applyNodeListChange(squasher.final)
+
+  info('To sync NodeID List', JSON.stringify(newestNodeListInfo.nodeIDList))
+  info('Synced NodeID List', JSON.stringify(NodeList.currentNodeIDList))
+  // info('Sync NodeList', NodeList.byJoinOrder.map(node => node.id))
+
+
+  if (stringify(newestNodeListInfo.nodeIDList) !== stringify(NodeList.currentNodeIDList)) throw new Error('Synced nodeId list does not match with to sync nodeId list!')
+  // if (stringify(newestNodeListInfo.nodeIDList) !== stringify(NodeList.byJoinOrder.map(node => node.id))) throw new Error('Synced nodeId list does not match with to sync nodeId list!')
+
+  info('Synced to cycle', cycleToSyncTo.counter)
+  info(
+    `Sync complete; ${NodeList.activeByIdOrder.length} active nodes; ${CycleChain.cycles.length} cycles`
+  )
+  info(`NodeList after sync: ${JSON.stringify([...NodeList.nodes.entries()])}`)
+  info(`CycleChain after sync: ${JSON.stringify(CycleChain.cycles)}`)
+
+  return true
+}
+
 type SyncNode = Partial<
   Pick<P2P.SyncTypes.ActiveNode, 'ip' | 'port'> &
     Pick<P2P.NodeListTypes.Node, 'externalIp' | 'externalPort'>
@@ -296,6 +424,7 @@ function applyNodeListChange(change: P2P.CycleParserTypes.Change) {
   NodeList.addNodes(change.added.map((joined) => NodeList.createNode(joined)))
   NodeList.updateNodes(change.updated)
   NodeList.removeNodes(change.removed)
+  NodeList.updateCurrentNodeIDList()
 }
 
 export async function getNewestCycle(
@@ -337,6 +466,54 @@ export async function getNewestCycle(
 
   const newestCycle = response.newestCycle as P2P.CycleCreatorTypes.CycleRecord
   return newestCycle
+}
+
+export interface NewestNodeList {
+  cycleRecord: P2P.CycleCreatorTypes.CycleRecord
+  nodeIDList: P2P.NodeListTypes.Node['id'][]
+}
+
+export async function getNewestNodeList(
+  activeNodes: SyncNode[]
+): Promise<NewestNodeList> {
+  const queryFn = async (node: SyncNode) => {
+    const ip = node.ip ? node.ip : node.externalIp
+    const port = node.port ? node.port : node.externalPort
+    // the queryFunction must return null if the given node is our own
+    // while syncing nodeList we dont have node.id, so use ip and port
+    if (ip === Self.ip && port === Self.port) return null
+    const resp = await http.get(`${ip}:${port}/sync-newest-nodelist`)
+    return resp
+  }
+  const eqFn = (item1, item2) => {
+    console.log(`item is: ${JSON.stringify(item1)}`)
+    try {
+      if (item1.newestNodeList.cycleRecord) {
+        if (item1.newestNodeList.cycleRecord.counter === item1.newestNodeList.cycleRecord.counter) return true
+      }
+      return false
+    } catch (err) {
+      return false
+    }
+  }
+  let redundancy = 1
+  if (activeNodes.length > 5) redundancy = 2
+  if (activeNodes.length > 10) redundancy = 3
+  const { topResult: response, winningNodes: _responders } = await robustQuery(
+    activeNodes,
+    queryFn,
+    eqFn,
+    redundancy,
+    true
+  )
+  console.log(`response is: ${JSON.stringify(response)}`)
+
+  // [TODO] Validate response
+  if (!response) throw new Error('Bad response')
+  if (!response.newestNodeList) throw new Error('Bad response')
+
+  const newestNodeList = response.newestNodeList as NewestNodeList
+  return newestNodeList
 }
 
 // This tries to get the cycles with counter from start to end inclusively.

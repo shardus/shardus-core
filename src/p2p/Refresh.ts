@@ -209,6 +209,30 @@ export function cyclesToKeep() {
   return count + 3
 }
 
+export function newCyclesToKeep() {
+  let count = 1
+  let seenNodeList = []
+  let cycleCounter = 0
+  for (const record of reversed(cycles)) {
+    for (const n of record.refreshedConsensors) {
+      if (NodeList.currentNodeIDList.includes(n.id) && !seenNodeList.includes(n.id)) {
+        seenNodeList.push(n.id)
+      }
+    }
+    for (const n of record.joinedConsensors) {
+      if (NodeList.currentNodeIDList.includes(n.id) && !seenNodeList.includes(n.id)) {
+        seenNodeList.push(n.id)
+      }
+    }
+    cycleCounter = record.counter
+    if (seenNodeList.length >= NodeList.currentNodeIDList.length) break
+    count++
+  }
+  console.log('counter', newest.counter, 'cycle counter till to keep is ', cycleCounter)
+  // Keep a few more than that, just to be safe
+  return count + 3
+}
+
 function info(...msg) {
   const entry = `Refresh: ${msg.join(' ')}`
   p2pLogger.info(entry)

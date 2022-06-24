@@ -1155,7 +1155,11 @@ async function gossipCycleCert(
 
 function pruneCycleChain() {
   // Determine number of cycle records to keep
-  const keep = Refresh.cyclesToKeep()
+  let keep;
+  if (Sync.newExperimentCycleSync)
+    keep = Refresh.newCyclesToKeep()
+  else
+    keep = Refresh.cyclesToKeep()
   // Throws away extra cycles
   CycleChain.prune(keep)
 }

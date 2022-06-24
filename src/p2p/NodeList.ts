@@ -27,6 +27,7 @@ export let activeByIdOrder: P2P.NodeListTypes.Node[]
 export let syncingByIdOrder: P2P.NodeListTypes.Node[]
 export let activeOthersByIdOrder: P2P.NodeListTypes.Node[]
 export let potentiallyRemoved: Set<P2P.NodeListTypes.Node['id']>
+export let currentNodeIDList: P2P.NodeListTypes.Node['id'][]
 
 const VERBOSE = false // Use to dump complete NodeList and CycleChain data
 
@@ -98,6 +99,12 @@ export function addNode(node: P2P.NodeListTypes.Node) {
 }
 export function addNodes(newNodes: P2P.NodeListTypes.Node[]) {
   for (const node of newNodes) addNode(node)
+}
+
+export function updateCurrentNodeIDList() {
+  // nodes id of active and syncing nodes
+  currentNodeIDList = [...activeByIdOrder.map(node => node.id), ...syncingByIdOrder.map(node => node.id)]
+  console.log('currentNodeIDList', currentNodeIDList)
 }
 
 export function removeSyncingNode(id) {

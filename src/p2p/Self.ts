@@ -241,7 +241,10 @@ async function syncCycleChain() {
       }
 
       if (logFlags.p2pNonFatal) info('Attempting to sync to network...')
-      synced = await Sync.sync(activeNodes)
+      if (Sync.newExperimentCycleSync)
+        synced = await Sync.newSync(activeNodes)
+      else
+        synced = await Sync.sync(activeNodes)
     } catch (err) {
       synced = false
       warn(err)
