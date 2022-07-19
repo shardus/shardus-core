@@ -21,12 +21,6 @@ import { getLinearGossipBurstList } from '../utils'
 
 const http = require('../http')
 const allZeroes64 = '0'.repeat(64)
-var totalTxInjected = 0
-var totalTxProcessed = 0
-var totalTxExpired = 0
-var totalTxRejected = 0
-var totalTxApplied = 0
-var totalTxBeforeReset = 0;
 
 // import Shardus = require('../shardus/shardus-types')
 
@@ -263,13 +257,12 @@ class Reporter {
     const txRejected = this.statisticsReport.txRejected
     const txExpired = this.statisticsReport.txExpired
     const txProcessed = this.statisticsReport.txProcessed
+
+    // Reset the statistics ASAP before sending the report so another report's statistics isn't reset by accident
+    this.resetStatisticsReport()
+
     const reportInterval = this.getReportInterval()
     const nodeIpInfo = ipInfo
-
-    totalTxApplied += txApplied
-
-    // Reset the statistics before sending the report so another report's statistics isn't reset by accident
-    this.resetStatisticsReport()
 
     let repairsStarted = 0
     let repairsFinished = 0
@@ -381,6 +374,9 @@ class Reporter {
       console.error(e)
     }
     //this.consoleReport()
+
+    //Reseting the report here sometimes leads to a report reseting the stats of another report
+    //this.resetStatisticsReport()
 
     this.reportTimer = setTimeout(() => {
       this.report()
