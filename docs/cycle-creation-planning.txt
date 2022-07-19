@@ -1,0 +1,266 @@
+/*
+currentCycle = 0
+currentQuarter = 0
+cycleTxs = []  // array of objects
+cycleRecord = {}  // object
+cycleMarker = ""
+cycleCert = {}   // object: {cycleMarker, {owner, sig}} // the nodeid and score can be computed from owner and cycleMarker
+bestCycleCert = {}[]  // map of array of objects
+madeCycle = false
+
+BEST_CERTS_WANTED = 3
+COMPARE_CYCLE_MARKER = 3
+COMPARE_BEST_CERT = 3
+
+// this function is called after the nodeList has been built; prevRecord is same as other nodes
+startCycles
+    acceptInternal = true
+    cycleCreator()
+
+
+// syncing nodes receive cycle transactions, but only regossip it to one other node until node list is complete
+cycleCreator
+    currentQuarter = 0     // so that gossip received is regossiped to just one other random node
+    if madeCycle == null
+        prevRecord = syncPrevCycle()  // this is async function in CycleChain which returns the prevRecord from memory or robust query
+    else
+        prevRecord = getMadeCycleRecord()
+        applyCycleRecord(prevRecord)   // changes the node list
+    [currentCycle, currentQuarter] = calcCurrentCycle(prevRecord)
+    [timeQ1, timeQ2, timeQ3, timeQ4, timeNextCycle] = calcQuarterTimes(prevRecord)
+    if (timeQ2 >= 1*SECOND) setTimeout(runQ1, 0)  // if there at least one sec before Q2 starts, we can start Q1 now
+    if (timeQ2 >=0) setTimeout(runQ2, timeQ2)
+    if (timeQ3 >=0) setTimeout(runQ3, timeQ3)
+    if (timeQ4 >=0) setTimeout(runQ4, timeQ4)
+    setTimeout(cycleCreator, timeNextCycle)
+    madeCycle = null
+    cycleCert = null
+
+runQ1
+    currentQuarter = 1
+    myQ = currentQuarter
+    myC = currentCycle
+
+runQ2
+    currentQuarter = 2
+    myQ = currentQuarter
+    myC = currentCycle
+
+runQ3
+    currentQuarter = 3
+    myQ = currentQuarter
+    myC = currentCycle
+    collectCycleTxs()  // cycle transaction modules are expected to provide a getCycleTxs() function
+    makeCycleData()
+    matched = async compareCycleMarkers()
+    if (matched === false) return
+    if notSameQuarter(myC, myQ) return
+    cycleCert = makeCycleCert()   // dont need to do it here since compareCycleMarkers and makeCycleData already do it
+    async gossipCycleCert()
+
+runQ4
+    currentQuarter = 4
+    myQ = currentQuarter
+    myC = currentCycle
+    if cyclecCert == null return
+    matched = async compareCycleCert()
+    if (matched === false) return
+    if notSameQuarter(myC, myQ) return
+ //   finalCycleCert()
+ //   finalCycleRecord()
+    saveCycleRecord()
+    madeCycle = true
+
+
+processTxGossip()
+    return acceptInternal && currentQuarter in [1, 2]
+
+processTxGossipOrig()
+    return acceptInternal && currentQuarter === 1
+
+getMadeCycleRecord()
+    return CycleChain.newest
+
+saveCycleRecord()
+    // TODO add cyclecCert to the cycleRecord, before saving
+    CycleChain.append(cycleRecord)
+
+collectCycleTxs()
+    cycleTxMods = [mod1, mod2]
+    loop through list of cycleTxMods
+        get txs from modules; mod.getCycleTxs()
+        add txs to cycleTxs
+
+makeCycleRecord()    
+    prevRecord = CycleChain.newest
+    txToMod = {'tx1':mod1, 'tx2':mod2}
+    initialize cycleRecord based on prevRecord
+    for tx in cycleTxs
+        determine which module to call based on tx type
+        mod.updateCycleRecord(tx, cycleRecord, prevRecord)
+        
+makeCycleMarker()
+    cycleMarker = hash(cycleRecord)
+
+makeCycleCert()
+    cycleCert = sign(cycleMarker)
+
+makeCycleData()
+    makeCycleRecord()
+    makeCycleMarker()
+    makeCycleCert()
+
+unseenTxs(txs1, txs2)
+    result = []
+    for tx in txs1
+        if tx not in txs2 then result.push(tx)
+    return result
+
+dropInvalidTxs(txs)
+    txToMod = {'tx1':mod1, 'tx2':mod2}
+    result = []
+    for tx in txs
+        determine which module to call based on tx type
+        valid = mod.validateTx(tx)
+        if valid then result.push(tx)
+    return result
+
+async compareCycleMarkers(matches)
+    prevRecord = CycleChain.newest
+    match = 0
+    tries = 2*matches
+    nodes = getRandomNodes(Nodes.activeIdOrder, tries)
+    for node in nodes
+        response = ask node internal endpoint /compareCycleMarkers with {cycleMarker, cycleTxs}
+        if response.cycleMarker === cycleMarker 
+            match += 1
+            if match >= matches return true
+        else
+            txs = unseenTxs(response.missedTxs, cycleTxs)
+            txs = dropInvalidTxs(txs)
+            cycleTxs.append(tx)
+            makeCycleData()
+    return false
+
+
+Internal Endpoint /compareCycleMarkers 
+    inp = {cycleMarker, cycleTxs}
+    if (inp.cycleMarker === cycleMarker) respond {cycleMarker}; return
+    txs = unseenTxs(inp.cycleTxs, cycleTxs)
+    txs = dropInvalidTxs(txs)
+    if txs.length <= 0 respond {cycleMarker, cycleTxs}
+    cycleTxs.append(txs)
+    makeCycleData()
+    if (inp.cycleMarker === cycleMarker) respond {cycleMarker}; return
+    txs = unseenTxs(cycleTxs, inp.cycleTxs)
+    respond {cycleMarker, txs}
+
+validateCertSign(certs[])
+    result = []
+    for cert in certs
+        if sig is not valid then return false
+    return true
+
+scoreCert(cert)
+    id = Nodes.byPubKey(cert.sign.owner)
+    s = xor(cert.marker, id)
+    s = unsignedIntFromFirstFourBytes(s)
+    return s
+
+improveBestCert(certs)
+    if (certs.length <= 0) return
+    mycert = bes
+    for cert in certs
+        cert.score = scoreCert(cert)
+        if ! bestCycleCert[cert.marker] then bestCycleCert[cert.marker] = [cert]
+        else
+            // added sorted into array and limit size of array to BEST_CERTS_WANTED ad the end; scan the array linearly since the size will always be small
+            for [ind, bc] in bestCycleCert[cert.marker]
+                if bc.score < cert.score then bestCycleCert[cert.marker].splice(ind, 0, bc) 
+    bestCycleCert[cert.marker].splice(BEST_CERTS_WANTED)
+    score = 0
+    for bc in bestCycleCert[cert.marker]
+        score += bc.score
+    bestCertScore[cert.marker] = score   // need to add this to STATE section: bestCertScore: Map<cycleMarker, number>
+
+validateCerts(inp{})
+    inp = {cycleCerts[], cycleRecord}
+    if cycleCerts.length <= 0 then return false
+    // make sure all the certs are for the same cycle marker
+    marker = cycleCerts[0].marker   
+    for cert in certs
+        if cert.marker != marker then return false
+    // remove invalid certs; checks signatures; more expensive
+    if (validateCertSign(inp.cycleCerts) === false) then return false
+    return true
+
+async compareCycleCert(matches)
+    match = 0
+    tries = 2*matches
+    nodes = getRandomNodes(Node.activeIdOrder, tries)
+    for node in nodes
+        response = ask node internal endpoint /compareCycleCert with {cycleCerts: bestCycleCert[cycleMarker], cycleRecord }
+        if validateCerts(response) === false then continue
+        if response.cycleCerts[0].marker === cycleMarker then match += 1
+        improveBestCert(response.cycleCerts)
+        marker = response.cycleCerts[0].marker
+        if (bestCertScore[cycleMarker] < bestCertScore[marker]) 
+            cycleRecord = response.cycleRecord
+            cycleMarker = marker
+        if match >= matches then return true
+    return false
+
+Internal Endpoint /compareCycleCert
+    inp = {cycleCerts[], cycleRecord}
+    if validateCerts(inp) === false then respond {cycleCerts: bestCycleCert[cycleMarker], cycleRecord}; return
+    improveBestCert(inp.cycleCerts)
+    marker = inp.cycleCerts[0].marker
+    if (bestCertScore[cycleMarker] < bestCertScore[marker]) 
+        cycleRecord = inp.cycleRecord
+        cycleMarker = marker
+    respond {cycleCerts: bestCycleCert[cycleMarker], cycleRecord}
+
+gossipCycleCert()
+    score = bestCertScore[cycleMarker]
+    if score === null then score = 0
+    improveBestCert([cyclecCert])
+    if bestCertScore[cycleMarker] > score
+        gossip to active nodes {type:"cycleCert", cycleCerts:bestCycleCert[cycleMarker], cycleRecord}
+
+Internal Gossip Handler for type:"cycleCert"
+    inp = {cycleCerts[], cycleRecord}
+    if validateCerts(inp) === false then return 
+    score = bestCertScore[cycleMarker]
+    if score === null then score = 0
+    improveBestCert(inp.cycleCerts)
+    marker = inp.cycleCerts[0].marker
+    if (score < bestCertScore[marker]) 
+        cycleRecord = inp.cycleRecord
+        cycleMarker = marker
+        gossip to active nodes {type:"cycleCert", cycleCerts:bestCycleCert[cycleMarker], cycleRecord}
+
+
+// ======= Example Cycle Transaction Module =======
+
+getCycleTxs()
+
+updateCycleRecord(tx, record, prevRecord)
+
+gossipHandler()
+  if processTxGoggip()
+    if isTxOrig(tx) && processTxGossipOrig()
+  else
+    gossip to 
+
+routeHandler()
+
+
+*/
+
+
+
+
+
+
+
+    
