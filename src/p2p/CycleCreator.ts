@@ -20,7 +20,7 @@ import * as Rotation from './Rotation'
 import * as SafetyMode from './SafetyMode'
 import * as Self from './Self'
 import * as Sync from './Sync'
-import { compareQuery, Comparison } from './Utils'
+import { compareQuery, compareQuery2, Comparison } from './Utils'
 import { errorToStringFull } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { reportLost  } from './Lost'
@@ -58,6 +58,10 @@ export let nextQ1Start = 0
 
 export let scaleFactor: number = 1
 export let scaleFactorSyncBoost: number = 1
+
+export let netConfig: any = {}
+
+let compareCertsByPickingRandomNodes = true // This will pick a random node and then uses a prime number to iterate over the list
 
 let madeCycle = false // True if we successfully created the last cycle record, otherwise false
 // not used anymore
@@ -1083,19 +1087,32 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
     matches = NodeList.activeOthersByIdOrder.length
   }
 
-  /**
-   * [NOTE] The number of nodesToAsk should be limited based on the amount of
-   * time we have in the quarter
-   */
-  // We shuffle to spread out the network load of cert comparison
-  const nodesToAsk = [...NodeList.activeOthersByIdOrder]
-  utils.shuffleArray(nodesToAsk)
+  let errors
+  let nodesToAsk
 
-  // If anything compares better than us, compareQuery starts over
-  const errors = await compareQuery<
-    P2P.NodeListTypes.Node,
-    [CompareCertRes, P2P.NodeListTypes.Node]
-  >(nodesToAsk, queryFn, compareFn, matches)
+  if (compareCertsByPickingRandomNodes) {
+    nodesToAsk = [...NodeList.activeByIdOrder]
+    console.log('compare Query', myC)
+    errors = await compareQuery2<
+      P2P.NodeListTypes.Node,
+      [CompareCertRes, P2P.NodeListTypes.Node]
+    >(nodesToAsk, queryFn, compareFn, matches)
+  } else {
+
+    /**
+     * [NOTE] The number of nodesToAsk should be limited based on the amount of
+     * time we have in the quarter
+     */
+    // We shuffle to spread out the network load of cert comparison
+    const nodesToAsk = [...NodeList.activeOthersByIdOrder]
+    utils.shuffleArray(nodesToAsk)
+
+    // If anything compares better than us, compareQuery starts over
+    errors = await compareQuery<
+      P2P.NodeListTypes.Node,
+      [CompareCertRes, P2P.NodeListTypes.Node]
+    >(nodesToAsk, queryFn, compareFn, matches)
+  }
 
   if (errors.length > 0) {
     warn(`compareCycleCertEndpoint: errors: ${JSON.stringify(errors)}`)

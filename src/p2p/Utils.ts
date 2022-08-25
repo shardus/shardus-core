@@ -4,6 +4,7 @@ import FastRandomIterator from '../utils/FastRandomIterator'
 import {logFlags} from '../logger'
 import { config } from './Context'
 import { stringifyReduce } from '../utils'
+import * as Self from './Self'
 
 
 export type QueryFunction<Node, Response> = (node: Node) => Promise<Response>
@@ -91,6 +92,113 @@ export async function compareQuery<Node = unknown, Response = unknown>(
   } while (startOver)
 
   return errors
+}
+
+export async function compareQuery2<Node = unknown, Response = unknown>(
+  nodes: Node[],
+  queryFn: QueryFunction<Node, Response>,
+  compareFn: CompareFunction<Response>,
+  matches: number
+): Promise<CompareFunctionResult<Node>> {
+  let abort: boolean
+  let errors: Array<CompareQueryError<Node>>
+  let matched: number
+
+  // [TODO] - remove or comment out the console log output from this function later
+
+  let selectedNodeList: any = []
+
+  const p = biggerPrime(nodes.length)
+  const ourNodeIdx = nodes.findIndex((node: any) => node.id === Self.id)
+  console.log('ourNodeIdx', ourNodeIdx)
+  let randomNumber = getRndInteger(1, p - 1)
+
+  abort = false
+  errors = []
+  matched = 0
+
+  for (let i = 0; selectedNodeList.length < nodes.length; i++) {
+    randomNumber = (ourNodeIdx + randomNumber) % p
+    if (randomNumber > nodes.length) {
+      console.log('Bigger number', randomNumber)
+      randomNumber = (randomNumber + randomNumber) % p
+      console.log('randomNumber', randomNumber)
+      if (randomNumber > nodes.length) {
+        for (let j = 0; j < nodes.length; j++) {
+          if (!selectedNodeList.includes(j)) {
+            randomNumber = j
+            break
+          }
+        }
+      }
+    }
+    if (!selectedNodeList.includes(randomNumber)) {
+      selectedNodeList.push(randomNumber)
+      console.log('selectedNodeList', selectedNodeList.length, selectedNodeList)
+    } else {
+      for (let j = 0; j < nodes.length; j++) {
+        if (!selectedNodeList.includes(j)) {
+          randomNumber = j
+          selectedNodeList.push(randomNumber)
+          console.log('selectedNodeList', selectedNodeList.length, selectedNodeList)
+          break
+        }
+      }
+    }
+    if (randomNumber === ourNodeIdx) {
+      continue
+    }
+    const node = nodes[randomNumber]
+    try {
+      const response = await queryFn(node)
+
+      switch (compareFn(response)) {
+        case Comparison.BETTER:
+          // I think it's better to compare with the ones that are left instead of starting over the list
+          matched = 1
+          break
+        case Comparison.EQUAL:
+          matched++
+          if (matched >= matches) return errors
+          break
+        case Comparison.WORSE:
+          // Try the next one
+          break
+        case Comparison.ABORT:
+          // End everything and return
+          abort = true
+          break
+        default:
+      }
+    } catch (error) {
+      errors.push({
+        node,
+        error: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+      })
+    }
+    if (abort) break
+    if (selectedNodeList.length === nodes.length - 1) {
+      // If the loop reaches to this state, this means we haven't found matches yet
+      // Start the compare again
+      errors = await compareQuery2(nodes, queryFn, compareFn, matches)
+      return errors
+    }
+  }
+  return errors
+}
+
+function biggerPrime(n: number) {
+  for (var i = 2; i < n; i++) {
+    if (n % i == 0) {
+      n += 1
+      i = 2
+    }
+  }
+  return n
+}
+
+function getRndInteger(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
 /**
