@@ -4,7 +4,7 @@ import FastRandomIterator from '../utils/FastRandomIterator'
 import {logFlags} from '../logger'
 import { config } from './Context'
 import { stringifyReduce } from '../utils'
-import * as Self from './Self'
+import { primeIterator } from '../utils/PrimeIterator'
 
 
 export type QueryFunction<Node, Response> = (node: Node) => Promise<Response>
@@ -57,7 +57,7 @@ export async function compareQuery<Node = unknown, Response = unknown>(
     errors = []
     matched = 0
 
-    for (const node of nodes) {
+    for (const node of primeIterator(nodes)) {
       try {
         const response = await queryFn(node)
 
