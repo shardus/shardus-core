@@ -170,12 +170,15 @@ class Sqlite3Storage {
     try {
     // Create dbDir if it doesn't exist
     await _ensureExists(dbDir)
-    this.mainLogger.info('Created Database directory.')
+    this.mainLogger.info(`Created Shardus Database directory ${dbDir}.`)
+
 
     if (this.storageConfig.options.memoryFile) {
       this.db = new sqlite3.Database(':memory:')
     } else {
+      this.mainLogger.info(`Creating Shardus Database at ${this.storageConfig.options.storage}.`)
       this.db = new sqlite3.Database(this.storageConfig.options.storage)
+      this.mainLogger.info(`Created Shardus Database at ${this.storageConfig.options.storage}.`)
     }
 
     // Create tables for models in DB if they don't exist
@@ -211,7 +214,7 @@ class Sqlite3Storage {
     this.mainLogger.info('Database initialized.')
 
   } catch (e) {
-
+    console.log("storageDir: ", this.storageConfig.options.storage)
     this.mainLogger.error('storage init error ' + e.name + ': ' + e.message + ' at ' + e.stack)
     throw new Error('storage init error ' + e.name + ': ' + e.message + ' at ' + e.stack)
     

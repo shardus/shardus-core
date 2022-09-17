@@ -4,7 +4,7 @@ import {StateManager as StateManagerTypes } from '@shardus/types'
 
 import { isNodeDown, isNodeLost, isNodeUpRecent } from '../p2p/Lost'
 
-import ShardFunctions from './shardFunctions.js'
+import ShardFunctions from './shardFunctions'
 
 const EventEmitter = require('events')
 import * as utils from '../utils'
@@ -25,7 +25,6 @@ import { potentiallyRemoved, activeByIdOrder, activeOthersByIdOrder } from '../p
 import * as Self from '../p2p/Self'
 import * as NodeList from '../p2p/NodeList'
 import * as CycleChain from '../p2p/CycleChain'
-import * as Comms from '../p2p/Comms'
 import { response } from 'express'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import PartitionStats from './PartitionStats'
@@ -483,7 +482,7 @@ class StateManager {
       throw new Error('this.config.sharding === null')
     }
 
-    const cycle = CycleChain.getNewest()
+    const cycle = this.p2p.state.getLastCycle()
     if (cycle !== null && cycle !== undefined) {
       cycleShardData.timestamp = cycle.start * 1000
       cycleShardData.timestampEndCycle = (cycle.start + cycle.duration) * 1000
@@ -652,7 +651,7 @@ class StateManager {
 
   getCurrentCycleShardData(): CycleShardData | null {
     if (this.currentCycleShardData === null) {
-      const cycle = CycleChain.getNewest()
+      const cycle = this.p2p.state.getLastCycle()
       if (cycle === null || cycle === undefined) {
         return null
       }
@@ -815,7 +814,7 @@ class StateManager {
       failedAccountsById[hash] = true
     }
 
-    const lastCycle = CycleChain.getNewest()
+    const lastCycle = this.p2p.state.getLastCycle()
     let cycleNumber = lastCycle.counter
     let accountCopies: AccountCopy[] = []
     for (let accountEntry of goodAccounts) {
@@ -1061,7 +1060,7 @@ class StateManager {
     this.partitionStats.setupHandlers()
 
     // p2p ASK
-    Comms.registerInternal('request_receipt_for_tx_old', async (payload: RequestReceiptForTxReq, respond: (arg0: RequestReceiptForTxResp_old) => any, sender, tracker: string, msgSize: number) => {
+    this.p2p.registerInternal('request_receipt_for_tx_old', async (payload: RequestReceiptForTxReq, respond: (arg0: RequestReceiptForTxResp_old) => any, sender, tracker: string, msgSize: number) => {
       profilerInstance.scopedProfileSectionStart('request_receipt_for_tx_old', false, msgSize)
       
       let response: RequestReceiptForTxResp_old = { receipt: null, note: '', success: false }
@@ -1096,7 +1095,7 @@ class StateManager {
     })
 
     // p2p ASK
-    Comms.registerInternal('request_receipt_for_tx', async (payload: RequestReceiptForTxReq, respond: (arg0: RequestReceiptForTxResp) => any, sender, tracker: string, msgSize: number) => {
+    this.p2p.registerInternal('request_receipt_for_tx', async (payload: RequestReceiptForTxReq, respond: (arg0: RequestReceiptForTxResp) => any, sender, tracker: string, msgSize: number) => {
       profilerInstance.scopedProfileSectionStart('request_receipt_for_tx', false, msgSize)
       
       let response: RequestReceiptForTxResp = { receipt: null, note: '', success: false }
@@ -1127,7 +1126,7 @@ class StateManager {
       }
     })
 
-    Comms.registerInternal('request_state_for_tx_post', async (payload: RequestStateForTxReqPost, respond: (arg0: RequestStateForTxResp) => any, sender, tracker: string, msgSize: number) => {
+    this.p2p.registerInternal('request_state_for_tx_post', async (payload: RequestStateForTxReqPost, respond: (arg0: RequestStateForTxResp) => any, sender, tracker: string, msgSize: number) => {
       profilerInstance.scopedProfileSectionStart('request_state_for_tx_post', false, msgSize)
       let responseSize = cUninitializedSize
       try {      
@@ -1201,7 +1200,7 @@ class StateManager {
     })
 
 
-    Comms.registerInternal('request_tx_and_state', async (payload: {txid:string}, respond: (arg0: RequestTxResp) => any, sender, tracker: string, msgSize: number) => {
+    this.p2p.registerInternal('request_tx_and_state', async (payload: {txid:string}, respond: (arg0: RequestTxResp) => any, sender, tracker: string, msgSize: number) => {
       profilerInstance.scopedProfileSectionStart('request_state_for_tx_post', false, msgSize)
       let responseSize = cUninitializedSize
       try {  
@@ -1267,7 +1266,7 @@ class StateManager {
 
     // TODO STATESHARDING4 ENDPOINTS ok, I changed this to tell, but we still need to check sender!
     //this.p2p.registerGossipHandler('spread_appliedVote', async (payload, sender, tracker) => {
-    Comms.registerInternal('spread_appliedVote', async (payload: AppliedVote, respond: any, sender, tracker: string, msgSize: number) => {
+    this.p2p.registerInternal('spread_appliedVote', async (payload: AppliedVote, respond: any, sender, tracker: string, msgSize: number) => {
       profilerInstance.scopedProfileSectionStart('spread_appliedVote', false, msgSize)
       try{
         let queueEntry = this.transactionQueue.getQueueEntrySafe(payload.txid) // , payload.timestamp)
@@ -1286,7 +1285,7 @@ class StateManager {
       }
     })
 
-    Comms.registerInternal('spread_appliedVoteHash', async (payload: AppliedVoteHash, respond: any, sender, tracker: string, msgSize: number) => {
+    this.p2p.registerInternal('spread_appliedVoteHash', async (payload: AppliedVoteHash, respond: any, sender, tracker: string, msgSize: number) => {
       profilerInstance.scopedProfileSectionStart('spread_appliedVoteHash', false, msgSize)
       try{
         let queueEntry = this.transactionQueue.getQueueEntrySafe(payload.txid) // , payload.timestamp)
@@ -1305,7 +1304,7 @@ class StateManager {
       }
     })
 
-    Comms.registerInternal('get_account_data_with_queue_hints', async (payload: { accountIds: string[] }, respond: (arg0: GetAccountDataWithQueueHintsResp) => any, sender, tracker: string, msgSize: number) => {
+    this.p2p.registerInternal('get_account_data_with_queue_hints', async (payload: { accountIds: string[] }, respond: (arg0: GetAccountDataWithQueueHintsResp) => any, sender, tracker: string, msgSize: number) => {
       profilerInstance.scopedProfileSectionStart('request_state_for_tx_post', false, msgSize)
       let responseSize = cUninitializedSize
       try { 
@@ -1402,35 +1401,35 @@ class StateManager {
 
   _unregisterEndpoints() {
     //Comms.unregisterGossipHandler('acceptedTx')
-    Comms.unregisterInternal('get_account_state_hash')
-    Comms.unregisterInternal('get_account_state')
+    this.p2p.unregisterInternal('get_account_state_hash')
+    this.p2p.unregisterInternal('get_account_state')
     //Comms.unregisterInternal('get_accepted_transactions')
     //Comms.unregisterInternal('get_account_data')
     //Comms.unregisterInternal('get_account_data2')
-    Comms.unregisterInternal('get_account_data3')
-    Comms.unregisterInternal('get_account_data_by_list')
+    this.p2p.unregisterInternal('get_account_data3')
+    this.p2p.unregisterInternal('get_account_data_by_list')
     //Comms.unregisterInternal('post_partition_results')
     //Comms.unregisterInternal('get_transactions_by_list')
     //Comms.unregisterInternal('get_transactions_by_partition_index')
     //Comms.unregisterInternal('get_partition_txids')
     // new shard endpoints:
     // Comms.unregisterInternal('route_to_home_node')
-    Comms.unregisterInternal('request_state_for_tx')
-    Comms.unregisterInternal('request_state_for_tx_post')
-    Comms.unregisterInternal('request_tx_and_state')
+    this.p2p.unregisterInternal('request_state_for_tx')
+    this.p2p.unregisterInternal('request_state_for_tx_post')
+    this.p2p.unregisterInternal('request_tx_and_state')
 
-    Comms.unregisterInternal('request_receipt_for_tx')
-    Comms.unregisterInternal('broadcast_state')
-    Comms.unregisterGossipHandler('spread_tx_to_group')
-    Comms.unregisterInternal('get_account_data_with_queue_hints')
-    Comms.unregisterInternal('get_globalaccountreport')
-    Comms.unregisterInternal('spread_appliedVote')
-    Comms.unregisterGossipHandler('spread_appliedReceipt')
+    this.p2p.unregisterInternal('request_receipt_for_tx')
+    this.p2p.unregisterInternal('broadcast_state')
+    this.p2p.unregisterGossipHandler('spread_tx_to_group')
+    this.p2p.unregisterInternal('get_account_data_with_queue_hints')
+    this.p2p.unregisterInternal('get_globalaccountreport')
+    this.p2p.unregisterInternal('spread_appliedVote')
+    this.p2p.unregisterGossipHandler('spread_appliedReceipt')
 
-    Comms.unregisterInternal('get_trie_hashes')
-    Comms.unregisterInternal('sync_trie_hashes')
-    Comms.unregisterInternal('get_trie_accountHashes')
-    Comms.unregisterInternal('get_account_data_by_hashes')
+    this.p2p.unregisterInternal('get_trie_hashes')
+    this.p2p.unregisterInternal('sync_trie_hashes')
+    this.p2p.unregisterInternal('get_trie_accountHashes')
+    this.p2p.unregisterInternal('get_account_data_by_hashes')
 
   }
 
@@ -1719,7 +1718,7 @@ class StateManager {
       }
 
       let message = { accountIds: [address] }
-      let r: GetAccountDataWithQueueHintsResp | boolean = await Comms.ask(randomConsensusNode, 'get_account_data_with_queue_hints', message)
+      let r: GetAccountDataWithQueueHintsResp | boolean = await this.p2p.ask(randomConsensusNode, 'get_account_data_with_queue_hints', message)
       if (r === false) {
         if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteAccount r === false')
       }
@@ -1805,7 +1804,7 @@ class StateManager {
     }
 
     let message = { accountIds: [address] }
-    let result = await Comms.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
+    let result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
     if (result === false) {
       if (logFlags.error) this.mainLogger.error('ASK FAIL getRemoteAccount result === false')
     }
