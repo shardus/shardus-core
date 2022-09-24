@@ -76,7 +76,7 @@ class AccountGlobals {
 
   setupHandlers() {
     this.p2p.registerInternal('get_globalaccountreport', async (payload: any, respond: (arg0: GlobalAccountReportResp) => any, sender, tracker: string, msgSize: number) => {
-      profilerInstance.scopedProfileSectionStart('get_globalaccountreport', false, msgSize)
+      this.profiler.scopedProfileSectionStart('get_globalaccountreport', false, msgSize)
       let responseSize = cUninitializedSize
       try {
         let result = { combinedHash: '', accounts: [], ready: this.stateManager.appFinishedSyncing } as GlobalAccountReportResp
@@ -166,7 +166,7 @@ class AccountGlobals {
         result.combinedHash = this.crypto.hash(result)
         responseSize = await respond(result)
       } finally {
-        profilerInstance.scopedProfileSectionEnd('get_globalaccountreport', responseSize)
+        this.profiler.scopedProfileSectionEnd('get_globalaccountreport', responseSize)
       }
     })
   }

@@ -467,7 +467,8 @@ class StateManager {
     }
 
     try {
-      cycleShardData.ourNode = NodeList.nodes.get(Self.id)
+      // cycleShardData.ourNode = NodeList.nodes.get(Self.id)
+      cycleShardData.ourNode = NodeList.nodes.get(this.p2p.getNodeId())
     } catch (ex) {
       if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_notactive', `${cycleNumber}`, `  `)
       return
