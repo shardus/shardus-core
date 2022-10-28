@@ -8,6 +8,7 @@ import { P2P } from '@shardus/types'
 import { logFlags } from '../logger'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { cNoSizeTrack, cUninitializedSize } from '../utils/profiler'
+import * as cryptoUtils from '@shardus/crypto-utils'
 
 /** ROUTES */
 
@@ -153,6 +154,31 @@ function _wrapAndTagMessage(msg, tracker = '', recipientNode) {
   return tagged
 }
 
+function _wrapAndTagMessageMultiDestination(
+  msg,
+  tracker = '',
+  recipientNodes
+): { node: any; taggedMessage: any }[] {
+  const wrappedMsg = {
+    payload: msg,
+    sender: Self.id,
+    tracker,
+    tag_msgSize: 0,
+  }
+  const wrappedMsgStr = cryptoUtils.stringify(wrappedMsg)
+  const msgLength = wrappedMsgStr.length
+  wrappedMsg.tag_msgSize = msgLength
+  const taggedMessageList = []
+  for (const node of recipientNodes) {
+    const objCopy = JSON.parse(wrappedMsgStr)
+    const tag = crypto.getTag(wrappedMsgStr, node.curvePublicKey)
+    objCopy.tag = tag
+    if (logFlags.p2pNonFatal) info(`signed and tagged gossip`, utils.stringifyReduceLimit(wrappedMsg))
+    taggedMessageList.push({ node: node, taggedMessage: objCopy })
+  }
+  return taggedMessageList
+}
+
 function createMsgTracker() {
   return 'key_' + utils.makeShortHash(Self.id) + '_' + Date.now() + '_' + keyCounter++
 }
@@ -161,7 +187,7 @@ function createGossipTracker() {
 }
 
 // Our own P2P version of the network tell, with a sign added
-export async function tell(nodes, route, message, logged = false, tracker = '') {
+export async function tell(nodes: any[], route, message, logged = false, tracker = '') {
   let msgSize = cUninitializedSize
   if (tracker === '') {
     tracker = createMsgTracker()
@@ -175,16 +201,11 @@ export async function tell(nodes, route, message, logged = false, tracker = '') 
     /* prettier-ignore */ nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `tell ${route} recipients:${nodes.length}`)
   }
 
-  for (const node of nodes) {
-    if (node.id === Self.id) {
-      if (logFlags.p2pNonFatal) info('p2p/Comms:tell: Not telling self')
-      continue
-    }
-    const signedMessage = _wrapAndTagMessage(message, tracker, node)
-    msgSize = signedMessage.tag_msgSize
-    if (logFlags.p2pNonFatal) info(`signed and tagged gossip`, utils.stringifyReduceLimit(signedMessage))
-    promises.push(network.tell([node], route, signedMessage, logged))
-  }
+  const filteredNodes = nodes.filter((node) => node.id !== Self.id)
+  const msgsWithDest = _wrapAndTagMessageMultiDestination(message, tracker, filteredNodes)
+  msgsWithDest.forEach((msgWithDest) =>
+    promises.push(network.tell([msgWithDest.node], route, msgWithDest.taggedMessage, logged))
+  )
   try {
     await Promise.all(promises)
   } catch (err) {

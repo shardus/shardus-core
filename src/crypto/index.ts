@@ -101,6 +101,11 @@ class Crypto {
     return objCopy
   }
 
+  getTag(stringObj: string, recipientCurvePk: crypto.curvePublicKey) {
+    const sharedKey = this.getSharedKey(recipientCurvePk)
+    return crypto.tag(stringObj, sharedKey)
+  }
+
   authenticate(obj: any, senderCurvePk: crypto.curvePublicKey) {
     const sharedKey = this.getSharedKey(senderCurvePk)
     return crypto.authenticateObj(obj, sharedKey)
