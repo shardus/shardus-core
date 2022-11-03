@@ -11,21 +11,17 @@ import * as utils from '../utils'
 
 const stringify = require('fast-stable-stringify')
 
-const allZeroes64 = '0'.repeat(64)
-
 // not sure about this.
 import Profiler, { cUninitializedSize, profilerInstance } from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import Storage from '../storage'
 import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
-import { throws } from 'assert'
 import * as Context from '../p2p/Context'
-import { potentiallyRemoved, activeByIdOrder, activeOthersByIdOrder } from '../p2p/NodeList'
+import { potentiallyRemoved, activeByIdOrder } from '../p2p/NodeList'
 import * as Self from '../p2p/Self'
 import * as NodeList from '../p2p/NodeList'
 import * as CycleChain from '../p2p/CycleChain'
-import { response } from 'express'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import PartitionStats from './PartitionStats'
 import AccountCache from './AccountCache'
@@ -123,7 +119,6 @@ class StateManager {
   // syncTrackers:SyncTracker[];
   shardValuesByCycle: Map<number, CycleShardData>
   currentCycleShardData: CycleShardData | null
-  globalAccountsSynced: boolean
 
   dataRepairsCompleted: number
   dataRepairsStarted: number
@@ -152,7 +147,6 @@ class StateManager {
   debugTXHistory: { [id: string]: string } // need to disable or clean this as it will leak memory
 
   stateIsGood_txHashsetOld: boolean
-  stateIsGood_accountPartitions: boolean
   stateIsGood_activeRepairs: boolean
   stateIsGood: boolean
 
@@ -646,7 +640,7 @@ class StateManager {
       this.profiler.profileSectionStart('updateShardValues_getOrderedSyncingNeighbors') //0
       // calculate if there are any nearby nodes that are syncing right now.
       if (logFlags.verbose) this.mainLogger.debug(`updateShardValues: getOrderedSyncingNeighbors`)
-      cycleShardData.syncingNeighbors = this.p2p.state.getOrderedSyncingNeighbors(cycleShardData.ourNode)
+      cycleShardData.syncingNeighbors = this.p2p.state.getOrderedSyncingNeighbors()
       this.profiler.profileSectionEnd('updateShardValues_getOrderedSyncingNeighbors')
 
       if (cycleShardData.syncingNeighbors.length > 0) {
@@ -1218,23 +1212,6 @@ class StateManager {
     this._listeners[event] = [emitter, callback]
   }
 
-  _unregisterListener(event: string) {
-    if (!this._listeners[event]) {
-      this.mainLogger.warn(`This event listener doesn't exist! Event: \`${event}\` in StateManager`)
-      return
-    }
-    const entry = this._listeners[event]
-    const [emitter, callback] = entry
-    emitter.removeListener(event, callback)
-    delete this._listeners[event]
-  }
-
-  _cleanupListeners() {
-    for (const event of Object.keys(this._listeners)) {
-      this._unregisterListener(event)
-    }
-  }
-
   registerEndpoints() {
     // alternatively we would need to query for accepted tx.
 
@@ -1632,7 +1609,7 @@ class StateManager {
         try {
           let result: QueueCountsResponse = { counts: [] }
           for (let address of payload.accountIds) {
-            let count = this.transactionQueue.getAccountQueueCount(address, true)
+            let count = this.transactionQueue.getAccountQueueCount(address)
             result.counts.push(count)
           }
 
@@ -1698,39 +1675,6 @@ class StateManager {
       }
       res.json(debugNodeList)
     })
-  }
-
-  _unregisterEndpoints() {
-    //Comms.unregisterGossipHandler('acceptedTx')
-    this.p2p.unregisterInternal('get_account_state_hash')
-    this.p2p.unregisterInternal('get_account_state')
-    //Comms.unregisterInternal('get_accepted_transactions')
-    //Comms.unregisterInternal('get_account_data')
-    //Comms.unregisterInternal('get_account_data2')
-    this.p2p.unregisterInternal('get_account_data3')
-    this.p2p.unregisterInternal('get_account_data_by_list')
-    //Comms.unregisterInternal('post_partition_results')
-    //Comms.unregisterInternal('get_transactions_by_list')
-    //Comms.unregisterInternal('get_transactions_by_partition_index')
-    //Comms.unregisterInternal('get_partition_txids')
-    // new shard endpoints:
-    // Comms.unregisterInternal('route_to_home_node')
-    this.p2p.unregisterInternal('request_state_for_tx')
-    this.p2p.unregisterInternal('request_state_for_tx_post')
-    this.p2p.unregisterInternal('request_tx_and_state')
-
-    this.p2p.unregisterInternal('request_receipt_for_tx')
-    this.p2p.unregisterInternal('broadcast_state')
-    this.p2p.unregisterGossipHandler('spread_tx_to_group')
-    this.p2p.unregisterInternal('get_account_data_with_queue_hints')
-    this.p2p.unregisterInternal('get_globalaccountreport')
-    this.p2p.unregisterInternal('spread_appliedVote')
-    this.p2p.unregisterGossipHandler('spread_appliedReceipt')
-
-    this.p2p.unregisterInternal('get_trie_hashes')
-    this.p2p.unregisterInternal('sync_trie_hashes')
-    this.p2p.unregisterInternal('get_trie_accountHashes')
-    this.p2p.unregisterInternal('get_account_data_by_hashes')
   }
 
   // //////////////////////////////////////////////////////////////////////////
@@ -2335,26 +2279,6 @@ class StateManager {
     return false
   }
 
-  async _clearState() {
-    await this.storage.clearAppRelatedState()
-  }
-
-  _stopQueue() {
-    this.transactionQueue.queueStopped = true
-  }
-
-  _clearQueue() {
-    this.transactionQueue.newAcceptedTxQueue = []
-  }
-
-  async cleanup() {
-    this._stopQueue()
-    this._unregisterEndpoints()
-    this._clearQueue()
-    this._cleanupListeners()
-    await this._clearState()
-  }
-
   isStateGood() {
     return this.stateIsGood
   }
@@ -2429,7 +2353,7 @@ class StateManager {
         continue
       }
 
-      let isGlobalKey = false
+
       //intercept that we have this data rather than requesting it.
       // only if this tx is not a global modifying tx.   if it is a global set then it is ok to save out the global here.
       if (this.accountGlobals.isGlobalAccount(key)) {
@@ -2466,7 +2390,7 @@ class StateManager {
     repairing: boolean,
     txTimestamp: number
   ) {
-    let cycleNumber = -1
+    let cycleNumber: number
 
     let timePlusSettle = txTimestamp + this.syncSettleTime //tx timestamp + settle time to determine what cycle to save in
 
@@ -2670,7 +2594,7 @@ class StateManager {
         if (sleepEstimate < 1) {
           sleepEstimate = 1
         }
-        await utils.sleep(1 * sleepEstimate)
+        await utils.sleep(sleepEstimate)
         // await utils.sleep(2)
       }
       // remove our entry from the array
@@ -3028,9 +2952,8 @@ class StateManager {
         }
 
         //todo wrap his up
-        let cycleShardValues = null
         if (this.shardValuesByCycle.has(lastCycle.counter)) {
-          cycleShardValues = this.shardValuesByCycle.get(lastCycle.counter)
+          this.shardValuesByCycle.get(lastCycle.counter)
         }
 
         //this.partitionStats.dumpLogsForCycle(lastCycle.counter, true, cycleShardValues)
@@ -3477,7 +3400,7 @@ class StateManager {
     }
 
     if (checkIsUpRecent) {
-      let { upRecent, state, age } = isNodeUpRecent(nodeId, 5000)
+      let { upRecent, age } = isNodeUpRecent(nodeId, 5000)
       if (upRecent === true) {
         if (checkForNodeDown) {
           let { down, state } = isNodeDown(nodeId)
@@ -3567,7 +3490,7 @@ class StateManager {
         continue
       }
       if (checkIsUpRecent) {
-        let { upRecent, state, age } = isNodeUpRecent(nodeId, 5000)
+        let { upRecent, age } = isNodeUpRecent(nodeId, 5000)
         if (upRecent === true) {
           filteredNodes.push(node)
 

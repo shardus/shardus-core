@@ -12,55 +12,6 @@ import { Cycle, CycleShardData } from '../state-manager/state-manager-types'
 import { safetyModeVals, snapshotLogger } from './index'
 import { hashMap } from './partition-gossip'
 
-const { Transform } = require('stream')
-/** TYPES */
-
-const status: 'applied' | 'rejected' = 'applied'
-const tx = {
-  /* Unsigned transaction */
-}
-type txId = string
-type txId2 = string
-type ReceiptMap = Map<txId, txId2[]>
-interface PartitionBlock {
-  cycle: Cycle['counter']
-  partitionId: PartitionNum
-  receiptMap: ReceiptMap
-}
-interface Account {
-  accountId: string
-  hash: string
-}
-
-type PartitionRanges = Map<
-  StateManager.shardFunctionTypes.AddressRange['partition'],
-  StateManager.shardFunctionTypes.AddressRange
->
-
-type PartitionAccounts = Map<StateManager.shardFunctionTypes.AddressRange['partition'], Account[]>
-
-type PartitionNum = number
-
-enum offerResponse {
-  needed = 'needed',
-  notNeeded = 'not_needed',
-  tryLater = 'try_later',
-  sendTo = 'send_to',
-}
-
-const fakeReceipMap = new Map()
-
-export function calculatePartitionBlock(shard) {
-  const partitionToReceiptMap: Map<PartitionNum, ReceiptMap> = new Map()
-  for (const partition of shard.ourStoredPartitions) {
-    const receiptMap: ReceiptMap = new Map()
-    partitionToReceiptMap.set(partition, fakeReceipMap)
-  }
-  // set receiptMap for global partition
-  partitionToReceiptMap.set(-1, fakeReceipMap)
-  return partitionToReceiptMap
-}
-
 export function createNetworkHash(hashes: Map<number, string>): P2P.SnapshotTypes.NetworkStateHash {
   let hashArray = []
   for (const [, hash] of hashes) {
@@ -86,7 +37,7 @@ export function updateStateHashesByCycleMap(
   newStateHashByCycle.set(counter, transformedStateHash)
   if (newStateHashByCycle.size > 100 && counter > 100) {
     const limit = counter - 100
-    for (const [key, value] of newStateHashByCycle) {
+    for (const [key] of newStateHashByCycle) {
       if (key < limit) {
         newStateHashByCycle.delete(key)
       }
@@ -111,7 +62,7 @@ export function updateReceiptHashesByCycleMap(
   newReceiptHashesByCycle.set(counter, transformedStateHash)
   if (newReceiptHashesByCycle.size > 100 && counter > 100) {
     const limit = counter - 100
-    for (const [key, value] of newReceiptHashesByCycle) {
+    for (const [key] of newReceiptHashesByCycle) {
       if (key < limit) {
         newReceiptHashesByCycle.delete(key)
       }
@@ -136,7 +87,7 @@ export function updateSummaryHashesByCycleMap(
   newSummaryHashesByCycle.set(counter, transformedSummaryHash)
   if (newSummaryHashesByCycle.size > 100 && counter > 100) {
     const limit = counter - 100
-    for (const [key, value] of newSummaryHashesByCycle) {
+    for (const [key] of newSummaryHashesByCycle) {
       if (key < limit) {
         newSummaryHashesByCycle.delete(key)
       }
@@ -372,7 +323,7 @@ export function getMissingPartitions(shardGlobals: StateManager.shardFunctionTyp
 
 export function registerDownloadRoutes(network, oldDataMap, oldPartitionHashMap) {
   let dataToSend = {}
-  for (const [partitionId, value] of oldDataMap) {
+  for (const [partitionId] of oldDataMap) {
     dataToSend[partitionId] = {
       data: oldDataMap.get(partitionId),
       hash: oldPartitionHashMap.get(parseInt(partitionId)),
@@ -432,13 +383,6 @@ export function convertMapToObj(inputMap) {
   const obj = {}
   for (const [key, value] of inputMap) {
     obj[key] = value
-  }
-  return obj
-}
-export function convertArrayToObj(inputArr) {
-  const obj = {}
-  for (let i = 0; i < inputArr.length; i++) {
-    obj[i] = inputArr[i]
   }
   return obj
 }

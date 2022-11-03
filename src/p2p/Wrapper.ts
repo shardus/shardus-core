@@ -1,12 +1,10 @@
 import { EventEmitter } from 'events'
-import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
 import * as Active from './Active'
 import { apoptosizeSelf } from './Apoptosis'
 import * as Comms from './Comms'
-import { config, setConfig } from './Context'
+import { config } from './Context'
 import * as CycleChain from './CycleChain'
-import * as CycleCreator from './CycleCreator'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
 import * as Utils from './Utils'
@@ -104,7 +102,7 @@ class P2P extends EventEmitter {
   */
 
   // Propably don't need to do anything; the join module only uses Self.isActive to accept join request
-  setJoinRequestToggle(bool) {}
+  setJoinRequestToggle() {}
   /*
   ,function setJoinRequestToggle_orig (bool) {
     this.joinRequestToggle = bool
@@ -112,7 +110,7 @@ class P2P extends EventEmitter {
   */
 
   goActive() {
-    const activePromise = new Promise<void>((resolve, reject) => {
+    const activePromise = new Promise<void>((resolve) => {
       Self.emitter.on('active', () => resolve())
     })
     Active.requestActive()
@@ -124,10 +122,6 @@ class P2P extends EventEmitter {
       return CycleChain.cycles
     }
     return CycleChain.cycles.slice(0 - amount)
-  }
-
-  shutdown() {
-    CycleCreator.shutdown()
   }
 
   configUpdated() {
@@ -179,34 +173,13 @@ class State extends EventEmitter {
 
   // The original function in p2p.state just returns an array with all nodes that are syncing excluding self
   //     there is no concept of neighbors
-  getOrderedSyncingNeighbors(node) {
+  getOrderedSyncingNeighbors() {
     const nodes = NodeList.othersByIdOrder.filter((e) => e.status === 'syncing') // remove syncing nodes
     return nodes
   }
 
   getLastCycle() {
     return CycleChain.newest
-  }
-
-  getCycleByCounter(counter) {
-    const i = utils.binarySearch(CycleChain.cycles, { counter }, utils.propComparator('counter'))
-    if (i > -1) return CycleChain.cycles[i]
-    return null
-  }
-
-  getCycleByTimestamp(timestamp) {
-    const secondsTs = Math.floor(timestamp * 0.001)
-    const i = utils.binarySearch(CycleChain.cycles, secondsTs, (ts, record) => {
-      if (ts > record.start + record.duration) {
-        return 1
-      }
-      if (ts < record.start) {
-        return -1
-      }
-      return 0
-    })
-    if (i > -1) return CycleChain.cycles[i]
-    return null
   }
 }
 

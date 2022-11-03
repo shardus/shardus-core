@@ -78,8 +78,7 @@ Given the txs and prev cycle record mutate the referenced record
 */
 export function updateRecord(
   txs: P2P.RefreshTypes.Txs,
-  record: P2P.CycleCreatorTypes.CycleRecord,
-  prev: P2P.CycleCreatorTypes.CycleRecord
+  record: P2P.CycleCreatorTypes.CycleRecord
 ) {
   record.refreshedArchivers = Archivers.getRefreshedArchivers(record) // This returns a copy of the objects
   record.refreshedConsensors = refreshConsensors() // This returns a copy of the objects
@@ -130,14 +129,6 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
 export function queueRequest(request) {}
 
 export function sendRequests() {}
-
-/** Module Functions */
-
-function refreshArchivers() {
-  // [TODO] Come up with a better policy for this
-  const refreshedArchivers = [...Archivers.archivers.values()]
-  return refreshedArchivers.sort(propComparator('publicKey'))
-}
 
 function refreshConsensors() {
   /**

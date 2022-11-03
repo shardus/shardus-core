@@ -1,24 +1,19 @@
 import * as Shardus from '../shardus/shardus-types'
-import { StateManager as StateManagerTypes } from '@shardus/types'
 import * as utils from '../utils'
-const stringify = require('fast-stable-stringify')
 
 import Profiler from '../utils/profiler'
-import { P2PModuleContext as P2P } from '../p2p/Context'
-import Storage from '../storage'
 import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
 import ShardFunctions from './shardFunctions'
-import { time } from 'console'
 import StateManager from '.'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import {
   AccountHashCache,
+  AccountHashCacheHistory,
+  AccountHashCacheList,
   AccountHashCacheMain3,
   CycleShardData,
   MainHashResults,
-  AccountHashCacheHistory,
-  AccountHashCacheList,
   PartitionHashResults,
 } from './state-manager-types'
 
@@ -306,7 +301,7 @@ class AccountCache {
   ): number {
     let accountHashesSorted: AccountHashCache[] = historyList.accountHashesSorted
     let accountIDs: string[] = historyList.accountIDs
-    let index = accountHashesSorted.length
+    let index: number
 
     let cleanedUp = true
     let gotToEnd = false
@@ -336,7 +331,6 @@ class AccountCache {
       break
     }
     if (index == -1) {
-      gotToEnd = true
     }
     //push or insert
     if (index === accountHashesSorted.length - 1) {
@@ -488,7 +482,6 @@ class AccountCache {
       newIndex++
     }
 
-    newIndex = 0
     // process the working list.  split data into partitions and build a new list with nulled spots cleared out
     for (
       let index = 0;
@@ -615,23 +608,6 @@ class AccountCache {
     // set our new working list and future list.
     this.currentMainHashResults = mainHashResults
     return mainHashResults
-  }
-
-  filterOutNonStoredData(mainHashResults: MainHashResults) {
-    let cycle = mainHashResults.cycle
-    let shardValues = this.stateManager.shardValuesByCycle.get(cycle)
-    let shardGlobals = shardValues.shardGlobals as StateManagerTypes.shardFunctionTypes.ShardGlobals
-
-    for (let partition of mainHashResults.partitionHashResults.keys()) {
-      let partitionHashResults: PartitionHashResults = mainHashResults.partitionHashResults.get(partition)
-      if (
-        ShardFunctions.testInRange(
-          partitionHashResults.partition,
-          shardValues.nodeShardData.storedPartitions
-        ) === false
-      ) {
-      }
-    }
   }
 
   // fast version of what is above.  This is what we really need for production

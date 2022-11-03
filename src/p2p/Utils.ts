@@ -278,27 +278,20 @@ export async function robustQuery<Node = unknown, Response = unknown>(
     }
 
     // We create a promise for each of the first `redundancy` nodes in the shuffled array
-    const queries = []
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i]
-      queries.push(wrappedQuery(node))
-    }
-    const [results, errs] = await utils.robustPromiseAll(queries)
-
+    const queries = nodes.map(node => wrappedQuery(node));
+    const results = await Promise.allSettled(queries)
     let finalResult: TallyItem
-    for (const result of results) {
-      const { response, node } = result
-      if (responses === null) continue // ignore null response; can be null if we tried to query ourself
-      finalResult = responses.add(response, node)
-      if (finalResult) break
+    for (let result of results) {
+      if (result.status === 'rejected') {
+        if (logFlags.console || config.debug.robustQueryDebug) console.log('robustQuery: queryNodes:', result.reason)
+        errors += 1
+      } else if (responses != null && !finalResult) {
+        const { response, node } = result.value
+        // ignore null response; can be null if we tried to query ourself
+        finalResult = responses.add(response, node)
+      }
     }
 
-    for (const err of errs) {
-      if (logFlags.console || config.debug.robustQueryDebug) console.log('robustQuery: queryNodes:', err)
-      errors += 1
-    }
-
-    if (!finalResult) return null
     return finalResult
   }
 

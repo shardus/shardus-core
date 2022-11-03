@@ -1,7 +1,5 @@
 import * as Shardus from '../shardus/shardus-types'
-import { StateManager as StateManagerTypes } from '@shardus/types'
 import * as utils from '../utils'
-const stringify = require('fast-stable-stringify')
 
 import Profiler from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
@@ -9,17 +7,13 @@ import Storage from '../storage'
 import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
 import ShardFunctions from './shardFunctions'
-import { time } from 'console'
 import StateManager from '.'
-import Depricated from './Depricated'
 import {
   PartitionCycleReport,
   PartitionObject,
   PartitionResult,
   TempTxRecord,
   TxTallyList,
-  CycleShardData,
-  MainHashResults,
 } from './state-manager-types'
 
 class PartitionObjects {
@@ -124,7 +118,6 @@ class PartitionObjects {
     let response: PartitionCycleReport = {} // {res:[], cycleNumber:-1}
     if (this.nextCycleReportToSend != null) {
       let shardValues = this.stateManager.shardValuesByCycle.get(this.nextCycleReportToSend.cycleNumber)
-      let shardGlobals = shardValues.shardGlobals as StateManagerTypes.shardFunctionTypes.ShardGlobals
       let consensusStartPartition = shardValues.nodeShardData.consensusStartPartition
       let consensusEndPartition = shardValues.nodeShardData.consensusEndPartition
 
@@ -161,47 +154,6 @@ class PartitionObjects {
       }
     }
     return response
-  }
-
-  /**
-   * updatePartitionReport
-   * use our MainHashResults from in memory data to create the nextCycleReportToSend that is used by
-   * getPartitionReport() / reporter module
-   * @param cycleShardData
-   * @param mainHashResults
-   */
-  updatePartitionReport(cycleShardData: CycleShardData, mainHashResults: MainHashResults) {
-    if (this.stateManager.feature_useNewParitionReport === false) {
-      return
-    }
-
-    let partitions = cycleShardData.ourConsensusPartitions
-    if (this.stateManager.useStoredPartitionsForReport === true) {
-      partitions = cycleShardData.ourStoredPartitions
-    }
-    if (partitions == null) {
-      throw new Error('updatePartitionReport partitions == null')
-    }
-
-    this.nextCycleReportToSend = { res: [], cycleNumber: cycleShardData.cycleNumber }
-
-    for (let partition of partitions) {
-      if (mainHashResults.partitionHashResults.has(partition)) {
-        let partitionHashResults = mainHashResults.partitionHashResults.get(partition)
-        this.nextCycleReportToSend.res.push({ i: partition, h: partitionHashResults.hashOfHashes })
-      }
-    }
-  }
-
-  /**
-   * @param {PartitionObject} partitionObject
-   */
-  poMicroDebug(partitionObject: PartitionObject) {
-    let header = `c${partitionObject.Cycle_number} p${partitionObject.Partition_id}`
-
-    // need to get a list of compacted TXs in order. also addresses. timestamps?  make it so tools can process easily. (align timestamps view.)
-
-    if (logFlags.debug) this.mainLogger.debug('poMicroDebug: ' + header)
   }
 
   /***

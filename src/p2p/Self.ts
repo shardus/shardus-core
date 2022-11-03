@@ -1,5 +1,4 @@
 import * as events from 'events'
-import got from 'got'
 import * as log4js from 'log4js'
 import * as http from '../http'
 import { logFlags } from '../logger'
@@ -298,19 +297,6 @@ async function discoverNetwork(seedNodes) {
   }
   if (logFlags.p2pNonFatal) info('You are the first seed node!')
   return true
-}
-
-/** HELPER FUNCTIONS */
-
-async function calculateTimeDifference() {
-  const response: any = await got.get('https://google.com')
-  const localTime = Date.now()
-  const googleTime = Date.parse(response.headers.date)
-  const timeDiff = Math.abs(localTime - googleTime)
-  if (logFlags.p2pNonFatal) info('googleTime', googleTime)
-  if (logFlags.p2pNonFatal) info('localTime', localTime)
-  if (logFlags.p2pNonFatal) info('Time diff between google.com and local machine', timeDiff)
-  return timeDiff
 }
 
 // export async function checkTimeSynced(timeServers) {

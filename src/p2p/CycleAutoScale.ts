@@ -2,7 +2,7 @@ import deepmerge from 'deepmerge'
 import { Logger } from 'log4js'
 import { logFlags } from '../logger'
 import { P2P } from '@shardus/types'
-import { sleep, validateTypes, fastIsPicked } from '../utils'
+import { validateTypes, fastIsPicked } from '../utils'
 import * as Comms from './Comms'
 import { config, crypto, logger } from './Context'
 import * as CycleChain from './CycleChain'
@@ -294,7 +294,6 @@ function _checkScaling() {
     // }
     if (scaleDownRequests.length >= requiredVotes) {
       approvedScalingType = P2P.CycleAutoScaleTypes.ScaleType.DOWN
-      changed = true
     } else {
       // Return if we don't change anything
       return
@@ -382,7 +381,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
 
 function getScaleUpRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
   let requests = []
-  for (let [nodeId, request] of scalingRequestsCollector) {
+  for (let [, request] of scalingRequestsCollector) {
     if (request.scale === P2P.CycleAutoScaleTypes.ScaleType.UP) requests.push(request)
   }
   return requests
@@ -390,7 +389,7 @@ function getScaleUpRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
 
 function getScaleDownRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
   let requests = []
-  for (let [nodeId, request] of scalingRequestsCollector) {
+  for (let [, request] of scalingRequestsCollector) {
     if (request.scale === P2P.CycleAutoScaleTypes.ScaleType.DOWN) requests.push(request)
   }
   return requests
@@ -452,22 +451,6 @@ function _addScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleR
   // If we pass validation, add to current cycle
   const added = _addToScalingRequests(scalingRequest)
   return added
-}
-
-async function _waitUntilEndOfCycle() {
-  const currentTime = Date.now()
-  const nextQ1Start = CycleCreator.nextQ1Start
-  if (logFlags.p2pNonFatal) info(`Current time is: ${currentTime}`)
-  if (logFlags.p2pNonFatal) info(`Next cycle will start at: ${nextQ1Start}`)
-
-  let timeToWait
-  if (currentTime < nextQ1Start) {
-    timeToWait = nextQ1Start - currentTime + config.p2p.queryDelay * 1000
-  } else {
-    timeToWait = 0
-  }
-  if (logFlags.p2pNonFatal) info(`Waiting for ${timeToWait} ms before next cycle marker creation...`)
-  await sleep(timeToWait)
 }
 
 function info(...msg) {

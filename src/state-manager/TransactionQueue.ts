@@ -8,7 +8,7 @@ import { potentiallyRemoved } from '../p2p/NodeList'
 import * as Shardus from '../shardus/shardus-types'
 import Storage from '../storage'
 import * as utils from '../utils'
-import { errorToStringFull, getLinearGossipBurstList, inRangeOfCurrentTime } from '../utils'
+import { errorToStringFull, inRangeOfCurrentTime } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import Profiler, { cUninitializedSize, profilerInstance } from '../utils/profiler'
 import ShardFunctions from './shardFunctions'
@@ -26,8 +26,6 @@ import {
   StringBoolObjectMap,
   StringNodeObjectMap,
   WrappedResponses,
-  Cycle,
-  AppliedReceipt,
   RequestReceiptForTxResp_old,
   ProcessQueueStats,
   SimpleNumberStats,
@@ -35,8 +33,6 @@ import {
 
 const stringify = require('fast-stable-stringify')
 
-const http = require('../http')
-const allZeroes64 = '0'.repeat(64)
 const txStatBucketSize = {
   default: [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 10000],
 }
@@ -168,7 +164,7 @@ class TransactionQueue {
   setupHandlers() {
     this.p2p.registerInternal(
       'broadcast_state',
-      async (payload: { txid: string; stateList: Shardus.WrappedResponse[] }, respond: any) => {
+      async (payload: { txid: string; stateList: Shardus.WrappedResponse[] }) => {
         profilerInstance.scopedProfileSectionStart('broadcast_state')
         try {
           // Save the wrappedAccountState with the rest our queue data
@@ -197,7 +193,7 @@ class TransactionQueue {
 
     this.p2p.registerInternal(
       'broadcast_finalstate',
-      async (payload: { txid: string; stateList: Shardus.WrappedResponse[] }, respond: any) => {
+      async (payload: { txid: string; stateList: Shardus.WrappedResponse[] }) => {
         profilerInstance.scopedProfileSectionStart('broadcast_finalstate')
         try {
           // make sure we have it
@@ -232,7 +228,7 @@ class TransactionQueue {
 
     this.p2p.registerInternal(
       'spread_tx_to_group_syncing',
-      async (payload: Shardus.AcceptedTx, respondWrapped, sender, tracker) => {
+      async (payload: Shardus.AcceptedTx, respondWrapped, sender) => {
         profilerInstance.scopedProfileSectionStart('spread_tx_to_group_syncing')
         try {
           //handleSharedTX will also validate fields
@@ -466,7 +462,7 @@ class TransactionQueue {
     let localCachedData = queueEntry.localCachedData
     let tx = acceptedTX.data
     let keysResponse = queueEntry.txKeys
-    let { sourceKeys, targetKeys, timestamp, debugInfo } = keysResponse
+    let { timestamp, debugInfo } = keysResponse
     let uniqueKeys = queueEntry.uniqueKeys
     let accountTimestampsAreOK = true
     let ourLockID = -1
@@ -493,7 +489,7 @@ class TransactionQueue {
         wrappedState.prevDataCopy = utils.deepCopy(wrappedState.data)
 
         // important to update the wrappedState timestamp here to prevent bad timestamps from propagating the system
-        let { timestamp: updatedTimestamp, hash: updatedHash } = this.app.getTimestampAndHashFromAccount(
+        let { timestamp: updatedTimestamp} = this.app.getTimestampAndHashFromAccount(
           wrappedState.data
         )
         wrappedState.timestamp = updatedTimestamp
@@ -616,7 +612,7 @@ class TransactionQueue {
     let wrappedStates = this.stateManager.useAccountWritesOnly ? {} : queueEntry.collectedData
     let localCachedData = queueEntry.localCachedData
     let keysResponse = queueEntry.txKeys
-    let { timestamp, sourceKeys, targetKeys, debugInfo } = keysResponse
+    let { timestamp, debugInfo } = keysResponse
     let applyResponse = queueEntry?.preApplyTXResult?.applyResponse
     let isGlobalModifyingTX = queueEntry.globalModification === true
     let savedSomething = false
@@ -1215,8 +1211,6 @@ class TransactionQueue {
             this.stateManager.currentCycleShardData.shardGlobals,
             txQueueEntry.executionShardKey
           )
-          let ourNodeShardData: StateManagerTypes.shardFunctionTypes.NodeShardData =
-            this.stateManager.currentCycleShardData.nodeShardData
           // let nodeStoresThisPartition = ShardFunctions.testInRange(homePartition, ourNodeShardData.storedPartitions)
           // if(nodeStoresThisPartition === false){
           //   //before being in the set that stores the partition was enough, but we want to make it just the consensus nodes
@@ -1466,20 +1460,6 @@ class TransactionQueue {
    */
   getQueueEntry(txid: string): QueueEntry | null {
     let queueEntry = this.newAcceptedTxQueueByID.get(txid)
-    if (queueEntry === undefined) {
-      return null
-    }
-    return queueEntry
-  }
-
-  /**
-   * getQueueEntryPending
-   * get a queue entry from the pending queue (has not been added to the main queue yet)
-   * this is mainly for internal use, it makes more sense to call getQueueEntrySafe
-   * @param txid
-   */
-  getQueueEntryPending(txid: string): QueueEntry | null {
-    let queueEntry = this.newAcceptedTxQueueTempInjestByID.get(txid)
     if (queueEntry === undefined) {
       return null
     }
@@ -3102,10 +3082,6 @@ class TransactionQueue {
     }
   }
 
-  setState(queueEntry: QueueEntry, newState: string) {}
-
-  setHigherState(queueEntry: QueueEntry, newState: string) {}
-
   /***
    *    ########  ########   #######   ######  ########  ######   ######
    *    ##     ## ##     ## ##     ## ##    ## ##       ##    ## ##    ##
@@ -4282,7 +4258,6 @@ class TransactionQueue {
               }
 
               let wrappedStates = queueEntry.collectedData // Object.values(queueEntry.collectedData)
-              let localCachedData = queueEntry.localCachedData
 
               //TODO apply the data we got!!! (override wrapped states)
               // if(this.executeInOneShard){
@@ -4938,7 +4913,7 @@ class TransactionQueue {
   }
 
   finalizeSimpleStatsObject(statsObj: { [statName: string]: SimpleNumberStats }) {
-    for (const [key, value] of Object.entries(statsObj)) {
+    for (const [, value] of Object.entries(statsObj)) {
       if (value.count) {
         value.average = value.total / value.count
       }

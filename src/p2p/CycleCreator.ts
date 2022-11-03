@@ -3,6 +3,7 @@ import { Logger } from 'log4js'
 import { logFlags } from '../logger'
 import { P2P } from '@shardus/types'
 import * as utils from '../utils'
+import { errorToStringFull } from '../utils'
 // don't forget to add new modules here
 import * as Active from './Active'
 import * as Apoptosis from './Apoptosis'
@@ -21,9 +22,7 @@ import * as SafetyMode from './SafetyMode'
 import * as Self from './Self'
 import * as Sync from './Sync'
 import { compareQuery, Comparison } from './Utils'
-import { errorToStringFull } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { reportLost } from './Lost'
 import { randomBytes } from '@shardus/crypto-utils'
 
 /** CONSTANTS */
@@ -31,7 +30,6 @@ import { randomBytes } from '@shardus/crypto-utils'
 const SECOND = 1000
 const BEST_CERTS_WANTED = 3
 const DESIRED_CERT_MATCHES = 3
-const DESIRED_MARKER_MATCHES = 2
 
 /** STATE */
 
@@ -90,6 +88,7 @@ interface CompareMarkerReq {
   marker: P2P.CycleCreatorTypes.CycleMarker
   txs: P2P.CycleCreatorTypes.CycleTxs
 }
+
 interface CompareMarkerRes {
   marker: P2P.CycleCreatorTypes.CycleMarker
   txs?: P2P.CycleCreatorTypes.CycleTxs
@@ -99,6 +98,7 @@ interface CompareCertReq {
   certs: P2P.CycleCreatorTypes.CycleCert[]
   record: P2P.CycleCreatorTypes.CycleRecord
 }
+
 interface CompareCertRes {
   certs: P2P.CycleCreatorTypes.CycleCert[]
   record: P2P.CycleCreatorTypes.CycleRecord
@@ -106,8 +106,7 @@ interface CompareCertRes {
 
 const compareMarkerRoute: P2P.P2PTypes.InternalHandler<CompareMarkerReq, CompareMarkerRes> = (
   payload,
-  respond,
-  sender
+  respond
 ) => {
   profilerInstance.scopedProfileSectionStart('compareMarker')
   const req = payload
@@ -341,6 +340,7 @@ function runQ2() {
 /**
  * Handles cycle record creation tasks for quarter 3
  */
+
 /*
 [TODO] - might need to change how nodes compare cycle markers in Q3.
   Noticed a problem where if a node is lost in Q2 and all nodes in
@@ -399,8 +399,6 @@ async function runQ3() {
   */
 
   // Compare this cycle's marker with the network
-  const myC = currentCycle
-  const myQ = currentQuarter
 
   // Omar - decided that we can get by with not doing a round of compareCycleMarkers
   //     and instead going straight to comparing cycle certificates.
@@ -546,50 +544,6 @@ function makeNetworkConfigHash() {
   }
   delete netConfig.p2p.existingArchivers
   return crypto.hash(netConfig)
-}
-
-async function compareCycleMarkers(myC: number, myQ: number, desired: number) {
-  if (logFlags.p2pNonFatal) info('Comparing cycle markers...')
-
-  // Init vars
-  let matches = 0
-
-  // Get random nodes
-  // [TODO] Use a randomShifted array
-  const nodes = utils.getRandom(NodeList.activeOthersByIdOrder, 2 * desired)
-
-  for (const node of nodes) {
-    // Send marker, txs to /compare-marker endpoint of another node
-    const req: CompareMarkerReq = { marker, txs }
-    const resp: CompareMarkerRes = await Comms.ask(node, 'compare-marker', req)
-
-    /**
-     * [IMPORTANT] Don't change things if the awaited call took too long
-     */
-    if (cycleQuarterChanged(myC, myQ)) return false
-
-    if (resp) {
-      if (resp.marker === marker) {
-        // Increment our matches if they computed the same marker
-        matches++
-
-        // Done if desired matches reached
-        if (matches >= desired) {
-          return true
-        }
-      } else if (resp.txs) {
-        // Otherwise, Get missed CycleTxs
-        const unseen = unseenTxs(txs, resp.txs)
-        const validUnseen = dropInvalidTxs(unseen)
-
-        // Update this cycle's txs, record, marker, and cert
-        txs = deepmerge(txs, validUnseen)
-        ;({ record, marker, cert } = makeCycleData(txs, CycleChain.newest))
-      }
-    }
-  }
-
-  return true
 }
 
 // This is not being used anymore. If we decide to use it, be sure to validate the inputs.
@@ -791,7 +745,7 @@ function scoreCert(cert: P2P.CycleCreatorTypes.CycleCert): number {
   }
 }
 
-function validateCertSign(certs: P2P.CycleCreatorTypes.CycleCert[], sender: P2P.NodeListTypes.Node['id']) {
+function validateCertSign(certs: P2P.CycleCreatorTypes.CycleCert[]) {
   for (const cert of certs) {
     const cleanCert: P2P.CycleCreatorTypes.CycleCert = {
       marker: cert.marker,
@@ -858,7 +812,7 @@ function validateCerts(certs: P2P.CycleCreatorTypes.CycleCert[], record, sender)
     seen[certs[i].sign.owner] = true
   }
   //  checks signatures; more expensive
-  if (!validateCertSign(certs, sender)) {
+  if (!validateCertSign(certs)) {
     warn(`validateCerts: certificate has bad sign; certs:${JSON.stringify(certs)}`)
     warn(
       `validateCerts:   sent by: port:${NodeList.nodes.get(sender).externalPort} id:${JSON.stringify(sender)}`
@@ -1048,7 +1002,8 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
       // don't need the following line anymore since improveBestCert sets bestRecord if it improved
       // bestRecord = resp.record
 
-      /* prettier-ignore */ nestedCountersInstance.countRareEvent('cycle', `improved cert (better node) ${node.internalIp}:${node.internalPort}`)
+      /* prettier-ignore */
+      nestedCountersInstance.countRareEvent("cycle", `improved cert (better node) ${node.internalIp}:${node.internalPort}`);
       nestedCountersInstance.countRareEvent('cycle', `improved cert (our node) ${Self.ip}:${Self.port}`)
 
       return Comparison.BETTER

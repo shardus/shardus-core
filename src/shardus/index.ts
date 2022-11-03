@@ -22,7 +22,6 @@ import Reporter from '../reporter'
 import * as ShardusTypes from '../shardus/shardus-types'
 import * as Snapshot from '../snapshot'
 import StateManager from '../state-manager'
-import { WrappedResponses } from '../state-manager/state-manager-types'
 import Statistics from '../statistics'
 import Storage from '../storage'
 import * as utils from '../utils'
@@ -30,7 +29,6 @@ import { inRangeOfCurrentTime } from '../utils'
 import MemoryReporting from '../utils/memoryReporting'
 import NestedCounters, { nestedCountersInstance } from '../utils/nestedCounters'
 import Profiler, { profilerInstance } from '../utils/profiler'
-import { time } from 'console'
 import SHARDUS_CONFIG from '../config'
 import { isApopMarkedNode } from '../p2p/Apoptosis'
 import { netConfig } from '../p2p/CycleCreator'
@@ -383,7 +381,7 @@ class Shardus extends EventEmitter {
         console.log(`Archive server has subscribed to this node with socket id ${socket.id}!`)
         socket.on('ARCHIVER_PUBLIC_KEY', function (ARCHIVER_PUBLIC_KEY) {
           console.log('Archiver has registered its public key', ARCHIVER_PUBLIC_KEY)
-          for (const [key, value] of Object.entries(Archivers.connectedSockets)) {
+          for (const [key] of Object.entries(Archivers.connectedSockets)) {
             if (key === ARCHIVER_PUBLIC_KEY) {
               Archivers.removeArchiverConnection(ARCHIVER_PUBLIC_KEY)
             }
@@ -678,30 +676,6 @@ class Shardus extends EventEmitter {
   }
 
   /**
-   * Function used to register event listeners
-   * @param {*} event Name of the event to be unregistered
-   */
-  _unregisterListener(event) {
-    if (!this._listeners[event]) {
-      this.mainLogger.warn(`This event listener doesn't exist! Event: \`${event}\` in Shardus`)
-      return
-    }
-    const entry = this._listeners[event]
-    const [emitter, callback] = entry
-    emitter.removeListener(event, callback)
-    delete this._listeners[event]
-  }
-
-  /**
-   * Function to unregister all event listeners
-   */
-  _cleanupListeners() {
-    for (const event of Object.keys(this._listeners)) {
-      this._unregisterListener(event)
-    }
-  }
-
-  /**
    * Function used to register listeners for transaction related events
    */
   _attemptCreateAppliedListener() {
@@ -718,24 +692,6 @@ class Shardus extends EventEmitter {
     this._registerListener(this.stateManager.eventEmitter, 'txProcessed', () =>
       this.statistics.incrementCounter('txProcessed')
     )
-  }
-
-  /**
-   * Function to unregister all transaction related events
-   */
-  _attemptRemoveAppliedListener() {
-    if (!this.statistics || !this.stateManager) return
-    this._unregisterListener('txQueued')
-    this._unregisterListener('txPopped')
-    this._unregisterListener('txApplied')
-    this._unregisterListener('txProcessed')
-  }
-
-  /**
-   * function to unregister listener for the "accepted" event
-   */
-  _unlinkStateManager() {
-    this._unregisterListener('accepted')
   }
 
   /**
@@ -791,7 +747,7 @@ class Shardus extends EventEmitter {
       this.stateManager.appFinishedSyncing = true
     }
     // Set network joinable to true
-    this.p2p.setJoinRequestToggle(true)
+    this.p2p.setJoinRequestToggle()
     console.log('Server ready!')
     if (this.stateManager) {
       await utils.sleep(3000)
@@ -1733,31 +1689,6 @@ class Shardus extends EventEmitter {
     process.on('unhandledRejection', (err) => {
       logFatalAndExit(err)
     })
-  }
-
-  /**
-   * Records a timestamp in a heartbeat to the storage module
-   */
-  async _writeHeartbeat() {
-    const timestamp = utils.getTime('s')
-    await this.storage.setProperty('heartbeat', timestamp)
-  }
-
-  /**
-   * Sets up the heartbeat interval for keeping track of time alive
-   */
-  _setupHeartbeat() {
-    this.heartbeatTimer = setInterval(async () => {
-      await this._writeHeartbeat()
-    }, this.heartbeatInterval * 1000)
-  }
-
-  /**
-   * Stops the heartbeat interval
-   */
-  _stopHeartbeat() {
-    this.mainLogger.info('Stopping heartbeat...')
-    clearInterval(this.heartbeatTimer)
   }
 
   /**

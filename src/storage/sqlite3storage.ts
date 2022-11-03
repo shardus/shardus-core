@@ -8,7 +8,7 @@ import * as Shardus from '../shardus/shardus-types'
 import * as Snapshot from '../snapshot'
 import * as utils from '../utils'
 import Profiler from '../utils/profiler'
-import { config, crypto, logger } from '../p2p/Context'
+import { config } from '../p2p/Context'
 import { logFlags } from '../logger'
 
 const Op = Sequelize.Op
@@ -217,14 +217,6 @@ class Sqlite3Storage {
 
   async runCreate(createStatement) {
     await this.run(createStatement)
-  }
-
-  async dropAndCreateModel(model) {
-    // await model.sync({ force: true })
-  }
-
-  _checkInit() {
-    if (!this.initialized) throw new Error('Storage not initialized.')
   }
 
   _create(table, object, opts) {

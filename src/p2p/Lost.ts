@@ -140,7 +140,7 @@ export function reset() {
     } // delete old lost reports
     if (!nodes.get(obj.target)) {
       lost.delete(key)
-      continue
+
     } // delete once the target is removed from the node list
   }
   pruneIsDown() // prune isUp and isDown status cache
@@ -159,7 +159,7 @@ export function getTxs(): P2P.LostTypes.Txs {
     }
   }
   let seen = {} // used to make sure we don't add the same node twice
-  for (const [key, obj] of lost) {
+  for (const [, obj] of lost) {
     if (seen[obj.target]) continue
     if (obj.message && obj.message.report && obj.message.cycle === currentCycle) {
       lostTxs.push(obj.message)
@@ -167,7 +167,7 @@ export function getTxs(): P2P.LostTypes.Txs {
     }
   }
   seen = {}
-  for (const [key, obj] of lost) {
+  for (const [, obj] of lost) {
     if (seen[obj.target]) continue
     if (obj.message && obj.message.status === 'up' && obj.message.cycle === currentCycle) {
       refutedTxs.push(obj.message)
@@ -301,7 +301,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
 
 // This is called once per cycle at the start of Q1 by CycleCreator
 export function sendRequests() {
-  for (const [key, obj] of lost) {
+  for (const [, obj] of lost) {
     if (obj.status !== 'down') continue // TEST
     if (obj.message && obj.message.checker && obj.message.checker === Self.id) {
       if (obj.gossiped) continue
@@ -392,7 +392,7 @@ async function lostReportHandler(payload, response, sender) {
   profilerInstance.scopedProfileSectionStart('lost-report')
   try {
     /* prettier-ignore */ if(logFlags.p2pNonFatal) info(`Got investigate request: ${JSON.stringify(payload)} from ${JSON.stringify(sender)}`)
-    let err = ''
+    let err: string
     err = validateTypes(payload, { target: 's', reporter: 's', checker: 's', cycle: 'n', sign: 'o' })
     if (err) {
       warn('bad input ' + err)
@@ -579,7 +579,7 @@ async function isDownCheck(node) {
 
 function downGossipHandler(payload: P2P.LostTypes.SignedDownGossipMessage, sender, tracker) {
   if (logFlags.p2pNonFatal) info(`Got downGossip: ${JSON.stringify(payload)}`)
-  let err = ''
+  let err: string
   err = validateTypes(payload, { cycle: 'n', report: 'o', status: 's', sign: 'o' })
   if (err) {
     warn('bad input ' + err)
@@ -643,7 +643,7 @@ function checkDownMsg(payload: P2P.LostTypes.SignedDownGossipMessage, expectedCy
 
 function upGossipHandler(payload, sender, tracker) {
   if (logFlags.p2pNonFatal) info(`Got upGossip: ${JSON.stringify(payload)}`)
-  let err = ''
+  let err: string
   err = validateTypes(payload, { cycle: 'n', target: 's', status: 's', sign: 'o' })
   if (err) {
     warn('bad input ' + err)
@@ -666,7 +666,7 @@ function upGossipHandler(payload, sender, tracker) {
   const key = `${payload.target}-${payload.cycle}`
   const rec = lost.get(key)
   if (rec && rec.status === 'up') return // we have already gossiped this node for this cycle
-  ;[valid, reason] = checkUpMsg(payload, currentCycle)
+  [valid, reason] = checkUpMsg(payload, currentCycle)
   if (!valid) {
     warn(`Bad upGossip message. reason:${reason} message:${JSON.stringify(payload)}`)
     return

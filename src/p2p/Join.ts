@@ -1,6 +1,5 @@
 import deepmerge from 'deepmerge'
 import { Handler } from 'express'
-import { isDeepStrictEqual } from 'util'
 import { version } from '../../package.json'
 import * as http from '../http'
 import { logFlags } from '../logger'
@@ -16,7 +15,6 @@ import * as Self from './Self'
 import { robustQuery } from './Utils'
 import { profilerInstance } from '../utils/profiler'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { reportLost } from './Lost'
 import { join } from 'path'
 
 /** STATE */
@@ -398,7 +396,6 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest) {
   const ipPort = NodeList.ipPort(node.internalIp, node.internalPort)
   if (NodeList.byIpPort.has(ipPort)) {
     /* prettier-ignore */ if (logFlags.p2pNonFatal) info('Cannot add join request for this node, already a known node.', JSON.stringify(NodeList.byIpPort.get(ipPort)))
-    const node = NodeList.byIpPort.get(ipPort)
     return false
   }
 
@@ -467,26 +464,6 @@ export async function firstJoin() {
   return computeNodeId(crypto.keypair.publicKey, zeroMarker)
 }
 
-export async function fetchCycleMarker(nodes) {
-  const queryFn = async (node) => {
-    const marker = await http.get(`${node.ip}:${node.port}/cyclemarker`)
-    return marker
-  }
-
-  function _isSameCycleMarkerInfo(info1, info2) {
-    const cm1 = utils.deepCopy(info1)
-    const cm2 = utils.deepCopy(info2)
-    delete cm1.currentTime
-    delete cm2.currentTime
-    const equivalent = isDeepStrictEqual(cm1, cm2)
-    if (logFlags.p2pNonFatal) info(`Equivalence of the two compared cycle marker infos: ${equivalent}`)
-    return equivalent
-  }
-
-  const { topResult: marker } = await robustQuery(nodes, queryFn)
-  return marker
-}
-
 export async function submitJoin(
   nodes: P2P.P2PTypes.Node[],
   joinRequest: P2P.JoinTypes.JoinRequest & P2P.P2PTypes.SignedObject
@@ -516,7 +493,7 @@ export async function fetchJoined(activeNodes) {
     return res
   }
   try {
-    const { topResult: response, winningNodes: _responders } = await robustQuery(activeNodes, queryFn)
+    const { topResult: response} = await robustQuery(activeNodes, queryFn)
     if (!response) return
     if (!response.node) return
     let err = utils.validateTypes(response, { node: 'o' })
