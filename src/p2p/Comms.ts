@@ -1,13 +1,17 @@
+import * as cryptoUtils from '@shardus/crypto-utils'
+import { P2P } from '@shardus/types'
 import { Logger } from 'log4js'
+import { logFlags } from '../logger'
 import { setIsUpTs } from '../p2p/Lost'
 import * as utils from '../utils'
+import { nestedCountersInstance } from '../utils/nestedCounters'
+import { cNoSizeTrack, cUninitializedSize } from '../utils/profiler'
 import { config, crypto, logger, network } from './Context'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
-import { P2P } from '@shardus/types'
-import { logFlags } from '../logger'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-import { cNoSizeTrack, cUninitializedSize } from '../utils/profiler'
+
+// Todo: move this flag to config
+export const useSignaturesForAuth = true
 
 /** ROUTES */
 
@@ -94,6 +98,22 @@ function _authenticateByNode(message, node) {
   return result
 }
 
+// Todo: extract public key from the message itself?
+function _verifySignature(message, node) {
+  let result
+  try {
+    if (!node.publicKey) {
+      error('Node object did not contain curve public key for verifySignature()!')
+      return false
+    }
+    result = crypto.verify(message, node.publicKey)
+  } catch (e) {
+    error(`Invalid or missing signature on message: ${JSON.stringify(message)}`)
+    return false
+  }
+  return result
+}
+
 function _extractPayload(wrappedPayload, nodeGroup) {
   let err = utils.validateTypes(wrappedPayload, { error: 's?' })
   if (err) {
@@ -105,10 +125,10 @@ function _extractPayload(wrappedPayload, nodeGroup) {
     warn(`_extractPayload Failed to extract payload. Error: ${error}`)
     return [null]
   }
+  // Todo: Update the payload validation struct
   err = utils.validateTypes(wrappedPayload, {
     sender: 's',
     payload: 'o',
-    tag: 's',
     tracker: 's?',
   })
   if (err) {
@@ -125,7 +145,9 @@ function _extractPayload(wrappedPayload, nodeGroup) {
     )
     return [null]
   }
-  const authenticatedByNode = _authenticateByNode(wrappedPayload, node)
+  const authenticatedByNode = useSignaturesForAuth
+    ? _verifySignature(wrappedPayload, node)
+    : _authenticateByNode(wrappedPayload, node)
   // Check if actually signed by that node
   if (!authenticatedByNode) {
     warn('_extractPayload Internal payload not authenticated by an expected node.')
@@ -153,6 +175,26 @@ function _wrapAndTagMessage(msg, tracker = '', recipientNode) {
   return tagged
 }
 
+function _wrapAndSignMessage(msg, tracker = '') {
+  if (!msg) throw new Error('No message given to wrap and tag!')
+  if (logFlags.verbose) {
+    warn(`Attaching sender ${Self.id} to the message: ${utils.stringifyReduceLimit(msg)}`)
+  }
+  const wrappedMsg = {
+    payload: msg,
+    sender: Self.id,
+    tracker,
+    tag_msgSize: 0,
+  }
+  const wrappedMsgStr = cryptoUtils.stringify(wrappedMsg)
+  const msgLength = wrappedMsgStr.length
+  wrappedMsg.tag_msgSize = msgLength
+  const wrappedMsgWithSizeStr = cryptoUtils.stringify(wrappedMsg)
+  const objCopy = JSON.parse(wrappedMsgWithSizeStr)
+  const signedMsg = crypto.sign(objCopy)
+  return signedMsg
+}
+
 function createMsgTracker() {
   return 'key_' + utils.makeShortHash(Self.id) + '_' + Date.now() + '_' + keyCounter++
 }
@@ -161,12 +203,11 @@ function createGossipTracker() {
 }
 
 // Our own P2P version of the network tell, with a sign added
-export async function tell(nodes, route, message, logged = false, tracker = '') {
+export async function tell(nodes: any[], route, message, logged = false, tracker = '') {
   let msgSize = cUninitializedSize
   if (tracker === '') {
     tracker = createMsgTracker()
   }
-  const promises = []
 
   if (commsCounters) {
     nestedCountersInstance.countEvent('comms-route', `tell ${route}`, nodes.length)
@@ -175,6 +216,21 @@ export async function tell(nodes, route, message, logged = false, tracker = '') 
     /* prettier-ignore */ nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `tell ${route} recipients:${nodes.length}`)
   }
 
+  msgSize = useSignaturesForAuth
+    ? await signedMultiTell(nodes, message, tracker, msgSize, route, logged)
+    : await taggedMutiTell(nodes, message, tracker, msgSize, route, logged)
+  return msgSize
+}
+
+async function taggedMutiTell(
+  nodes: any[],
+  message: any,
+  tracker: string,
+  msgSize: number,
+  route: any,
+  logged: boolean
+) {
+  const promises = []
   for (const node of nodes) {
     if (node.id === Self.id) {
       if (logFlags.p2pNonFatal) info('p2p/Comms:tell: Not telling self')
@@ -187,6 +243,26 @@ export async function tell(nodes, route, message, logged = false, tracker = '') 
   }
   try {
     await Promise.all(promises)
+  } catch (err) {
+    warn('P2P TELL: failed', err)
+  }
+  return msgSize
+}
+
+async function signedMultiTell(
+  nodes: any[],
+  message: any,
+  tracker: string,
+  msgSize: number,
+  route: any,
+  logged: boolean
+) {
+  const signedMessage = _wrapAndSignMessage(message, tracker)
+  msgSize = signedMessage.tag_msgSize
+  const nonSelfNodes = nodes.filter((node) => node.id !== Self.id)
+  if (logFlags.p2pNonFatal) info(`signed and tagged gossip`, utils.stringifyReduceLimit(signedMessage))
+  try {
+    await network.tell(nonSelfNodes, route, signedMessage, logged)
   } catch (err) {
     warn('P2P TELL: failed', err)
   }
@@ -210,7 +286,9 @@ export async function ask(node, route: string, message = {}, logged = false, tra
     /* prettier-ignore */ nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `ask ${route} recipients: 1`)
   }
 
-  const signedMessage = _wrapAndTagMessage(message, tracker, node)
+  const signedMessage = useSignaturesForAuth
+    ? await _wrapAndSignMessage(message, tracker)
+    : await _wrapAndTagMessage(message, tracker, node)
   let signedResponse
   try {
     signedResponse = await network.ask(node, route, signedMessage, logged, extraTime)
@@ -259,7 +337,11 @@ export function registerInternal(route, handler) {
        * shardus
        */
       const node = NodeList.nodes.get(sender)
-      const signedResponse = _wrapAndTagMessage({ ...response, isResponse: true }, tracker, node)
+      const message = { ...response, isResponse: true }
+      const signedResponse = useSignaturesForAuth
+        ? await _wrapAndSignMessage(message, tracker)
+        : await _wrapAndTagMessage(message, tracker, node)
+
       if (logFlags.verbose && logFlags.p2pNonFatal) {
         info(
           `The signed wrapped response to send back: ${utils.stringifyReduceLimit(signedResponse)} size:${
@@ -354,7 +436,7 @@ export async function sendGossip(
   }
 
   let gossipFactor = config.p2p.gossipFactor
-  if(factor > 0){
+  if (factor > 0) {
     gossipFactor = factor
   }
   let recipientIdxs
