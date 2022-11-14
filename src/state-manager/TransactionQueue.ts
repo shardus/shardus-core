@@ -8,7 +8,7 @@ import { potentiallyRemoved } from '../p2p/NodeList'
 import * as Shardus from '../shardus/shardus-types'
 import Storage from '../storage'
 import * as utils from '../utils'
-import { errorToStringFull, getLinearGossipBurstList, inRangeOfCurrentTime } from '../utils'
+import { errorToStringFull, inRangeOfCurrentTime } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import Profiler, { cUninitializedSize, profilerInstance } from '../utils/profiler'
 import ShardFunctions from './shardFunctions'
@@ -17,20 +17,18 @@ import {
   AccountFilter,
   CommitConsensedTransactionResult,
   PreApplyAcceptedTransactionResult,
+  ProcessQueueStats,
   QueueEntry,
-  TxDebug,
   RequestReceiptForTxResp,
+  RequestReceiptForTxResp_old,
   RequestStateForTxReq,
   RequestStateForTxResp,
   SeenAccounts,
+  SimpleNumberStats,
   StringBoolObjectMap,
   StringNodeObjectMap,
+  TxDebug,
   WrappedResponses,
-  Cycle,
-  AppliedReceipt,
-  RequestReceiptForTxResp_old,
-  ProcessQueueStats,
-  SimpleNumberStats,
 } from './state-manager-types'
 
 const stringify = require('fast-stable-stringify')
@@ -3137,16 +3135,25 @@ class TransactionQueue {
     }
 
     try {
-
       nestedCountersInstance.countEvent('processing', 'processing-enter')
 
-      if (this.newAcceptedTxQueueTempInjest.length > 5000){
-        nestedCountersInstance.countEvent('stateManager', `newAcceptedTxQueueTempInjest>5000 leftRunning:${this.newAcceptedTxQueueRunning} noShardCalcs:${this.stateManager.currentCycleShardData == null} `)
-        
+      if (this.newAcceptedTxQueueTempInjest.length > 5000) {
+        nestedCountersInstance.countEvent(
+          'stateManager',
+          `newAcceptedTxQueueTempInjest>5000 leftRunning:${this.newAcceptedTxQueueRunning} noShardCalcs:${
+            this.stateManager.currentCycleShardData == null
+          } `
+        )
+
         //report rare counter once
-        if(this.stuckProcessReported === false){
+        if (this.stuckProcessReported === false) {
           this.stuckProcessReported = true
-          nestedCountersInstance.countRareEvent('stateManager', `newAcceptedTxQueueTempInjest>5000 leftRunning:${this.newAcceptedTxQueueRunning} noShardCalcs:${this.stateManager.currentCycleShardData == null} `)
+          nestedCountersInstance.countRareEvent(
+            'stateManager',
+            `newAcceptedTxQueueTempInjest>5000 leftRunning:${this.newAcceptedTxQueueRunning} noShardCalcs:${
+              this.stateManager.currentCycleShardData == null
+            } `
+          )
         }
       }
 

@@ -99,6 +99,8 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     optimizedTXConsenus: true,
     robustQueryDebug: false,
     forwardTXToSyncingNeighbors: false,
+    recordAcceptedTx: false,
+    recordAccountStates: true,
   },
   statistics: { save: true, interval: 1 },
   loadDetection: {

@@ -1,24 +1,17 @@
 import Log4js from 'log4js'
-// const fs = require('fs')
-// const path = require('path')
 import { Op } from 'sequelize'
 import Logger, { logFlags } from '../logger'
+import { config } from '../p2p/Context'
 import * as Snapshot from '../snapshot'
 import StateManager from '../state-manager'
 import Profiler from '../utils/profiler'
 import * as ShardusTypes from './../shardus/shardus-types'
 import models from './models'
-// const stringify = require('fast-stable-stringify')
-// const utils = require('../utils')
-// const SequelizeStorage = require('./sequelizeStorage')
 import Sqlite3Storage from './sqlite3storage'
-// const BetterSqlite3Storage = require('./betterSqlite3storage')
-
 import P2PApoptosis = require('../p2p/Apoptosis')
 
-import { config } from '../p2p/Context'
-
 interface Storage {
+  serverConfig: ShardusTypes.StrictServerConfiguration
   profiler: Profiler
   mainLogger: Log4js.Logger
   fatalLogger: Log4js.Logger
@@ -39,6 +32,7 @@ class Storage {
   constructor(
     baseDir: string,
     config: ShardusTypes.StrictStorageConfiguration,
+    serverConfig: ShardusTypes.StrictServerConfiguration,
     logger: Logger,
     profiler: Profiler
   ) {
@@ -46,9 +40,7 @@ class Storage {
 
     this.mainLogger = logger.getLogger('main')
     this.fatalLogger = logger.getLogger('fatal')
-    // this.storage = new SequelizeStorage(models, config, logger, baseDir, this.profiler)
 
-    // this.storage = new BetterSqlite3Storage(models, config, logger, baseDir, this.profiler)
     this.storage = new Sqlite3Storage(models, config, logger, baseDir, this.profiler)
     this.stateManager = null
   }
@@ -477,6 +469,7 @@ class Storage {
   }
 
   async addAcceptedTransactions(acceptedTransactions) {
+    if (this.serverConfig.debug.recordAcceptedTx != true) return
     this._checkInit()
     try {
       await this._create(this.storageModels.acceptedTxs, acceptedTransactions, {
@@ -554,6 +547,7 @@ class Storage {
   }
 
   async addAccountStates(accountStates) {
+    if (this.serverConfig.debug.recordAccountStates) return
     this._checkInit()
     try {
       // Adding { createOrReplace: true }  helps fix some issues we were having, but may make it hard to catch certain types of mistakes. (since it will suppress duped key issue)
@@ -570,46 +564,6 @@ class Storage {
       this.stateManager.initApoptosisAndQuitSyncing('addAccountStates')
     }
   }
-
-  // // async function _sleep (ms = 0) {
-  // //   return new Promise(resolve => setTimeout(resolve, ms))
-  // // }
-
-  // async addAcceptedTransactions2 (acceptedTransactions) {
-  //   this._checkInit()
-  //   try {
-  //     // await this._create(this.storageModels.acceptedTxs, acceptedTransactions) //, Date.now(), Date.now(),
-  //     // await new Promise(resolve => this.db.run("INSERT INTO acceptedTxs ('id','timestamp','data','status','receipt','createdAt','updatedAt') VALUES (?, ?2, ?3, ?3, ?4, ?5, ?6, ?7)",
-  //     //   [acceptedTransactions.id, acceptedTransactions.timestamp, acceptedTransactions.data, acceptedTransactions.status, acceptedTransactions.receipt, Date.now(), Date.now()],
-  //     //   resolve))
-
-  //     // if (logFlags.console) console.log(' data: ' + JSON.stringify(acceptedTransactions.data))
-  //     await this.run(`INSERT INTO acceptedTxs (id,timestamp,data,status,receipt,createdAt,updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  //       [acceptedTransactions.id, acceptedTransactions.timestamp, stringify(acceptedTransactions.data), acceptedTransactions.status, stringify(acceptedTransactions.receipt), Date.now(), Date.now()])
-
-  //     // INSERT INTO `acceptedTxs`(`id`,`timestamp`,`data`,`status`,`receipt`,`createdAt`,`updatedAt`) VALUES (770270327989,0,'','','','','');
-  //   } catch (e) {
-  //     throw new Error(e)
-  //   }
-  // }
-
-  // async addAcceptedTransactions3 (acceptedTransactions) {
-  //   this._checkInit()
-  //   try {
-  //     await this._create2(this.storageModels.acceptedTxs, acceptedTransactions)
-  //   } catch (e) {
-  //     throw new Error(e)
-  //   }
-  // }
-
-  // async addAccountStates2 (accountStates) {
-  //   this._checkInit()
-  //   try {
-  //     await this._create2(this.storageModels.accountStates, accountStates)
-  //   } catch (e) {
-  //     throw new Error(e)
-  //   }
-  // }
 
   async queryAcceptedTransactions(tsStart, tsEnd, limit) {
     this._checkInit()
@@ -774,25 +728,6 @@ class Storage {
     }
   }
 
-  // async queryAccountStateTable2 (accountStart, accountEnd, tsStart, tsEnd, limit) {
-  //   this._checkInit()
-  //   try {
-  //     let result = await this._read2(
-  //       this.storageModels_sqlite.accountStates,
-  //       { accountId: { [Op.between]: [accountStart, accountEnd] }, txTimestamp: { [Op.between]: [tsStart, tsEnd] } },
-  //       {
-  //         limit: limit,
-  //         order: [ ['txTimestamp', 'ASC'], ['accountId', 'ASC'] ],
-  //         attributes: { exclude: ['createdAt', 'updatedAt', 'id'] },
-  //         raw: true
-  //       }
-  //     )
-  //     return result
-  //   } catch (e) {
-  //     throw new Error(e)
-  //   }
-  // }
-
   async searchAccountStateTable(accountId, txTimestamp) {
     this._checkInit()
     try {
@@ -846,7 +781,7 @@ class Storage {
   // timestamp: { type: Sequelize.BIGINT, allowNull: false },
   // hash: { type: Sequelize.STRING, allowNull: false }
 
-  async getAccountReplacmentCopies1(accountIDs, cycleNumber) {
+  async getAccountReplacementCopies1(accountIDs, cycleNumber) {
     if (config.stateManager.useAccountCopiesTable === false) {
       return []
     }
@@ -872,7 +807,7 @@ class Storage {
     }
   }
 
-  async getAccountReplacmentCopies(accountIDs, cycleNumber) {
+  async getAccountReplacementCopies(accountIDs, cycleNumber) {
     if (config.stateManager.useAccountCopiesTable === false) {
       return []
     }
@@ -895,7 +830,7 @@ class Storage {
     }
   }
 
-  async clearAccountReplacmentCopies(accountIDs, cycleNumber) {
+  async clearAccountReplacementCopies(accountIDs, cycleNumber) {
     if (config.stateManager.useAccountCopiesTable === false) {
       return []
     }
