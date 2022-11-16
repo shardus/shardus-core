@@ -1,17 +1,20 @@
 import * as crypto from '@shardus/crypto-utils'
+import { ChildProcess, fork } from 'child_process'
 import Log4js from 'log4js'
-import { fork, ChildProcess } from 'child_process'
+import Logger from '../logger'
 import * as Shardus from '../shardus/shardus-types'
-import Logger, { logFlags } from '../logger'
 import Storage from '../storage'
 
+// ? possibly change crypto utils to accept only buffers
 interface Crypto {
   config: Shardus.StrictServerConfiguration
   mainLogger: Log4js.Logger
   storage: Storage
+  // ? hex string secret change to Buf
   keypair: any
   curveKeypair: {
     publicKey?: crypto.curvePublicKey
+    // ? hex string secret change to Buf
     secretKey?: crypto.curveSecretKey
   }
   powGenerators: { [name: string]: ChildProcess }
