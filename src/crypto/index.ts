@@ -31,12 +31,11 @@ class Crypto {
 
   async init() {
     crypto.init(this.config.crypto.hashKey)
-    const keypair = await this.storage.getProperty('keypair')
+    const keypair = await this.getKeyPairFromStorage()
     if (!keypair) {
       this.mainLogger.info('Keypair unable to be loaded from database. Generating new keypair...')
       this.keypair = this._generateKeypair()
-      await this.storage.setProperty('keypair', this.keypair)
-      this.mainLogger.info('New keypair successfully generated and saved to database.')
+      await this.storeKeypair(this.keypair)
     } else {
       this.mainLogger.info('Keypair loaded successfully from database.')
       this.keypair = keypair
@@ -45,6 +44,22 @@ class Crypto {
       secretKey: crypto.convertSkToCurve(this.keypair.secretKey),
       publicKey: crypto.convertPkToCurve(this.keypair.publicKey),
     }
+  }
+
+  async storeKeypair(keypair: any) {
+    const secretKeyHex = keypair.secretKey.toString('hex')
+    await this.storage.setProperty('keypair', {
+      publicKey: keypair.publicKey,
+      secretKey: secretKeyHex,
+    })
+    this.mainLogger.info('New keypair successfully generated and saved to database.')
+  }
+
+  async getKeyPairFromStorage() {
+    const keypair = await this.storage.getProperty('keypair')
+    if (!keypair) return
+    keypair.secretKey = Buffer.from(keypair.secretKey, 'hex')
+    return keypair
   }
 
   _generateKeypair() {
