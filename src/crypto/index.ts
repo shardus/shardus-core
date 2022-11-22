@@ -5,16 +5,13 @@ import Logger from '../logger'
 import * as Shardus from '../shardus/shardus-types'
 import Storage from '../storage'
 
-// ? possibly change crypto utils to accept only buffers
 interface Crypto {
   config: Shardus.StrictServerConfiguration
   mainLogger: Log4js.Logger
   storage: Storage
-  // ? hex string secret change to Buf
   keypair: any
   curveKeypair: {
     publicKey?: crypto.curvePublicKey
-    // ? hex string secret change to Buf
     secretKey?: crypto.curveSecretKey
   }
   powGenerators: { [name: string]: ChildProcess }
