@@ -41,7 +41,7 @@ class Crypto {
       this.keypair = keypair
     }
     this.curveKeypair = {
-      secretKey: crypto.convertSkToCurve(this.keypair.secretKey),
+      secretKey: crypto.convertSkToCurve(this.keypair.secretKey, { getAsBuffer: true }),
       publicKey: crypto.convertPkToCurve(this.keypair.publicKey),
     }
   }
@@ -63,7 +63,9 @@ class Crypto {
   }
 
   _generateKeypair() {
-    const keypair = crypto.generateKeypair()
+    const keypair = crypto.generateKeypair({
+      getSecretAsBuffer: true,
+    })
     this.mainLogger.info('New keypair generated.')
     return keypair
   }
