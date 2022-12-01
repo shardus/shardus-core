@@ -55,8 +55,9 @@ async function get(url: string, getResponseObj = false) {
   return res
 }
 
-async function _post(host, payload, getResponseObj = false, timeout = 1000) {
+async function _post(host, payload, getResponseObj = false, timeout = 1000, headers = {}) {
   const res = await got.post(host, {
+    headers: headers,
     timeout: timeout, // Omar - set this to 1 sec
     retry: 0, // Omar - set this to 0
     json: true,
@@ -70,7 +71,7 @@ async function _post(host, payload, getResponseObj = false, timeout = 1000) {
   Posts a JSON payload to a given host
   Returns a promise, resolves parsed JSON response if successful, rejects on error
 */
-async function post(givenHost, body, getResponseObj = false, timeout = 1000) {
+async function post(givenHost, body, getResponseObj = false, timeout = 1000, headers = {}) {
   let normalized = _normalizeUrl(givenHost)
   let host = parseUrl(normalized, true)
   if (_logger) {
@@ -84,7 +85,7 @@ async function post(givenHost, body, getResponseObj = false, timeout = 1000) {
     )
   }
 
-  let res = await _post(host, body, getResponseObj, timeout)
+  let res = await _post(host, body, getResponseObj, timeout, headers)
 
   if (_logger) {
     _logger.playbackLog(

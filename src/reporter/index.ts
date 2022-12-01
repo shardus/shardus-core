@@ -19,6 +19,8 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import { memoryReportingInstance } from '../utils/memoryReporting'
 import { getLinearGossipBurstList } from '../utils'
 
+
+
 const http = require('../http')
 const allZeroes64 = '0'.repeat(64)
 
@@ -101,7 +103,7 @@ class Reporter {
       await http.post(`${this.config.recipient}/joining`, {
         publicKey,
         nodeIpInfo,
-      })
+      }, false, 1000, {originator_port: ipInfo.externalPort})
     } catch (e) {
       if (logFlags.error)
         this.mainLogger.error('reportJoining: ' + e.name + ': ' + e.message + ' at ' + e.stack)
@@ -119,7 +121,7 @@ class Reporter {
         publicKey,
         nodeId,
         nodeIpInfo,
-      })
+      }, false, 1000, {originator_port: ipInfo.externalPort})
     } catch (e) {
       if (logFlags.error)
         this.mainLogger.error('reportJoined: ' + e.name + ': ' + e.message + ' at ' + e.stack)
@@ -132,7 +134,9 @@ class Reporter {
       return
     }
     try {
-      await http.post(`${this.config.recipient}/active`, { nodeId })
+      await http.post(`${this.config.recipient}/active`, { nodeId }, false, 1000, {
+        originator_port: ipInfo.externalPort,
+      })
     } catch (e) {
       if (logFlags.error)
         this.mainLogger.error('reportActive: ' + e.name + ': ' + e.message + ' at ' + e.stack)
@@ -145,7 +149,9 @@ class Reporter {
       return
     }
     try {
-      await http.post(`${this.config.recipient}/sync-statement`, { nodeId, syncStatement })
+      await http.post(`${this.config.recipient}/sync-statement`, { nodeId, syncStatement }, false, 1000, {
+        originator_port: ipInfo.externalPort,
+      })
     } catch (e) {
       if (logFlags.error)
         this.mainLogger.error('reportSyncStatement: ' + e.name + ': ' + e.message + ' at ' + e.stack)
@@ -158,7 +164,9 @@ class Reporter {
       return
     }
     try {
-      await http.post(`${this.config.recipient}/removed`, { nodeId })
+      await http.post(`${this.config.recipient}/removed`, { nodeId }, false, 1000, {
+        originator_port: ipInfo.externalPort,
+      })
     } catch (e) {
       if (logFlags.error)
         this.mainLogger.error('reportRemoved: ' + e.name + ': ' + e.message + ' at ' + e.stack)
@@ -181,7 +189,7 @@ class Reporter {
       data,
     }
     try {
-      await http.post(`${this.config.recipient}/heartbeat`, report)
+      await http.post(`${this.config.recipient}/heartbeat`, report, false, 1000, {originator_port: ipInfo.externalPort})
     } catch (e) {
       if (logFlags.error)
         this.mainLogger.error('_sendReport: ' + e.name + ': ' + e.message + ' at ' + e.stack)
