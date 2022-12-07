@@ -1418,7 +1418,7 @@ class Shardus extends EventEmitter {
       }
 
       if (typeof application.apply === 'function') {
-        applicationInterfaceImpl.apply = (inTx, wrappedStates) => application.apply(inTx, wrappedStates)
+        applicationInterfaceImpl.apply = (inTx, wrappedStates, appData) => application.apply(inTx, wrappedStates, appData)
       } else {
         throw new Error('Missing required interface function. apply()')
       }
