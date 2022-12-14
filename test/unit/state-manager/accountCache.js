@@ -147,8 +147,6 @@ for (let i = 0; i < testIterations; i++) {
   accountCache.crypto.hash = crypto.hashObj
 
   let debugAccount = utils.debugExpand('2953x73eed')
-
-  let mainHashResults = accountCache.buildPartitionHashesForNode(cycleShardData, debugAC3, debugAccount)
 }
 
 /* eslint-enable */
