@@ -3105,19 +3105,12 @@ class StateManager {
     this.profiler.profileSectionEnd('stateManager_processPreviousCycleSummaries_buildStatsReport')
 
     // build partition hashes from previous full cycle
-    let mainHashResults: MainHashResults = null
     if (this.feature_partitionHashes === true) {
       if (cycleShardValues && cycleShardValues.ourNode.status === 'active') {
         this.profiler.profileSectionStart(
           'stateManager_processPreviousCycleSummaries_buildPartitionHashesForNode'
         )
-        if (this.config.debug.newCacheFlow) {
-          this.accountCache.processCacheUpdates(cycleShardValues)
-        } else {
-          mainHashResults = this.accountCache.buildPartitionHashesForNode(cycleShardValues) //This needs to be replaced by something that
-          //processes data for a completed cycle in a consistent way.  mainHash reults are not needed anymore.
-          //they will not scale well with a large number of accounts.
-        }
+        this.accountCache.processCacheUpdates(cycleShardValues)
 
         this.profiler.profileSectionEnd(
           'stateManager_processPreviousCycleSummaries_buildPartitionHashesForNode'
