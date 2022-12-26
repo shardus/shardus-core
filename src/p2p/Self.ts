@@ -268,28 +268,7 @@ async function contactArchiver() {
   return activeNodesSigned.nodeList
 }
 
-async function discoverNetwork(seedNodes) {
-  /**
-   * [AS] [TODO] [2020-02-05]
-   * We don't need this code anymore since we check time sync
-   * at the start of the Shardus.start.
-   *
-   * NOTE: Remove Self.checkTimeSynced too
-   */
-  // Check if our time is synced to network time server
-  // try {
-  //   // [TODO] - sometimes this fails due to the timeServers being off
-  //   //          try another backup method like Omar's timediff script
-  //   const timeSynced = await checkTimeSynced(Context.config.p2p.timeServers)
-  //   if (!timeSynced) {
-  //     warn(
-  //       'Local time out of sync with time server. Use NTP to keep system time in sync.'
-  //     )
-  //   }
-  // } catch (e) {
-  //   warn(e.message)
-  // }
-
+async function discoverNetwork(seedNodes: P2P.P2PTypes.Node[]) {
   // Check if we are first seed node
   const isFirstSeed = checkIfFirstSeedNode(seedNodes)
   if (!isFirstSeed) {
@@ -299,27 +278,6 @@ async function discoverNetwork(seedNodes) {
   if (logFlags.p2pNonFatal) info('You are the first seed node!')
   return true
 }
-
-// export async function checkTimeSynced(timeServers) {
-//   for (const host of timeServers) {
-//     try {
-//       const time = await Sntp.time({
-//         host,
-//         timeout: 10000,
-//       })
-//       return time.t <= Context.config.p2p.syncLimit
-//     } catch (e) {
-//       warn(`Couldn't fetch ntp time from server at ${host}`)
-//     }
-//   }
-//   try {
-//     const localTimeDiff = await calculateTimeDifference()
-//     return localTimeDiff <= Context.config.p2p.syncLimit * 1000
-//   } catch (e) {
-//     warn('local time is out of sync with google time server')
-//   }
-//   throw Error('Unable to check local time against time servers.')
-// }
 
 function checkIfFirstSeedNode(seedNodes) {
   if (!seedNodes.length) throw new Error('Fatal: No seed nodes in seed list!')
