@@ -141,7 +141,7 @@ async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]) {
 
 async function joinNetwork(activeNodes: P2P.P2PTypes.Node[], firstTime: boolean) {
   // Check if you're the first node
-  const isFirst = await discoverNetwork(activeNodes)
+  const isFirst = discoverNetwork(activeNodes)
   if (isFirst) {
     // Join your own network and give yourself an ID
     const id = await Join.firstJoin()
@@ -268,7 +268,7 @@ async function contactArchiver() {
   return activeNodesSigned.nodeList
 }
 
-async function discoverNetwork(seedNodes: P2P.P2PTypes.Node[]) {
+function discoverNetwork(seedNodes: P2P.P2PTypes.Node[]) {
   // Check if we are first seed node
   const isFirstSeed = checkIfFirstSeedNode(seedNodes)
   if (!isFirstSeed) {
@@ -279,7 +279,7 @@ async function discoverNetwork(seedNodes: P2P.P2PTypes.Node[]) {
   return true
 }
 
-function checkIfFirstSeedNode(seedNodes) {
+function checkIfFirstSeedNode(seedNodes: P2P.P2PTypes.Node[]) {
   if (!seedNodes.length) throw new Error('Fatal: No seed nodes in seed list!')
   if (seedNodes.length > 1) return false
   const seed = seedNodes[0]
