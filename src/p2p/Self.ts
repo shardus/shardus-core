@@ -87,6 +87,7 @@ export async function startup(): Promise<boolean> {
 
       const isReadyToJoin = await Context.shardus.app.isReadyToJoin()
       if (!isReadyToJoin) {
+        // Wait for Context.config.p2p.cycleDuration and try again
         throw new Error('Node not ready to join')
       }
 
