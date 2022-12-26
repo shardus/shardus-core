@@ -1,5 +1,4 @@
 import * as events from 'events'
-import got from 'got'
 import * as log4js from 'log4js'
 import * as http from '../http'
 import { logFlags } from '../logger'
@@ -84,6 +83,11 @@ export async function startup(): Promise<boolean> {
         return true
       } else {
         //not in witness mode
+      }
+
+      const isReadyToJoin = await Context.shardus.app.isReadyToJoin()
+      if (!isReadyToJoin) {
+        throw new Error('Node not ready to join')
       }
 
       // Otherwise, try to join the network
