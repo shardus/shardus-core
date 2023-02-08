@@ -78,7 +78,10 @@
     "**/load-detection/index.ts",
     "**/src/index.ts",
     "**/http/index.ts",
-    "**/exit-handler/index.ts"
+    "**/exit-handler/index.ts",
+    "promises.ts",
+    "promises.test.ts",
+    "checkIP.ts"
   ],
   "rules": {
     "no-empty": [

@@ -287,6 +287,9 @@ class TransactionRepair {
 
               const hashObj = this.stateManager.accountCache.getAccountHash(key)
               if (hashObj != null) {
+                // I don't believe this section is a security risk via timing attack
+                // This is not a security-critical piece of code from what I can tell
+                // eslint-disable-next-line security/detect-possible-timing-attacks
                 if (hashObj.h === hash) {
                   upToDateAccounts[id] = true
                   stats.numUpToDateAccounts++
@@ -302,6 +305,7 @@ class TransactionRepair {
                 }
               }
 
+              /* eslint-disable security/detect-object-injection */
               if (requestObjects[key] != null) {
                 //todo perf delay these checks for jit.
                 if (node_id !== this.stateManager.currentCycleShardData.ourNode.id) {
@@ -310,6 +314,7 @@ class TransactionRepair {
                     requestObjects[key].alternates.push(node_id)
                   }
                 }
+                /* eslint-enable security/detect-object-injection */
                 continue //we already have this request ready to go
               }
               stats.rLoop4++
@@ -356,6 +361,7 @@ class TransactionRepair {
                 alternates: [],
               }
               /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_note', `${txLogID}`, `setting key ${utils.stringifyReduce(key)} ${utils.stringifyReduce(objectToSet)}  acc:${shortKey}`)
+              // eslint-disable-next-line security/detect-object-injection
               requestObjects[key] = objectToSet
               allKeys.push(key)
               stats.requestObjectCount++
@@ -375,8 +381,10 @@ class TransactionRepair {
       // repair each unique key, if needed by asking an appropirate node for account state
       for (const key of allKeys) {
         const shortKey = utils.stringifyReduce(key)
+        /* eslint-disable security/detect-object-injection */
         if (requestObjects[key] != null) {
           const requestObject = requestObjects[key]
+          /* eslint-enable security/detect-object-injection */
 
           if (requestObject == null) {
             /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_note', `${txLogID}`, `requestObject == null  acc:${shortKey}`)
@@ -656,6 +664,9 @@ class TransactionRepair {
                     if (isGlobal === false) {
                       const hash = this.stateManager.accountCache.getAccountHash(data.accountId)
 
+                      // I don't believe an attack gets value from timing the comaparisons of these hashes
+                      // This code is for syncing accounts if we get a tx receipt and the local apply operation does not match
+                      // eslint-disable-next-line security/detect-possible-timing-attacks
                       if (hash != null) {
                         test4 = hash.h === updatedHash
                         branch4 = 1

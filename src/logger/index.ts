@@ -110,10 +110,12 @@ export let logFlags: LogFlags = {
   // snapshot:true,
 }
 
-class Logger {
+class Logger extends log4js.Logger {
   backupLogFlags: LogFlags
+  debug: any
 
   constructor(baseDir: string, config: Shardus.StrictLogsConfiguration, dynamicLogMode: string) {
+    super()
     this.baseDir = baseDir
     this.config = config
     this.logDir = null
@@ -145,7 +147,7 @@ class Logger {
 
   // Get the specified logger
   getLogger(logger: string) {
-    return log4js.getLogger(logger)
+    return log4js.getLogger(logger) as Logger
   }
 
   // Setup the logs with the provided configuration using the base directory provided for relative paths
