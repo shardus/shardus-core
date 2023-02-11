@@ -438,19 +438,22 @@ export async function init() {
   const defaults = defaultConfigs['server']['ip'] as IPInfo
 
   // Set ipInfo to passed config, automtically if passed 'auto', or to default
-  const externalIp =
-    (config.ip.externalIp === 'auto' ? await getExternalIp() : config.ip.externalIp) || defaults['externalIp']
+  let externalIp
+  try {
+    externalIp = config.ip.externalIp === 'auto' ? await getExternalIp() : config.ip.externalIp
+  } catch (error) {
+    const msg = `Could not get external IP address from Archiver: ${error}. Exiting.`
+    mainLogger.fatal(msg)
+    throw msg
+  }
 
   const externalPort =
-    (config.ip.externalPort === 'auto' ? await getNextExternalPort(externalIp) : config.ip.externalPort) ||
-    defaults['externalPort']
+    config.ip.externalPort === 'auto' ? await getNextExternalPort(externalIp) : config.ip.externalPort
 
-  const internalIp =
-    (config.ip.internalIp === 'auto' ? externalIp : config.ip.internalIp) || defaults['internalIp']
+  const internalIp = config.ip.internalIp === 'auto' ? externalIp : config.ip.internalIp
 
   const internalPort =
-    (config.ip.internalPort === 'auto' ? await getNextExternalPort(internalIp) : config.ip.internalPort) ||
-    defaults['internalPort']
+    config.ip.internalPort === 'auto' ? await getNextExternalPort(internalIp) : config.ip.internalPort
 
   ipInfo = {
     externalIp,
@@ -477,21 +480,9 @@ function initNatClient() {
 }
 
 async function getExternalIp() {
-  initNatClient()
-
-  try {
-    const ip = await natClient.es6.externalIp()
-    return ip
-  } catch (err) {
-    mainLogger.warn('Failed to get external IP from gateway:', err.message ? err.message : err)
-
-    try {
-      const ip = await discoverExternalIp(config.p2p.ipServer)
-      return ip
-    } catch (err) {
-      mainLogger.warn('Failed to get external IP from IP server:', err.message ? err.message : err)
-    }
-  }
+  const archiverIpEndpoint = `${config.p2p.existingArchivers[0].ip}:${config.p2p.existingArchivers[0].port}/myip`
+  const ip = await discoverExternalIp(archiverIpEndpoint)
+  return ip
 }
 
 async function getNextExternalPort(ip: string) {
@@ -607,12 +598,6 @@ export async function checkTimeSynced(timeServers) {
 }
 
 async function discoverExternalIp(server: string) {
-  // Figure out if we're behind a NAT
-
-  // Attempt NAT traversal with UPnP
-
-  //
-
   try {
     const { ip }: { ip: string } = await httpModule.get(server)
     return ip
