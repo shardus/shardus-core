@@ -37,7 +37,6 @@
     "DataSourceHelper.ts",
     "CachedAppDataManager.ts",
     "AccountSync.ts",
-    "AccountPatcher.ts",
     "AccountGlobals.ts",
     "AccountCache.ts",
     "snapshotFunctions.ts",
