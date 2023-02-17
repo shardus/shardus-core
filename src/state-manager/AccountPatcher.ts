@@ -1,20 +1,14 @@
 import * as Shardus from '../shardus/shardus-types'
 import { StateManager as StateManagerTypes } from '@shardus/types'
 import * as utils from '../utils'
-import * as CycleChain from '../p2p/CycleChain'
-const stringify = require('fast-stable-stringify')
-import Profiler, { cUninitializedSize, profilerInstance } from '../utils/profiler'
+import Profiler, { profilerInstance } from '../utils/profiler'
 import { P2PModuleContext as P2P } from '../p2p/Context'
-import Storage from '../storage'
 import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
 import ShardFunctions from './shardFunctions'
-import { debug, time } from 'console'
 import StateManager from '.'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import * as NodeList from '../p2p/NodeList'
-
-import * as Comms from '../p2p/Comms'
 import * as Context from '../p2p/Context'
 import * as Wrapper from '../p2p/Wrapper'
 import {
@@ -40,9 +34,7 @@ import {
 } from './state-manager-types'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { errorToStringFull } from '../utils'
-import { promises } from 'dns'
-//import { all } from 'deepmerge'
-//import { Node } from '../p2p/Types'
+import { Logger as Log4jsLogger } from 'log4js'
 
 class AccountPatcher {
   app: Shardus.App
@@ -54,10 +46,10 @@ class AccountPatcher {
 
   logger: Logger
 
-  mainLogger: any
-  fatalLogger: any
-  shardLogger: any
-  statsLogger: any
+  mainLogger: Log4jsLogger
+  fatalLogger: Log4jsLogger
+  shardLogger: Log4jsLogger
+  statsLogger: Log4jsLogger
 
   statemanager_fatal: (key: string, log: string) => void
   stateManager: StateManager
