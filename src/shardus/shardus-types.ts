@@ -1,9 +1,6 @@
 import { P2P } from '@shardus/types'
 export type Node = P2P.NodeListTypes.Node
 export type Cycle = P2P.CycleCreatorTypes.CycleRecord
-//import { RequestHandler } from "express"; //express was causing problems.
-
-type RequestHandler = any
 
 // Type definitions for Shardus
 // Project: Shardus Enterprise Server
@@ -175,16 +172,6 @@ export interface App {
    */
   txPreCrackData(tx: OpaqueTransaction, appData: any): Promise<void> // Promise<any>
 
-  // DEPRECATED . This was previously a deep validate for buisness logic but it is up to the dapp to handle this as part of apply
-  validateTransaction?: (...data: any) => any
-  /**
-   * A function responsible for validation the incoming transaction fields
-   */
-  // DEPRECATED in favor of `validate`
-  validateTxnFields?: (
-    inTx: OpaqueTransaction, // it is better to not use IncomingTransaction
-    appData: any
-  ) => IncomingTransactionResult
   /**
    * A function responsible for applying an accepted transaction
    */
@@ -238,7 +225,7 @@ export interface App {
   getAccountTimestamp?: (accountAddress: string, mustExist?: boolean) => Promise<number>
 
   /**
-   * A function that allows the app to look at a passed in account ane return the hash and timestamp
+   * A function that allows the app to look at a passed in account and return the hash and timestamp
    */
   getTimestampAndHashFromAccount?: (account: any) => {
     timestamp: number
@@ -283,7 +270,7 @@ export interface App {
    * If it is the first node it can use .set() to set data
    * If it is not the first node it could use getLocalOrRemote() to query data it needs.
    */
-  sync?: () => any
+  sync?: () => void
 
   dataSummaryInit?: (blob: any, accountData: any) => void
   dataSummaryUpdate?: (blob: any, accountDataBefore: any, accountDataAfter: any) => void

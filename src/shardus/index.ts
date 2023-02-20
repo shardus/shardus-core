@@ -1461,50 +1461,12 @@ class Shardus extends EventEmitter {
 
       if (typeof application.validate === 'function') {
         applicationInterfaceImpl.validate = (inTx, appData) => application.validate(inTx, appData)
-      } else if (typeof application.validateTxnFields === 'function') {
-        /**
-         * Compatibility layer for Apps that use the old validateTxnFields fn
-         * instead of the new validate fn
-         */
-        applicationInterfaceImpl.validate = (inTx, appData) => {
-          const oldResult: ShardusTypes.IncomingTransactionResult = application.validateTxnFields(
-            inTx,
-            appData
-          )
-          const newResult = {
-            success: oldResult.success,
-            reason: oldResult.reason,
-            status: oldResult.status,
-          }
-          return newResult
-        }
       } else {
         throw new Error('Missing required interface function. validate()')
       }
 
       if (typeof application.crack === 'function') {
         applicationInterfaceImpl.crack = (inTx, appData) => application.crack(inTx, appData)
-      } else if (
-        typeof application.getKeyFromTransaction === 'function' &&
-        typeof application.validateTxnFields === 'function'
-      ) {
-        /**
-         * Compatibility layer for Apps that use the old getKeyFromTransaction
-         * fn instead of the new crack fn
-         */
-        applicationInterfaceImpl.crack = (inTx) => {
-          const oldGetKeyFromTransactionResult: ShardusTypes.TransactionKeys =
-            application.getKeyFromTransaction(inTx)
-          const oldValidateTxnFieldsResult: ShardusTypes.IncomingTransactionResult =
-            application.validateTxnFields(inTx, null)
-          const newResult = {
-            timestamp: oldValidateTxnFieldsResult.txnTimestamp,
-            id: this.crypto.hash(inTx), // [TODO] [URGENT] We really shouldn't be doing this and should change all apps to use the new way and do their own hash
-            keys: oldGetKeyFromTransactionResult,
-            shardusMemoryPatterns: null,
-          }
-          return newResult
-        }
       } else {
         throw new Error('Missing required interface function. validate()')
       }

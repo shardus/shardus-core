@@ -29,7 +29,6 @@
     "AccountPatcher.ts",
     "snapshotFunctions.ts",
     "partition-gossip.ts",
-    "shardus-types.ts",
     "random-test.ts",
     "Wrapper.ts",
     "Utils.ts",
