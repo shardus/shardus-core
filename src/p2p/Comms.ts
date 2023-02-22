@@ -1,5 +1,6 @@
 import * as cryptoUtils from '@shardus/crypto-utils'
 import { P2P } from '@shardus/types'
+import { Handler } from 'express'
 import { Logger } from 'log4js'
 import { logFlags } from '../logger'
 import { setIsUpTs } from '../p2p/Lost'
@@ -299,7 +300,7 @@ export async function ask(
   }
 }
 
-export function registerInternal(route, handler) {
+export function registerInternal(route: string, handler) {
   // Create function that wraps handler function
   const wrappedHandler = async (wrappedPayload, respond) => {
     /* prettier-ignore */ if(logFlags.p2pNonFatal) info("registerInternal wrappedPayload", utils.stringifyReduceLimit(wrappedPayload))

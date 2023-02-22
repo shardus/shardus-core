@@ -191,16 +191,17 @@ class AccountPatcher {
       'get_trie_hashes',
       async (
         payload: HashTrieReq,
-        respond: (arg0: HashTrieResp) => any,
+        respond: (arg0: HashTrieResp) => Promise<number>,
         _sender: unknown,
         _tracker: string,
         msgSize: number
       ) => {
         profilerInstance.scopedProfileSectionStart('get_trie_hashes', false, msgSize)
-        const result = { nodeHashes: [] } as HashTrieResp
+        const result: HashTrieResp = { nodeHashes: [] }
         let responseCount = 0
         for (const radix of payload.radixList) {
           const level = radix.length
+          // eslint-disable-next-line security/detect-object-injection
           const layerMap = this.shardTrie.layerMaps[level]
 
           const hashTrieNode = layerMap.get(radix)
@@ -225,7 +226,13 @@ class AccountPatcher {
 
     this.p2p.registerInternal(
       'sync_trie_hashes',
-      async (payload: HashTrieSyncTell, respondWrapped, sender: string, tracker: string, msgSize: number) => {
+      async (
+        payload: HashTrieSyncTell,
+        _respondWrapped: unknown,
+        sender: string,
+        _tracker: string,
+        msgSize: number
+      ) => {
         profilerInstance.scopedProfileSectionStart('sync_trie_hashes', false, msgSize)
         try {
           //TODO use our own definition of current cycle.
@@ -295,9 +302,9 @@ class AccountPatcher {
       'get_trie_accountHashes',
       async (
         payload: HashTrieReq,
-        respond: (arg0: HashTrieAccountsResp) => any,
-        sender: string,
-        tracker: string,
+        respond: (arg0: HashTrieAccountsResp) => Promise<number>,
+        _sender: string,
+        _tracker: string,
         msgSize: number
       ) => {
         profilerInstance.scopedProfileSectionStart('get_trie_accountHashes', false, msgSize)
@@ -312,6 +319,7 @@ class AccountPatcher {
         for (const radix of payload.radixList) {
           result.stats.visisted++
           const level = radix.length
+          // eslint-disable-next-line security/detect-object-injection
           const layerMap = this.shardTrie.layerMaps[level]
 
           const hashTrieNode = layerMap.get(radix)
@@ -345,9 +353,9 @@ class AccountPatcher {
       'get_account_data_by_hashes',
       async (
         payload: HashTrieAccountDataRequest,
-        respond: (arg0: HashTrieAccountDataResponse) => any,
-        sender: string,
-        tracker: string,
+        respond: (arg0: HashTrieAccountDataResponse) => Promise<number>,
+        _sender: string,
+        _tracker: string,
         msgSize: number
       ) => {
         profilerInstance.scopedProfileSectionStart('get_account_data_by_hashes', false, msgSize)
@@ -406,6 +414,7 @@ class AccountPatcher {
 
               const { accountId, stateId, data: recordData } = wrappedAccount
               const hash = this.app.calculateAccountHash(recordData)
+              // eslint-disable-next-line security/detect-possible-timing-attacks
               if (stateId !== hash) {
                 skippedAccounts.push({ accountID: accountId, hash: stateId })
                 queryStats.skip_localHashMismatch++
@@ -421,16 +430,6 @@ class AccountPatcher {
                 queryStats.skip_requestHashMismatch++
                 skippedAccounts.push({ accountID: accountId, hash: stateId })
               }
-
-              // let wrappedAccountInQueueRef = wrappedAccount as Shardus.WrappedDataFromQueue
-              // wrappedAccountInQueueRef.seenInQueue = false
-
-              // if (this.stateManager.lastSeenAccountsMap != null) {
-              //   let queueEntry = this.stateManager.lastSeenAccountsMap[wrappedAccountInQueueRef.accountId]
-              //   if (queueEntry != null) {
-              //     wrappedAccountInQueueRef.seenInQueue = true
-              //   }
-              // }
             }
           }
           //PERF could disable this for more perf?
@@ -562,6 +561,7 @@ class AccountPatcher {
           let radix: string = req.query.radix as string
           if (radix.length > this.treeMaxDepth) radix = radix.slice(0, this.treeMaxDepth)
           const level = radix.length
+          // eslint-disable-next-line security/detect-object-injection
           const layerMap = this.shardTrie.layerMaps[level]
 
           let hashTrieNode = layerMap.get(radix.toLowerCase())
@@ -624,7 +624,9 @@ class AccountPatcher {
               minVotes,
               allVotes: kvp,
             }
+            // eslint-disable-next-line security/detect-object-injection
             if (!hasEnoughVotes) notEnoughVotesRadix[radix] = simpleMap
+            // eslint-disable-next-line security/detect-object-injection
             if (!isRadixInSync) outOfSyncRadix[radix] = simpleMap
           }
         }
@@ -700,7 +702,6 @@ class AccountPatcher {
       res.end()
     })
 
-    //
     Context.network.registerExternalGet('get-shard-dump', isDebugModeMiddleware, (req, res) => {
       res.write(`${this.stateManager.lastShardReport}\n`)
       res.end()
@@ -827,7 +828,6 @@ class AccountPatcher {
       try {
         if (id.length === 10) {
           //short form..
-          const found = false
           const prefix = id.substr(0, 4)
           const low = prefix + '0'.repeat(60)
           const high = prefix + 'f'.repeat(60)
@@ -857,6 +857,7 @@ class AccountPatcher {
             const consensusNodes = this.stateManager.transactionQueue.getConsenusGroupForAccount(accountId)
             const storedNodes = this.stateManager.transactionQueue.getStorageGroupForAccount(accountId)
 
+            // eslint-disable-next-line security/detect-object-injection
             resObj[accountId] = {
               consensusNodes: consensusNodes.map((node) => {
                 return {
@@ -940,14 +941,17 @@ class AccountPatcher {
     }
 
     //feed account data into lowest layer, generates list of treeNodes
+    // eslint-disable-next-line security/detect-object-injection
     let currentMap = this.shardTrie.layerMaps[currentLayer]
     if (currentMap == null) {
       currentMap = new Map()
+      // eslint-disable-next-line security/detect-object-injection
       this.shardTrie.layerMaps[currentLayer] = currentMap
     }
 
     //process accounts that need updating.  Create nodes as needed
     for (let i = 0; i < this.accountUpdateQueue.length; i++) {
+      // eslint-disable-next-line security/detect-object-injection
       const tx = this.accountUpdateQueue[i]
       const key = tx.accountID.slice(0, currentLayer)
       let leafNode = currentMap.get(key)
@@ -1502,7 +1506,7 @@ class AccountPatcher {
    * @param cycle
    * @param nextNode pass true to start asking the next node in the list for data.
    */
-  getNodeForQuery(radix: string, cycle: number, nextNode: boolean = false) {
+  getNodeForQuery(radix: string, cycle: number, nextNode = false) {
     const hashTrieSyncConsensus = this.hashTrieSyncConsensusByCycle.get(cycle)
     const parentRadix = radix.substr(0, this.treeSyncDepth)
 
@@ -1522,6 +1526,7 @@ class AccountPatcher {
     if (nextNode === true) {
       coverageEntry.refuted.add(coverageEntry.firstChoice.id)
       for (let i = 0; i < coverageEntry.fullList.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
         const node = coverageEntry.fullList[i]
         if (node == null || coverageEntry.refuted.has(node.id)) {
           continue
@@ -1543,7 +1548,6 @@ class AccountPatcher {
    * @param cycle
    */
   async getChildrenOf(radixHashEntries: RadixAndHash[], cycle: number): Promise<RadixAndHash[]> {
-    let result: HashTrieResp
     let nodeHashes: RadixAndHash[] = []
     const requestMap: Map<Shardus.Node, HashTrieReq> = new Map()
     for (const radixHash of radixHashEntries) {
