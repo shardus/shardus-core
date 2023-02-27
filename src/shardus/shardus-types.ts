@@ -147,7 +147,7 @@ export interface App {
    *
    * Returns whether tx pass or failed validation plus the reason why
    */
-  validate(tx: OpaqueTransaction, appData: any): { success: boolean; reason: string; status: number }
+  validate(tx: OpaqueTransaction, appData: unknown): { success: boolean; reason: string; status: number }
 
   /**
    * Cracks open the transaction and returns its timestamp, id (hash), and any
@@ -157,7 +157,7 @@ export interface App {
    */
   crack(
     tx: OpaqueTransaction,
-    appData: any
+    appData: unknown
   ): {
     timestamp: number
     id: string
@@ -170,7 +170,7 @@ export interface App {
    * @param tx
    * @param appData
    */
-  txPreCrackData(tx: OpaqueTransaction, appData: any): Promise<void> // Promise<any>
+  txPreCrackData(tx: OpaqueTransaction, appData: unknown): Promise<void> // Promise<any>
 
   /**
    * A function responsible for applying an accepted transaction
@@ -178,7 +178,7 @@ export interface App {
   apply: (
     inTx: OpaqueTransaction,
     wrappedStates: { [accountId: string]: WrappedData },
-    appData: any
+    appData: unknown
   ) => Promise<ApplyResponse>
 
   /**
@@ -200,14 +200,14 @@ export interface App {
 
   updateAccountPartial: (wrappedState: WrappedResponse, localCache: any, applyResponse: ApplyResponse) => void
 
-  getRelevantData: (accountId: string, tx: object, appData: any) => Promise<WrappedResponse>
+  getRelevantData: (accountId: string, tx: object, appData: unknown) => Promise<WrappedResponse>
 
   /**
    * A function responsible for getting timestamp from injected transaction
    */
   getTimestampFromTransaction: (
     inTx: OpaqueTransaction, // it is better to not use IncomingTransaction
-    appData: {}
+    appData: unknown
   ) => number
 
   /**
@@ -272,9 +272,9 @@ export interface App {
    */
   sync?: () => void
 
-  dataSummaryInit?: (blob: any, accountData: any) => void
-  dataSummaryUpdate?: (blob: any, accountDataBefore: any, accountDataAfter: any) => void
-  txSummaryUpdate?: (blob: any, tx: any, wrappedStates: any) => void
+  dataSummaryInit?: (blob: unknown, accountData: any) => void
+  dataSummaryUpdate?: (blob: unknown, accountDataBefore: any, accountDataAfter: any) => void
+  txSummaryUpdate?: (blob: unknown, tx: any, wrappedStates: any) => void
   validateJoinRequest?: (data: any) => any
   getJoinData?: () => any
   eventNotify?: (event: ShardusEvent) => void
@@ -284,9 +284,14 @@ export interface App {
     activeNodes: P2P.P2PTypes.Node[]
   ) => Promise<boolean>
 
-  getNodeInfoAppData?: () => any
-  signAppData?: (type: string, hash: string, nodesToSign: number, appData: any) => Promise<SignAppDataResult>
-  updateNetworkChangeQueue?: (account: WrappedData, appData: any) => Promise<WrappedData[]>
+  getNodeInfoAppData?: () => unknown
+  signAppData?: (
+    type: string,
+    hash: string,
+    nodesToSign: number,
+    appData: unknown
+  ) => Promise<SignAppDataResult>
+  updateNetworkChangeQueue?: (account: WrappedData, appData: unknown) => Promise<WrappedData[]>
 }
 
 export interface TransactionKeys {
@@ -1010,7 +1015,7 @@ export interface AcceptedTx {
   txId: string
   keys: TransactionKeys
   data: OpaqueTransaction
-  appData: any
+  appData: unknown
   shardusMemoryPatterns: ShardusMemoryPatternsInput
 }
 
