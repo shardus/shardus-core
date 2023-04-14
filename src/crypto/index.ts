@@ -161,9 +161,12 @@ class Crypto {
 
   signWithSize<T>(obj: T): T & crypto.SignedObject {
     const wrappedMsgStr = crypto.stringify(obj)
-    const msgLength = wrappedMsgStr.length
-    obj.msgSize = msgLength
-    return this.sign(obj)
+    const msgLength = wrappedMsgStr.length;
+    const newObj = {
+      ...obj,
+      msgSize: msgLength
+    };
+    return this.sign(newObj)
   }
 
   authenticate(obj: crypto.TaggedObject, senderCurvePk: crypto.curvePublicKey): boolean {
