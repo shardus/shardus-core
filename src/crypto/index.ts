@@ -208,7 +208,6 @@ class Crypto {
   }
 
   stopAllGenerators(): void {
-    // tslint:disable-next-line: forin
     for (const generator in this.powGenerators) {
       // eslint-disable-next-line security/detect-object-injection
       this.powGenerators[generator].kill()
