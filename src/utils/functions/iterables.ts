@@ -1,4 +1,4 @@
-export function reversed<T>(thing: Iterable<T>) {
+export function reversed<T>(thing: Iterable<T>): Iterable<T> {
   const arr = Array.isArray(thing) ? thing : Array.from(thing)
   let i = arr.length - 1
   const reverseIterator = {
@@ -21,7 +21,7 @@ export function reversed<T>(thing: Iterable<T>) {
  *
  * @param thing
  */
-export function randomShifted<T>(thing: Iterable<T>) {
+export function randomShifted<T>(thing: Iterable<T>): Iterable<T> {
   const arr = Array.isArray(thing) ? thing : Array.from(thing)
   let i = arr.length - 1
   const reverseIterator = {
