@@ -12,7 +12,7 @@ const objKeys =
     return keys
   })
 
-export const stringifyReduce = (val, isArrayProp?: boolean) => {
+export const stringifyReduce = (val, isArrayProp?: boolean): string => {
   let i, max, str, keys, key, propVal, toStr
   if (val === true) {
     return 'true'
@@ -87,7 +87,7 @@ export const stringifyReduce = (val, isArrayProp?: boolean) => {
   }
 }
 
-export const stringifyReduceLimit = (val, limit = 100, isArrayProp?: boolean) => {
+export const stringifyReduceLimit = (val, limit = 100, isArrayProp?: boolean): string => {
   let i, max, str, keys, key, propVal, toStr
 
   if (limit < 0) {
@@ -164,7 +164,15 @@ export const stringifyReduceLimit = (val, limit = 100, isArrayProp?: boolean) =>
   }
 }
 
-export const replacer = (key, value) => {
+export const replacer = <T>(
+  _key,
+  value: T
+):
+  | {
+      dataType: 'stringifyReduce_map_2_array'
+      value: [symbol, unknown][]
+    }
+  | T => {
   const originalObject = value // this[key]
   if (originalObject instanceof Map) {
     return {
@@ -176,8 +184,16 @@ export const replacer = (key, value) => {
   }
 }
 
-export const reviver = (key, value) => {
-  if (typeof value === 'object' && value !== null) {
+export const reviver = <T, K, V>(
+  _key,
+  value:
+    | {
+        dataType: 'stringifyReduce_map_2_array'
+        value: [K, V][]
+      }
+    | T
+): Map<K, V> | T => {
+  if (typeof value === 'object' && value !== null && 'dataType' in value) {
     if (value.dataType === 'stringifyReduce_map_2_array') {
       return new Map(value.value)
     }
@@ -185,7 +201,15 @@ export const reviver = (key, value) => {
   return value
 }
 
-export const reviverExpander = (key, value) => {
+export const reviverExpander = <T, K, V>(
+  _key,
+  value:
+    | {
+        dataType: 'stringifyReduce_map_2_array'
+        value: [K, V][]
+      }
+    | T
+): Map<K, V> | string | T => {
   if (typeof value === 'object' && value !== null) {
     if (value.dataType === 'stringifyReduce_map_2_array') {
       return new Map(value.value)
@@ -202,7 +226,15 @@ export const reviverExpander = (key, value) => {
 // commenting stringifyReduceMemoize as its not being used anywhere
 //export const stringifyReduceMemoize = (val, isArrayProp?: boolean) => {}
 
-export const reviverMemoize = (key, value) => {
+export const reviverMemoize = <T, K, V>(
+  _key,
+  value:
+    | {
+        dataType: 'stringifyReduce_map_2_array'
+        value: [K, V][]
+      }
+    | T
+): Map<K, V> | T => {
   if (typeof value === 'object' && value !== null) {
     if (value.dataType === 'stringifyReduce_map_2_array') {
       return new Map(value.value)
@@ -211,7 +243,17 @@ export const reviverMemoize = (key, value) => {
   return value
 }
 
-export const debugReplacer = (key, value) => {
+export const debugReplacer = <T>(
+  key: string,
+  value: T
+):
+  | {
+      dataType: 'stringifyReduce_map_2_array'
+      value: [symbol, unknown][]
+    }
+  | Record<string, never>
+  | string
+  | T => {
   const originalObject = value // this[key]
 
   if (key === 'accountTempMap') {
@@ -231,7 +273,15 @@ export const debugReplacer = (key, value) => {
   }
 }
 
-export const debugReviver = (key, value) => {
+export const debugReviver = <T, K, V>(
+  _key,
+  value:
+    | {
+        dataType: 'stringifyReduce_map_2_array'
+        value: [K, V][]
+      }
+    | T
+): Map<K, V> | T => {
   if (typeof value === 'object' && value !== null) {
     if (value.dataType === 'stringifyReduce_map_2_array') {
       return new Map(value.value)
