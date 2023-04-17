@@ -197,8 +197,9 @@ export const reviver = <T, K, V>(
     if (value.dataType === 'stringifyReduce_map_2_array') {
       return new Map(value.value)
     }
+  } else {
+    return value as T
   }
-  return value
 }
 
 export const reviverExpander = <T, K, V>(
@@ -211,7 +212,7 @@ export const reviverExpander = <T, K, V>(
     | T
 ): Map<K, V> | string | T => {
   if (typeof value === 'object' && value !== null) {
-    if (value.dataType === 'stringifyReduce_map_2_array') {
+    if ('dataType' in value && value.dataType === 'stringifyReduce_map_2_array') {
       return new Map(value.value)
     }
   }
@@ -219,7 +220,7 @@ export const reviverExpander = <T, K, V>(
     const res = value.slice(0, 4) + '0'.repeat(55) + value.slice(5, 5 + 5)
     return res
   }
-  return value
+  return value as T
 }
 
 //Figure out certain chunky objects and store them in their own table
@@ -236,11 +237,11 @@ export const reviverMemoize = <T, K, V>(
     | T
 ): Map<K, V> | T => {
   if (typeof value === 'object' && value !== null) {
-    if (value.dataType === 'stringifyReduce_map_2_array') {
+    if ('dataType' in value && value.dataType === 'stringifyReduce_map_2_array') {
       return new Map(value.value)
     }
   }
-  return value
+  return value as T
 }
 
 export const debugReplacer = <T>(
@@ -283,9 +284,9 @@ export const debugReviver = <T, K, V>(
     | T
 ): Map<K, V> | T => {
   if (typeof value === 'object' && value !== null) {
-    if (value.dataType === 'stringifyReduce_map_2_array') {
+    if ('dataType' in value && value.dataType === 'stringifyReduce_map_2_array') {
       return new Map(value.value)
     }
   }
-  return value
+  return value as T
 }
