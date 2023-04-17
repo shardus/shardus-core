@@ -4811,7 +4811,7 @@ class TransactionQueue {
         originalTxData: queueEntry.acceptedTx.data['tx'] || queueEntry.acceptedTx.data,
         txId: txHash,
         timestamp: queueEntry.acceptedTx.timestamp,
-      },
+      } as unknown as AcceptedTx,
       cycle: queueEntry.cycleToRecordOn,
       result: { txIdShort, txResult },
       accounts: [],

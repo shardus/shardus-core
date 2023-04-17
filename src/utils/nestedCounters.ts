@@ -64,7 +64,7 @@ class NestedCounters {
         const s2 = utils.stringifyReduce({ test: [s, s, s, s, s, s, s] })
         const s3 = utils.stringifyReduce({ test: [s2, s2, s2, s2, s2, s2, s2] })
         if (this.crypto != null) {
-          this.crypto.hash(s3)
+          this.crypto.hash(s3 as unknown as HashableObject)
         }
       }
     })
