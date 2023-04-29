@@ -454,7 +454,7 @@ export function getThisNodeInfo(): {
   internalIp: string
   internalPort: number
   address: string
-  joinRequestTimestamp: any
+  joinRequestTimestamp: number
   activeTimestamp: number
 } {
   const { externalIp, externalPort, internalIp, internalPort } = network.ipInfo
