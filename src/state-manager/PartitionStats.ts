@@ -3,20 +3,15 @@ import * as utils from '../utils'
 const stringify = require('fast-stable-stringify')
 
 import Profiler from '../utils/profiler'
-import { P2PModuleContext as P2P } from '../p2p/Context'
-import Storage from '../storage'
 import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
-import ShardFunctions from './shardFunctions'
 import AccountCache from './AccountCache'
 import StateManager from '.'
 import { AccountHashCache, QueueEntry, CycleShardData } from './state-manager-types'
 import { StateManager as StateManagerTypes } from '@shardus/types'
 import * as Context from '../p2p/Context'
 import * as Wrapper from '../p2p/Wrapper'
-import { requestNetworkDownsize } from '../p2p/CycleAutoScale'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
-import { constants } from 'fs'
 
 /**
  * PartitionStats is a system that allows the dapp to build custom anonymous tallies of accounts and committed TXs.
@@ -198,7 +193,6 @@ class PartitionStats {
                 singleVotePartitions,
                 multiVotePartitions,
                 badPartitions,
-                totalTx,
               } = this.processTxStatsDump(res, this.txStatsTallyFunction, lines)
               res.write(
                 `TX statsReport${cycleNumber}  : ${allPassed} pass2: ${allPassedMetric2}  single:${singleVotePartitions} multi:${multiVotePartitions} badPartitions:${badPartitions}\n`
@@ -290,40 +284,11 @@ class PartitionStats {
     }
     if (summaryBlobCollectionToUse === null) {
       summaryBlobCollectionToUse = this.initTXSummaryBlobsForCycle(cycle)
-      // this.txSummaryBlobCollections.push(summaryBlobCollectionToUse)
     }
     return summaryBlobCollectionToUse
   }
 
-  /**
-   * Get the correct summary blob partition that matches this address.
-   * Address must be in the account space. (i.e. AccountIDs)
-   * Never pass a TX id into this (we use the first sorted writable account key for a TX)
-   * @param address
-   */
-  // getSummaryBlobPartition(address: string): number {
-  //   let addressNum = parseInt(address.slice(0, 8), 16)
-  //   // 2^32  4294967296 or 0xFFFFFFFF + 1
-  //   let size = Math.round((0xffffffff + 1) / this.summaryPartitionCount)
-  //   //let preRound = addressNum / size
-  //   let summaryPartition = Math.floor(addressNum / size)
-
-  //   if (this.extensiveRangeChecking) {
-  //     if (summaryPartition < 0) {
-  //       /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`getSummaryBlobPartition summaryPartition < 0 ${summaryPartition}`)
-  //     }
-  //     if (summaryPartition > this.summaryPartitionCount) {
-  //       /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`getSummaryBlobPartition summaryPartition > this.summaryPartitionCount ${summaryPartition}`)
-  //     }
-  //   }
-
-  //   if (summaryPartition === this.summaryPartitionCount) {
-  //     summaryPartition = summaryPartition - 1
-  //   }
-  //   return summaryPartition
-  // }
-
-  //requires exactly 4096 partitions.
+  // requires exactly 4096 partitions.
   getSummaryBlobPartition(address: string): number {
     let threebyteHex = address.slice(0, 3)
     let summaryPartition = Number.parseInt(threebyteHex, 16)
@@ -860,9 +825,6 @@ class PartitionStats {
    *    ##        ##     ##  #######   ######  ########  ######   ######  ########  ##     ##    ##    ##     ##  ######     ##    ##     ##    ##     ######  ########   #######  ##     ## ##
    */
   processDataStatsDump(stream, tallyFunction, lines) {
-    // let stream = fs.createWriteStream(path, {
-    //   flags: 'w'
-    // })
     let dataByParition = new Map()
 
     let newestCycle = -1
@@ -935,12 +897,9 @@ class PartitionStats {
           let votes = dataTally.dataStrings[dataString]
           if (votes > dataTally.bestVote) {
             dataTally.bestVote = votes
-          } else {
-            let debug = 1
           }
           if (tallyFunction != null) {
             dataTally.tallyList.push(tallyFunction(dataStatsObj.opaqueBlob))
-            // console.log(' dataTally',  dataTally)
           }
         }
       }
@@ -959,8 +918,7 @@ class PartitionStats {
         allPassed = false
         badPartitions.push(dataTally.partition)
 
-        if (dataTally.bestVote >= Math.ceil(dataTally.voters / 3)) {
-        } else {
+        if (dataTally.bestVote < Math.ceil(dataTally.voters / 3)) {
           allPassedMetric2 = false
         }
       }
@@ -1066,8 +1024,6 @@ class PartitionStats {
         if (votes > dataTally.bestVote) {
           dataTally.bestVote = votes
           dataTally.bestVoteValue = txStatsObj.opaqueBlob
-        } else {
-          let debug = 1
         }
         if (tallyFunction != null) {
           dataTally.tallyList.push(tallyFunction(txStatsObj.opaqueBlob))
@@ -1097,7 +1053,6 @@ class PartitionStats {
     let badPartitions = []
     let sum = 0
     for (let dataTally of dataByParition.values()) {
-      // console.log('dataByPartition', dataByParition)
       sum += dataTally.bestVoteValue.totalTx || 0
       if (dataTally.differentVotes === 1) {
         singleVotePartitions++
@@ -1106,10 +1061,8 @@ class PartitionStats {
         multiVotePartitions++
         allPassed = false
         badPartitions.push(dataTally.partition)
-        //stream.write(`dataTally string partititon ${dataTally.partition}\n`, dataTally.dataStrings)
 
-        if (dataTally.bestVote >= Math.ceil(dataTally.voters / 3)) {
-        } else {
+        if (dataTally.bestVote < Math.ceil(dataTally.voters / 3)) {
           allPassedMetric2 = false
         }
       }
@@ -1118,7 +1071,7 @@ class PartitionStats {
     //print non zero issues
     for (let statsObj of statsBlobs) {
       if (statsObj.cycleDebugNotes != null) {
-        for (const [key, value] of Object.entries(statsObj.cycleDebugNotes)) {
+        for (const [, value] of Object.entries(statsObj.cycleDebugNotes)) {
           let valueNum = value as number
           if (valueNum >= 1) {
             stream.write(`${statsObj.owner} : ${JSON.stringify(statsObj.cycleDebugNotes)}`)
@@ -1165,11 +1118,7 @@ class PartitionStats {
       return 'X'
     }
 
-    //if(accountData.balance){
     return accountData.balance
-    //}
-
-    //return '_'
   }
 
   //debug helper for invasiveDebugInfo
