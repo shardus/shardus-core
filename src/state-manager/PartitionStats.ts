@@ -286,6 +286,8 @@ class PartitionStats {
       return null
     }
     for (let i = this.txSummaryBlobCollections.length - 1; i >= 0; i--) {
+      // index is a number and never out of bounds
+      // eslint-disable-next-line security/detect-object-injection
       const summaryBlobCollection = this.txSummaryBlobCollections[i]
       if (summaryBlobCollection.cycle === cycle) {
         summaryBlobCollectionToUse = summaryBlobCollection
@@ -912,6 +914,9 @@ class PartitionStats {
           dataTally = dataByParition.get(partition)
 
           dataTally.data.push(dataStatsObj)
+          // `dataString` is only ever used to index a map of numbers, so this
+          // is probably safe
+          /* eslint-disable security/detect-object-injection */
           if (dataTally.dataStrings[dataString] == null) {
             dataTally.dataStrings[dataString] = 0
             dataTally.differentVotes++
@@ -925,6 +930,7 @@ class PartitionStats {
           if (tallyFunction != null) {
             dataTally.tallyList.push(tallyFunction(dataStatsObj.opaqueBlob))
           }
+          /* eslint-enable security/detect-object-injection */
         }
       }
     }
@@ -1058,6 +1064,9 @@ class PartitionStats {
         dataTally = dataByParition.get(partition)
 
         dataTally.data.push(txStatsObj)
+        // `dataString` is only ever used to index a map of numbers, so this
+        // is probably safe
+        /* eslint-disable security/detect-object-injection */
         if (dataTally.dataStrings[dataString] == null) {
           dataTally.dataStrings[dataString] = 0
           dataTally.differentVotes++
@@ -1069,6 +1078,7 @@ class PartitionStats {
           dataTally.bestVote = votes
           dataTally.bestVoteValue = txStatsObj.opaqueBlob
         }
+        /* eslint-enable security/detect-object-injection */
         if (tallyFunction != null) {
           dataTally.tallyList.push(tallyFunction(txStatsObj.opaqueBlob))
           if (dataTally.differentVotes > 1) {
