@@ -1,6 +1,6 @@
 import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
-const stringify = require('fast-stable-stringify')
+import stringify from 'fast-stable-stringify'
 
 import Profiler from '../utils/profiler'
 import Crypto from '../crypto'
