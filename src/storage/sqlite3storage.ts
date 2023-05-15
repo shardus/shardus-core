@@ -456,7 +456,7 @@ class Sqlite3Storage {
     }
   }
 
-  params2Array(paramsObj: GenericObject, table: ModelData): any[] {
+  params2Array(paramsObj: GenericObject, table: ModelData): ParamEntry[] {
     if (paramsObj === null || paramsObj === undefined) {
       return []
     }
@@ -527,7 +527,7 @@ class Sqlite3Storage {
     return paramsArray
   }
 
-  paramsToWhereStringAndValues(paramsArray: { sql: string; vals: string[] }[]): {
+  paramsToWhereStringAndValues(paramsArray: ParamEntry[]): {
     whereString: string
     whereValueArray: unknown[]
   } {
@@ -548,7 +548,7 @@ class Sqlite3Storage {
     return { whereString, whereValueArray }
   }
 
-  paramsToAssignmentStringAndValues(paramsArray: { sql: string; vals: string[] }[]): {
+  paramsToAssignmentStringAndValues(paramsArray: ParamEntry[]): {
     resultString: string
     valueArray: unknown[]
   } {
