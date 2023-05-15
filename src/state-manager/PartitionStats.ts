@@ -12,6 +12,11 @@ import { StateManager as StateManagerTypes } from '@shardus/types'
 import * as Context from '../p2p/Context'
 import * as Wrapper from '../p2p/Wrapper'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
+import Log4js from 'log4js'
+import { Response } from 'express-serve-static-core'
+
+type RawAccountData = { data: { data: { balance: string } } | { balance: string } } | { balance: string }
+type Line = { raw: string, file: { owner: string }}
 
 /**
  * PartitionStats is a system that allows the dapp to build custom anonymous tallies of accounts and committed TXs.
@@ -59,10 +64,10 @@ class PartitionStats {
 
   stateManager: StateManager
 
-  mainLogger: any
-  fatalLogger: any
-  shardLogger: any
-  statsLogger: any
+  mainLogger: Log4js.Logger
+  fatalLogger: Log4js.Logger
+  shardLogger: Log4js.Logger
+  statsLogger: Log4js.Logger
 
   summaryBlobByPartition: Map<number, StateManagerTypes.StateManagerTypes.SummaryBlob>
   summaryPartitionCount: number
@@ -79,7 +84,7 @@ class PartitionStats {
   statemanager_fatal: (key: string, log: string) => void
 
   /** buildStatsReport uses the work queue to build stats reports at the correct times.  do not add items to work queue if stats are disabled */
-  workQueue: { cycle: number; fn: any; args: any[] }[]
+  workQueue: { cycle: number; fn: (...args: unknown[]) => unknown; args: unknown[] }[]
 
   constructor(
     stateManager: StateManager,
@@ -320,7 +325,7 @@ class PartitionStats {
   }
 
   //todo , I think this is redundant and removable now.
-  hasAccountBeenSeenByStats(accountId) {
+  hasAccountBeenSeenByStats(accountId: string) {
     return this.accountCache.hasAccount(accountId)
   }
 
@@ -377,7 +382,7 @@ class PartitionStats {
     if (outOfRange.length === 0) {
       return result
     }
-    let lowN, highN, lowN2, highN2
+    let lowN: number, highN: number, lowN2: number, highN2: number
     let twoRanges = false
 
     //note we dialate the ranges by 1. the partitions are already dialated by one but that is not enough.
@@ -429,7 +434,7 @@ class PartitionStats {
    * @param accountDataRaw
    * @param debugMsg
    */
-  statsDataSummaryInit(cycle: number, accountId: string, accountDataRaw: any, debugMsg: string) {
+  statsDataSummaryInit(cycle: number, accountId: string, accountDataRaw: unknown, debugMsg: string) {
     const opCounter = this.statsProcessCounter++
     if (this.invasiveDebugInfo)
       this.mainLogger.debug(
@@ -476,7 +481,7 @@ class PartitionStats {
   private internalDoInit(
     cycle: number,
     blob: StateManagerTypes.StateManagerTypes.SummaryBlob,
-    accountDataRaw: any,
+    accountDataRaw: RawAccountData,
     accountId: string,
     opCounter: number
   ) {
@@ -521,7 +526,7 @@ class PartitionStats {
    */
   statsDataSummaryUpdate(
     cycle: number,
-    accountDataBefore: any,
+    accountDataBefore: unknown,
     accountDataAfter: Shardus.WrappedData,
     debugMsg: string
   ) {
@@ -588,7 +593,7 @@ class PartitionStats {
   private internalDoUpdate(
     cycle: number,
     blob: StateManagerTypes.StateManagerTypes.SummaryBlob,
-    accountDataBefore: any,
+    accountDataBefore: unknown,
     accountDataAfter: Shardus.WrappedData,
     opCounter: number
   ) {
@@ -600,7 +605,9 @@ class PartitionStats {
       this.mainLogger.debug(
         `statData:statsDataSummaryUpdate op:${opCounter} c:${cycle} accForBin:${utils.makeShortHash(
           accountDataAfter.accountId
-        )}   ${this.debugAccountData(accountDataAfter.data)} - ${this.debugAccountData(accountDataBefore)}`
+        )}   ${this.debugAccountData(accountDataAfter.data as RawAccountData)} - ${this.debugAccountData(
+          accountDataBefore as RawAccountData
+        )}`
       )
     if (this.invasiveDebugInfo) this.addDebugToBlob(blob, accountDataAfter.accountId)
   }
@@ -692,7 +699,7 @@ class PartitionStats {
    */
   buildStatsReport(
     cycleShardData: CycleShardData,
-    excludeEmpty: boolean = true
+    excludeEmpty = true
   ): StateManagerTypes.StateManagerTypes.StatsClump {
     const cycle = cycleShardData.cycleNumber
     const nextQueue = []
@@ -782,7 +789,7 @@ class PartitionStats {
    * @param writeTofile
    * @param cycleShardData
    */
-  dumpLogsForCycle(cycle: number, writeTofile: boolean = true, cycleShardData: CycleShardData = null) {
+  dumpLogsForCycle(cycle: number, writeTofile = true, cycleShardData: CycleShardData = null) {
     const statsDump = { cycle, dataStats: [], txStats: [], covered: [], cycleDebugNotes: {} }
 
     statsDump.cycleDebugNotes = this.stateManager.cycleDebugNotes
@@ -829,7 +836,11 @@ class PartitionStats {
    *    ##        ##    ##  ##     ## ##    ## ##       ##    ## ##    ## ##     ## ##     ##    ##    ##     ## ##    ##    ##    ##     ##    ##    ##    ## ##     ## ##     ## ##     ## ##
    *    ##        ##     ##  #######   ######  ########  ######   ######  ########  ##     ##    ##    ##     ##  ######     ##    ##     ##    ##     ######  ########   #######  ##     ## ##
    */
-  processDataStatsDump(stream, tallyFunction, lines) {
+  processDataStatsDump(
+    stream: Response<unknown, Record<string, unknown>, number>,
+    tallyFunction: { (opaqueBlob: unknown): unknown; (arg0: unknown): unknown },
+    lines: Line[]
+  ) {
     const dataByParition = new Map()
 
     let newestCycle = -1
@@ -839,7 +850,7 @@ class PartitionStats {
       if (index >= 0) {
         const statsStr = line.raw.slice(index)
         //this.generalLog(string)
-        let statsObj
+        let statsObj: { cycle: number; owner: string }
         try {
           statsObj = JSON.parse(statsStr)
         } catch (err) {
@@ -875,7 +886,15 @@ class PartitionStats {
           if (coveredMap.has(partition) === false) {
             continue
           }
-          let dataTally
+          let dataTally: {
+            data: object[]
+            dataStrings: Record<string, number>
+            differentVotes: number
+            voters: number
+            bestVote: unknown
+            tallyList: unknown[]
+            partition?: unknown
+          }
           if (dataByParition.has(partition) === false) {
             dataTally = {
               partition,
@@ -950,7 +969,18 @@ class PartitionStats {
    *    ##        ##    ##  ##     ## ##    ## ##       ##    ## ##    ##    ##     ##   ##  ##    ##    ##    ##     ##    ##    ##    ## ##     ## ##     ## ##     ## ##
    *    ##        ##     ##  #######   ######  ########  ######   ######     ##    ##     ##  ######     ##    ##     ##    ##     ######  ########   #######  ##     ## ##
    */
-  processTxStatsDump(stream, tallyFunction, lines) {
+  processTxStatsDump(
+    stream: Response<unknown, Record<string, unknown>, number>,
+    tallyFunction: { (opaqueBlob: { totalTx?: number }): number; (arg0: unknown): unknown },
+    lines: Line[]
+  ): {
+    allPassed: boolean
+    allPassedMetric2: boolean
+    singleVotePartitions: number
+    multiVotePartitions: number
+    badPartitions: unknown[]
+    totalTx: number
+  } {
     // let stream = fs.createWriteStream(path, {
     //   flags: 'w'
     // })
@@ -963,7 +993,7 @@ class PartitionStats {
       if (index >= 0) {
         const statsStr = line.raw.slice(index)
         //this.generalLog(string)
-        let statsObj
+        let statsObj: { cycle: number; owner: string }
         try {
           statsObj = JSON.parse(statsStr)
         } catch (err) {
@@ -1000,7 +1030,16 @@ class PartitionStats {
         if (coveredMap.has(partition) === false) {
           continue
         }
-        let dataTally
+        let dataTally: {
+          data: unknown[]
+          dataStrings: Record<string, number>
+          differentVotes: number
+          voters: number
+          bestVote: number
+          bestVoteValue: number
+          tallyList: unknown[]
+          partition?: number
+        }
         if (dataByParition.has(partition) === false) {
           dataTally = {
             partition,
@@ -1097,13 +1136,13 @@ class PartitionStats {
     }
   }
 
-  dataStatsTallyFunction(opaqueBlob) {
+  dataStatsTallyFunction(opaqueBlob: { totalBalance?: number }): number {
     if (opaqueBlob.totalBalance == null) {
       return 0
     }
     return opaqueBlob.totalBalance
   }
-  txStatsTallyFunction(opaqueBlob) {
+  txStatsTallyFunction(opaqueBlob: { totalTx?: number }): number {
     if (opaqueBlob.totalTx == null) {
       return 0
     }
@@ -1112,22 +1151,36 @@ class PartitionStats {
 
   //NOTE THIS IS NOT GENERAL PURPOSE... only works in some cases. only for debug
   //this code should not know about balance.
-  debugAccountData(accountData) {
-    if (accountData.data && accountData.data.data && accountData.data.data.balance) {
+  debugAccountData(accountData: RawAccountData): string {
+    if (
+      'data' in accountData &&
+      'data' in accountData.data &&
+      'balance' in accountData.data.data &&
+      accountData?.data?.data?.balance
+    ) {
       return accountData.data.data.balance
     }
-    if (accountData.data && accountData.data.balance) {
+    if ('data' in accountData && 'balance' in accountData.data && accountData.data.balance) {
       return accountData.data.balance
     }
-    if (accountData == null) {
-      return 'X'
+    if (typeof accountData === 'object' && 'balance' in accountData) {
+      return accountData.balance
     }
 
-    return accountData.balance
+    return 'X'
   }
 
   //debug helper for invasiveDebugInfo
-  addDebugToBlob(blob, accountID) {
+  addDebugToBlob(
+    blob: {
+      latestCycle?: number
+      counter?: number
+      errorNull?: number
+      partition?: number
+      opaqueBlob: { dbgData?: unknown[] }
+    },
+    accountID: string
+  ): void {
     //todo be sure to turn off this setting when not debugging.
     if (this.invasiveDebugInfo) {
       if (blob.opaqueBlob.dbgData == null) {
