@@ -198,9 +198,10 @@ class PartitionStats {
                 singleVotePartitions,
                 multiVotePartitions,
                 badPartitions,
+                totalTx,
               } = this.processTxStatsDump(res, this.txStatsTallyFunction, lines)
               res.write(
-                `TX statsReport${cycleNumber}  : ${allPassed} pass2: ${allPassedMetric2}  single:${singleVotePartitions} multi:${multiVotePartitions} badPartitions:${badPartitions}\n`
+                `TX statsReport${cycleNumber}  : ${allPassed} pass2: ${allPassedMetric2}  single:${singleVotePartitions} multi:${multiVotePartitions} badPartitions:${badPartitions} totalTx:${totalTx}\n`
               )
             }
             {
