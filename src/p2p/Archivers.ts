@@ -167,10 +167,10 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
 }
 
 /** Not used by Archivers */
-export function sendRequests() {}
+export function sendRequests() { }
 
 /** Not used by Archivers */
-export function queueRequest() {}
+export function queueRequest() { }
 
 /** Original Functions */
 
@@ -187,7 +187,7 @@ export function addJoinRequest(joinRequest, tracker?, gossip = true) {
   let err = validateTypes(joinRequest, { nodeInfo: 'o', sign: 'o' })
   if (err) {
     warn('addJoinRequest: bad joinRequest ' + err)
-    return false
+    return { success: false, reason: 'bad joinRequest ' + err }
   }
   err = validateTypes(joinRequest.nodeInfo, {
     curvePk: 's',
@@ -197,16 +197,27 @@ export function addJoinRequest(joinRequest, tracker?, gossip = true) {
   })
   if (err) {
     warn('addJoinRequest: bad joinRequest.nodeInfo ' + err)
-    return false
+    return { success: false, reason: 'bad joinRequest ' + err }
   }
   err = validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
   if (err) {
     warn('addJoinRequest: bad joinRequest.sign ' + err)
-    return false
+    return { success: false, reason: 'bad joinRequest.sign ' + err }
   }
   if (!crypto.verify(joinRequest)) {
     warn('addJoinRequest: bad signature')
-    return false
+    return { success: false, reason: 'bad signature ' + err }
+  }
+  if (archivers.get(joinRequest.nodeInfo.publicKey)) {
+    warn('addJoinRequest: This archiver is already in the active archiver list')
+    return { success: false, reason: 'This archiver is already in the active archiver list' }
+  }
+  const existingJoinRequest = joinRequests.find(
+    (j) => j.nodeInfo.publicKey === joinRequest.nodeInfo.publicKey
+  )
+  if (existingJoinRequest) {
+    warn('addJoinRequest: This archiver join request already exists')
+    return { success: false, reason: 'This archiver join request already exists' }
   }
   joinRequests.push(joinRequest)
   if (logFlags.console)
@@ -217,7 +228,7 @@ export function addJoinRequest(joinRequest, tracker?, gossip = true) {
   if (gossip === true) {
     Comms.sendGossip('joinarchiver', joinRequest, tracker, null, NodeList.byIdOrder, true)
   }
-  return true
+  return { success: true }
 }
 
 export function addLeaveRequest(request, tracker?, gossip = true) {
@@ -255,8 +266,8 @@ export function addLeaveRequest(request, tracker?, gossip = true) {
     (j) => j.nodeInfo.publicKey === request.nodeInfo.publicKey
   )
   if (existingLeaveRequest) {
-    warn('addLeaveRequest: Leave request already exists')
-    return { success: false, reason: 'Leave request already exists' }
+    warn('addLeaveRequest: This archiver leave request already exists')
+    return { success: false, reason: 'This archiver leave request already exists' }
   }
   leaveRequests.push(request)
   if (logFlags.console) console.log('adding leave requests', leaveRequests)
@@ -626,11 +637,14 @@ export function registerRoutes() {
 
     const joinRequest = req.body
     if (logFlags.p2pNonFatal) info(`Archiver join request received: ${JSON.stringify(joinRequest)}`)
-    res.json({ success: true })
 
     const accepted = await addJoinRequest(joinRequest)
-    if (!accepted) return warn('Archiver join request not accepted.')
+    if (!accepted.success) {
+      warn('Archiver join request not accepted.')
+      return res.json({ success: false, error: `Archiver join request rejected! ${accepted.reason}` })
+    }
     if (logFlags.p2pNonFatal) info('Archiver join request accepted!')
+    return res.json({ success: true })
   })
 
   network.registerExternalPost('leavingarchivers', async (req, res) => {
@@ -655,21 +669,14 @@ export function registerRoutes() {
     profilerInstance.scopedProfileSectionStart('joinarchiver')
     try {
       if (logFlags.console) console.log('Join request gossip received:', payload)
-      const existingJoinRequest = joinRequests.find(
-        (j) => j.nodeInfo.publicKey === payload.nodeInfo.publicKey
-      )
-      if (!existingJoinRequest) {
-        const accepted = await addJoinRequest(payload, tracker, false)
-        if (logFlags.console) {
-          console.log('This join request is new. Should forward the join request')
-          console.log('join request gossip accepted', accepted)
-        }
-        if (!accepted) return warn('Archiver join request not accepted.')
-        if (logFlags.p2pNonFatal) info('Archiver join request accepted!')
-        Comms.sendGossip('joinarchiver', payload, tracker, sender, NodeList.byIdOrder, false)
-      } else {
-        if (logFlags.console) console.log('Already received archiver join gossip for this node')
+      const accepted = await addJoinRequest(payload, tracker, false)
+      if (logFlags.console) {
+        console.log('This join request is new. Should forward the join request')
+        console.log('join request gossip accepted', accepted)
       }
+      if (!accepted.success) return warn('Archiver join request not accepted.')
+      if (logFlags.p2pNonFatal) info('Archiver join request accepted!')
+      Comms.sendGossip('joinarchiver', payload, tracker, sender, NodeList.byIdOrder, false)
     } finally {
       profilerInstance.scopedProfileSectionEnd('joinarchiver')
     }
