@@ -150,7 +150,11 @@ export class NetworkClass extends EventEmitter {
             )
           throw new Error('Unable to read request, no route specified.')
         }
-        if (!this.internalRoutes[route]) throw new Error('Unable to handle request, invalid route.')
+        if (!this.internalRoutes[route]) {
+          profilerInstance.profileSectionStart(`net-internl-invalid-${route}`)
+          profilerInstance.profileSectionEnd(`net-internl-invalid-${route}`)
+          return
+        }
 
         if (this.debugNetworkDelay > 0) {
           await utils.sleep(this.debugNetworkDelay)
