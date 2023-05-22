@@ -201,7 +201,7 @@ export function addJoinRequest(joinRequest: P2P.ArchiversTypes.Request, tracker?
   }
   if (joinRequest.requestType !== P2P.ArchiversTypes.RequestTypes.JOIN) {
     warn('addJoinRequest: invalid joinRequest.requestType')
-    return { success: false, reason: 'invalid joinRequest.requestType' + err }
+    return { success: false, reason: 'invalid joinRequest.requestType'}
   }
   err = validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
   if (err) {
@@ -210,7 +210,7 @@ export function addJoinRequest(joinRequest: P2P.ArchiversTypes.Request, tracker?
   }
   if (!crypto.verify(joinRequest)) {
     warn('addJoinRequest: bad signature')
-    return { success: false, reason: 'bad signature ' + err }
+    return { success: false, reason: 'bad signature '}
   }
   if (archivers.get(joinRequest.nodeInfo.publicKey)) {
     warn('addJoinRequest: This archiver is already in the active archiver list')
@@ -254,7 +254,7 @@ export function addLeaveRequest(leaveRequest: P2P.ArchiversTypes.Request, tracke
   }
   if (leaveRequest.requestType !== P2P.ArchiversTypes.RequestTypes.LEAVE) {
     warn('addLeaveRequest: invalid leaveRequest.requestType')
-    return { success: false, reason: 'invalid leaveRequest.requestType' + err }
+    return { success: false, reason: 'invalid leaveRequest.requestType'}
   }
   err = validateTypes(leaveRequest.sign, { owner: 's', sig: 's' })
   if (err) {
