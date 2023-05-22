@@ -182,9 +182,9 @@ export function resetLeaveRequests() {
   leaveRequests = []
 }
 
-export function addJoinRequest(joinRequest, tracker?, gossip = true) {
+export function addJoinRequest(joinRequest: P2P.ArchiversTypes.Request, tracker?, gossip = true) {
   // validate input
-  let err = validateTypes(joinRequest, { nodeInfo: 'o', sign: 'o' })
+  let err = validateTypes(joinRequest, { nodeInfo: 'o', requestType: 's', sign: 'o' })
   if (err) {
     warn('addJoinRequest: bad joinRequest ' + err)
     return { success: false, reason: 'bad joinRequest ' + err }
@@ -198,6 +198,10 @@ export function addJoinRequest(joinRequest, tracker?, gossip = true) {
   if (err) {
     warn('addJoinRequest: bad joinRequest.nodeInfo ' + err)
     return { success: false, reason: 'bad joinRequest ' + err }
+  }
+  if (joinRequest.requestType !== P2P.ArchiversTypes.RequestTypes.JOIN) {
+    warn('addJoinRequest: invalid joinRequest.requestType')
+    return { success: false, reason: 'invalid joinRequest.requestType' + err }
   }
   err = validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
   if (err) {
@@ -231,14 +235,14 @@ export function addJoinRequest(joinRequest, tracker?, gossip = true) {
   return { success: true }
 }
 
-export function addLeaveRequest(request, tracker?, gossip = true) {
+export function addLeaveRequest(leaveRequest: P2P.ArchiversTypes.Request, tracker?, gossip = true) {
   // validate input
-  let err = validateTypes(request, { nodeInfo: 'o', sign: 'o' })
+  let err = validateTypes(leaveRequest, { nodeInfo: 'o', requestType: 's', sign: 'o' })
   if (err) {
     warn('addLeaveRequest: bad leaveRequest ' + err)
     return { success: false, reason: 'bad leaveRequest ' + err }
   }
-  err = validateTypes(request.nodeInfo, {
+  err = validateTypes(leaveRequest.nodeInfo, {
     curvePk: 's',
     ip: 's',
     port: 'n',
@@ -248,31 +252,35 @@ export function addLeaveRequest(request, tracker?, gossip = true) {
     warn('addLeaveRequest: bad leaveRequest.nodeInfo ' + err)
     return { success: false, reason: 'bad leaveRequest.nodeInfo ' + err }
   }
-  err = validateTypes(request.sign, { owner: 's', sig: 's' })
+  if (leaveRequest.requestType !== P2P.ArchiversTypes.RequestTypes.LEAVE) {
+    warn('addLeaveRequest: invalid leaveRequest.requestType')
+    return { success: false, reason: 'invalid leaveRequest.requestType' + err }
+  }
+  err = validateTypes(leaveRequest.sign, { owner: 's', sig: 's' })
   if (err) {
     warn('addLeaveRequest: bad leaveRequest.sign ' + err)
     return { success: false, reason: 'bad leaveRequest.sign ' + err }
   }
-  if (!crypto.verify(request)) {
+  if (!crypto.verify(leaveRequest)) {
     warn('addLeaveRequest: bad signature')
     return { success: false, reason: 'bad signature' }
   }
 
-  if (!archivers.get(request.nodeInfo.publicKey)) {
+  if (!archivers.get(leaveRequest.nodeInfo.publicKey)) {
     warn('addLeaveRequest: Not a valid archiver to be sending leave request, archiver was not found in active archiver list')
     return { success: false, reason: 'Not a valid archiver to be sending leave request, archiver was not found in active archiver list' }
   }
   const existingLeaveRequest = leaveRequests.find(
-    (j) => j.nodeInfo.publicKey === request.nodeInfo.publicKey
+    (j) => j.nodeInfo.publicKey === leaveRequest.nodeInfo.publicKey
   )
   if (existingLeaveRequest) {
     warn('addLeaveRequest: This archiver leave request already exists')
     return { success: false, reason: 'This archiver leave request already exists' }
   }
-  leaveRequests.push(request)
+  leaveRequests.push(leaveRequest)
   if (logFlags.console) console.log('adding leave requests', leaveRequests)
   if (gossip === true) {
-    Comms.sendGossip('leavingarchiver', request, tracker, null, NodeList.byIdOrder, true)
+    Comms.sendGossip('leavingarchiver', leaveRequest, tracker, null, NodeList.byIdOrder, true)
   }
   return { success: true }
 }
