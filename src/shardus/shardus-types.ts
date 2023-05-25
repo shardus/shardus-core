@@ -680,6 +680,8 @@ export interface ServerConfiguration {
     checkNetworkStopped: boolean
     /** Toggles Active Request validation on or off */
     validateActiveRequests: boolean
+    /** Unique Ids between Apop and Removed Nodes */
+    uniqueRemovedIds: boolean
   }
   /** Server IP configuration */
   ip?: {
