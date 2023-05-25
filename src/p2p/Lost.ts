@@ -263,8 +263,10 @@ export function updateRecord(
     apop = apop.filter((id) => !refutedNodeIds.includes(id)) // remove nodes that refuted
 
     // filter adding nodes that are already in the apop record
-    apop = apop.filter((id) => !record.apoptosized.includes(id))
-    apopSyncing = apopSyncing.filter((id) => !record.apoptosized.includes(id))
+    if (config.p2p.uniqueRemovedIds) {
+      apop = apop.filter((id) => !record.apoptosized.includes(id))
+      apopSyncing = apopSyncing.filter((id) => !record.apoptosized.includes(id))
+    }
     record.apoptosized = [...apop, ...apopSyncing, ...record.apoptosized].sort()
   }
 }
