@@ -190,8 +190,7 @@ export function getExpiredRemoved(
 
   const apoptosizedNodesList = []
   for (const request of txs.apoptosis) {
-    const publicKey = request.sign.owner
-    const node = NodeList.byPubKey.get(publicKey)
+    const node = NodeList.nodes.get(request.id)
     if (node) {
       apoptosizedNodesList.push(node.id)
     }
