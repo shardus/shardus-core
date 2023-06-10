@@ -7,7 +7,7 @@ import Logger, { logFlags } from '../logger'
 import * as Shardus from '../shardus/shardus-types'
 import Storage from '../storage'
 
-export type HashableObject = object & { sign?: Shardus.Sign }
+export type HashableObject = (object | string) & { sign?: Shardus.Sign }
 
 interface Keypair {
   publicKey?: crypto.publicKey
