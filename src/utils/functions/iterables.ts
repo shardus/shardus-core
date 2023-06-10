@@ -76,6 +76,6 @@ export function* shuffleMapIterator<K, V>(map: Map<K, V>): IterableIterator<V> {
 
   // Yield values from the map in the order of the shuffled keys
   for (const key of keys) {
-      yield map.get(key)!;
+      yield map.get(key);
   }
 }
