@@ -1199,16 +1199,7 @@ class PartitionStats {
   }
 
   //debug helper for invasiveDebugInfo
-  addDebugToBlob(
-    blob: {
-      latestCycle?: number
-      counter?: number
-      errorNull?: number
-      partition?: number
-      opaqueBlob: { dbgData?: unknown[] }
-    },
-    accountID: string
-  ): void {
+  addDebugToBlob(blob: StateManagerTypes.StateManagerTypes.SummaryBlob, accountID: string): void {
     //todo be sure to turn off this setting when not debugging.
     if (this.invasiveDebugInfo) {
       if (blob.opaqueBlob.dbgData == null) {
