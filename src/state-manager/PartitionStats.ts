@@ -468,7 +468,6 @@ class PartitionStats {
         args: [cycle, blob, accountDataRaw, accountId, opCounter],
       })
     }
-    //this.internalDoInit(cycle, blob, accountDataRaw, accountId, opCounter)
   }
 
   /**
