@@ -160,7 +160,7 @@ async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]): Promise<b
   return false
 }
 
-export function updateNodeState(updatedState: NodeStatus) {
+export function updateNodeState(updatedState: NodeStatus): void {
   state = updatedState
 }
 
