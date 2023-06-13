@@ -161,8 +161,8 @@ export function reset(): void {
 }
 
 export function getNodeRequestingJoin(): P2P.P2PTypes.P2PNode[] {
-  let nodes: P2P.P2PTypes.P2PNode[] = []
-  for (let request of requests) {
+  const nodes: P2P.P2PTypes.P2PNode[] = []
+  for (const request of requests) {
     if (request && request.nodeInfo) {
       nodes.push(request.nodeInfo)
     }
@@ -200,7 +200,7 @@ function calculateToAccept(): number {
   }
 
   if (active > 0) {
-    let syncMaxLimit = 150 //todo make config
+    const syncMaxLimit = 150 //todo make config
     if (syncMax > syncMaxLimit) {
       /* prettier-ignore */ nestedCountersInstance.countEvent('networkSize', `limit syncmax ${syncMax}=>${syncMaxLimit} cyc:${CycleCreator.currentCycle}`)
       syncMax = syncMaxLimit
@@ -221,7 +221,7 @@ function calculateToAccept(): number {
   // If rotation is on, add expired to needed
   if (config.p2p.maxRotatedPerCycle > 0) {
     //only can accept as many as could actually rotate out in one cycle
-    let maxToLeave = Math.min(expired, config.p2p.maxRotatedPerCycle)
+    const maxToLeave = Math.min(expired, config.p2p.maxRotatedPerCycle)
     needed += maxToLeave
   }
 
@@ -236,7 +236,7 @@ function calculateToAccept(): number {
     needed = 0
   }
 
-  let cycle = CycleChain.newest.counter
+  const cycle = CycleChain.newest.counter
   if (cycle > lastLoggedCycle) {
     lastLoggedCycle = cycle
     info(
@@ -338,7 +338,7 @@ export async function createJoinRequest(
   const proofOfWork = {
     compute: await crypto.getComputeProofOfWork(cycleMarker, config.p2p.difficulty),
   }
-  let joinReq = {
+  const joinReq = {
     nodeInfo,
     cycleMarker,
     proofOfWork: JSON.stringify(proofOfWork),
@@ -347,7 +347,7 @@ export async function createJoinRequest(
   }
   if (typeof shardus.app.getJoinData === 'function') {
     try {
-      let appJoinData = shardus.app.getJoinData()
+      const appJoinData = shardus.app.getJoinData()
       if (appJoinData) {
         joinReq['appJoinData'] = appJoinData
       }
@@ -481,7 +481,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
 
   if (typeof shardus.app.validateJoinRequest === 'function') {
     try {
-      let validationResponse = shardus.app.validateJoinRequest(joinRequest)
+      const validationResponse = shardus.app.validateJoinRequest(joinRequest)
       if (validationResponse.success !== true) {
         error(`Validation of join request data is failed due to ${validationResponse.reason || 'unknown reason'}`)
         nestedCountersInstance.countEvent('p2p', `join-reject-dapp`)
