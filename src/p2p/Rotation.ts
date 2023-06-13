@@ -119,7 +119,6 @@ export function getExpiredRemoved(
   if (config.p2p.nodeExpiryAge < 0) return { expired, removed }
 
   const active = NodeList.activeByIdOrder.length
-  // const desired = getDesiredCount()
 
   let expireTimestamp = (start - config.p2p.nodeExpiryAge) * 1000
   if (expireTimestamp < 0) expireTimestamp = 0
