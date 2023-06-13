@@ -28,7 +28,6 @@
     "Refresh.ts",
     "NodeList.ts",
     "Lost.ts",
-    "Join.ts",
     "GlobalAccounts.ts",
     "CycleCreator.ts",
     "CycleChain.ts",
