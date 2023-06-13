@@ -140,7 +140,7 @@ const routes = {
 
 /** CycleCreator Functions */
 
-export function init() {
+export function init(): void {
   p2pLogger = logger.getLogger('p2p')
   mainLogger = logger.getLogger('main')
   // Init state
@@ -155,7 +155,7 @@ export function init() {
   }
 }
 
-export function reset() {
+export function reset(): void {
   requests = []
   seen = new Set()
 }
@@ -170,7 +170,7 @@ export function getNodeRequestingJoin(): P2P.P2PTypes.P2PNode[] {
   return nodes
 }
 
-function calculateToAccept() {
+function calculateToAccept(): number {
   const desired = CycleChain.newest.desired
   const active = CycleChain.newest.active
   let maxJoin = config.p2p.maxJoinedPerCycle // [TODO] allow autoscaling to change this
@@ -300,7 +300,7 @@ export function updateRecord(
   txs: P2P.JoinTypes.Txs,
   record: P2P.CycleCreatorTypes.CycleRecord,
   _prev: P2P.CycleCreatorTypes.CycleRecord
-) {
+): void {
   const joinedConsensors = txs.join.map((joinRequest) => {
     const { nodeInfo, cycleMarker: cycleJoined } = joinRequest
     const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
@@ -612,7 +612,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
   }
 }
 
-export async function firstJoin() {
+export async function firstJoin(): Promise<string> {
   // Create join request from 000... cycle marker
   const zeroMarker = '0'.repeat(64)
   const request = await createJoinRequest(zeroMarker)
@@ -625,7 +625,7 @@ export async function firstJoin() {
 export async function submitJoin(
   nodes: P2P.P2PTypes.Node[],
   joinRequest: P2P.JoinTypes.JoinRequest & P2P.P2PTypes.SignedObject
-) {
+): Promise<void> {
   // Send the join request to a handful of the active node all at once:w
   const selectedNodes = utils.getRandom(nodes, Math.min(nodes.length, 5))
   const promises = []
@@ -675,8 +675,8 @@ export async function submitJoin(
   })
 }
 
-export async function fetchJoined(activeNodes) {
-  const queryFn = async (node) => {
+export async function fetchJoined(activeNodes): Promise<string> {
+  const queryFn = async (node): Promise<unknown> => {
     const publicKey = crypto.keypair.publicKey
     const res = await http.get(`${node.ip}:${node.port}/joined/${publicKey}`)
     return res
@@ -702,12 +702,12 @@ export async function fetchJoined(activeNodes) {
   }
 }
 
-function validateJoinRequest(request: P2P.JoinTypes.JoinRequest) {
+function validateJoinRequest(request: P2P.JoinTypes.JoinRequest): boolean {
   // [TODO] Implement this
   return true
 }
 
-export function computeNodeId(publicKey, cycleMarker) {
+export function computeNodeId(publicKey, cycleMarker): string {
   const obj = { publicKey, cycleMarker }
   const nodeId = crypto.hash(obj)
   if (logFlags.p2pNonFatal) {
@@ -717,17 +717,17 @@ export function computeNodeId(publicKey, cycleMarker) {
   return nodeId
 }
 
-function info(...msg) {
+function info(...msg): void {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg): void {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg): void {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
