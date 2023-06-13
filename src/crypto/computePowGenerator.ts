@@ -9,6 +9,7 @@ function hex2bin(hex) {
   return bin
 }
 
+// will call the callback function when the parent calls `.send()`
 process.on('message', ({ seed, difficulty }) => {
   let nonce, hash
   do {

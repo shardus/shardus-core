@@ -28,6 +28,11 @@ interface Crypto {
   sharedKeys: { [name: string]: Buffer }
 }
 
+interface ProofOfWorkResult {
+  nonce: string
+  hash: string
+}
+
 class Crypto {
   constructor(baseDir: string, config: Shardus.StrictServerConfiguration, logger: Logger, storage: Storage) {
     this.baseDir = baseDir
@@ -203,8 +208,8 @@ class Crypto {
     return hash1 > hash2
   }
 
-  getComputeProofOfWork(seed: unknown, difficulty: number): Promise<Serializable> {
-    return this._runProofOfWorkGenerator('./computePowGenerator.js', seed, difficulty)
+  async getComputeProofOfWork(seed: unknown, difficulty: number): Promise<ProofOfWorkResult> {
+    return await this._runProofOfWorkGenerator('./computePowGenerator.js', seed, difficulty)
   }
 
   stopAllGenerators(): void {
@@ -216,22 +221,28 @@ class Crypto {
   }
 
   /* eslint-disable security/detect-object-injection */
-  _runProofOfWorkGenerator(generator: string, seed: unknown, difficulty: number): Promise<Serializable> {
+  async _runProofOfWorkGenerator(
+    generator: string,
+    seed: unknown,
+    difficulty: number
+  ): Promise<ProofOfWorkResult> {
     // Fork a child process to compute the PoW, if it doesn't exist
     if (!this.powGenerators[generator]) {
       this.powGenerators[generator] = fork(generator, undefined, { cwd: __dirname })
     }
-    const promise = new Promise<Serializable>((resolve) => {
+    const promise = new Promise<ProofOfWorkResult>((resolve) => {
+      // get the result of the proof of the work from the child process.
+      // will call the callback function when the child calls `.send()`
       this.powGenerators[generator].on('message', (powObj: Serializable) => {
         this._stopProofOfWorkGenerator(generator)
-        resolve(powObj)
+        resolve(powObj as ProofOfWorkResult)
       })
     })
     // Tell child to compute PoW
     if (!this.powGenerators[generator].killed) {
       this.powGenerators[generator].send({ seed, difficulty })
     }
-    // Return a promise the resolves to a valid { nonce, hash }
+    // Return a promise the resolves to a valid `ProofOfWorkResult` ({ nonce, hash })
     return promise
   }
   /* eslint-enable security/detect-object-injection */
