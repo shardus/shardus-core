@@ -17,11 +17,12 @@ import { isBogonIP, isInvalidIP, isIPv6 } from '../utils/functions/checkIP'
 import { profilerInstance } from '../utils/profiler'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { isPortReachable } from '../utils/isPortReachable'
+import { Logger } from 'log4js'
 
 /** STATE */
 
-let p2pLogger
-let mainLogger 
+let p2pLogger: Logger
+let mainLogger: Logger
 
 let requests: P2P.JoinTypes.JoinRequest[]
 let seen: Set<P2P.P2PTypes.Node['publicKey']>
@@ -476,7 +477,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     nestedCountersInstance.countEvent('p2p', `join-reject-bogon-ex:${er}`)
   }
 
-  let selectionKey
+  let selectionKey: unknown
 
   if (typeof shardus.app.validateJoinRequest === 'function') {
     try {
