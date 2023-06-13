@@ -16,7 +16,6 @@ import { robustQuery } from './Utils'
 import { isBogonIP, isInvalidIP, isIPv6 } from '../utils/functions/checkIP'
 import { profilerInstance } from '../utils/profiler'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { NodeStatus } from '@shardus/types/build/src/p2p/P2PTypes'
 import { isPortReachable } from '../utils/isPortReachable'
 
 /** STATE */
@@ -80,7 +79,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
     }
 
     //  Validate of joinReq is done in addJoinRequest
-    const validJoinRequest = await addJoinRequest(joinRequest)
+    const validJoinRequest = addJoinRequest(joinRequest)
 
     if (validJoinRequest.success) {
       Comms.sendGossip('gossip-join', joinRequest, '', null, NodeList.byIdOrder, true)
@@ -318,10 +317,14 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
 }
 
 /** Not used by Join */
-export function sendRequests() {}
+export function sendRequests(): void {
+  return
+}
 
 /** Not used by Join */
-export function queueRequest(request) {}
+export function queueRequest(): void {
+  return
+}
 
 /** Module Functions */
 
@@ -678,7 +681,7 @@ export async function fetchJoined(activeNodes: unknown[]): Promise<string> {
     return res
   }
   try {
-    const { topResult: response, winningNodes: _responders } = await robustQuery(activeNodes, queryFn)
+    const { topResult: response } = await robustQuery(activeNodes, queryFn)
     if (!response) return
     if (!response.node) return
     let err = utils.validateTypes(response, { node: 'o' })
