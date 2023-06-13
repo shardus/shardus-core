@@ -338,7 +338,13 @@ export async function createJoinRequest(
   const proofOfWork = {
     compute: await crypto.getComputeProofOfWork(cycleMarker, config.p2p.difficulty),
   }
-  let joinReq = { nodeInfo, cycleMarker, proofOfWork, version }
+  let joinReq = {
+    nodeInfo,
+    cycleMarker,
+    proofOfWork: JSON.stringify(proofOfWork),
+    version,
+    selectionNum: undefined,
+  }
   if (typeof shardus.app.getJoinData === 'function') {
     try {
       let appJoinData = shardus.app.getJoinData()
