@@ -292,15 +292,11 @@ export function validateRecordTypes(rec: P2P.JoinTypes.Record): string {
 }
 
 export function dropInvalidTxs(txs: P2P.JoinTypes.Txs): P2P.JoinTypes.Txs {
-  const join = txs.join.filter((request) => validateJoinRequest(request))
+  const join = txs.join.filter(() => validateJoinRequest())
   return { join }
 }
 
-export function updateRecord(
-  txs: P2P.JoinTypes.Txs,
-  record: P2P.CycleCreatorTypes.CycleRecord,
-  _prev: P2P.CycleCreatorTypes.CycleRecord
-): void {
+export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTypes.CycleRecord): void {
   const joinedConsensors = txs.join.map((joinRequest) => {
     const { nodeInfo, cycleMarker: cycleJoined } = joinRequest
     const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
@@ -330,7 +326,7 @@ export function queueRequest(request) {}
 /** Module Functions */
 
 export async function createJoinRequest(
-  cycleMarker
+  cycleMarker: string
 ): Promise<P2P.JoinTypes.JoinRequest & P2P.P2PTypes.SignedObject> {
   // Build and return a join request
   const nodeInfo = Self.getThisNodeInfo()
@@ -675,8 +671,8 @@ export async function submitJoin(
   })
 }
 
-export async function fetchJoined(activeNodes): Promise<string> {
-  const queryFn = async (node): Promise<unknown> => {
+export async function fetchJoined(activeNodes: unknown[]): Promise<string> {
+  const queryFn = async (node: { ip: string; port: number }): Promise<unknown> => {
     const publicKey = crypto.keypair.publicKey
     const res = await http.get(`${node.ip}:${node.port}/joined/${publicKey}`)
     return res
@@ -702,12 +698,12 @@ export async function fetchJoined(activeNodes): Promise<string> {
   }
 }
 
-function validateJoinRequest(request: P2P.JoinTypes.JoinRequest): boolean {
+function validateJoinRequest(): boolean {
   // [TODO] Implement this
   return true
 }
 
-export function computeNodeId(publicKey, cycleMarker): string {
+export function computeNodeId(publicKey: string, cycleMarker: string): string {
   const obj = { publicKey, cycleMarker }
   const nodeId = crypto.hash(obj)
   if (logFlags.p2pNonFatal) {
@@ -717,17 +713,17 @@ export function computeNodeId(publicKey, cycleMarker): string {
   return nodeId
 }
 
-function info(...msg): void {
+function info(...msg: string[]): void {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg): void {
+function warn(...msg: string[]): void {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg): void {
+function error(...msg: string[]): void {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
