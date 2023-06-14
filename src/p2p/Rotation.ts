@@ -178,8 +178,8 @@ export function getExpiredRemoved(
   if (maxRemove < 1) {
     maxRemove = scaleDownRemove
   } else {
-    //else pick the higher of the two
-    maxRemove = Math.max(maxRemove, scaleDownRemove)
+    // else pick the lesser of the two
+    maxRemove = Math.min(maxRemove, scaleDownRemove)
   }
 
   // never remove more nodes than the difference between active and desired
