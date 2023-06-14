@@ -9,13 +9,11 @@ import { logFlags } from '../logger'
 
 let p2pLogger: Logger
 
-export let cycles: P2P.CycleCreatorTypes.CycleRecord[] // [OLD, ..., NEW]
-export let cyclesByMarker: { [marker: string]: P2P.CycleCreatorTypes.CycleRecord }
+export let cycles: P2P.CycleCreatorTypes.CycleRecord[] = [] // [OLD, ..., NEW]
+export let cyclesByMarker: { [marker: string]: P2P.CycleCreatorTypes.CycleRecord } = {}
 
-export let oldest: P2P.CycleCreatorTypes.CycleRecord
-export let newest: P2P.CycleCreatorTypes.CycleRecord
-
-reset()
+export let oldest: P2P.CycleCreatorTypes.CycleRecord = null
+export let newest: P2P.CycleCreatorTypes.CycleRecord = null
 
 /** FUNCTIONS */
 
