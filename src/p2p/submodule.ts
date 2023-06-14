@@ -12,4 +12,5 @@ export interface Submodule<T, R> {
     prev: P2P.CycleCreatorTypes.CycleRecord
   ) => void
   validateRecordTypes: (rec: R) => string
+  parseRecord: (record: P2P.CycleCreatorTypes.CycleRecord) => P2P.CycleParserTypes.Change
 }
