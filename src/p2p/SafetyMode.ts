@@ -153,6 +153,10 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   }
 }
 
-export function queueRequest(request) {}
+export function queueRequest(request) {
+  return
+}
 
-export function sendRequests() {}
+export function sendRequests() {
+  return
+}
