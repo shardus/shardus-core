@@ -54,7 +54,7 @@ export function getTxs(): P2P.RotationTypes.Txs {
 }
 
 export function validateRecordTypes(rec: P2P.RotationTypes.Record): string {
-  let err = validateTypes(rec, { expired: 'n', removed: 'a' })
+  const err = validateTypes(rec, { expired: 'n', removed: 'a' })
   if (err) return err
   for (const item of rec.removed) {
     if (typeof item !== 'string') return 'items of removed array must be strings'
@@ -147,7 +147,7 @@ export function getExpiredRemoved(
   //make sure the value is at least 1
   const maxActiveNodesToRemove = Math.max(Math.floor(config.p2p.maxShrinkMultiplier * active), 1)
 
-  let cycle = CycleChain.newest.counter
+  const cycle = CycleChain.newest.counter
   if (cycle > lastLoggedCycle && scaleDownRemove > 0) {
     lastLoggedCycle = cycle
     info(
