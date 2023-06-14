@@ -17,7 +17,9 @@ let lastLoggedCycle: number
 /** ROUTES */
 
 // [TODO] - since we don't have any routes, no need to create and register this emply function
-const gossipRoute: P2P.P2PTypes.GossipHandler = (payload) => {}
+const gossipRoute: P2P.P2PTypes.GossipHandler = () => {
+  return
+}
 
 const routes = {
   internal: {},
@@ -47,7 +49,9 @@ export function init(): void {
   }
 }
 
-export function reset(): void {}
+export function reset(): void {
+  return
+}
 
 export function getTxs(): P2P.RotationTypes.Txs {
   return {}
@@ -100,9 +104,13 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   }
 }
 
-export function queueRequest(request): void {}
+export function queueRequest(): void {
+  return
+}
 
-export function sendRequests(): void {}
+export function sendRequests(): void {
+  return
+}
 
 /** Module Functions */
 
