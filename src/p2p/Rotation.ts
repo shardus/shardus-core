@@ -140,13 +140,7 @@ export function getExpiredRemoved(
   let scaleDownRemove = Math.max(active - desired, 0)
 
   //only let the scale factor impart a partial influence based on scaleInfluenceForShrink
-  let scaledAmountToShrink: number
-  {
-    const scaleInfluence = config.p2p.scaleInfluenceForShrink
-    const nonScaledAmount = config.p2p.amountToShrink
-    const scaledAmount = config.p2p.amountToShrink * CycleCreator.scaleFactor
-    scaledAmountToShrink = Math.floor(lerp(nonScaledAmount, scaledAmount, scaleInfluence))
-  }
+  const scaledAmountToShrink = getScaledAmountToShrink()
 
   //limit the scale down by scaledAmountToShrink
   if (scaleDownRemove > scaledAmountToShrink) {
@@ -249,4 +243,14 @@ function warn(...msg: string[]): void {
 function error(...msg: string[]): void {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.error(entry)
+}
+
+/** Returns a linearly interpolated value between `amountToShrink` and the same
+* multiplied by a `scaleFactor`. The result depends on the
+* `scaleInfluenceForShrink` */
+function getScaledAmountToShrink(): number {
+  const nonScaledAmount = config.p2p.amountToShrink
+  const scaledAmount = config.p2p.amountToShrink * CycleCreator.scaleFactor
+  const scaleInfluence = config.p2p.scaleInfluenceForShrink
+  return Math.floor(lerp(nonScaledAmount, scaledAmount, scaleInfluence))
 }
