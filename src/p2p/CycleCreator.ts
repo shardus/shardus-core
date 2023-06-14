@@ -41,7 +41,7 @@ let cycleLogger: Logger
 
 // don't forget to add new modules here
 //   need to keep the Lost module after the Apoptosis module
-export const submodules: Submodule[] = [
+export const submodules: Submodule<unknown, unknown>[] = [
   Archivers,
   Join,
   Active,
