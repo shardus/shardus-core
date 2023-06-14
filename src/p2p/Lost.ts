@@ -711,3 +711,7 @@ function error(...msg) {
   const entry = `Lost: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
+
+export function queueRequest() {
+  return
+}

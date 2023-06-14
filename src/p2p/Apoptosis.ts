@@ -385,3 +385,7 @@ export const addCycleFieldQuery = `ALTER TABLE cycles ADD ${cycleDataName} JSON 
 export const sequelizeCycleFieldModel = {
   [cycleDataName]: { type: Sequelize.JSON, allowNull: true },
 }
+
+export function queueRequest() {
+  return
+}
