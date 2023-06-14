@@ -223,17 +223,17 @@ export function getExpiredRemoved(
   return { expired, removed }
 }
 
-function info(...msg): void {
+function info(...msg: string[]): void {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg): void {
+function warn(...msg: string[]): void {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg): void {
+function error(...msg: string[]): void {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
