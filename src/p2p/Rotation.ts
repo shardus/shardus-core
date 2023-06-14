@@ -137,8 +137,7 @@ export function getExpiredRemoved(
 
   // initialize `scaleDownRemove` to at most any "excess" nodes more than
   // desired. it can't be less than zero.
-  let scaleDownRemove = 0
-  if (active - desired > 0) scaleDownRemove = active - desired
+  let scaleDownRemove = Math.max(active - desired, 0)
 
   //only let the scale factor impart a partial influence based on scaleInfluenceForShrink
   let scaledAmountToShrink: number
@@ -190,13 +189,11 @@ export function getExpiredRemoved(
   if (maxRemove > active - desired) maxRemove = active - desired
 
   // final clamp of max remove, but only if it is more than amountToShrink
-  // to avoid messing up the calculation above this next part can only make maxRemove smaller
-  if (maxRemove > config.p2p.amountToShrink) {
-    //maxActiveNodesToRemove is a percent of the active nodes that is set as a 0-1 value in maxShrinkMultiplier
-    if (maxRemove > maxActiveNodesToRemove) {
-      //yes, this max could be baked in earlier, but I like it here for clarity
-      maxRemove = Math.max(config.p2p.amountToShrink, maxActiveNodesToRemove)
-    }
+  // to avoid messing up the calculation above this next part can only make maxRemove smaller.
+  // maxActiveNodesToRemove is a percent of the active nodes that is set as a 0-1 value in maxShrinkMultiplier
+  if (maxRemove > config.p2p.amountToShrink && maxRemove > maxActiveNodesToRemove) {
+    // yes, this max could be baked in earlier, but I like it here for clarity
+    maxRemove = Math.max(config.p2p.amountToShrink, maxActiveNodesToRemove)
   }
 
   // get list of nodes that have been requested to be removed
