@@ -4,6 +4,7 @@ import { P2P } from '@shardus/types'
 import { nodes } from './NodeList'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { logFlags } from '../logger'
+import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
 
 /** STATE */
 
@@ -60,7 +61,7 @@ export function validate(
   return true
 }
 
-export function getCycleChain(start, end = start + 100) {
+export function getCycleChain(start: number, end = start + 100) {
   // Limit how many are returned
   if (end - start > 100) end = start + 100
 
@@ -82,7 +83,7 @@ export function getCycleChain(start, end = start + 100) {
  * getCycleNumberFromTimestamp() will allow for predictions about future or past cycles.
  * @param timestamp
  */
-export function getStoredCycleByTimestamp(timestamp) {
+export function getStoredCycleByTimestamp(timestamp: number) {
   let secondsTs = Math.floor(timestamp * 0.001)
   // search from end, to improve normal case perf
   for (let i = cycles.length - 1; i >= 0; i--) {
@@ -203,7 +204,7 @@ export function prune(keep: number) {
 
 /** HELPER FUNCTIONS */
 
-export function computeCycleMarker(fields) {
+export function computeCycleMarker(fields: P2P.CycleCreatorTypes.CycleRecord | SignedObject) {
   const cycleMarker = crypto.hash(fields)
   return cycleMarker
 }
