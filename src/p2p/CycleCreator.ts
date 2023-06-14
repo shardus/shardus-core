@@ -25,6 +25,7 @@ import { errorToStringFull } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { reportLost } from './Lost'
 import { randomBytes } from '@shardus/crypto-utils'
+import { Submodule } from './submodule'
 
 /** CONSTANTS */
 
@@ -40,7 +41,7 @@ let cycleLogger: Logger
 
 // don't forget to add new modules here
 //   need to keep the Lost module after the Apoptosis module
-export const submodules = [
+export const submodules: Submodule[] = [
   Archivers,
   Join,
   Active,
