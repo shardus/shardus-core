@@ -170,6 +170,7 @@ export function getNodeRequestingJoin(): P2P.P2PTypes.P2PNode[] {
   return nodes
 }
 
+/** calculateToAccept - calculates the number of nodes to accept into the network */
 function calculateToAccept(): number {
   const desired = CycleChain.newest.desired
   const active = CycleChain.newest.active
@@ -186,9 +187,9 @@ function calculateToAccept(): number {
           config.p2p.maxSyncingPerCycle * CycleCreator.scaleFactor * CycleCreator.scaleFactorSyncBoost
         )
 
-  //The first batch of nodes to join the network after the seed node server can join at a higher rate if firstCycleJoin is set
-  //This first batch will sync the full data range from the seed node, which should be very little data
-  //This get the network rolling faster, but also allows us to use a slightly higher base join rate because
+  //The first batch of nodes to join the network after the seed node server can join at a higher rate if firstCycleJoin is set.
+  //This first batch will sync the full data range from the seed node, which should be very little data.
+  //This gets the network rolling faster, but also allows us to use a slightly higher base join rate because
   //we are not worrying on how it performs with small networks. < 25 nodes.
   if (active === 0 && config.p2p.firstCycleJoin) {
     maxJoin = Math.max(config.p2p.firstCycleJoin, maxJoin)

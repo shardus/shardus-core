@@ -114,6 +114,7 @@ export function sendRequests(): void {
 
 /** Module Functions */
 
+/** Returns the number of expired nodes and the list of removed nodes */
 export function getExpiredRemoved(
   start: P2P.CycleCreatorTypes.CycleRecord['start'],
   desired: P2P.CycleCreatorTypes.CycleRecord['desired'],
@@ -131,8 +132,11 @@ export function getExpiredRemoved(
   let expireTimestamp = (start - config.p2p.nodeExpiryAge) * 1000
   if (expireTimestamp < 0) expireTimestamp = 0
 
+  // initialize the max amount to remove to our config value
   let maxRemove = config.p2p.maxRotatedPerCycle
 
+  // initialize `scaleDownRemove` to at most any "excess" nodes more than
+  // desired. it can't be less than zero.
   let scaleDownRemove = 0
   if (active - desired > 0) scaleDownRemove = active - desired
 
@@ -195,6 +199,7 @@ export function getExpiredRemoved(
     }
   }
 
+  // get list of nodes that have been requested to be removed
   const apoptosizedNodesList = []
   for (const request of txs.apoptosis) {
     const node = NodeList.nodes.get(request.id)
@@ -205,12 +210,15 @@ export function getExpiredRemoved(
 
   // Oldest node has index 0
   for (const node of NodeList.byJoinOrder) {
-    // Don't count syncing nodes in your expired count
+    // don't count syncing nodes in our expired count
     if (node.status === 'syncing') continue
-    // Once you hit the first node that's not expired, stop
+
+    // once we've hit the first node that's not expired, stop counting
     if (node.joinRequestTimestamp > expireTimestamp) break
-    // Count the expired node
+
+    // otherwise, count this node as expired
     expired++
+
     // Add it to removed if it isn't full
     if (config.p2p.uniqueRemovedIds) {
       // Limit the number of nodes that can be removed by removed + apoptosized
