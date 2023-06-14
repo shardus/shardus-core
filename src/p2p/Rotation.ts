@@ -30,7 +30,7 @@ const routes = {
 
 /** CycleCreator Functions */
 
-export function init() {
+export function init(): void {
   // Init logger
   p2pLogger = logger.getLogger('p2p')
 
@@ -47,7 +47,7 @@ export function init() {
   }
 }
 
-export function reset() {}
+export function reset(): void {}
 
 export function getTxs(): P2P.RotationTypes.Txs {
   return {}
@@ -73,7 +73,7 @@ export function updateRecord(
   txs: P2P.RotationTypes.Txs & P2P.ApoptosisTypes.Txs,
   record: P2P.CycleCreatorTypes.CycleRecord,
   prev: P2P.CycleCreatorTypes.CycleRecord
-) {
+): void {
   if (!prev) {
     record.expired = 0
     record.removed = []
@@ -100,9 +100,9 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   }
 }
 
-export function queueRequest(request) {}
+export function queueRequest(request): void {}
 
-export function sendRequests() {}
+export function sendRequests(): void {}
 
 /** Module Functions */
 
@@ -110,7 +110,7 @@ export function getExpiredRemoved(
   start: P2P.CycleCreatorTypes.CycleRecord['start'],
   desired: P2P.CycleCreatorTypes.CycleRecord['desired'],
   txs: P2P.RotationTypes.Txs & P2P.ApoptosisTypes.Txs
-) {
+): { expired: number; removed: string[] } {
   let expired = 0
   const removed = []
   NodeList.potentiallyRemoved.clear()
@@ -223,17 +223,17 @@ export function getExpiredRemoved(
   return { expired, removed }
 }
 
-function info(...msg) {
+function info(...msg): void {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg): void {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg): void {
   const entry = `Rotation: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
