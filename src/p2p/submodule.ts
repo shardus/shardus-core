@@ -3,7 +3,7 @@ import { P2P } from '@shardus/types'
 export interface Submodule<T, R> {
   init: () => void
   sendRequests: () => void
-  queueRequest: () => void
+  queueRequest: (req: unknown) => void
   reset: () => void
   getTxs: () => T
   updateRecord: (
