@@ -2,7 +2,7 @@
   "name": "@shardus/core",
   "version": "2.9.22",
   "engines": {
-    "node": "16.11.1"
+    "node": "18.16.0"
   },
   "description": "The Shardus Global Server",
   "main": "./dist/index.js",
