@@ -70,9 +70,7 @@ export function dropInvalidTxs(txs: P2P.RotationTypes.Txs): P2P.RotationTypes.Tx
   return txs
 }
 
-/*
-Given the txs and prev cycle record mutate the referenced record
-*/
+/** Given the `txs` and `prev` cycle record, mutate the referenced `record` */
 export function updateRecord(
   txs: P2P.RotationTypes.Txs & P2P.ApoptosisTypes.Txs,
   record: P2P.CycleCreatorTypes.CycleRecord,
