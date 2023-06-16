@@ -6,7 +6,7 @@ stages:
   - check
 
 check:
-  image: node:16.11.1
+  image: node:18.16.0
   stage: check
   variables:
     NODE_ENV: test
