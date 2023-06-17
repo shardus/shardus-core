@@ -103,11 +103,11 @@ export class NetworkClass extends EventEmitter {
           if (self.verboseLogsNet) {
             self.netLogger.debug(
               'External\t' +
-              JSON.stringify({
-                url: req.url,
-                method: req.method,
-                body: req.body,
-              })
+                JSON.stringify({
+                  url: req.url,
+                  method: req.method,
+                  body: req.body,
+                })
             )
           }
         }
@@ -175,10 +175,10 @@ export class NetworkClass extends EventEmitter {
         if (logFlags.net_trace) {
           this.netLogger.debug(
             'Internal\t' +
-            JSON.stringify({
-              url: route,
-              body: payload,
-            })
+              JSON.stringify({
+                url: route,
+                body: payload,
+              })
           )
         }
       } catch (err) {
@@ -247,6 +247,11 @@ export class NetworkClass extends EventEmitter {
           nestedCountersInstance.countRareEvent('network', 'timeout ' + route)
           if (logFlags.error) this.mainLogger.error('Network: ' + err)
           if (logFlags.error) this.mainLogger.error(err.stack)
+          console.log(
+            `[CUSTOM_TEMP] Ask timeout: route: ${route}, request_id: ${id}, data: ${JSON.stringify(
+              message
+            )}, node: ${JSON.stringify(node)}`
+          )
           this.emit('timeout', node)
           reject(err)
         }
@@ -566,7 +571,7 @@ class ConnectTest extends EventEmitter {
   start() {
     return new Promise<true>((resolve, reject) => {
       // Open a port on 0.0.0.0 (any IP)
-      const server = net.createServer(() => { })
+      const server = net.createServer(() => {})
       server.unref()
       server.on('error', reject)
       const listenPort = this.port > -1 ? this.port : 0
