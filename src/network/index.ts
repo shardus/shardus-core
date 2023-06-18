@@ -203,12 +203,21 @@ export class NetworkClass extends EventEmitter {
       id = message.tracker
     }
     for (const node of nodes) {
+      console.time(`[CUSTOM_TEMP_TELL]check-timeout-${route} node${node.externalIp}`)
       if (!logged) this.logger.playbackLog('self', node, 'InternalTell', route, id, message)
       this.InternalTellCounter++
-      const promise = this.sn.send(node.internalPort, node.internalIp, data)
+      const promise = this.sn.send(node.internalPort, node.internalIp, data).then(() => {
+        console.timeEnd(`[CUSTOM_TEMP_TELL]check-timeout-${route} node${node.externalIp}`)
+      })
       promise.catch((err) => {
         if (logFlags.error) this.mainLogger.error('Network: ' + err)
         if (logFlags.error) this.mainLogger.error(err.stack)
+        console.log(
+          `[CUSTOM_TEMP_TELL] timeout: route: ${route}, request_id: ${id}, data: ${JSON.stringify(
+            message
+          )}, node: ${JSON.stringify(node)}`
+        )
+        console.timeEnd(`[CUSTOM_TEMP_TELL]check-timeout-${route} node${node.externalIp}`)
         this.emit('error', node)
       })
       promises.push(promise)
