@@ -240,7 +240,7 @@ export class NetworkClass extends EventEmitter {
 
   ask(node, route, message, logged = false, extraTime = 0) {
     return new Promise(async (resolve, reject) => {
-      console.time(`[CUSTOM_TEMP]check-timeout-${route}`)
+      console.time(`[CUSTOM_TEMP_ASK]check-timeout-${route}`)
       this.InternalAskCounter++
       let id = ''
       if (message.tracker) {
@@ -267,11 +267,11 @@ export class NetworkClass extends EventEmitter {
           if (logFlags.error) this.mainLogger.error('Network: ' + err)
           if (logFlags.error) this.mainLogger.error(err.stack)
           console.log(
-            `[CUSTOM_TEMP] Ask timeout: route: ${route}, request_id: ${id}, data: ${JSON.stringify(
+            `[CUSTOM_TEMP_ASK] Ask timeout: route: ${route}, request_id: ${id}, data: ${JSON.stringify(
               message
             )}, node: ${JSON.stringify(node)}`
           )
-          console.timeEnd(`[CUSTOM_TEMP]check-timeout-${route}`)
+          console.timeEnd(`[CUSTOM_TEMP_ASK]check-timeout-${route}`)
           this.emit('timeout', node)
           reject(err)
         }
