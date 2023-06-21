@@ -80,7 +80,7 @@ class CachedAppDataManager<D = unknown> {
           return
         }
         // insert cachedAppData
-        this.insertCachedItem(payload.topic, cachedAppData.dataID, cachedAppData, cachedAppData.cycle)
+        this.insertCachedItem(payload.topic, cachedAppData)
       } catch (e) {
         this.mainLogger.error(`Error while processing send_cacheAppData`, e)
       } finally {
@@ -158,13 +158,8 @@ class CachedAppDataManager<D = unknown> {
     }
   }
 
-  insertCachedItem(topic: string, dataID: string, appData: unknown, cycle: number) {
-    const cachedAppData: CachedAppData = {
-      dataID,
-      appData,
-      cycle,
-    }
-    const cacheTopic: CacheTopic = this.cacheTopicMap.get(topic)
+  insertCachedItem(topic: string, cachedAppData: CachedAppData<D>) {
+    const cacheTopic: CacheTopic<D> = this.cacheTopicMap.get(topic)
     if (!cacheTopic) {
       this.statemanager_fatal(
         'insertCachedItem',
@@ -172,8 +167,8 @@ class CachedAppDataManager<D = unknown> {
       )
       return
     }
-    if (!cacheTopic.cacheAppDataMap.has(dataID)) {
-      cacheTopic.cacheAppDataMap.set(dataID, cachedAppData)
+    if (!cacheTopic.cacheAppDataMap.has(cachedAppData.dataID)) {
+      cacheTopic.cacheAppDataMap.set(cachedAppData.dataID, cachedAppData)
       cacheTopic.cachedAppDataArray.push(cachedAppData)
     }
   }
@@ -251,7 +246,12 @@ class CachedAppDataManager<D = unknown> {
           dataKeysWeHave.push(key)
           dataValuesWeHave.push(data)
         }
-        this.insertCachedItem(topic, dataID, data, cycle)
+        const cachedAppData = {
+          dataID,
+          appData,
+          cycle,
+        }
+        this.insertCachedItem(topic, cachedAppData)
       } else {
         remoteShardsByKey[key] = remoteHomeNode // eslint-disable-line security/detect-object-injection
       }
