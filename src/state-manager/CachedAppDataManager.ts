@@ -18,7 +18,7 @@ import {
   StringNodeObjectMap,
 } from './state-manager-types'
 
-class CachedAppDataManager {
+class CachedAppDataManager<D = unknown> {
   app: Shardus.App
   crypto: Crypto
   config: Shardus.StrictServerConfiguration
@@ -36,7 +36,7 @@ class CachedAppDataManager {
   stateManager: StateManager
 
   // cachedAppDataArray: CachedAppData[]
-  cacheTopicMap: Map<string, CacheTopic>
+  cacheTopicMap: Map<string, CacheTopic<D>>
 
   constructor(
     stateManager: StateManager,
@@ -70,7 +70,7 @@ class CachedAppDataManager {
   }
 
   setupHandlers() {
-    this.p2p.registerInternal('send_cachedAppData', async (payload: CacheAppDataResponse) => {
+    this.p2p.registerInternal('send_cachedAppData', async (payload: CacheAppDataResponse<D>) => {
       profilerInstance.scopedProfileSectionStart('send_cachedAppData')
       try {
         const cachedAppData = payload.cachedAppData
@@ -108,7 +108,7 @@ class CachedAppDataManager {
   }
 
   registerTopic(topic: string, maxCycleAge: number, maxCacheElements: number) {
-    const cacheTopic: CacheTopic = {
+    const cacheTopic: CacheTopic<D> = {
       topic,
       maxCycleAge,
       maxCacheElements,
@@ -121,7 +121,7 @@ class CachedAppDataManager {
     return true
   }
 
-  getCachedItem(topic: string, dataID: string) {
+  getCachedItem(topic: string, dataID: string): CachedAppData<D> {
     const cacheTopic = this.cacheTopicMap.get(topic)
     if (!cacheTopic) return
     const cachedAppData = cacheTopic.cacheAppDataMap.get(dataID)
@@ -181,7 +181,7 @@ class CachedAppDataManager {
   async sendCorrespondingCachedAppData(
     topic: string,
     dataID: string,
-    appData: unknown,
+    appData: D,
     cycle: number,
     formId: string,
     txId: string
@@ -319,12 +319,12 @@ class CachedAppDataManager {
               nodesToSendTo[node.id] = node
             }
           }
-          const cacheAppDataToSend: CachedAppData = {
+          const cacheAppDataToSend: CachedAppData<D> = {
             dataID,
             appData,
             cycle,
           }
-          const message: CacheAppDataResponse = { topic, cachedAppData: cacheAppDataToSend }
+          const message: CacheAppDataResponse<D> = { topic, cachedAppData: cacheAppDataToSend }
           for (const [accountID, node] of Object.entries(nodesToSendTo)) {
             const keyPair = accountID + key
             if (node != null && doOnceNodeAccPair.has(keyPair) === false) {
@@ -385,8 +385,8 @@ class CachedAppDataManager {
     }
   }
 
-  async getLocalOrRemoteCachedAppData(topic: string, dataId: string): Promise<unknown> {
-    let cachedAppData: CachedAppData | null = null
+  async getLocalOrRemoteCachedAppData(topic: string, dataId: string): Promise<D | null> {
+    let cachedAppData: CachedAppData<D> | null = null
 
     if (this.stateManager.currentCycleShardData == null) {
       await this.stateManager.waitForShardData()
@@ -435,7 +435,7 @@ class CachedAppDataManager {
       }
 
       const message = { topic, dataId }
-      const r: CachedAppData | boolean = await this.p2p.ask(
+      const r: CachedAppData<D> | boolean = await this.p2p.ask(
         randomConsensusNode,
         'get_cached_app_data',
         message
@@ -444,7 +444,7 @@ class CachedAppDataManager {
         if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteCachedAppData r === false')
       }
 
-      const result = r as CachedAppData
+      const result = r as CachedAppData<D>
       if (result != null) {
         return result.appData
       } else {

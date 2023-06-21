@@ -1093,23 +1093,23 @@ export type ProcessQueueStats = {
   awaitStats: { [statName: string]: SimpleNumberStats }
 }
 
-export type CachedAppData = {
+export type CachedAppData<D> = {
   dataID: string
-  appData: unknown
+  appData: D
   cycle: number
 }
 
-export type CacheTopic = {
+export type CacheTopic<D> = {
   topic: string
   maxCycleAge: number
   maxCacheElements: number
-  cacheAppDataMap: Map<string, CachedAppData>
-  cachedAppDataArray: CachedAppData[]
+  cacheAppDataMap: Map<string, CachedAppData<D>>
+  cachedAppDataArray: CachedAppData<D>[]
 }
 
-export type CacheAppDataResponse = {
+export type CacheAppDataResponse<D> = {
   topic: string
-  cachedAppData: CachedAppData
+  cachedAppData: CachedAppData<D>
 }
 
 export type CacheAppDataRequest = {
