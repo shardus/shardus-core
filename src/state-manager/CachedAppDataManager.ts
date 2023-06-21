@@ -435,17 +435,16 @@ class CachedAppDataManager<D = unknown> {
       }
 
       const message = { topic, dataId }
-      const r: CachedAppData<D> | boolean = await this.p2p.ask(
+      const result: CachedAppData<D> | boolean = await this.p2p.ask(
         randomConsensusNode,
         'get_cached_app_data',
         message
       )
-      if (r === false) {
+      if (result === false) {
         if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteCachedAppData r === false')
       }
 
-      const result = r as CachedAppData<D>
-      if (result != null) {
+      if (typeof result === 'object' && result != null) {
         return result.appData
       } else {
         if (logFlags.verbose)
