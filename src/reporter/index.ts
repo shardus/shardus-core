@@ -322,7 +322,7 @@ class Reporter {
         appState,
         cycleMarker,
         cycleCounter,
-        nodelistHash,
+        nodelistHash: CycleChain.newest.nodeListHash,
         desiredNodes,
         lastScalingTypeWinner, // "up" "down" or null.  last scaling action decided by this node
         lastScalingTypeRequested, // "up" "down" or null.  last scaling action decided by this node
@@ -353,6 +353,7 @@ class Reporter {
         isRefuted: isNodeRefuted,
         shardusVersion: packageJson.version,
         appData,
+        archiverListHash: CycleChain.newest.archiverListHash,
       })
       if (this.stateManager != null && config.mode === 'debug' && !config.debug.disableTxCoverageReport) {
         this.stateManager.transactionQueue.resetTxCoverageMap()
