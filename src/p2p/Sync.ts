@@ -597,17 +597,17 @@ function validateCycles(cycles: P2P.CycleCreatorTypes.CycleRecord[]) {
   return true
 }
 
-function info(...msg) {
+function info(...msg: unknown[]) {
   const entry = `Sync: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: unknown[]) {
   const entry = `Sync: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: unknown[]) {
   const entry = `Sync: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
