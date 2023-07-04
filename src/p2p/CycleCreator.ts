@@ -272,10 +272,16 @@ async function cycleCreator() {
   if (!CycleChain.newest || CycleChain.newest.counter < prevRecord.counter) Sync.digestCycle(prevRecord)
   //}
 
+  // get the node list hash
+  const nodeListHash = crypto.hash(NodeList.byJoinOrder)
+
+  // get the archiver list hash
+  const archiverListHash = crypto.hash(Archivers.archivers.values());
+
   // Save the previous record to the DB
   const marker = makeCycleMarker(prevRecord)
   const certificate = makeCycleCert(marker)
-  const data: P2P.CycleCreatorTypes.CycleData = { ...prevRecord, marker, certificate }
+  const data: P2P.CycleCreatorTypes.CycleData = { ...prevRecord, marker, certificate, nodeListHash, archiverListHash }
   if (lastSavedData) {
     await storage.updateCycle({ networkId: lastSavedData.networkId }, data)
     lastSavedData = data

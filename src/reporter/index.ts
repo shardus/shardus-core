@@ -241,9 +241,6 @@ class Reporter {
     const cycleMarker = CycleChain.newest.previous || '' // [TODO] Replace with cycle creator
     const cycleCounter = CycleChain.newest.counter
     const networkId = CycleChain.newest.networkId
-    let nodelistIDs = NodeList.activeByIdOrder.map((node) => node.id)
-    const nodelistHash = crypto.hash(nodelistIDs)
-    //const nodelistHash = crypto.hash(NodeList.byJoinOrder) //todo figure out what fields are off.
     const desiredNodes = getDesiredCount()
     const lastScalingTypeRequested = requestedScalingType
     const lastScalingTypeWinner = lastScalingType
