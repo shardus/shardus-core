@@ -136,15 +136,15 @@ export async function sequentialQuery<Node = unknown, Response = unknown>(
   }
 }
 
-type TallyItem = {
-  value: any // Response type is from a template
+type TallyItem<N, T> = {
+  value: T // Response type is from a template
   count: number
-  nodes: any[] // Shardus.Node[] Not using this because robustQuery uses a generic Node, maybe it should be non generic?
+  nodes: N[] // Shardus.Node[] Not using this because robustQuery uses a generic Node, maybe it should be non generic?
 }
 
-type RobustQueryResult = {
-  topResult: any
-  winningNodes: any[]
+type RobustQueryResult<N, R> = {
+  topResult: R
+  winningNodes: N[]
   isRobustResult: boolean
 }
 
@@ -174,7 +174,7 @@ export async function robustQuery<Node = unknown, Response = unknown>(
   shuffleNodes = true,
   strictRedundancy = false,
   extraDebugging = false
-): Promise<RobustQueryResult> {
+): Promise<RobustQueryResult<Node, Response>> {
   if (nodes.length === 0) throw new Error('No nodes given.')
   if (typeof queryFn !== 'function') {
     throw new Error(`Provided queryFn ${queryFn} is not a valid function.`)
@@ -196,14 +196,15 @@ export async function robustQuery<Node = unknown, Response = unknown>(
   class Tally {
     winCount: number
     equalFn: EqualityFunction<Response>
-    items: TallyItem[]
+    items: TallyItem<Node, Response>[]
+
     constructor(winCount: number, equalFn: EqualityFunction<Response>) {
       this.winCount = winCount
       this.equalFn = equalFn
       this.items = []
     }
 
-    add(response: Response, node: Node): TallyItem | null {
+    add(response: Response, node: Node): TallyItem<Node, Response> | null {
       if (response === null) {
         if (extraDebugging) nestedCountersInstance.countEvent('robustQuery', `response is null`)
         return null
@@ -244,7 +245,7 @@ export async function robustQuery<Node = unknown, Response = unknown>(
       }
       return highestCount
     }
-    getHighestCountItem(): TallyItem | null {
+    getHighestCountItem(): TallyItem<Node, Response> | null {
       if (!this.items.length) return null
       let highestCount = 0
       let highestIndex = 0
@@ -278,7 +279,7 @@ export async function robustQuery<Node = unknown, Response = unknown>(
 
   const nodeCount = nodes.length
 
-  const queryNodes = async (nodes: Node[]): Promise<TallyItem | null> => {
+  const queryNodes = async (nodes: Node[]): Promise<TallyItem<Node, Response> | null> => {
     // Wrap the query so that we know which node it's coming from
     const wrappedQuery = async (node) => {
       const response = await queryFn(node)
@@ -291,14 +292,14 @@ export async function robustQuery<Node = unknown, Response = unknown>(
       const node = nodes[i]
       queries.push(wrappedQuery(node))
     }
-    const [results, errs] = await utils.robustPromiseAll<{ response: Response, node: Node }>(queries)
+    const [results, errs] = await utils.robustPromiseAll<{ response: Response; node: Node }>(queries)
 
     if (logFlags.console || config.debug.robustQueryDebug || extraDebugging) {
       console.log('robustQuery results', results)
       console.log('robustQuery errs', errs)
     }
 
-    let finalResult: TallyItem
+    let finalResult: TallyItem<Node, Response>
     for (const result of results) {
       const { response, node } = result
       if (response === null) {
@@ -329,7 +330,7 @@ export async function robustQuery<Node = unknown, Response = unknown>(
     return finalResult
   }
 
-  let finalResult: TallyItem = null
+  let finalResult: TallyItem<Node, Response> = null
   let tries = 0
   while (!finalResult) {
     tries += 1
