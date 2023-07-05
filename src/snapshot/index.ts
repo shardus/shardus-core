@@ -17,7 +17,8 @@ import * as utils from '../utils'
 import { profilerInstance } from '../utils/profiler'
 import * as partitionGossip from './partition-gossip'
 import * as SnapshotFunctions from './snapshotFunctions'
-import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
+import { getArchiverList } from '@shardus/archiver-discovery'
+
 
 console.log('StateManager', StateManager)
 console.log('StateManager type', StateManager.StateManagerTypes)
@@ -530,7 +531,9 @@ async function goActiveIfDataComplete() {
 
 export async function startWitnessMode() {
   log('Starting in witness mode...')
-  const archiver = Context.config.p2p.existingArchivers[0]
+  const availableArchivers = await getArchiverList()
+  const archiver = utils.getRandom(availableArchivers, 1)[0]
+
   /**
    * [TODO] [AS] Instead of an interval, make this get the latest cycle,
    * calculate timstamp of the next one, and schedule a callback to run at that
@@ -538,7 +541,7 @@ export async function startWitnessMode() {
    */
   const witnessInterval = setInterval(async () => {
     try {
-      const fullNodesSigned = await Self.getFullNodesFromArchiver()
+      const fullNodesSigned = await Self.getFullNodesFromArchiver(archiver.ip, archiver.port)
       if (!Context.crypto.verify(fullNodesSigned, archiver.publicKey)) {
         throw Error('Fatal: Full Node list was not signed by archiver!')
       }

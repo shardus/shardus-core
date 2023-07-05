@@ -23,6 +23,8 @@ import { randomInt } from 'crypto'
 import { CycleRecord } from '@shardus/types/build/src/p2p/CycleCreatorTypes'
 import { StateMetaData } from '@shardus/types/build/src/p2p/SnapshotTypes'
 import { DataRequest } from '@shardus/types/build/src/p2p/ArchiversTypes'
+import { setupArchiverDiscovery } from '@shardus/archiver-discovery'
+
 
 /** STATE */
 
@@ -67,6 +69,7 @@ export function init() {
   reset()
   resetLeaveRequests()
   registerRoutes()
+  setupArchiverDiscovery({})
 
   if (config.p2p.experimentalSnapshot && !receiptForwardInterval) {
     receiptForwardInterval = setInterval(forwardReceipts, 10000)

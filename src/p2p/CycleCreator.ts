@@ -544,7 +544,6 @@ function makeNetworkConfigHash() {
     p2p: { ...config.p2p },
     // debug: config.debug,
   }
-  delete netConfig.p2p.existingArchivers
   return crypto.hash(netConfig)
 }
 

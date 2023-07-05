@@ -14,18 +14,6 @@ const SERVER_CONFIG: StrictServerConfiguration = {
   p2p: {
     ipServers: ['https://ipapi.co/json', 'https://ifconfig.co/json', 'https://ipinfo.io/json', 'api.ipify.org/?format=json'],
     timeServers: ['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org'],
-    existingArchivers: [
-      {
-        ip: '127.0.0.1',
-        port: 4000,
-        publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3',
-      },
-      {
-        ip: '127.0.0.1',
-        port: 4001,
-        publicKey: 'e4b5e3d51e727f897786a1bb176a028ecfe1941bfa5beefd3c6209c3dbc07cf7',
-      },
-    ],
     syncLimit: 180,
     cycleDuration: 30,
     maxRejoinTime: 20,
@@ -79,6 +67,18 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     useLruCacheForSocketMgmt: false,
     lruCacheSizeForSocketMgmt: 1000,
   },
+  archivers: [
+    {
+      ip: '127.0.0.1',
+      port: 4000,
+      publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3',
+    },
+    {
+      ip: '127.0.0.1',
+      port: 4001,
+      publicKey: 'e4b5e3d51e727f897786a1bb176a028ecfe1941bfa5beefd3c6209c3dbc07cf7',
+    },
+  ],
   ip: {
     externalIp: '0.0.0.0',
     externalPort: 9001,

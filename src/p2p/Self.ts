@@ -20,6 +20,8 @@ import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
+import { getArchiverList } from '@shardus/archiver-discovery'
+
 
 /** STATE */
 
@@ -278,7 +280,7 @@ async function syncCycleChain() {
 }
 
 async function contactArchiver() {
-  const availableArchivers = Context.config.p2p.existingArchivers
+  const availableArchivers = await getArchiverList()
   const maxRetries = 3
   let retry = maxRetries
   const failArchivers: string[] = []
@@ -408,9 +410,8 @@ async function getActiveNodesFromArchiver(
   return seedListSigned
 }
 
-export async function getFullNodesFromArchiver(): Promise<SignedObject> {
-  const archiver = Context.config.p2p.existingArchivers[0]
-  const nodeListUrl = `http://${archiver.ip}:${archiver.port}/full-nodelist`
+export async function getFullNodesFromArchiver(archiverIp: string, archiverPort: number): Promise<SignedObject> {
+  const nodeListUrl = `http://${archiverIp}:${archiverPort}/full-nodelist`
   let fullNodeList: SignedObject
   try {
     fullNodeList = await http.get(nodeListUrl)
