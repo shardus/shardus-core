@@ -19,6 +19,14 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import { isPortReachable } from '../utils/isPortReachable'
 import { Logger } from 'log4js'
 
+/** This type is questionable. It's local to this module because no other `Node`
+* type definition has all of these fields together. */
+type Node = {
+  id: string,
+  ip: string,
+  port: number,
+}
+
 /** STATE */
 
 let p2pLogger: Logger
@@ -713,14 +721,14 @@ export async function submitJoin(
   })
 }
 
-export async function fetchJoined(activeNodes: unknown[]): Promise<string> {
-  const queryFn = async (node: { ip: string; port: number }): Promise<unknown> => {
+export async function fetchJoined(activeNodes: Node[]): Promise<string> {
+  const queryFn = async (node: Node): Promise<{ node: Node }> => {
     const publicKey = crypto.keypair.publicKey
     const res = await http.get(`${node.ip}:${node.port}/joined/${publicKey}`)
     return res
   }
   try {
-    const { topResult: response } = await robustQuery(activeNodes, queryFn)
+    const { topResult: response } = await robustQuery<Node, { node: Node }>(activeNodes, queryFn)
     if (!response) return
     if (!response.node) return
     let err = utils.validateTypes(response, { node: 'o' })
