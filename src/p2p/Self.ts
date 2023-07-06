@@ -416,8 +416,9 @@ async function getActiveNodesFromArchiver(
   return seedListSigned
 }
 
-export async function getFullNodesFromArchiver(): Promise<SignedObject<{ nodeList: P2P.NodeListTypes.Node[] }>> {
-  const archiver = Context.config.p2p.existingArchivers[0]
+export async function getFullNodesFromArchiver(
+  archiver: Archiver = Context.config.p2p.existingArchivers[0]
+): Promise<SignedObject<{ nodeList: P2P.NodeListTypes.Node[] }>> {
   const nodeListUrl = `http://${archiver.ip}:${archiver.port}/full-nodelist`
   let fullNodeList: SignedObject<{ nodeList: P2P.NodeListTypes.Node[] }>
   try {
