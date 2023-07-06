@@ -12,4 +12,8 @@ module.exports = {
   transform: {
     "^.+\\.(ts|tsx)$": "ts-jest"
   },
+  // avoid error: "SyntaxError: Cannot use import statement outside a module"
+  moduleNameMapper: {
+    "axios": "axios/dist/node/axios.cjs"
+  }
 };
