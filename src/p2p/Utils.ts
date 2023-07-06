@@ -284,7 +284,7 @@ export async function robustQuery<Node = unknown, Response = unknown>(
 
   const queryNodes = async (nodes: Node[]): Promise<TallyItem<Node, Response> | null> => {
     // Wrap the query so that we know which node it's coming from
-    const wrappedQuery = async (node) => {
+    const wrappedQuery = async (node: Node) => {
       const response = await queryFn(node)
       return { response, node }
     }
