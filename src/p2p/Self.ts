@@ -1,6 +1,5 @@
-import { SignedObject } from '@shardus/crypto-utils'
 import { P2P } from '@shardus/types'
-import { NodeStatus } from '@shardus/types/build/src/p2p/P2PTypes'
+import { NodeStatus, SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
 import * as events from 'events'
 import * as log4js from 'log4js'
 import * as http from '../http'
@@ -20,6 +19,12 @@ import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
+
+type Archiver = {
+  ip: string
+  port: number
+  publicKey: string
+}
 
 /** STATE */
 
@@ -285,7 +290,7 @@ async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
   const maxRetries = 3
   let retry = maxRetries
   const failArchivers: string[] = []
-  let archiver: P2P.P2PTypes.Node
+  let archiver: P2P.SyncTypes.ActiveNode
   let activeNodesSigned: SignedActiveNodesFromArchiver
 
   while (retry > 0) {
@@ -383,7 +388,7 @@ type SignedActiveNodesFromArchiver = P2P.P2PTypes.SignedObject & {
 }
 
 async function getActiveNodesFromArchiver(
-  archiver: P2P.P2PTypes.Node
+  archiver: P2P.SyncTypes.ActiveNode
 ): Promise<SignedActiveNodesFromArchiver> {
   const nodeListUrl = `http://${archiver.ip}:${archiver.port}/nodelist`
   const nodeInfo = getPublicNodeInfo()
@@ -411,10 +416,10 @@ async function getActiveNodesFromArchiver(
   return seedListSigned
 }
 
-export async function getFullNodesFromArchiver(): Promise<SignedObject> {
+export async function getFullNodesFromArchiver(): Promise<SignedObject<{ nodeList: P2P.NodeListTypes.Node[] }>> {
   const archiver = Context.config.p2p.existingArchivers[0]
   const nodeListUrl = `http://${archiver.ip}:${archiver.port}/full-nodelist`
-  let fullNodeList: SignedObject
+  let fullNodeList: SignedObject<{ nodeList: P2P.NodeListTypes.Node[] }>
   try {
     fullNodeList = await http.get(nodeListUrl)
   } catch (e) {

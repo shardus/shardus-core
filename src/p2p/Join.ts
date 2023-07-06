@@ -19,14 +19,6 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import { isPortReachable } from '../utils/isPortReachable'
 import { Logger } from 'log4js'
 
-/** This type is questionable. It's local to this module because no other `Node`
-* type definition has all of these fields together. */
-type Node = {
-  id: string,
-  ip: string,
-  port: number,
-}
-
 /** STATE */
 
 let p2pLogger: Logger
@@ -721,14 +713,14 @@ export async function submitJoin(
   })
 }
 
-export async function fetchJoined(activeNodes: Node[]): Promise<string> {
-  const queryFn = async (node: Node): Promise<{ node: Node }> => {
+export async function fetchJoined(activeNodes: P2P.P2PTypes.Node[]): Promise<string> {
+  const queryFn = async (node: P2P.P2PTypes.Node): Promise<{ node: P2P.NodeListTypes.Node }> => {
     const publicKey = crypto.keypair.publicKey
-    const res = await http.get(`${node.ip}:${node.port}/joined/${publicKey}`)
+    const res: { node: P2P.NodeListTypes.Node } = await http.get(`${node.ip}:${node.port}/joined/${publicKey}`)
     return res
   }
   try {
-    const { topResult: response } = await robustQuery<Node, { node: Node }>(activeNodes, queryFn)
+    const { topResult: response } = await robustQuery<P2P.P2PTypes.Node, { node: P2P.NodeListTypes.Node }>(activeNodes, queryFn)
     if (!response) return
     if (!response.node) return
     let err = utils.validateTypes(response, { node: 'o' })
@@ -741,8 +733,7 @@ export async function fetchJoined(activeNodes: Node[]): Promise<string> {
       warn('fetchJoined invalid response response.node.id' + err)
       return
     }
-    const node = response.node as P2P.NodeListTypes.Node
-    return node.id
+    return response.node.id
   } catch (err) {
     warn('Self: fetchNodeId: robustQuery failed: ', err)
   }
