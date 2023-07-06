@@ -6,7 +6,7 @@ import { config } from './Context'
 import { stringifyReduce } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 
-export type QueryFunction<Node, Response> = (node: Node) => Promise<Response>
+export type QueryFunction<Node, Response> = (node: Node) => PromiseLike<Response>
 
 export type VerifyFunction<Result> = (result: Result) => boolean
 
