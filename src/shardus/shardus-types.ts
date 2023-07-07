@@ -684,13 +684,7 @@ export interface ServerConfiguration {
     useLruCacheForSocketMgmt: boolean
     /** LRU cache size for socket connection mgmt in shardus/net. Is used only if `useLruCacheForSocketMgmt` is set to `true`. Default: 1000 */
     lruCacheSizeForSocketMgmt: number
-  }
-  /**Archivers configuration  */
-  archivers?: Array<{
-    ip: string
-    port: number
-    publicKey: string
-  }>
+  },
   /** Server IP configuration */
   ip?: {
     /** The IP address the server will run the external API */
@@ -1059,20 +1053,28 @@ export interface StorageConfiguration {
   }
 }
 
+export interface ArchiverConfiguration {
+  ip: string
+  port: number
+  publicKey: string
+}
 export interface ShardusConfiguration {
   server?: ServerConfiguration
   logs?: LogsConfiguration
   storage?: StorageConfiguration
+  archiver?: Array<ArchiverConfiguration>
 }
 
 export type StrictServerConfiguration = DeepRequired<ServerConfiguration>
 export type StrictLogsConfiguration = DeepRequired<LogsConfiguration>
 export type StrictStorageConfiguration = DeepRequired<StorageConfiguration>
+export type StrictArchiverConfiguration = DeepRequired<Array<ArchiverConfiguration>>
 
 export interface StrictShardusConfiguration {
   server: StrictServerConfiguration
   logs: StrictLogsConfiguration
   storage: StrictStorageConfiguration
+  archivers: StrictArchiverConfiguration
 }
 
 export interface AcceptedTx {
