@@ -20,7 +20,8 @@ import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
-import { getArchiverList } from '@shardus/archiver-discovery'
+import { getArchiverList, setupArchiverDiscovery } from '@shardus/archiver-discovery'
+import path from 'path'
 
 
 /** STATE */
@@ -73,6 +74,10 @@ export function init() {
 
 export async function startup(): Promise<boolean> {
   const publicKey = Context.crypto.getPublicKey()
+
+  info("Archiver Discovery...")
+  await setupArchiverDiscovery({})
+
 
   // If startInWitness config is set to true, start witness mode and end
   if (Context.config.p2p.startInWitnessMode) {
