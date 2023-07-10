@@ -23,8 +23,6 @@ import { randomInt } from 'crypto'
 import { CycleRecord } from '@shardus/types/build/src/p2p/CycleCreatorTypes'
 import { StateMetaData } from '@shardus/types/build/src/p2p/SnapshotTypes'
 import { DataRequest } from '@shardus/types/build/src/p2p/ArchiversTypes'
-import { getArchiverList, setupArchiverDiscovery } from '@shardus/archiver-discovery'
-import * as Context from '../p2p/Context'
 
 /** STATE */
 

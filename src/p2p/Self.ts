@@ -21,7 +21,7 @@ import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
 import { getArchiverList, setupArchiverDiscovery } from '@shardus/archiver-discovery'
-import path from 'path'
+
 
 
 /** STATE */
