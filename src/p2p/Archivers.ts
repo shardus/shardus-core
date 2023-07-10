@@ -511,7 +511,7 @@ async function hasNetworkStopped() {
   // Loop through them and check their /nodelist endpoint for a response
   for (const archiver of shuffledArchivers) {
     try {
-      const response = await http.get(`http://${archiver.ip}:${archiver.port}/nodelist`)
+      const response: { data: unknown } = await http.get(`http://${archiver.ip}:${archiver.port}/nodelist`)
 
       // If any one of them responds, return
       if (response.data) return false
