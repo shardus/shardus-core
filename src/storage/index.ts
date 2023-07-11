@@ -19,10 +19,10 @@ import P2PApoptosis = require('../p2p/Apoptosis')
 import { config } from '../p2p/Context'
 
 /** A type alias to avoid both `any` and having to spell this type out any time
-* we want to use it. */
+ * we want to use it. */
 export type GenericObject = { [key: symbol]: unknown }
 
-export type ModelAttributes = { [column: string]: ColumnDescription };
+export type ModelAttributes = { [column: string]: ColumnDescription }
 
 export interface ModelData {
   tableName: string
@@ -40,10 +40,10 @@ export interface ModelData {
 }
 
 export type OperationOptions = {
-    createOrReplace?: boolean;
-    raw?: boolean;
-    order?: { length: number; };
-    limit?: number;
+  createOrReplace?: boolean
+  raw?: boolean
+  order?: { length: number }
+  limit?: number
 }
 
 export interface ParamEntry {
@@ -88,7 +88,13 @@ class Storage {
     // this.storage = new SequelizeStorage(models, config, logger, baseDir, this.profiler)
 
     // this.storage = new BetterSqlite3Storage(models, config, logger, baseDir, this.profiler)
-    this.storage = new Sqlite3Storage(models as [string, ModelAttributes][], config, logger, baseDir, this.profiler)
+    this.storage = new Sqlite3Storage(
+      models as [string, ModelAttributes][],
+      config,
+      logger,
+      baseDir,
+      this.profiler
+    )
     this.serverConfig = serverConfig
     this.stateManager = null
   }
