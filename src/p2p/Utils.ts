@@ -3,8 +3,9 @@ import * as utils from '../utils'
 import FastRandomIterator from '../utils/FastRandomIterator'
 import { logFlags } from '../logger'
 import { config } from './Context'
-import { stringifyReduce } from '../utils'
+import { sleep, stringifyReduce } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
+import { Logger } from 'log4js'
 
 export type QueryFunction<Node, Response> = (node: Node) => PromiseLike<Response>
 
@@ -412,4 +413,64 @@ export async function robustQuery<Node = unknown, Response = unknown>(
   // throwing errors was causing problems in past testing.
   // it is OK to throw errors for stuff that is an unexected code mistake in cases where the code would
   //   fail right away.
+}
+
+/**
+ * Attempts to execute a given asynchronous function up to a certain number of retries upon failure.
+ *
+ * @template T The type of the resolved value of the input function.
+ * @param {() => Promise<T>} fn - The asynchronous function to execute. This function should return a Promise that resolves to a value of type `T`.
+ * @param {AttemptOptions} options - Optional. Options passed to change the behavior of this function. See the `AttemptOptions` interface in this same file for details.
+ * @returns {Promise<T>} A Promise that resolves to the return value of the input function, if successful.
+ * @throws Will throw an error if the function fails all attempts. The error will be the last error thrown by the input function.
+ */
+export async function attempt<T>(fn: () => Promise<T>, options?: AttemptOptions): Promise<T> {
+  // fallback to option defaults if needed
+  const maxRetries = options?.maxRetries || 3
+  const delay = options?.delay || 2000
+  const logPrefix = options?.logPrefix || 'attempt'
+  const logger = options?.logger
+
+  // initialize our lastError variable
+  let lastError = new Error('out of retries')
+
+  // loop until we're successful
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      // run the function and return the result. if the funciton fails,
+      // we'll catch it below
+      return await fn()
+    } catch (e) {
+      // log the error
+      if (logger && logFlags.error) logger.error(`${logPrefix}: attempt failure #${i + 1}: ${e.message}`)
+
+      // save the error in case we need to throw it later
+      lastError = e
+
+      // sleep before trying again
+      await sleep(delay)
+      continue
+    }
+  }
+
+  // log that we've run out of attempts
+  if (logger && logFlags.error) logger.error(`${logPrefix}: giving up`)
+
+  // think fast!
+  throw lastError
+}
+
+/** A little interface to represent the options you can pass to the `attempt` function. */
+export interface AttemptOptions {
+  /** The maximum number of attempts to execute the function. */
+  maxRetries?: number
+
+  /** The delay between attempts, in milliseconds. */
+  delay?: number
+
+  /** A log prefix to prepend to error logs on each failure. */
+  logPrefix?: string
+
+  /** The logger to write to on failures. */
+  logger?: Logger
 }
