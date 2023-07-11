@@ -114,7 +114,7 @@ class Storage {
         ' `joinedArchivers` JSON NOT NULL,`leavingArchivers` JSON NOT NULL, `joinedConsensors` JSON NOT' +
         ' NULL,`refreshedArchivers` JSON NOT NULL, `refreshedConsensors` JSON NOT NULL, `activated` JSON NOT NULL,' +
         ' `activatedPublicKeys` JSON NOT NULL, `removed` JSON NOT NULL, `returned` JSON NOT NULL, `lost` JSON NOT' +
-        ' NULL, `lostSyncing` JSON NOT NULL , `refuted` JSON NOT NULL)'
+        ' NULL, `lostSyncing` JSON NOT NULL , `refuted` JSON NOT NULL, `nodeListHash` TEXT NOT NULL, `archiverListHash` TEXT NOT NULL)'
     )
     await this.storage.runCreate(
       'CREATE TABLE if not exists `nodes` (`id` TEXT NOT NULL PRIMARY KEY, `publicKey` TEXT NOT NULL, `curvePublicKey` TEXT NOT NULL, `cycleJoined` TEXT NOT NULL, `internalIp` VARCHAR(255) NOT NULL, `externalIp` VARCHAR(255) NOT NULL, `internalPort` SMALLINT NOT NULL, `externalPort` SMALLINT NOT NULL, `joinRequestTimestamp` BIGINT NOT NULL, `activeTimestamp` BIGINT NOT NULL, `address` VARCHAR(255) NOT NULL, `status` VARCHAR(255) NOT NULL)'
