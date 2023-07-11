@@ -290,11 +290,10 @@ async function cycleCreator() {
   }
   if (lastSavedData) {
     await storage.updateCycle({ networkId: lastSavedData.networkId }, data)
-    lastSavedData = data
   } else {
-    await storage.addCycles({ ...prevRecord, marker, certificate })
-    lastSavedData = data
+    await storage.addCycles(data)
   }
+  lastSavedData = data
 
   Self.emitter.emit('new_cycle_data', data)
 
