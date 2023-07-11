@@ -360,8 +360,8 @@ export async function getNewestCycle(activeNodes: SyncNode[]): Promise<P2P.Cycle
   console.log(`response is: ${JSON.stringify(response)}`)
 
   // [TODO] Validate response
-  if (!response) throw new Error('Bad response')
-  if (!response.newestCycle) throw new Error('Bad response')
+  if (!response) throw new Error('Bad response: no response')
+  if (!response.newestCycle) throw new Error('Bad response: no newestCycle')
 
   const newestCycle = response.newestCycle as P2P.CycleCreatorTypes.CycleRecord
   return newestCycle
