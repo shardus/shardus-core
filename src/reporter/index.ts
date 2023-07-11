@@ -201,7 +201,7 @@ class Reporter {
     }
   }
 
-  getAppData(): string {
+  getAppData(): unknown {
     if (typeof Context.shardus.app.getNodeInfoAppData === 'function') {
       const appData = Context.shardus.app.getNodeInfoAppData()
       return appData
