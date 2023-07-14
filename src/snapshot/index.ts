@@ -575,9 +575,11 @@ export async function startWitnessMode() {
         // send offer to each syncing + active nodes unless data is already offered
         for (let i = 0; i < nodeList.length; i++) {
           const node = nodeList[i]
+          const ip = 'ip' in node && node.ip || node.externalIp
+          const port = 'port' in node && node.port || node.externalIp
           if (!alreadyOfferedNodes.has(node.id)) {
             try {
-              log(`Sending witness offer to new node ${node.ip}:${node.port}`)
+              log(`Sending witness offer to new node ${ip}:${port}`)
               sendOfferToNode(node, offer)
               alreadyOfferedNodes.set(node.id, true)
             } catch (e) {
