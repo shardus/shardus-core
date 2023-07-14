@@ -19,6 +19,7 @@ import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
+import * as SyncV2 from './SyncV2/'
 
 type Archiver = {
   ip: string
@@ -69,6 +70,7 @@ export function init(): void {
   CycleCreator.init()
   GlobalAccounts.init()
   NodeList.init()
+  SyncV2.init()
 
   // Create a logger for yourself
   p2pLogger = Context.logger.getLogger('p2p')
@@ -275,7 +277,18 @@ async function syncCycleChain(): Promise<void> {
       }
 
       if (logFlags.p2pNonFatal) info('Attempting to sync to network...')
-      synced = await Sync.sync(activeNodes)
+      if (Context.config.p2p.useSyncProtocolV2) {
+        // attempt syncing with the v2 protocol and handle the result. the first
+        // callback will run if the result is `Ok`, the second if it is `Err`
+        await SyncV2.syncV2(activeNodes).match(
+          () => (synced = true),
+          (err) => {
+            throw err
+          }
+        )
+      } else {
+        synced = await Sync.sync(activeNodes)
+      }
     } catch (err) {
       synced = false
       warn(err)
