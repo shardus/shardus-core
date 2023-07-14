@@ -29,6 +29,8 @@ import { errorToStringFull } from '../utils'
 import SyncTracker from './SyncTracker'
 import { Logger as L4jsLogger } from 'log4js'
 
+const REDUNDANCY = 3
+
 type SyncStatment = {
   p2pJoinTime: number
   timeBeforeDataSync: number
@@ -980,7 +982,7 @@ class AccountSync {
       const robustQueryResult = await robustQuery<
         Shardus.Node,
         Partial<GlobalAccountReportResp> & { msg: string }
-      >(nodes, queryFn, equalFn, 3, true, false, true)
+      >(nodes, queryFn, equalFn, REDUNDANCY, true, false, true)
 
       // if we did not get a result at all wait, log and retry
       if (robustQueryResult === null) {
