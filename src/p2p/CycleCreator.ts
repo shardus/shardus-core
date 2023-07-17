@@ -1,7 +1,7 @@
 import deepmerge from 'deepmerge'
 import { Logger } from 'log4js'
 import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
+import { hexstring, P2P } from '@shardus/types'
 import * as utils from '../utils'
 // don't forget to add new modules here
 import * as Active from './Active'
@@ -276,12 +276,18 @@ async function cycleCreator() {
   const nodeListHash = crypto.hash(NodeList.byJoinOrder)
 
   // get the archiver list hash
-  const archiverListHash = crypto.hash(Archivers.archivers.values());
+  const archiverListHash = getArchiverListHash([...Archivers.archivers.values()])
 
   // Save the previous record to the DB
   const marker = makeCycleMarker(prevRecord)
   const certificate = makeCycleCert(marker)
-  const data: P2P.CycleCreatorTypes.CycleData = { ...prevRecord, marker, certificate, nodeListHash, archiverListHash }
+  const data: P2P.CycleCreatorTypes.CycleData = {
+    ...prevRecord,
+    marker,
+    certificate,
+    nodeListHash,
+    archiverListHash,
+  }
   if (lastSavedData) {
     await storage.updateCycle({ networkId: lastSavedData.networkId }, data)
     lastSavedData = data
@@ -1097,6 +1103,21 @@ function pruneCycleChain() {
   const keep = Refresh.cyclesToKeep()
   // Throws away extra cycles
   CycleChain.prune(keep)
+}
+
+/** Calculates a hash based on the list of archivers, sorted by public key. */
+function getArchiverListHash(archivers: P2P.ArchiversTypes.JoinedArchiver[]): hexstring {
+  archivers.sort((a, b) => {
+    // using mathematical comparison in case localeCompare is inconsisten
+    if (a.publicKey > b.publicKey) {
+      return 1
+    } else if (a.publicKey < b.publicKey) {
+      return -1
+    } else {
+      return 0
+    }
+  })
+  return crypto.hash(archivers)
 }
 
 function info(...msg) {
