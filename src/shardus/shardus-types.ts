@@ -569,11 +569,7 @@ export interface ServerConfiguration {
     /** The timeServers parameter is an Array of String that specifies where to get time critical data. */
     timeServers?: string[]
     /**  */
-    existingArchivers?: Array<{
-      ip: string
-      port: number
-      publicKey: string
-    }>
+    existingArchivers?: Array<P2P.P2PTypes.Node>
     /** The syncLimit parameter is an Integer that specifies the amount of time (in seconds) a node’s local time can differ from the network’s time. */
     syncLimit?: number
     /** The cycleDuration parameter is an Integer specifying the amount of time (in seconds) it takes for a shardus network cycle to complete. */
