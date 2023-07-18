@@ -524,21 +524,22 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
 
   // Return if we already know about this node
   if (NodeList.byPubKey.has(joinRequest.nodeInfo.publicKey)) {
-    if (logFlags.p2pNonFatal) warn('Cannot add join request for this node, already a known node.')
+    const message = 'Cannot add join request for this node, already a known node (by public key).'
+    if (logFlags.p2pNonFatal) warn(message)
     return {
       success: false,
-      reason: 'Cannot add join request for this node, already a known node.',
+      reason: message,
       fatal: false,
     }
   }
   const ipPort = NodeList.ipPort(node.internalIp, node.internalPort)
   if (NodeList.byIpPort.has(ipPort)) {
-    /* prettier-ignore */ if (logFlags.p2pNonFatal) info('Cannot add join request for this node, already a known node.', JSON.stringify(NodeList.byIpPort.get(ipPort)))
-    // const node = NodeList.byIpPort.get(ipPort)
+    const message = 'Cannot add join request for this node, already a known node (by IP address).'
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) info(message, JSON.stringify(NodeList.byIpPort.get(ipPort)))
     if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-already-known`)
     return {
       success: false,
-      reason: 'Cannot add join request for this node, already a known node.',
+      reason: message,
       fatal: true,
     }
   }
