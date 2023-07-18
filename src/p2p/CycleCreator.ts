@@ -1104,21 +1104,6 @@ function pruneCycleChain() {
   CycleChain.prune(keep)
 }
 
-/** Calculates a hash based on the list of archivers, sorted by public key. */
-function getArchiverListHash(archivers: P2P.ArchiversTypes.JoinedArchiver[]): hexstring {
-  archivers.sort((a, b) => {
-    // using mathematical comparison in case localeCompare is inconsisten
-    if (a.publicKey > b.publicKey) {
-      return 1
-    } else if (a.publicKey < b.publicKey) {
-      return -1
-    } else {
-      return 0
-    }
-  })
-  return crypto.hash(archivers)
-}
-
 function info(...msg) {
   const entry = `CycleCreator: ${msg.join(' ')}`
   p2pLogger.info(entry)
