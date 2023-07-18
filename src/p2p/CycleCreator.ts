@@ -273,10 +273,10 @@ async function cycleCreator() {
   //}
 
   // get the node list hash
-  const nodeListHash = crypto.hash(NodeList.byJoinOrder)
+  const nodeListHash = NodeList.computeNewNodeListHash()
 
   // get the archiver list hash
-  const archiverListHash = getArchiverListHash([...Archivers.archivers.values()])
+  const archiverListHash = Archivers.computeNewArchiverListHash()
 
   // Save the previous record to the DB
   const marker = makeCycleMarker(prevRecord)
