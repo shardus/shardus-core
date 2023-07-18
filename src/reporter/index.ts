@@ -4,6 +4,7 @@ import Logger, { logFlags } from '../logger'
 import { ipInfo } from '../network'
 import { config, crypto } from '../p2p/Context'
 import * as Shardus from '../shardus/shardus-types'
+import * as Archivers from '../p2p/Archivers'
 import * as Context from '../p2p/Context'
 import { getDesiredCount, lastScalingType, requestedScalingType } from '../p2p/CycleAutoScale'
 import * as CycleChain from '../p2p/CycleChain'
@@ -311,6 +312,11 @@ class Reporter {
       }
     }
 
+    // try to re-use the hashes from the newest cycle. if they don't
+    // exist, compute them just-in-time
+    const nodelistHash = NodeList.getNodeListHash()
+    const archiverListHash = Archivers.getArchiverListHash()
+
     try {
       await this._sendReport({
         repairsStarted,
@@ -319,7 +325,7 @@ class Reporter {
         appState,
         cycleMarker,
         cycleCounter,
-        nodelistHash: CycleChain.newest.nodeListHash,
+        nodelistHash,
         desiredNodes,
         lastScalingTypeWinner, // "up" "down" or null.  last scaling action decided by this node
         lastScalingTypeRequested, // "up" "down" or null.  last scaling action decided by this node
@@ -350,7 +356,7 @@ class Reporter {
         isRefuted: isNodeRefuted,
         shardusVersion: packageJson.version,
         appData,
-        archiverListHash: CycleChain.newest.archiverListHash,
+        archiverListHash,
       })
       if (this.stateManager != null && config.mode === 'debug' && !config.debug.disableTxCoverageReport) {
         this.stateManager.transactionQueue.resetTxCoverageMap()
