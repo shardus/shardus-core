@@ -252,3 +252,8 @@ export function getDebug() {
 
   return output
 }
+
+/** Returns the last appended cycle's marker. */
+export function getCurrentCycleMarker(): hexstring {
+    return currentCycleMarker
+}
