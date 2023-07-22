@@ -5,6 +5,7 @@ import * as http from '../http'
 import { P2P } from '@shardus/types'
 import { reversed, validateTypes } from '../utils'
 import { config, logger, network } from './Context'
+import * as Archivers from './Archivers'
 import * as CycleChain from './CycleChain'
 import * as CycleCreator from './CycleCreator'
 import { ChangeSquasher, parse } from './CycleParser'
@@ -288,6 +289,10 @@ export async function syncNewCycles(activeNodes: SyncNode[]) {
 }
 
 export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord) {
+  // get the node list hashes *before* applying node changes
+  cycle.nodeListHash = NodeList.computeNewNodeListHash()
+  cycle.archiverListHash = Archivers.computeNewArchiverListHash()
+
   const marker = CycleCreator.makeCycleMarker(cycle)
   if (CycleChain.cyclesByMarker[marker]) {
     warn(`Tried to digest cycle record twice: ${JSON.stringify(cycle)}\n` + `${new Error().stack}`)
@@ -296,6 +301,7 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord) {
 
   const changes = parse(cycle)
   applyNodeListChange(changes, true, cycle)
+
   CycleChain.append(cycle)
 
   let nodeLimit = 2 //todo set this to a higher number, but for now I want to make sure it works in a small test

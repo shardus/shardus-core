@@ -272,12 +272,6 @@ async function cycleCreator() {
   if (!CycleChain.newest || CycleChain.newest.counter < prevRecord.counter) Sync.digestCycle(prevRecord)
   //}
 
-  // get the node list hash
-  const nodeListHash = NodeList.computeNewNodeListHash()
-
-  // get the archiver list hash
-  const archiverListHash = Archivers.computeNewArchiverListHash()
-
   // Save the previous record to the DB
   const marker = makeCycleMarker(prevRecord)
   const certificate = makeCycleCert(marker)
@@ -285,8 +279,6 @@ async function cycleCreator() {
     ...prevRecord,
     marker,
     certificate,
-    nodeListHash,
-    archiverListHash,
   }
   if (lastSavedData) {
     await storage.updateCycle({ networkId: lastSavedData.networkId }, data)
