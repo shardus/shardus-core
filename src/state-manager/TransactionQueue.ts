@@ -4819,7 +4819,6 @@ class TransactionQueue {
       } as unknown as AcceptedTx,
       cycle: queueEntry.cycleToRecordOn,
       result: { txIdShort, txResult },
-      beforeStateAccounts: [],
       accounts: [],
       receipt: queueEntry.preApplyTXResult.applyResponse.appReceiptData || null,
     }
@@ -4842,6 +4841,7 @@ class TransactionQueue {
           beforeAccountsToAdd[account.accountId] = accountCopy
         }
       }
+      txReceiptToPass['beforeStateAccounts'] = [...Object.values(beforeAccountsToAdd)]
     }
 
     // override with the accouns in accountWrites
@@ -4860,7 +4860,6 @@ class TransactionQueue {
     }
 
     txReceiptToPass.accounts = [...Object.values(accountsToAdd)]
-    txReceiptToPass.beforeStateAccounts = [...Object.values(beforeAccountsToAdd)]
     // console.log('acceptedTx', queueEntry.acceptedTx)
     // console.log('txReceiptToPass', txReceiptToPass.tx.txId, txReceiptToPass)
 
