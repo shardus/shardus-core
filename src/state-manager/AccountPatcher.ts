@@ -679,7 +679,7 @@ class AccountPatcher {
       res.end()
     })
 
-    Context.network.registerExternalGet('get-tree-last-insync', isDebugModeMiddleware, (_req, res) => {
+    Context.network.registerExternalGet('debug-get-tree-last-insync', isDebugModeMiddleware, (_req, res) => {
       res.write(`${this.failedLastTrieSync === false}\n`)
 
       res.end()
@@ -687,7 +687,7 @@ class AccountPatcher {
 
     //TODO DEBUG DO NOT USE IN LIVE NETWORK
     Context.network.registerExternalGet(
-      'get-tree-last-insync-all',
+      'debug-get-tree-last-insync-all',
       isDebugModeMiddleware,
       async (req, res) => {
         const format = req.query.format ?? 'text'
@@ -703,7 +703,7 @@ class AccountPatcher {
           if (activeNodes) {
             for (const node of activeNodes.values()) {
               const getResp = await this.logger._internalHackGetWithResp(
-                `${node.externalIp}:${node.externalPort}/get-tree-last-insync`
+                `${node.externalIp}:${node.externalPort}/debug-get-tree-last-insync`
               )
               if (getResp.body && getResp.body.includes('false')) {
                 oosCount++
@@ -768,7 +768,7 @@ class AccountPatcher {
       res.end()
     })
 
-    Context.network.registerExternalGet('get-shard-report-all', isDebugModeMiddleware, async (_req, res) => {
+    Context.network.registerExternalGet('debug-get-shard-report-all', isDebugModeMiddleware, async (_req, res) => {
       try {
         //wow, why does Context.p2p not work..
         res.write(`building shard report \n`)
@@ -797,7 +797,7 @@ class AccountPatcher {
      *
      * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/account-report?id=<accountID>
      */
-    Context.network.registerExternalGet('account-report', isDebugModeMiddleware, async (req, res) => {
+    Context.network.registerExternalGet('debug-account-report', isDebugModeMiddleware, async (req, res) => {
       if (req.query.id == null) return
       let id = req.query.id as string
       res.write(`report for: ${id} \n`)
@@ -858,7 +858,7 @@ class AccountPatcher {
      *
      * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/account-coverage?id=<accountID>
      */
-    Context.network.registerExternalGet('account-coverage', isDebugModeMiddleware, async (req, res) => {
+    Context.network.registerExternalGet('debug-account-coverage', isDebugModeMiddleware, async (req, res) => {
       if (req.query.id === null) return
       const id = req.query.id as string
 

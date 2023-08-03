@@ -1937,7 +1937,7 @@ class Shardus extends EventEmitter {
       res.json({ success: true })
     })
 
-    this.network.registerExternalGet('config', isDebugModeMiddleware, async (req, res) => {
+    this.network.registerExternalGet('debug-config', isDebugModeMiddleware, async (req, res) => {
       res.json({ config: this.config })
     })
     this.network.registerExternalGet('netconfig', async (req, res) => {

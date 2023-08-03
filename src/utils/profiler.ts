@@ -102,7 +102,7 @@ class Profiler {
   }
 
   registerEndpoints(): void {
-    Context.network.registerExternalGet('perf', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-perf', isDebugModeMiddleware, (req, res) => {
       const result = this.printAndClearReport()
       //res.json({result })
 
@@ -118,7 +118,7 @@ class Profiler {
       res.end()
     })
 
-    Context.network.registerExternalGet('combined-debug', isDebugModeMiddleware, async (req, res) => {
+    Context.network.registerExternalGet('debug-combined-debug', isDebugModeMiddleware, async (req, res) => {
       const waitTime = Number.parseInt(req.query.wait as string, 10) || 60
 
       // hit "counts-reset" endpoint

@@ -398,14 +398,14 @@ class AccountSync {
       }
     )
 
-    Context.network.registerExternalGet('sync-statement', isDebugModeMiddleware, (_req, res) => {
+    Context.network.registerExternalGet('debug-sync-statement', isDebugModeMiddleware, (_req, res) => {
       res.write(`${utils.stringifyReduce(this.syncStatement)}\n`)
 
       res.end()
     })
 
     //TODO DEBUG DO NOT USE IN LIVE NETWORK
-    Context.network.registerExternalGet('sync-statement-all', isDebugModeMiddleware, async (_req, res) => {
+    Context.network.registerExternalGet('debug-sync-statement-all', isDebugModeMiddleware, async (_req, res) => {
       try {
         //wow, why does Context.p2p not work..
         const activeNodes = Wrapper.p2p.state.getNodes()

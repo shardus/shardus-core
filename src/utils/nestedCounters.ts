@@ -30,7 +30,7 @@ class NestedCounters {
   }
 
   registerEndpoints(): void {
-    Context.network.registerExternalGet('counts', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-counts', isDebugModeMiddleware, (req, res) => {
       profilerInstance.scopedProfileSectionStart('counts')
 
       const arrayReport = this.arrayitizeAndSort(this.eventCounters)
@@ -43,7 +43,7 @@ class NestedCounters {
       profilerInstance.scopedProfileSectionEnd('counts')
     })
 
-    Context.network.registerExternalGet('counts-reset', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-counts-reset', isDebugModeMiddleware, (req, res) => {
       this.eventCounters = new Map()
       res.write(`counts reset ${Date.now()}`)
       res.end()

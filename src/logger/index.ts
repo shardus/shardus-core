@@ -321,7 +321,7 @@ class Logger {
   }
 
   registerEndpoints(Context) {
-    Context.network.registerExternalGet('log-fatal', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-log-fatal', isDebugModeMiddleware, (req, res) => {
       this.setFatalFlags()
       for (const [key, value] of Object.entries(logFlags)) {
         res.write(`${key}: ${value}\n`)
@@ -335,7 +335,7 @@ class Logger {
       }
       res.end()
     })
-    Context.network.registerExternalGet('log-default', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-log-default', isDebugModeMiddleware, (req, res) => {
       this.setDefaultFlags()
       for (const [key, value] of Object.entries(logFlags)) {
         res.write(`${key}: ${value}\n`)
@@ -344,7 +344,7 @@ class Logger {
     })
 
     // DO NOT USE IN LIVE NETWORK
-    Context.network.registerExternalGet('log-default-all', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-log-default-all', isDebugModeMiddleware, (req, res) => {
       this.setDefaultFlags()
 
       try {
@@ -373,7 +373,7 @@ class Logger {
     })
 
     // DO NOT USE IN LIVE NETWORK
-    Context.network.registerExternalGet('log-fatal-all', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-log-fatal-all', isDebugModeMiddleware, (req, res) => {
       this.setFatalFlags()
       try {
         let activeNodes = Context.p2p.state.getNodes()

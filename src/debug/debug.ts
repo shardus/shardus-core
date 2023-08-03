@@ -58,7 +58,7 @@ class Debug {
   }
 
   _registerRoutes() {
-    this.network.registerExternalGet('debug', isDebugModeMiddleware, (req, res) => {
+    this.network.registerExternalGet('debug-download-logs-and-db', isDebugModeMiddleware, (req, res) => {
       const archive = this.createArchiveStream()
       const gzip = zlib.createGzip()
       res.set('content-disposition', `attachment; filename="${this.archiveName}"`)

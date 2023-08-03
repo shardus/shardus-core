@@ -47,7 +47,7 @@ export function init() {
       console.log(`Error getting load: ${e.message}`)
     }
   })
-  network.registerExternalGet('age-index', isDebugModeMiddleware, (req, res) => {
+  network.registerExternalGet('debug-age-index', isDebugModeMiddleware, (req, res) => {
     try {
       return res.json(getAgeIndex())
     } catch (e) {

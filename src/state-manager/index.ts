@@ -1660,7 +1660,7 @@ class StateManager {
       res.end()
     })
 
-    Context.network.registerExternalGet('last_process_stats', isDebugModeMiddleware, (_req, res) => {
+    Context.network.registerExternalGet('debug-last_process_stats', isDebugModeMiddleware, (_req, res) => {
       const result = JSON.stringify(this.transactionQueue.lastProcessStats, null, 2)
       res.write(result)
       res.end()

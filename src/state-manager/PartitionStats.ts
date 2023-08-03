@@ -169,7 +169,7 @@ class PartitionStats {
      *
      * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/get-stats-report-all?raw=<true/fale>
      */
-    Context.network.registerExternalGet('get-stats-report-all', isDebugModeMiddleware, async (req, res) => {
+    Context.network.registerExternalGet('debug-get-stats-report-all', isDebugModeMiddleware, async (req, res) => {
       try {
         const raw = req.query.raw
 

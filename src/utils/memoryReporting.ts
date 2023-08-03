@@ -42,7 +42,7 @@ class MemoryReporting {
   }
 
   registerEndpoints(): void {
-    Context.network.registerExternalGet('memory', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-memory', isDebugModeMiddleware, (req, res) => {
       const toMB = 1 / 1000000
       const report = process.memoryUsage()
       res.write(`System Memory Report.  Timestamp: ${Date.now()}\n`)
@@ -90,7 +90,7 @@ class MemoryReporting {
       res.end()
     })
 
-    Context.network.registerExternalGet('top', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-top', isDebugModeMiddleware, (req, res) => {
       // This would work well in linux OS.
       const top = spawn('top', ['b', '-n', '10', '1'])
       top.stdout.on('data', (dataBuffer) => {
