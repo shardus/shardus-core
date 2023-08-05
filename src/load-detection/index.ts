@@ -47,9 +47,9 @@ class LoadDetection extends EventEmitter {
     /**
      * Sets load to DESIRED_LOAD (should be between 0 and 1)
      *
-     * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/loadset?load=<DESIRED_LOAD>
+     * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/debug-loadset?load=<DESIRED_LOAD>
      */
-    Context.network.registerExternalGet('loadset', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-loadset', isDebugModeMiddleware, (req, res) => {
       if (req.query.load == null) return
       this.dbg = true
       this.load = Number(req.query.load)
@@ -61,7 +61,7 @@ class LoadDetection extends EventEmitter {
      *
      * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/loadreset
      */
-    Context.network.registerExternalGet('loadreset', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-loadreset', isDebugModeMiddleware, (req, res) => {
       this.dbg = false
       console.log('reset load detection to normal behavior')
       res.send('reset load detection to normal behavior')

@@ -351,16 +351,16 @@ class Logger {
         let activeNodes = Context.p2p.state.getNodes()
         if (activeNodes) {
           for (let node of activeNodes.values()) {
-            this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-default`)
-            res.write(`${node.externalIp}:${node.externalPort}/log-default\n`)
+            this._internalHackGet(`${node.externalIp}:${node.externalPort}/debug-log-default`)
+            res.write(`${node.externalIp}:${node.externalPort}/debug-log-default\n`)
           }
         }
         res.write(`joining nodes...\n`)
         let joiningNodes = Context.p2p.state.getNodesRequestingJoin()
         if (joiningNodes) {
           for (let node of joiningNodes.values()) {
-            this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-default`)
-            res.write(`${node.externalIp}:${node.externalPort}/log-default\n`)
+            this._internalHackGet(`${node.externalIp}:${node.externalPort}/debug-log-default`)
+            res.write(`${node.externalIp}:${node.externalPort}/debug-log-default\n`)
           }
         }
 
@@ -379,16 +379,16 @@ class Logger {
         let activeNodes = Context.p2p.state.getNodes()
         if (activeNodes) {
           for (let node of activeNodes.values()) {
-            this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-fatal`)
-            res.write(`${node.externalIp}:${node.externalPort}/log-fatal\n`)
+            this._internalHackGet(`${node.externalIp}:${node.externalPort}/debug-log-fatal`)
+            res.write(`${node.externalIp}:${node.externalPort}/debug-log-fatal\n`)
           }
         }
         res.write(`joining nodes...\n`)
         let joiningNodes = Context.p2p.state.getNodesRequestingJoin()
         if (joiningNodes) {
           for (let node of joiningNodes.values()) {
-            this._internalHackGet(`${node.externalIp}:${node.externalPort}/log-fatal`)
-            res.write(`${node.externalIp}:${node.externalPort}/log-fatal\n`)
+            this._internalHackGet(`${node.externalIp}:${node.externalPort}/debug-log-fatal`)
+            res.write(`${node.externalIp}:${node.externalPort}/debug-log-fatal\n`)
           }
         }
         res.write(`sending fatal logs to all nodes\n`)

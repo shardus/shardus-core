@@ -856,7 +856,7 @@ class AccountPatcher {
     /**
      *
      *
-     * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/account-coverage?id=<accountID>
+     * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/debug-account-coverage?id=<accountID>
      */
     Context.network.registerExternalGet('debug-account-coverage', isDebugModeMiddleware, async (req, res) => {
       if (req.query.id === null) return
@@ -2692,7 +2692,7 @@ class AccountPatcher {
       //update the repair count
       failHistoryObject.repaired += appliedFixes
 
-      //This is something that can be checked with debug endpoints get-tree-last-insync-all / get-tree-last-insync
+      //This is something that can be checked with debug endpoints debug-get-tree-last-insync-all / debug-get-tree-last-insync
       this.failedLastTrieSync = true
     } else {
       nestedCountersInstance.countEvent(`accountPatcher`, `inSync`)

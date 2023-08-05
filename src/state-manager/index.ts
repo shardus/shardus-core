@@ -1649,12 +1649,12 @@ class StateManager {
       res.json({ cycle, blob })
     })
 
-    Context.network.registerExternalGet('clear_tx_debug', isDebugModeMiddleware, (_req, res) => {
+    Context.network.registerExternalGet('debug-clear_tx_debug', isDebugModeMiddleware, (_req, res) => {
       this.transactionQueue.clearTxDebugStatList()
       res.json({ success: true })
     })
 
-    Context.network.registerExternalGet('print_tx_debug', isDebugModeMiddleware, (_req, res) => {
+    Context.network.registerExternalGet('debug-print_tx_debug', isDebugModeMiddleware, (_req, res) => {
       const result = this.transactionQueue.printTxDebug()
       res.write(result)
       res.end()

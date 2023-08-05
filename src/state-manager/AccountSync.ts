@@ -412,10 +412,10 @@ class AccountSync {
         if (activeNodes) {
           for (const node of activeNodes.values()) {
             const getResp = await this.logger._internalHackGetWithResp(
-              `${node.externalIp}:${node.externalPort}/sync-statement`
+              `${node.externalIp}:${node.externalPort}/debug-sync-statement`
             )
             console.log('getResp active', getResp.body)
-            res.write(`${node.externalIp}:${node.externalPort}/sync-statement\n`)
+            res.write(`${node.externalIp}:${node.externalPort}/debug-sync-statement\n`)
             res.write(getResp.body ? getResp.body : 'no data')
           }
         }
@@ -424,10 +424,10 @@ class AccountSync {
         if (joiningNodes) {
           for (const node of joiningNodes.values()) {
             const getResp = await this.logger._internalHackGetWithResp(
-              `${node.externalIp}:${node.externalPort}/sync-statement`
+              `${node.externalIp}:${node.externalPort}/debug-sync-statement`
             )
             console.log('getResp syncing', getResp.body)
-            res.write(`${node.externalIp}:${node.externalPort}/sync-statement\n`)
+            res.write(`${node.externalIp}:${node.externalPort}/debug-sync-statement\n`)
             res.write(getResp.body ? getResp.body : 'no data')
           }
         }

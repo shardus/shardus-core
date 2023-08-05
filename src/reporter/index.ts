@@ -149,7 +149,7 @@ class Reporter {
       return
     }
     try {
-      await http.post(`${this.config.recipient}/sync-statement`, { nodeId, syncStatement })
+      await http.post(`${this.config.recipient}/debug-sync-statement`, { nodeId, syncStatement })
     } catch (e) {
       if (logFlags.error)
         this.mainLogger.error('reportSyncStatement: ' + e.name + ': ' + e.message + ' at ' + e.stack)

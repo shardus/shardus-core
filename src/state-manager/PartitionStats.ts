@@ -44,7 +44,7 @@ type Line = { raw: string; file: { owner: string } }
  *
  * Debug notes:
  *   -there is are some debug endpoints but they will only work with smaller numbers of nodes.
- *    get-stats-report-all
+ *    debug-get-stats-report-all
  *
  *   -shardus-scan tool can do stats analysis if you pass in the folder your instances are in.  ex:
  *    node .\statsReport.js C:\shardus\gitlab\liberdus-server5\instances
@@ -167,7 +167,7 @@ class PartitionStats {
     /**
      *
      *
-     * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/get-stats-report-all?raw=<true/fale>
+     * Usage: http://<NODE_IP>:<NODE_EXT_PORT>/debug-get-stats-report-all?raw=<true/fale>
      */
     Context.network.registerExternalGet('debug-get-stats-report-all', isDebugModeMiddleware, async (req, res) => {
       try {

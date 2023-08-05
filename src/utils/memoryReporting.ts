@@ -109,7 +109,7 @@ class MemoryReporting {
       })
     })
 
-    Context.network.registerExternalGet('df', isDebugModeMiddleware, (req, res) => {
+    Context.network.registerExternalGet('debug-df', isDebugModeMiddleware, (req, res) => {
       const df = spawn('df')
       df.stdout.on('data', (dataBuffer) => {
         res.write(dataBuffer)
