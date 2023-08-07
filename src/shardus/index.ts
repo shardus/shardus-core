@@ -1394,7 +1394,7 @@ class Shardus extends EventEmitter {
     }
   }
 
-  async getLocalOrRemoteCachedAppData(topic, dataId) : Promise <CachedAppData | null> {
+  async getLocalOrRemoteCachedAppData(topic, dataId): Promise<CachedAppData | null> {
     if (this.p2p.allowTransactions()) {
       return this.stateManager.cachedAppDataManager.getLocalOrRemoteCachedAppData(topic, dataId)
     } else {
@@ -2070,6 +2070,7 @@ class Shardus extends EventEmitter {
         change: any
         appData: any
       }[]
+      //let changes = this.app.getChangesFromNetworkAccount()
       if (!changes || !Array.isArray(changes)) {
         //this may get logged if we have a changeListGlobalAccount that does not have config settings on it.
         //The fix is to let the dapp set the global account to use for this

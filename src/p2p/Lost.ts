@@ -318,7 +318,8 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
     stopReporting[id] = record.counter
     if (id === Self.id) {
       sendRefute = record.counter + 1
-      /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `self-schedule refute c:${currentCycle}`, 1)
+      warn(`self-schedule refute currentC:${currentCycle} inCycle:${record.counter} refuteat:${sendRefute}`)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `self-schedule refute currentC:${currentCycle} inCycle:${record.counter}`, 1)
     }
   }
 
@@ -366,12 +367,12 @@ export function sendRequests() {
   //   Send refute is set to the cycle counter + 1 of the cycle record where we saw our id in the lost field
   //   We cannot create a message which has the down message since we may not have received that gossip
   if (sendRefute > 0) {
-    if (logFlags.p2pNonFatal) info(`sendRequest 5  sendRefute:${sendRefute}  currentCycle:${currentCycle}`)
+    warn(`pending sendRefute:${sendRefute} currentCycle:${currentCycle}`)
   }
   if (sendRefute === currentCycle) {
     let msg = { target: Self.id, status: 'up', cycle: currentCycle }
+    warn(`Gossiping node up message: ${JSON.stringify(msg)}`)
     msg = crypto.sign(msg)
-    if (logFlags.p2pNonFatal) info(`Gossiping node up message: ${JSON.stringify(msg)}`)
     /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', 'self-refute', 1)
     //this next line is probably too spammy to leave in forever (but ok to comment out and keep)
     /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `self-refute c:${currentCycle}`, 1)
