@@ -615,7 +615,7 @@ async function isDownCheck(node) {
 
   //Note 20230630:  the code below here has not likely had any coverage for a few years due to an upstream issue
 
-  if (node.externalIp === node.interalIp) return 'up'
+  if (node.externalIp === node.internalIp) return 'up'
   if (logFlags.p2pNonFatal) info(`Checking external connection for ${node.id}`)
   // Check the external route if ip is different than internal
   const queryExt = async (node) => {
