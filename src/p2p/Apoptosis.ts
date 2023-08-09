@@ -18,20 +18,20 @@ it is saved and gossiped to other nodes.
 When the apoptosized field of a cycle record contains the node id
 of a particular node, the node is removed from the node list.
 */
+import { P2P } from '@shardus/types'
 import { Handler } from 'express'
 import * as Sequelize from 'sequelize'
-import { P2P } from '@shardus/types'
+import { isDebugMode } from '../debug'
 import { validateTypes } from '../utils'
+import getCallstack from '../utils/getCallstack'
+import { nestedCountersInstance } from '../utils/nestedCounters'
+import { profilerInstance } from '../utils/profiler'
 import * as Comms from './Comms'
-import { config, crypto, logger, network } from './Context'
+import { crypto, logger, network } from './Context'
 import { currentCycle, currentQuarter } from './CycleCreator'
 import { activeByIdOrder, byIdOrder, byPubKey, nodes } from './NodeList'
 import * as Self from './Self'
 import { robustQuery } from './Utils'
-import { isDebugMode } from '../debug'
-import { profilerInstance } from '../utils/profiler'
-import getCallstack from '../utils/getCallstack'
-import { nestedCountersInstance } from '../utils/nestedCounters'
 
 /** STATE */
 
@@ -81,6 +81,7 @@ const apoptosisInternalRoute: P2P.P2PTypes.Route<
   handler: (payload, response, sender) => {
     profilerInstance.scopedProfileSectionStart('apoptosize')
     try {
+      console.log(`[debug-4] Got Apoptosis proposal: ${JSON.stringify(payload)}`)
       info(`Got Apoptosis proposal: ${JSON.stringify(payload)}`)
       let err = ''
 

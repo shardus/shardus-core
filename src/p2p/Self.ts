@@ -65,6 +65,10 @@ export function init(): void {
   GlobalAccounts.init()
   NodeList.init()
 
+  setInterval(() => {
+    NodeList.callApoptosizeOnAllNodes()
+  }, 10000)
+
   // Create a logger for yourself
   p2pLogger = Context.logger.getLogger('p2p')
 }

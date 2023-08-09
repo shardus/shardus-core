@@ -8,6 +8,7 @@ import * as Comms from './Comms'
 import { crypto, logger, network } from './Context'
 import * as CycleChain from './CycleChain'
 import * as Join from './Join'
+import { isDownCheck } from './Lost'
 import { emitter, id } from './Self'
 
 /** STATE */
@@ -54,6 +55,27 @@ export function init() {
       console.log(`Error getting age index: ${e.message}`)
     }
   })
+}
+
+export async function callApoptosizeOnAllNodes() {
+  for (const node of nodes.values()) {
+    if (node.id === id) continue
+    const res = await Comms.ask(node, 'apoptosize', { id: 'isDownCheck' })
+    console.log(`[debug-1] Node ${node.id} is ${JSON.stringify(res)}`)
+    try {
+      console.log(`=== type of res.s is ${typeof res.s}`)
+      console.log(`=== res.s is ${res.s}`)
+      console.log(`=== type check ${typeof res.s !== 'string'}`)
+      if (typeof res.s !== 'string') {
+        console.log(`[debug-2] Calling apop on node ${node.id} is ${JSON.stringify(res)}`)
+      }
+    } catch (e) {
+      console.log(`[debug-3] Calling apop on node ${node.id} is ${JSON.stringify(e)}`)
+    }
+
+    const resp = await isDownCheck(node)
+    console.log(`[debug-11] IsDownCheck on node ${node.id} is ${JSON.stringify(resp)} ${resp}`)
+  }
 }
 
 export function reset() {

@@ -440,8 +440,12 @@ class Shardus extends EventEmitter {
               }
             }
 
-            if (Object.keys(Archivers.connectedSockets).length >= config.p2p.maxArchiversSubscriptionPerNode) {
-              console.log(`There are already ${config.p2p.maxArchiversSubscriptionPerNode} archivers connected for data transfer!`)
+            if (
+              Object.keys(Archivers.connectedSockets).length >= config.p2p.maxArchiversSubscriptionPerNode
+            ) {
+              console.log(
+                `There are already ${config.p2p.maxArchiversSubscriptionPerNode} archivers connected for data transfer!`
+              )
               socket.disconnect()
               return
             }
@@ -1404,7 +1408,7 @@ class Shardus extends EventEmitter {
     }
   }
 
-  async getLocalOrRemoteCachedAppData(topic, dataId) : Promise <CachedAppData | null> {
+  async getLocalOrRemoteCachedAppData(topic, dataId): Promise<CachedAppData | null> {
     if (this.p2p.allowTransactions()) {
       return this.stateManager.cachedAppDataManager.getLocalOrRemoteCachedAppData(topic, dataId)
     } else {

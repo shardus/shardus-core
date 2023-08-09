@@ -7,23 +7,23 @@ The lost node detection process is described in the "Lost Node Detection" Google
 internal documents.
 */
 
+import { P2P } from '@shardus/types'
+import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
 import { Handler } from 'express'
 import * as http from '../http'
 import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
+import * as utils from '../utils'
 import { binarySearch, validateTypes } from '../utils'
+import getCallstack from '../utils/getCallstack'
+import { nestedCountersInstance } from '../utils/nestedCounters'
+import { profilerInstance } from '../utils/profiler'
+import { isApopMarkedNode } from './Apoptosis'
 import * as Comms from './Comms'
-import { crypto, logger, network, config } from './Context'
+import { config, crypto, logger, network } from './Context'
 import { currentCycle, currentQuarter } from './CycleCreator'
+import * as NodeList from './NodeList'
 import { activeByIdOrder, byIdOrder, nodes } from './NodeList'
 import * as Self from './Self'
-import { profilerInstance } from '../utils/profiler'
-import getCallstack from '../utils/getCallstack'
-import * as NodeList from './NodeList'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-import * as utils from '../utils'
-import { isApopMarkedNode } from './Apoptosis'
-import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
 
 /** STATE */
 
@@ -596,7 +596,7 @@ function pruneStopReporting() {
 //    and could break if they are changed.
 // [TODO] - create our own APIs to test the internal and external connection.
 //          Although this could allow a rouge node to more easily fool checks.
-async function isDownCheck(node) {
+export async function isDownCheck(node) {
   // Check the internal route
   // The timeout for this is controled by the network.timeout paramater in server.json
   if (logFlags.p2pNonFatal) info(`Checking internal connection for ${node.id}`)
@@ -615,7 +615,8 @@ async function isDownCheck(node) {
 
   //Note 20230630:  the code below here has not likely had any coverage for a few years due to an upstream issue
 
-  if (node.externalIp === node.interalIp) return 'up'
+  if (node.externalIp === node.externalIp) return 'up'
+  console.log('[debug-10] isDownCheck', node)
   if (logFlags.p2pNonFatal) info(`Checking external connection for ${node.id}`)
   // Check the external route if ip is different than internal
   const queryExt = async (node) => {
