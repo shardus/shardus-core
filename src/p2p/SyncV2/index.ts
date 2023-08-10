@@ -75,7 +75,7 @@ function syncValidatorList(
   // run a robust query for the lastest node list hash
   return robustQueryForValidatorListHash(activeNodes).andThen(({ value, winningNodes }) => {
     // get full node list from one of the winning nodes
-    console.log('requesting archiver list with hash', value.nodeListHash)
+    console.log('requesting validator list with hash', value.nodeListHash)
     return getValidatorListFromNode(winningNodes[0], value.nodeListHash)
   })
 }

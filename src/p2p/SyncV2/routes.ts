@@ -45,7 +45,7 @@ const validatorListRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'validator-list',
   handler: (req, res) => {
-    const expectedHash = req.params.hash
+    const expectedHash = req.query.hash
 
     // return the validator list if the hash from the requester matches
     if (expectedHash && expectedHash === NodeList.getNodeListHash()) {
@@ -63,7 +63,7 @@ const archiverListRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'archiver-list',
   handler: (req, res) => {
-    const expectedHash = req.params.hash
+    const expectedHash = req.query.hash
 
     // return the archiver list if the hash from the requester matches
     if (expectedHash && expectedHash === Archivers.getArchiverListHash()) {
@@ -82,11 +82,11 @@ const cycleByMarkerRoute: P2P.P2PTypes.Route<Handler> = {
   handler: (req, res) => {
     // get the cycle corresponding to the marker. return it if it exists, or
     // otherwise return an error.
-    const cycle = CycleChain.cyclesByMarker[req.params.marker]
+    const cycle = CycleChain.cyclesByMarker[req.query.marker as string]
     if (cycle) {
       res.json(cycle)
     } else {
-      res.status(404).send(`cycle with marker '${req.params.hash}' not found`)
+      res.status(404).send(`cycle with marker '${req.query.hash}' not found`)
     }
   },
 }
