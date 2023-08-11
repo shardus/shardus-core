@@ -21,12 +21,6 @@ import * as NodeList from './NodeList'
 import * as Sync from './Sync'
 import * as SyncV2 from './SyncV2/'
 
-type Archiver = {
-  ip: string
-  port: number
-  publicKey: string
-}
-
 /** STATE */
 
 export const emitter = new events.EventEmitter()
@@ -430,7 +424,7 @@ async function getActiveNodesFromArchiver(
 }
 
 export async function getFullNodesFromArchiver(
-  archiver: Archiver = Context.config.p2p.existingArchivers[0]
+  archiver: P2P.SyncTypes.ActiveNode = Context.config.p2p.existingArchivers[0]
 ): Promise<SignedObject<{ nodeList: P2P.NodeListTypes.Node[] }>> {
   const nodeListUrl = `http://${archiver.ip}:${archiver.port}/full-nodelist`
   let fullNodeList: SignedObject<{ nodeList: P2P.NodeListTypes.Node[] }>
