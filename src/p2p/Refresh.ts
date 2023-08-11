@@ -82,8 +82,15 @@ export function updateRecord(
   record: P2P.CycleCreatorTypes.CycleRecord,
   prev: P2P.CycleCreatorTypes.CycleRecord
 ) {
-  record.refreshedArchivers = Archivers.getRefreshedArchivers(record) // This returns a copy of the objects
-  record.refreshedConsensors = refreshConsensors() // This returns a copy of the objects
+  // sync v2 does not require refreshing nodes, but these fields cannot be left
+  // null/undefined
+  if (Context.config.p2p.useSyncProtocolV2) {
+    record.refreshedArchivers = []
+    record.refreshedConsensors = []
+  } else {
+    record.refreshedArchivers = Archivers.getRefreshedArchivers(record) // This returns a copy of the objects
+    record.refreshedConsensors = refreshConsensors() // This returns a copy of the objects
+  }
 }
 
 export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
