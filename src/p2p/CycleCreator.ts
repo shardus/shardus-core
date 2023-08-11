@@ -31,7 +31,7 @@ import { randomBytes } from '@shardus/crypto-utils'
 const SECOND = 1000
 const BEST_CERTS_WANTED = 3
 const DESIRED_CERT_MATCHES = 3
-const DESIRED_MARKER_MATCHES = 2
+const MAX_CYCLES_TO_KEEP = 2
 
 /** STATE */
 
@@ -1090,10 +1090,14 @@ async function gossipCycleCert(sender: P2P.NodeListTypes.Node['id'], tracker?: s
 }
 
 function pruneCycleChain() {
-  // Determine number of cycle records to keep
-  const keep = Refresh.cyclesToKeep()
-  // Throws away extra cycles
-  CycleChain.prune(keep)
+  if (config.p2p.useSyncProtocolV2) {
+    CycleChain.prune(MAX_CYCLES_TO_KEEP);
+  } else {
+    // Determine number of cycle records to keep
+    const keep = Refresh.cyclesToKeep()
+    // Throws away extra cycles
+    CycleChain.prune(keep)
+  }
 }
 
 function info(...msg) {
