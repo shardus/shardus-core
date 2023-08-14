@@ -87,7 +87,7 @@ interface Shardus {
   registerExternalDelete: RouteHandlerRegister
   registerExternalPatch: RouteHandlerRegister
   _listeners: any
-  appliedConfigChanges: Set<number>
+  appliedConfigChanges: Set<string>
 
   debugForeverLoopCounter: number
   debugForeverLoopsEnabled: boolean
@@ -2092,12 +2092,13 @@ class Shardus extends EventEmitter {
         if (change.cycle > lastCycle.counter) {
           continue
         }
+        const changeHash = this.crypto.hash(change)
         //skip handled changes
-        if (this.appliedConfigChanges.has(change.cycle)) {
+        if (this.appliedConfigChanges.has(changeHash)) {
           continue
         }
         //apply this change
-        this.appliedConfigChanges.add(change.cycle)
+        this.appliedConfigChanges.add(changeHash)
         let changeObj = change.change
         let appData = change.appData
 
