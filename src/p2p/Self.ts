@@ -61,11 +61,15 @@ export function init(): void {
   // Init submodules
   Comms.init()
   Archivers.init()
-  Sync.init()
   CycleCreator.init()
   GlobalAccounts.init()
   NodeList.init()
-  SyncV2.init()
+  Sync.init()
+
+  // initialize SyncV2 if enabled
+  if (Context.config.p2p.useSyncProtocolV2) {
+    SyncV2.init()
+  }
 
   // Create a logger for yourself
   p2pLogger = Context.logger.getLogger('p2p')
