@@ -156,7 +156,6 @@ class Shardus extends EventEmitter {
     this.rateLimiting = null
 
     this.appliedConfigChanges = new Set()
-    this.appliedConfigChanges.add(1) //ignore the first change in the list.
 
     if (logFlags.info) {
       this.mainLogger.info(`Server started with pid: ${process.pid}`)
