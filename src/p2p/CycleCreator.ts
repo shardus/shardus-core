@@ -19,11 +19,11 @@ import * as Refresh from './Refresh'
 import * as Rotation from './Rotation'
 import * as SafetyMode from './SafetyMode'
 import * as Self from './Self'
-import * as Sync from './Sync'
 import { compareQuery, Comparison } from './Utils'
 import { errorToStringFull } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { randomBytes } from '@shardus/crypto-utils'
+import { digestCycle, syncNewCycles } from './Sync'
 
 /** CONSTANTS */
 
@@ -268,7 +268,7 @@ async function cycleCreator() {
 
   // Apply the previous records changes to the NodeList
   //if (madeCycle) {
-  if (!CycleChain.newest || CycleChain.newest.counter < prevRecord.counter) Sync.digestCycle(prevRecord)
+  if (!CycleChain.newest || CycleChain.newest.counter < prevRecord.counter) digestCycle(prevRecord)
   //}
 
   // Save the previous record to the DB
@@ -616,7 +616,7 @@ function dropInvalidTxs(txs: Partial<P2P.CycleCreatorTypes.CycleTxs>) {
 async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
   try {
     const oldCounter = CycleChain.newest.counter
-    await Sync.syncNewCycles(NodeList.activeOthersByIdOrder)
+    await syncNewCycles(NodeList.activeOthersByIdOrder)
     if (CycleChain.newest.counter <= oldCounter) {
       // We didn't actually sync
       warn('CycleCreator: fetchLatestRecord: synced record not newer')

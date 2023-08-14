@@ -19,6 +19,7 @@ import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
+import { getNewestCycle } from './Sync'
 import * as SyncV2 from './SyncV2/'
 
 /** STATE */
@@ -146,7 +147,7 @@ async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]): Promise<b
   try {
     // 1. node has old data
     if (snapshot.oldDataPath) {
-      const latestCycle = await Sync.getNewestCycle(activeNodes)
+      const latestCycle = await getNewestCycle(activeNodes)
       // 2. network is in safety mode
       if (latestCycle.safetyMode === true) {
         // 3. active nodes >= max nodes

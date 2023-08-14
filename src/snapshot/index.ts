@@ -8,7 +8,6 @@ import * as Context from '../p2p/Context'
 import * as CycleChain from '../p2p/CycleChain'
 import * as NodeList from '../p2p/NodeList'
 import * as Self from '../p2p/Self'
-import * as Sync from '../p2p/Sync'
 import * as ShardusTypes from '../shardus/shardus-types'
 import ShardFunctions from '../state-manager/shardFunctions'
 import { Cycle, CycleShardData, MainHashResults } from '../state-manager/state-manager-types'
@@ -17,6 +16,7 @@ import * as utils from '../utils'
 import { profilerInstance } from '../utils/profiler'
 import * as partitionGossip from './partition-gossip'
 import * as SnapshotFunctions from './snapshotFunctions'
+import { getNewestCycle } from '../p2p/Sync'
 
 console.log('StateManager', StateManager)
 console.log('StateManager type', StateManager.StateManagerTypes)
@@ -542,7 +542,7 @@ export async function startWitnessMode() {
         throw Error('Fatal: Full Node list was not signed by archiver!')
       }
       const nodeList = fullNodesSigned.nodeList
-      const newestCycle = await Sync.getNewestCycle(nodeList)
+      const newestCycle = await getNewestCycle(nodeList)
       const oldNetworkHash = await SnapshotFunctions.readOldNetworkHash()
 
       if (newestCycle.safetyMode === false || notNeededRepliedNodes.size >= nodeList.length) {
