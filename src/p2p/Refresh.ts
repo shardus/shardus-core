@@ -12,7 +12,7 @@
 import deepmerge from 'deepmerge'
 import { Logger } from 'log4js'
 import { P2P } from '@shardus/types'
-import { propComparator, propComparator2, reversed, validateTypes } from '../utils'
+import { propComparator2, reversed, validateTypes } from '../utils'
 import * as Archivers from './Archivers'
 import { logger } from './Context'
 import { cycles, newest } from './CycleChain'

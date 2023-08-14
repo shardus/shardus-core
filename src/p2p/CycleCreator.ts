@@ -1,7 +1,7 @@
 import deepmerge from 'deepmerge'
 import { Logger } from 'log4js'
 import { logFlags } from '../logger'
-import { hexstring, P2P } from '@shardus/types'
+import { P2P } from '@shardus/types'
 import * as utils from '../utils'
 // don't forget to add new modules here
 import * as Active from './Active'
@@ -23,7 +23,6 @@ import * as Sync from './Sync'
 import { compareQuery, Comparison } from './Utils'
 import { errorToStringFull } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { reportLost } from './Lost'
 import { randomBytes } from '@shardus/crypto-utils'
 
 /** CONSTANTS */
