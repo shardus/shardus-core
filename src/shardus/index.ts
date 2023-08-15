@@ -1796,6 +1796,13 @@ class Shardus extends EventEmitter {
       } else {
         throw new Error('Missing required interface function. getAccountDataByList()')
       }
+
+      if (typeof application.getNetworkAccount === 'function') {
+        applicationInterfaceImpl.getNetworkAccount = () => application.getNetworkAccount()
+      } else {
+        applicationInterfaceImpl.getNetworkAccount = () => null
+      }
+
       if (typeof application.deleteLocalAccountData === 'function') {
         applicationInterfaceImpl.deleteLocalAccountData = async () => application.deleteLocalAccountData()
       } else {
@@ -2069,49 +2076,50 @@ class Shardus extends EventEmitter {
 
   async updateConfigChangeQueue(lastCycle: ShardusTypes.Cycle) {
     if (lastCycle == null) return
-    const changeListGlobalAccount = this.config.globalAccount
-    let accounts = await this.app.getAccountDataByList([changeListGlobalAccount])
-    if (accounts != null && accounts.length === 1) {
-      let account = accounts[0]
-      // @ts-ignore // TODO where is listOfChanges coming from here? I don't think it should exist on data
-      let changes = account.data.listOfChanges as {
-        cycle: number
-        change: any
-        appData: any
-      }[]
-      if (!changes || !Array.isArray(changes)) {
-        //this may get logged if we have a changeListGlobalAccount that does not have config settings on it.
-        //The fix is to let the dapp set the global account to use for this
-        // this.mainLogger.error(
-        //   `Invalid changes in global account ${changeListGlobalAccount}`
-        // )
-        return
-      }
-      for (let change of changes) {
-        //skip future changes
-        if (change.cycle > lastCycle.counter) {
-          continue
-        }
-        const changeHash = this.crypto.hash(change)
-        //skip handled changes
-        if (this.appliedConfigChanges.has(changeHash)) {
-          continue
-        }
-        //apply this change
-        this.appliedConfigChanges.add(changeHash)
-        let changeObj = change.change
-        let appData = change.appData
 
-        this.patchObject(this.config, changeObj, appData)
+    //query network account from the app for changes
+    let account = await this.app.getNetworkAccount()
 
-        if (appData) {
-          const data: WrappedData[] = await this.app.updateNetworkChangeQueue(account, appData)
-          await this.stateManager.checkAndSetAccountData(data, 'global network account update', true)
-        }
+    if (account == null) return
 
-        this.p2p.configUpdated()
-        this.loadDetection.configUpdated()
-      }
+    // @ts-ignore // TODO where is listOfChanges coming from here? I don't think it should exist on data
+    let changes = account.data.listOfChanges as {
+      cycle: number
+      change: any
+      appData: any
+    }[]
+    if (!changes || !Array.isArray(changes)) {
+      //this may get logged if we have a changeListGlobalAccount that does not have config settings on it.
+      //The fix is to let the dapp set the global account to use for this
+      // this.mainLogger.error(
+      //   `Invalid changes in global account ${changeListGlobalAccount}`
+      // )
+      return
+    }
+    for (let change of changes) {
+     //skip future changes
+     if (change.cycle > lastCycle.counter) {
+      continue
+    }
+    const changeHash = this.crypto.hash(change)
+    //skip handled changes
+    if (this.appliedConfigChanges.has(changeHash)) {
+      continue
+    }
+    //apply this change
+    this.appliedConfigChanges.add(changeHash)
+    let changeObj = change.change
+    let appData = change.appData
+
+    this.patchObject(this.config, changeObj, appData)
+
+    if (appData) {
+      const data: WrappedData[] = await this.app.updateNetworkChangeQueue(account, appData)
+      await this.stateManager.checkAndSetAccountData(data, 'global network account update', true)
+    }
+
+    this.p2p.configUpdated()
+    this.loadDetection.configUpdated()
     }
   }
 
