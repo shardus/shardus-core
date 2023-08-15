@@ -691,8 +691,6 @@ export interface ServerConfiguration {
     instantForwardReceipts: boolean
     /** A node can serve only X max archivers for data transfer and can refuse other archivers requests if it’s serving the max number */
     maxArchiversSubscriptionPerNode: number
-    /** Use the new sync protocol with `nodeListHash` and `archiverListHash` baked into CycleRecords */
-    useSyncProtocolV2: boolean
   }
   /** Server IP configuration */
   ip?: {

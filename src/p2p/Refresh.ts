@@ -82,60 +82,18 @@ export function updateRecord(
   record: P2P.CycleCreatorTypes.CycleRecord,
   prev: P2P.CycleCreatorTypes.CycleRecord
 ) {
-  // sync v2 does not require refreshing nodes, but these fields cannot be left
+  // nodelist sync v2 does not require refreshing nodes, but these fields cannot be left
   // null/undefined
-  if (Context.config.p2p.useSyncProtocolV2) {
-    record.refreshedArchivers = []
-    record.refreshedConsensors = []
-  } else {
-    record.refreshedArchivers = Archivers.getRefreshedArchivers(record) // This returns a copy of the objects
-    record.refreshedConsensors = refreshConsensors() // This returns a copy of the objects
-  }
+  record.refreshedArchivers = []
+  record.refreshedConsensors = []
 }
 
 export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
-  const added: P2P.CycleParserTypes.Change['added'] = []
-  const updated: P2P.CycleParserTypes.Change['updated'] = []
-
-  // don't continue if sync v2 is enabled
-  if (!Context.config.p2p.useSyncProtocolV2) {
-    // If Archivers.archivers doesn't have a refreshedArchiver, put it in
-    for (const refreshed of record.refreshedArchivers) {
-      if (Archivers.archivers.has(refreshed.publicKey) === false) {
-        Archivers.archivers.set(refreshed.publicKey, refreshed)
-      }
-    }
-
-    /**
-     * A refreshedConsensor results in either an added or update, depending on
-     * whether or not we have the refreshedConsensor in our node list or not.
-     */
-    for (const refreshed of record.refreshedConsensors) {
-      const node = NodeList.nodes.get(refreshed.id)
-      if (node) {
-        // If it's in our node list, we update its counterRefreshed
-        // (IMPORTANT: update counterRefreshed only if its greater than ours)
-        if (record.counter > node.counterRefreshed) {
-          updated.push({ id: refreshed.id, counterRefreshed: record.counter })
-        }
-      } else {
-        // If it's not in our node list, we add it...
-        added.push(refreshed)
-        // and immediately update its status to ACTIVE
-        // (IMPORTANT: update counterRefreshed to the records counter)
-        updated.push({
-          id: refreshed.id,
-          status: P2P.P2PTypes.NodeStatus.ACTIVE,
-          counterRefreshed: record.counter,
-        })
-      }
-    }
-  }
-
+  // nothing for nodelist sync v2
   return {
-    added,
+    added: [],
     removed: [],
-    updated,
+    updated: [],
   }
 }
 

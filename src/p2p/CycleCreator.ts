@@ -1089,14 +1089,7 @@ async function gossipCycleCert(sender: P2P.NodeListTypes.Node['id'], tracker?: s
 }
 
 function pruneCycleChain() {
-  if (config.p2p.useSyncProtocolV2) {
-    CycleChain.prune(MAX_CYCLES_TO_KEEP);
-  } else {
-    // Determine number of cycle records to keep
-    const keep = Refresh.cyclesToKeep()
-    // Throws away extra cycles
-    CycleChain.prune(keep)
-  }
+  CycleChain.prune(MAX_CYCLES_TO_KEEP);
 }
 
 function info(...msg) {
