@@ -18,7 +18,7 @@ import { logger } from './Context'
 import { cycles, newest } from './CycleChain'
 import * as NodeList from './NodeList'
 import * as Context from './Context'
-import { totalNodeCount } from './SyncV2/utils'
+import { totalNodeCount } from './Sync/utils'
 
 /** STATE */
 

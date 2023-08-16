@@ -23,8 +23,8 @@ import { compareQuery, Comparison } from './Utils'
 import { errorToStringFull } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { randomBytes } from '@shardus/crypto-utils'
-import { digestCycle, nodeListNodesIntoSyncActiveNodes } from './SyncV2/utils'
-import { syncLatestCycleRecord } from './SyncV2'
+import { digestCycle, nodeListNodesIntoSyncActiveNodes } from './Sync/utils'
+import { syncLatestCycleRecord } from './Sync'
 
 /** CONSTANTS */
 

@@ -1,6 +1,6 @@
 /**
- * SyncV2 a p2p module that contains all of the functionality for the new
- * Node List Sync v2.
+ * Sync is a p2p module that contains all of the functionality for
+ * synchronizing nodes, archivers and cycle records using the Nodelist Sync v2 protocol.
  */
 
 import { ResultAsync } from 'neverthrow'
@@ -38,7 +38,7 @@ export function init(): void {
  * @returns {ResultAsync<void, Error>} - A ResultAsync object. On success, it will contain void and on
  * error, it will contain an Error object. The function is asynchronous and can be awaited.
  */
-export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<void, Error> {
+export function syncNodesAndLatestCycle(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<void, Error> {
   return syncValidatorList(activeNodes).andThen((validatorList) =>
     syncValidArchiverList(activeNodes).andThen((archiverList) =>
       syncLatestCycleRecord(activeNodes).map((cycle) => {

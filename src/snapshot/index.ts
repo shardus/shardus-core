@@ -16,8 +16,8 @@ import * as utils from '../utils'
 import { profilerInstance } from '../utils/profiler'
 import * as partitionGossip from './partition-gossip'
 import * as SnapshotFunctions from './snapshotFunctions'
-import { syncLatestCycleRecord } from '../p2p/SyncV2'
-import { nodeListNodesIntoSyncActiveNodes as nodeListIntoSyncActiveNodes } from '../p2p/SyncV2/utils'
+import { syncLatestCycleRecord } from '../p2p/Sync'
+import { nodeListNodesIntoSyncActiveNodes as nodeListIntoSyncActiveNodes } from '../p2p/Sync/utils'
 
 console.log('StateManager', StateManager)
 console.log('StateManager type', StateManager.StateManagerTypes)

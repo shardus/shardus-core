@@ -18,7 +18,7 @@ import { calcIncomingTimes } from './CycleCreator'
 import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
-import * as SyncV2 from './SyncV2/'
+import * as Sync from './Sync/'
 
 /** STATE */
 
@@ -62,7 +62,7 @@ export function init(): void {
   CycleCreator.init()
   GlobalAccounts.init()
   NodeList.init()
-  SyncV2.init()
+  Sync.init()
 
   // Create a logger for yourself
   p2pLogger = Context.logger.getLogger('p2p')
@@ -143,7 +143,7 @@ export async function startup(): Promise<boolean> {
 async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]): Promise<boolean> {
   // 1. node has old data
   if (snapshot.oldDataPath) {
-    const result = await SyncV2.syncLatestCycleRecord(activeNodes)
+    const result = await Sync.syncLatestCycleRecord(activeNodes)
     if (result.isOk()) {
       const latestCycle = result.value;
       // 2. network is in safety mode
@@ -192,7 +192,7 @@ async function joinNetwork(
   }
 
   // Get latest cycle record from active nodes
-  const latestCycleResult = await SyncV2.syncLatestCycleRecord(activeNodes)
+  const latestCycleResult = await Sync.syncLatestCycleRecord(activeNodes)
   if (latestCycleResult.isErr()) {
     throw latestCycleResult.error
   }
@@ -273,7 +273,7 @@ async function syncCycleChain(): Promise<void> {
       // attempt syncing and handle the result. the first callback will run 
       // if the result is `Ok`, the second if it is `Err`
       if (logFlags.p2pNonFatal) info('Attempting to sync to network...')
-      await SyncV2.syncV2(activeNodes).match(
+      await Sync.syncNodesAndLatestCycle(activeNodes).match(
         () => (synced = true),
         (err) => { throw err }
       )
