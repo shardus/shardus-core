@@ -23,7 +23,8 @@ import { compareQuery, Comparison } from './Utils'
 import { errorToStringFull } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { randomBytes } from '@shardus/crypto-utils'
-import { digestCycle, syncNewCycles } from './Sync'
+import { digestCycle, nodeListNodesIntoSyncActiveNodes } from './SyncV2/utils'
+import { syncLatestCycleRecord } from './SyncV2'
 
 /** CONSTANTS */
 
@@ -253,7 +254,7 @@ async function cycleCreator() {
   //let prevRecord = madeCycle ? bestRecord : await fetchLatestRecord()
   let prevRecord = bestRecord
   if (!prevRecord) {
-    prevRecord = await fetchLatestRecord()
+    prevRecord = await unwrapLatestCycleRecord()
   }
   while (!prevRecord) {
     // [TODO] - when there are few nodes in the network, we may not
@@ -263,7 +264,7 @@ async function cycleCreator() {
     //          needed if the number of tries increases.
     warn('CycleCreator: cycleCreator: Could not get prevRecord. Trying again in 1 sec...')
     await utils.sleep(1 * SECOND)
-    prevRecord = await fetchLatestRecord()
+    prevRecord = await unwrapLatestCycleRecord()
   }
 
   // Apply the previous records changes to the NodeList
@@ -607,42 +608,6 @@ function unseenTxs(ours: P2P.CycleCreatorTypes.CycleTxs, theirs: P2P.CycleCreato
 function dropInvalidTxs(txs: Partial<P2P.CycleCreatorTypes.CycleTxs>) {
   // [TODO] Call into each module to validate its relevant CycleTxs
   return txs
-}
-
-/**
- * Syncs the CycleChain to the newest cycle record of the network, and returns
- * the newest cycle record.
- */
-async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
-  try {
-    const oldCounter = CycleChain.newest.counter
-    await syncNewCycles(NodeList.activeOthersByIdOrder)
-    if (CycleChain.newest.counter <= oldCounter) {
-      // We didn't actually sync
-      warn('CycleCreator: fetchLatestRecord: synced record not newer')
-      fetchLatestRecordFails++
-      if (fetchLatestRecordFails > maxFetchLatestRecordFails) {
-        error(
-          'CycleCreator: fetchLatestRecord_A: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf '
-        )
-        Apoptosis.apoptosizeSelf('Apoptosized within fetchLatestRecord() => src/p2p/CycleCreator.ts')
-      }
-
-      return null
-    }
-  } catch (err) {
-    warn('CycleCreator: fetchLatestRecord: syncNewCycles failed:', errorToStringFull(err))
-    fetchLatestRecordFails++
-    if (fetchLatestRecordFails > maxFetchLatestRecordFails) {
-      error(
-        'CycleCreator: fetchLatestRecord_B: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf '
-      )
-      Apoptosis.apoptosizeSelf('Apoptosized within fetchLatestRecord() => src/p2p/CycleCreator.ts')
-    }
-    return null
-  }
-  fetchLatestRecordFails = 0
-  return CycleChain.newest
 }
 
 /**
@@ -1090,6 +1055,21 @@ async function gossipCycleCert(sender: P2P.NodeListTypes.Node['id'], tracker?: s
 
 function pruneCycleChain() {
   CycleChain.prune(MAX_CYCLES_TO_KEEP);
+}
+
+/**
+  * A function that calls `syncLatestCycleRecord`, but "unwraps" the result
+  * so that any errors are non-fatal (i.e. not thrown, just logged).
+  */
+async function unwrapLatestCycleRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord | null> {
+  const nodes = nodeListNodesIntoSyncActiveNodes(NodeList.activeOthersByIdOrder)
+  const result = await syncLatestCycleRecord(nodes)
+  if (result.isOk()) {
+    return result.value
+  }
+
+  info(`error when unwrapping latest cycle record: ${result.error}`)
+  return null
 }
 
 function info(...msg) {
