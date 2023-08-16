@@ -18,8 +18,6 @@ import { calcIncomingTimes } from './CycleCreator'
 import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
-import * as Sync from './Sync'
-import { getNewestCycle } from './Sync'
 import * as SyncV2 from './SyncV2/'
 
 /** STATE */
@@ -143,21 +141,19 @@ export async function startup(): Promise<boolean> {
 }
 
 async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]): Promise<boolean> {
-  try {
-    // 1. node has old data
-    if (snapshot.oldDataPath) {
-      const latestCycle = await getNewestCycle(activeNodes)
+  // 1. node has old data
+  if (snapshot.oldDataPath) {
+    const result = await SyncV2.syncLatestCycleRecord(activeNodes)
+    if (result.isOk()) {
+      const latestCycle = result.value;
       // 2. network is in safety mode
-      if (latestCycle.safetyMode === true) {
-        // 3. active nodes >= max nodes
-        if (latestCycle.active >= Context.config.p2p.maxNodes) {
-          return true
-        }
-      }
+      // 3. active nodes >= max nodes
+      return latestCycle.safetyMode === true && latestCycle.active >= Context.config.p2p.maxNodes
+    } else {
+      warn(`can't decide if witness conditions are met: ${result.error}`)
     }
-  } catch (e) {
-    warn(e)
   }
+
   return false
 }
 
@@ -196,7 +192,11 @@ async function joinNetwork(
   }
 
   // Get latest cycle record from active nodes
-  const latestCycle = await Sync.getNewestCycle(activeNodes)
+  const latestCycleResult = await SyncV2.syncLatestCycleRecord(activeNodes)
+  if (latestCycleResult.isErr()) {
+    throw latestCycleResult.error
+  }
+  const latestCycle = latestCycleResult.value
 
   const publicKey = Context.crypto.getPublicKey()
   const isReadyToJoin = await Context.shardus.app.isReadyToJoin(latestCycle, publicKey, activeNodes)

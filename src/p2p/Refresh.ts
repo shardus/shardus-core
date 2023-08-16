@@ -17,8 +17,8 @@ import * as Archivers from './Archivers'
 import { logger } from './Context'
 import { cycles, newest } from './CycleChain'
 import * as NodeList from './NodeList'
-import { totalNodeCount } from './Sync'
 import * as Context from './Context'
+import { totalNodeCount } from './SyncV2/utils'
 
 /** STATE */
 

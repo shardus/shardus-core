@@ -17,7 +17,7 @@ import * as Archivers from '../Archivers'
 import * as NodeList from '../NodeList'
 import * as CycleChain from '../CycleChain'
 import { initRoutes } from './routes'
-import { digestCycle } from '../Sync'
+import { digestCycle } from './utils'
 import { initLogger } from './logging'
 
 /** Initializes logging and endpoints for Sync V2. */
@@ -117,7 +117,7 @@ function syncValidArchiverList(
  * On success, it will contain a CycleRecord object, and on error, it will contain an Error object.
  * The function is asynchronous and can be awaited.
  */
-function syncLatestCycleRecord(
+export function syncLatestCycleRecord(
   activeNodes: P2P.SyncTypes.ActiveNode[]
 ): ResultAsync<P2P.CycleCreatorTypes.CycleRecord, Error> {
   // run a robust query for the latest cycle record hash

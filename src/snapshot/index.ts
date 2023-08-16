@@ -16,7 +16,8 @@ import * as utils from '../utils'
 import { profilerInstance } from '../utils/profiler'
 import * as partitionGossip from './partition-gossip'
 import * as SnapshotFunctions from './snapshotFunctions'
-import { getNewestCycle } from '../p2p/Sync'
+import { syncLatestCycleRecord } from '../p2p/SyncV2'
+import { nodeListNodesIntoSyncActiveNodes as nodeListIntoSyncActiveNodes } from '../p2p/SyncV2/utils'
 
 console.log('StateManager', StateManager)
 console.log('StateManager type', StateManager.StateManagerTypes)
@@ -542,7 +543,9 @@ export async function startWitnessMode() {
         throw Error('Fatal: Full Node list was not signed by archiver!')
       }
       const nodeList = fullNodesSigned.nodeList
-      const newestCycle = await getNewestCycle(nodeList)
+      const newestCycleResult = await syncLatestCycleRecord(nodeListIntoSyncActiveNodes(nodeList))
+      if (newestCycleResult.isErr()) throw newestCycleResult.error
+      const newestCycle = newestCycleResult.value
       const oldNetworkHash = await SnapshotFunctions.readOldNetworkHash()
 
       if (newestCycle.safetyMode === false || notNeededRepliedNodes.size >= nodeList.length) {
