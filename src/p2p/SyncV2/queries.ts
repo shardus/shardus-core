@@ -7,8 +7,7 @@ import { hexstring, P2P } from '@shardus/types'
 import { errAsync, ResultAsync } from 'neverthrow'
 import { attempt, robustQuery } from '../Utils'
 import * as http from '../../http'
-import { logger } from '../Context'
-import { Logger } from 'log4js'
+import { getMainLogger } from './logging'
 
 /** A `ResultAsync` that wraps an `UnwrappedRobustResult`. */
 export type RobustQueryResultAsync<T> = ResultAsync<UnwrappedRobustResult<ActiveNode, T>, Error>
@@ -26,11 +25,6 @@ type Archiver = P2P.ArchiversTypes.JoinedArchiver
 type CycleRecord = P2P.CycleCreatorTypes.CycleRecord
 
 const MAX_RETRIES = 3
-
-let mainLogger: Logger
-export function initLogger(): void {
-  mainLogger = logger.getLogger('main')
-}
 
 /**
  * Executes a robust query to a specified endpoint across multiple nodes, providing more fault tolerance.
@@ -65,7 +59,7 @@ function makeRobustQueryCall<T>(nodes: ActiveNode[], endpointName: string): Robu
     attempt(async () => await robustQuery(nodes, queryFn), {
       maxRetries: MAX_RETRIES,
       logPrefix,
-      logger: mainLogger,
+      logger: getMainLogger(),
     }),
     (err) => new Error(`robust query failed for ${endpointName}: ${err}`)
   ).andThen((robustResult) => {
@@ -108,7 +102,7 @@ function attemptSimpleFetch<T>(
     attempt(async () => await http.get(url), {
       maxRetries: MAX_RETRIES,
       logPrefix: `syncv2-simple-fetch-${endpointName}`,
-      logger: mainLogger,
+      logger: getMainLogger(),
     }),
     (err) => new Error(`simple fetch failed for ${endpointName}: ${err}`)
   )

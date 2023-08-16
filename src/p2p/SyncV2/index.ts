@@ -7,7 +7,6 @@ import { ResultAsync } from 'neverthrow'
 import { P2P } from '@shardus/types'
 import {
   getCurrentCycleDataFromNode,
-  initLogger,
   robustQueryForCycleRecordHash,
   robustQueryForValidatorListHash,
   getValidatorListFromNode,
@@ -19,6 +18,7 @@ import * as NodeList from '../NodeList'
 import * as CycleChain from '../CycleChain'
 import { initRoutes } from './routes'
 import { digestCycle } from '../Sync'
+import { initLogger } from './logging'
 
 /** Initializes logging and endpoints for Sync V2. */
 export function init(): void {
