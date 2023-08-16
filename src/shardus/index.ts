@@ -732,7 +732,10 @@ class Shardus extends EventEmitter {
       // need to make sure sync is finish or we may not have the global account
       // even worse, the dapp may not have initialized storage yet
       if (this.stateManager.appFinishedSyncing === true) {
-        this.updateConfigChangeQueue(lastCycle)
+        //query network account from the app for changes
+        const account = await this.app.getNetworkAccount()
+
+        this.updateConfigChangeQueue(account, lastCycle)
       }
 
       this.updateDebug(lastCycle)
@@ -2074,13 +2077,8 @@ class Shardus extends EventEmitter {
     return transactionExpired
   }
 
-  async updateConfigChangeQueue(lastCycle: ShardusTypes.Cycle) {
-    if (lastCycle == null) return
-
-    //query network account from the app for changes
-    let account = await this.app.getNetworkAccount()
-
-    if (account == null) return
+  async updateConfigChangeQueue(account: ShardusTypes.WrappedData, lastCycle: ShardusTypes.Cycle) {
+    if (account == null || lastCycle == null) return
 
     // @ts-ignore // TODO where is listOfChanges coming from here? I don't think it should exist on data
     let changes = account.data.listOfChanges as {
