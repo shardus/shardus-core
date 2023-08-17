@@ -86,6 +86,10 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     lruCacheSizeForSocketMgmt: 1000,
     delayLostReportByNumOfCycles: 1,
     aggregateLostReportsTillQ1: true,
+    isDownCachePruneCycles: 10,
+    isDownCacheEnabled: true,
+    stopReportingLostPruneCycles: 10,
+    lostMapPruneCycles: 10,
   },
   ip: {
     externalIp: '0.0.0.0',
