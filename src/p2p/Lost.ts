@@ -415,7 +415,7 @@ async function killOther() {
   info(`Explicitly injecting reportLost, requestId: ${requestId}`)
   let target = activeByIdOrder[0]
   if (target.id === Self.id) target = activeByIdOrder[1]
-  reportLost(target, 'killother', requestId)
+  scheduleLostReport(target, 'killother', requestId)
 }
 
 export function scheduleLostReport(target: P2P.NodeListTypes.Node, reason: string, requestId: string) {
