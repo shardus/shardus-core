@@ -690,6 +690,10 @@ export interface ServerConfiguration {
     useLruCacheForSocketMgmt: boolean
     /** LRU cache size for socket connection mgmt in shardus/net. Is used only if `useLruCacheForSocketMgmt` is set to `true`. Default: 1000 */
     lruCacheSizeForSocketMgmt: number
+    /** Number of cycles we want to delay the lost report by */
+    delayLostReportByNumOfCycles: number
+    /** If disabled, the lost reports are sent to the checker immediately */
+    aggregateLostReportsTillQ1: boolean
   }
   /** Server IP configuration */
   ip?: {
@@ -1104,7 +1108,7 @@ type ObjectAlias = object
  * OpaqueTransaction is the way shardus should see transactions internally. it should not be able to mess with parameters individually
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface OpaqueTransaction extends ObjectAlias { }
+export interface OpaqueTransaction extends ObjectAlias {}
 
 export type DeepRequired<T> = Required<{
   [P in keyof T]: T[P] extends object | undefined ? DeepRequired<Required<T[P]>> : T[P]

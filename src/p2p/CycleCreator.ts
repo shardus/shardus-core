@@ -23,7 +23,6 @@ import * as Sync from './Sync'
 import { compareQuery, Comparison } from './Utils'
 import { errorToStringFull, formatErrorMessage } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { reportLost } from './Lost'
 import { randomBytes } from '@shardus/crypto-utils'
 
 /** CONSTANTS */

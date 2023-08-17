@@ -7,23 +7,24 @@ The lost node detection process is described in the "Lost Node Detection" Google
 internal documents.
 */
 
+import { P2P } from '@shardus/types'
+import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
 import { Handler } from 'express'
 import * as http from '../http'
 import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
+import * as utils from '../utils'
 import { binarySearch, validateTypes } from '../utils'
+import getCallstack from '../utils/getCallstack'
+import { nestedCountersInstance } from '../utils/nestedCounters'
+import { profilerInstance } from '../utils/profiler'
+import { isApopMarkedNode } from './Apoptosis'
 import * as Comms from './Comms'
-import { crypto, logger, network, config } from './Context'
+import { config, crypto, logger, network } from './Context'
 import { currentCycle, currentQuarter } from './CycleCreator'
+import * as NodeList from './NodeList'
 import { activeByIdOrder, byIdOrder, nodes } from './NodeList'
 import * as Self from './Self'
-import { profilerInstance } from '../utils/profiler'
-import getCallstack from '../utils/getCallstack'
-import * as NodeList from './NodeList'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-import * as utils from '../utils'
-import { isApopMarkedNode } from './Apoptosis'
-import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
+import { generateUUID } from './Utils'
 
 /** STATE */
 
@@ -38,6 +39,16 @@ let isUp = {}
 let isUpTs = {}
 let stopReporting = {}
 let sendRefute = -1
+// map of <node_id-cycle_counter>
+let scheduledForLostReport: Map<string, ScheduledLostReport> = new Map<string, ScheduledLostReport>()
+
+interface ScheduledLostReport {
+  reason: string
+  targetNode: P2P.NodeListTypes.Node
+  timestamp: number
+  scheduledInCycle: number
+  requestId: string
+}
 
 const CACHE_CYCLES = 10
 
@@ -345,6 +356,16 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
 
 // This is called once per cycle at the start of Q1 by CycleCreator
 export function sendRequests() {
+  if (config.p2p.aggregateLostReportsTillQ1) {
+    scheduledForLostReport.forEach((value: ScheduledLostReport, key: string) => {
+      if (value.scheduledInCycle < currentCycle - config.p2p.delayLostReportByNumOfCycles) {
+        /* prettier-ignore */ info(`Reporting lost: requestId: ${value.requestId}, scheduled in cycle: ${value.scheduledInCycle}, reporting in cycle ${currentCycle}`)
+        reportLost(value.targetNode, value.reason, value.requestId)
+        scheduledForLostReport.delete(key)
+      }
+    })
+  }
+
   for (const [key, obj] of lost) {
     if (obj.status !== 'down') continue // TEST
     if (obj.message && obj.message.checker && obj.message.checker === Self.id) {
@@ -389,15 +410,44 @@ async function killSelf(message: string) {
 }
 
 async function killOther() {
-  info(`In killOther`)
+  const requestId = generateUUID()
+  info(`Explicitly injecting reportLost, requestId: ${requestId}`)
   let target = activeByIdOrder[0]
   if (target.id === Self.id) target = activeByIdOrder[1]
-  reportLost(target, 'killother')
+  reportLost(target, 'killother', requestId)
+}
+
+export function scheduleLostReport(target: P2P.NodeListTypes.Node, reason: string, requestId: string) {
+  if (!config.p2p.aggregateLostReportsTillQ1) return reportLost(target, reason, requestId)
+  if (requestId.length == 0) requestId = generateUUID()
+  info(`Scheduling lost report for ${target.id}, requestId: ${requestId}.`)
+  info(`Target node details for requestId: ${requestId}: ${JSON.stringify(target)}`)
+  info(`Scheduled lost report in ${currentCycle} for requestId: ${requestId}.`)
+
+  const key = `${target.id}-${currentCycle}`
+
+  if (scheduledForLostReport.has(key)) {
+    const previousScheduleValue = scheduledForLostReport.get(target.id)
+    if (logFlags.p2pNonFatal) {
+      /* prettier-ignore */ info(`Target node ${target.id} already scheduled for lost report. requestId: ${previousScheduleValue.requestId}.`)
+      /* prettier-ignore */ info(`Previous scheduled lost report details for ${target.id}: ${JSON.stringify(previousScheduleValue)}`)
+    }
+  }
+  scheduledForLostReport.set(key, {
+    reason: reason,
+    targetNode: target,
+    timestamp: Date.now(),
+    scheduledInCycle: currentCycle,
+    requestId: requestId,
+  })
 }
 
 // This gets called from Shardus when network module emits timeout or error
-export function reportLost(target, reason) {
-  console.log('Reporting lost', target, reason)
+function reportLost(target, reason: string, requestId: string) {
+  if (logFlags.p2pNonFatal) {
+    info(`Reporting lost for ${target.id}, requestId: ${requestId}.`)
+    info(`Target node details for requestId: ${requestId}: ${JSON.stringify(target)}`)
+  }
   if (target.id === Self.id) return // don't report self
   if (stopReporting[target.id]) return // this node already appeared in the lost field of the cycle record, we dont need to keep reporting
   // we set isDown cache to the cycle number here; to speed up deciding if a node is down
@@ -416,7 +466,13 @@ export function reportLost(target, reason) {
   }
   // [TODO] - remove the following line after testing killother
   if (allowKillRoute && reason === 'killother') msg.killother = true
-  /* prettier-ignore */ if (logFlags.p2pNonFatal) info(`Sending investigate request: reporter:${Self.port} checker:${checker.externalPort} target:${target.externalPort} ` + JSON.stringify(msg))
+  if (logFlags.p2pNonFatal) {
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, reporter: ${Self.ip}:${Self.port} id: ${Self.id}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${checker.internalIp}:${checker.internalPort} id: ${checker.id}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${target.internalIp}:${target.internalPort} id: ${target.id}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${target.internalIp}:${target.internalPort} id: ${target.id}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, msg: ${JSON.stringify(msg)}`)
+  }
   msg = crypto.sign(msg)
   lost.set(key, obj)
   Comms.tell([checker], 'lost-report', msg)
@@ -616,7 +672,7 @@ async function isDownCheck(node) {
 
   //Note 20230630:  the code below here has not likely had any coverage for a few years due to an upstream issue
 
-  if (node.externalIp === node.interalIp) return 'up'
+  if (node.externalIp === node.internalIp) return 'up'
   if (logFlags.p2pNonFatal) info(`Checking external connection for ${node.id}`)
   // Check the external route if ip is different than internal
   const queryExt = async (node) => {
