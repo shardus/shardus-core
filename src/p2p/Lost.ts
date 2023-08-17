@@ -7,6 +7,7 @@ The lost node detection process is described in the "Lost Node Detection" Google
 internal documents.
 */
 
+import * as shardusCrypto from '@shardus/crypto-utils'
 import { P2P } from '@shardus/types'
 import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
 import { Handler } from 'express'
@@ -359,7 +360,7 @@ export function sendRequests() {
   if (config.p2p.aggregateLostReportsTillQ1) {
     scheduledForLostReport.forEach((value: ScheduledLostReport, key: string) => {
       if (value.scheduledInCycle < currentCycle - config.p2p.delayLostReportByNumOfCycles) {
-        /* prettier-ignore */ info(`Reporting lost: requestId: ${value.requestId}, scheduled in cycle: ${value.scheduledInCycle}, reporting in cycle ${currentCycle}`)
+        /* prettier-ignore */ info(`Reporting lost: requestId: ${value.requestId}, scheduled in cycle: ${value.scheduledInCycle}, reporting in cycle ${currentCycle}, originally reported at ${value.timestamp}`)
         reportLost(value.targetNode, value.reason, value.requestId)
         scheduledForLostReport.delete(key)
       }
@@ -473,7 +474,10 @@ function reportLost(target, reason: string, requestId: string) {
     /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${target.internalIp}:${target.internalPort} id: ${target.id}`)
     /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, msg: ${JSON.stringify(msg)}`)
   }
-  msg = crypto.sign(msg)
+  const msgCopy = JSON.parse(shardusCrypto.stringify(msg))
+  msgCopy.timestamp = Date.now()
+  msgCopy.requestId = requestId
+  msg = crypto.sign(msgCopy)
   lost.set(key, obj)
   Comms.tell([checker], 'lost-report', msg)
 }
@@ -498,16 +502,23 @@ function getCheckerNode(id, cycle) {
 async function lostReportHandler(payload, response, sender) {
   profilerInstance.scopedProfileSectionStart('lost-report')
   try {
-    /* prettier-ignore */ if (logFlags.p2pNonFatal) info(`Got investigate request: ${JSON.stringify(payload)} from ${JSON.stringify(sender)}`)
+    let requestId = generateUUID()
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) info(`Got investigate request requestId: ${requestId}, req: ${JSON.stringify(payload)} from ${JSON.stringify(sender)}`)
     let err = ''
+    // for request tracing
+    err = validateTypes(payload, { timestamp: 'n', requestId: 's' })
+    if (!err) {
+      /* prettier-ignore */ info(`Lost report tracing, requestId: ${payload.requestId}, timestamp: ${payload.timestamp}, sender: ${sender.id}`)
+      requestId = payload.requestId
+    }
     err = validateTypes(payload, { target: 's', reporter: 's', checker: 's', cycle: 'n', sign: 'o' })
     if (err) {
-      warn('bad input ' + err)
+      warn(`requestId: ${requestId} bad input ${err}`)
       return
     }
     err = validateTypes(payload.sign, { owner: 's', sig: 's' })
     if (err) {
-      warn('bad input sign ' + err)
+      warn(`requestId: ${requestId} bad input ${err}`)
       return
     }
     if (stopReporting[payload.target]) return // this node already appeared in the lost field of the cycle record, we dont need to keep reporting
@@ -515,7 +526,7 @@ async function lostReportHandler(payload, response, sender) {
     if (lost.get(key)) return // we have already seen this node for this cycle
     const [valid, reason] = checkReport(payload, currentCycle + 1)
     if (!valid) {
-      warn('Got bad investigate request. Reason: ' + reason)
+      warn(`Got bad investigate request. requestId: ${requestId}, reason: ${reason}`)
       return
     }
     if (sender !== payload.reporter) return // sender must be same as reporter
@@ -532,7 +543,8 @@ async function lostReportHandler(payload, response, sender) {
       obj.status = 'down'
       return
     }
-    let result = await isDownCache(nodes.get(payload.target))
+    let result = await isDownCache(nodes.get(payload.target), requestId)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) info(`isDownCache for requestId: ${requestId}, result ${result}`)
     if (allowKillRoute && payload.killother) result = 'down'
     if (obj.status === 'checking') obj.status = result
     if (logFlags.p2pNonFatal) info('Status after checking is ' + obj.status)
@@ -582,12 +594,19 @@ But if it returns true it means that the node was found to be down recently.
 Also if isUp returns false it does not mean that a node is actually up, but if it
 returns true it means that it was found to be up recently.
 */
-async function isDownCache(node) {
+async function isDownCache(node, requestId: string) {
   // First check the isUp isDown caches to see if we already checked this node before
   const id = node.id
-  if (isDown[id]) return 'down'
-  if (isUp[id]) return 'up'
+  if (isDown[id]) {
+    info(`node with id ${node.id} found in isDown for requestId: ${requestId}`)
+    return 'down'
+  }
+  if (isUp[id]) {
+    info(`node with id ${node.id} found in isUp for requestId: ${requestId}`)
+    return 'up'
+  }
   const status = await isDownCheck(node)
+  info(`isDownCheck for requestId: ${requestId} on node with id ${node.id} is ${status}`)
   if (status === 'down') isDown[id] = currentCycle
   else isUp[id] = currentCycle
   return status

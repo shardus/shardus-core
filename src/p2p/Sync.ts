@@ -298,9 +298,9 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
     return
   }
 
-  info(
-    `digestCycle ${cycle.counter} from ${source}... note: CycleChain.newest.counter: ${CycleChain.newest.counter} CycleCreator.currentCycle: ${CycleCreator.currentCycle}`
-  )
+  // info(
+  //   `digestCycle ${cycle.counter} from ${source}... note: CycleChain.newest.counter: ${CycleChain.newest.counter} CycleCreator.currentCycle: ${CycleCreator.currentCycle}`
+  // )
 
   const changes = parse(cycle)
   applyNodeListChange(changes, true, cycle)
