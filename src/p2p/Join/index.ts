@@ -29,7 +29,14 @@ let seen: Set<P2P.P2PTypes.Node['publicKey']>
 
 let lastLoggedCycle = 0
 
-export let allowBogon = false
+let allowBogon = false
+
+export function setAllowBogon(value: boolean): void {
+  allowBogon = value
+}
+export function getAllowBogon(): boolean {
+  return allowBogon
+}
 
 /** ROUTES */
 
