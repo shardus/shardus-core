@@ -693,6 +693,8 @@ export interface ServerConfiguration {
     maxArchiversSubscriptionPerNode: number
     /** Use the new sync protocol with `nodeListHash` and `archiverListHash` baked into CycleRecords */
     useSyncProtocolV2: boolean
+    /** Use the new join protocol that gossips all valid join requests to validators.  */
+    useJoinProtocolV2: boolean
   }
   /** Server IP configuration */
   ip?: {
