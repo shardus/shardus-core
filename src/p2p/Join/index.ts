@@ -1,22 +1,22 @@
 import deepmerge from 'deepmerge'
 import { Handler } from 'express'
-import { version } from '../../package.json'
-import * as http from '../http'
-import { logFlags } from '../logger'
+import { version } from '../../../package.json'
+import * as http from '../../http'
+import { logFlags } from '../../logger'
 import { P2P } from '@shardus/types'
-import * as utils from '../utils'
-import { validateTypes, isEqualOrNewerVersion } from '../utils'
-import * as Comms from './Comms'
-import { config, crypto, logger, network, shardus } from './Context'
-import * as CycleChain from './CycleChain'
-import * as CycleCreator from './CycleCreator'
-import * as NodeList from './NodeList'
-import * as Self from './Self'
-import { robustQuery } from './Utils'
-import { isBogonIP, isInvalidIP, isIPv6 } from '../utils/functions/checkIP'
-import { profilerInstance } from '../utils/profiler'
-import { nestedCountersInstance } from '../utils/nestedCounters'
-import { isPortReachable } from '../utils/isPortReachable'
+import * as utils from '../../utils'
+import { validateTypes, isEqualOrNewerVersion } from '../../utils'
+import * as Comms from '../Comms'
+import { config, crypto, logger, network, shardus } from '../Context'
+import * as CycleChain from '../CycleChain'
+import * as CycleCreator from '../CycleCreator'
+import * as NodeList from '../NodeList'
+import * as Self from '../Self'
+import { robustQuery } from '../Utils'
+import { isBogonIP, isInvalidIP, isIPv6 } from '../../utils/functions/checkIP'
+import { profilerInstance } from '../../utils/profiler'
+import { nestedCountersInstance } from '../../utils/nestedCounters'
+import { isPortReachable } from '../../utils/isPortReachable'
 import { Logger } from 'log4js'
 
 /** STATE */
@@ -213,8 +213,8 @@ function calculateToAccept(): number {
     CycleChain.newest.safetyMode === true
       ? CycleChain.newest.safetyNum
       : Math.floor(
-          config.p2p.maxSyncingPerCycle * CycleCreator.scaleFactor * CycleCreator.scaleFactorSyncBoost
-        )
+        config.p2p.maxSyncingPerCycle * CycleCreator.scaleFactor * CycleCreator.scaleFactorSyncBoost
+      )
 
   //The first batch of nodes to join the network after the seed node server can join at a higher rate if firstCycleJoin is set.
   //This first batch will sync the full data range from the seed node, which should be very little data.
@@ -271,19 +271,19 @@ function calculateToAccept(): number {
     lastLoggedCycle = cycle
     info(
       'scale dump:' +
-        JSON.stringify({
-          cycle,
-          scaleFactor: CycleCreator.scaleFactor,
-          needed,
-          desired,
-          active,
-          syncing,
-          canSync,
-          syncMax,
-          maxJoin,
-          expired,
-          scaleFactorSyncBoost: CycleCreator.scaleFactorSyncBoost,
-        })
+      JSON.stringify({
+        cycle,
+        scaleFactor: CycleCreator.scaleFactor,
+        needed,
+        desired,
+        active,
+        syncing,
+        canSync,
+        syncMax,
+        maxJoin,
+        expired,
+        scaleFactorSyncBoost: CycleCreator.scaleFactorSyncBoost,
+      })
     )
   }
   return needed
@@ -411,7 +411,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     }
   }
 
-  //  Validate joinReq
+  // Validate joinReq
   let err = utils.validateTypes(joinRequest, {
     cycleMarker: 's',
     nodeInfo: 'o',
@@ -454,7 +454,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     }
   }
   if (config.p2p.checkVersion && !isEqualOrNewerVersion(version, joinRequest.version)) {
-    /* prettier-ignore */ warn( `version number is old. Our node version is ${version}. Join request node version is ${joinRequest.version}` )
+    /* prettier-ignore */ warn(`version number is old. Our node version is ${version}. Join request node version is ${joinRequest.version}`)
     nestedCountersInstance.countEvent('p2p', `join-reject-version ${joinRequest.version}`)
     return {
       success: false,
@@ -465,7 +465,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
 
   //If the node that signed the request is not the same as the node that is joining
   if (joinRequest.sign.owner != joinRequest.nodeInfo.publicKey) {
-    /* prettier-ignore */ warn(`join-reject owner != publicKey ${{sign:joinRequest.sign.owner, info:joinRequest.nodeInfo.publicKey}}`)
+    /* prettier-ignore */ warn(`join-reject owner != publicKey ${{ sign: joinRequest.sign.owner, info: joinRequest.nodeInfo.publicKey }}`)
     nestedCountersInstance.countEvent('p2p', `join-reject owner != publicKey`)
     return {
       success: false,
@@ -594,8 +594,8 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
   const cycleStarts = CycleChain.newest.start
   const requestValidUpperBound = cycleStarts + cycleDuration
   const requestValidLowerBound = cycleStarts - cycleDuration
-  
-  if(joinRequestTimestamp < requestValidLowerBound){
+
+  if (joinRequestTimestamp < requestValidLowerBound) {
     if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-not-meet-lowerbound`)
     if (logFlags.p2pNonFatal) warn('Cannot add join request for this node, timestamp is earlier than allowed cycle range')
     return {
@@ -605,7 +605,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     }
   }
 
-  if(joinRequestTimestamp > requestValidUpperBound){
+  if (joinRequestTimestamp > requestValidUpperBound) {
     if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-beyond-upperbound`)
     if (logFlags.p2pNonFatal) warn('Cannot add join request for this node, its timestamp exceeds allowed cycle range')
     return {
