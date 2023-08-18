@@ -1,5 +1,4 @@
 import deepmerge from 'deepmerge'
-import { Handler } from 'express'
 import { version } from '../../../package.json'
 import * as http from '../../http'
 import { logFlags } from '../../logger'
@@ -14,11 +13,10 @@ import * as NodeList from '../NodeList'
 import * as Self from '../Self'
 import { robustQuery } from '../Utils'
 import { isBogonIP, isInvalidIP, isIPv6 } from '../../utils/functions/checkIP'
-import { profilerInstance } from '../../utils/profiler'
 import { nestedCountersInstance } from '../../utils/nestedCounters'
-import { isPortReachable } from '../../utils/isPortReachable'
 import { Logger } from 'log4js'
-import { calculateToAcceptV2 } from './ModeSystemFuncs'
+import { calculateToAcceptV2 } from '../ModeSystemFuncs'
+import { routes } from './routes'
 
 /** STATE */
 
@@ -40,140 +38,6 @@ export function getAllowBogon(): boolean {
 }
 
 let mode = null
-
-/** ROUTES */
-
-const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
-  method: 'GET',
-  name: 'cyclemarker',
-  handler: (_req, res) => {
-    const marker = CycleChain.newest ? CycleChain.newest.previous : '0'.repeat(64)
-    res.json(marker)
-  },
-}
-
-const joinRoute: P2P.P2PTypes.Route<Handler> = {
-  method: 'POST',
-  name: 'join',
-  handler: async (req, res) => {
-    const joinRequest = req.body
-    if (CycleCreator.currentQuarter < 1) {
-      // if currentQuarter <= 0 then we are not ready
-      res.end()
-      return
-    }
-
-    if (
-      NodeList.activeByIdOrder.length === 1 &&
-      Self.isFirst &&
-      isBogonIP(joinRequest.nodeInfo.externalIp) &&
-      config.p2p.forceBogonFilteringOn === false
-    ) {
-      allowBogon = true
-    }
-    nestedCountersInstance.countEvent('p2p', `join-allow-bogon-firstnode:${allowBogon}`)
-
-    const externalIp = joinRequest.nodeInfo.externalIp
-    const externalPort = joinRequest.nodeInfo.externalPort
-    const internalIp = joinRequest.nodeInfo.internalIp
-    const internalPort = joinRequest.nodeInfo.internalPort
-
-    const externalPortReachable = await isPortReachable({ host: externalIp, port: externalPort })
-    const internalPortReachable = await isPortReachable({ host: internalIp, port: internalPort })
-
-    if (!externalPortReachable || !internalPortReachable) {
-      return res.json({
-        success: false,
-        fatal: true,
-        reason: `IP or Port is not reachable. ext:${externalIp}:${externalPort} int:${internalIp}:${internalPort}}`,
-      })
-    }
-
-    //  Validate of joinReq is done in addJoinRequest
-    const validJoinRequest = addJoinRequest(joinRequest)
-
-    // if the join request was valid (not fatal) and the port was reachable, this join request is free to be
-    // gossiped to all nodes according to Join Protocol v2
-    if (config.p2p.useJoinProtocolV2 && !validJoinRequest.fatal) {
-      Comms.sendGossip('gossip-valid-join-requests', joinRequest, '', null, NodeList.byIdOrder, true)
-    }
-
-    // if the join request was valid and accepted, gossip that this join request
-    // was accepted to other nodes
-    if (validJoinRequest.success) {
-      Comms.sendGossip('gossip-join', joinRequest, '', null, NodeList.byIdOrder, true)
-      nestedCountersInstance.countEvent('p2p', 'initiate gossip-join')
-    }
-    return res.json(validJoinRequest)
-  },
-}
-
-const joinedRoute: P2P.P2PTypes.Route<Handler> = {
-  method: 'GET',
-  name: 'joined/:publicKey',
-  handler: (req, res) => {
-    // Respond with id if node's join request was accepted, otherwise undefined
-    let err = utils.validateTypes(req, { params: 'o' })
-    if (err) {
-      warn('joined/:publicKey bad req ' + err)
-      res.json()
-    }
-    err = utils.validateTypes(req.params, { publicKey: 's' })
-    if (err) {
-      warn('joined/:publicKey bad req.params ' + err)
-      res.json()
-    }
-    const publicKey = req.params.publicKey
-    const node = NodeList.byPubKey.get(publicKey)
-    res.json({ node })
-  },
-}
-
-const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P.NodeListTypes.Node['id']> = (
-  payload,
-  sender,
-  tracker
-) => {
-  profilerInstance.scopedProfileSectionStart('gossip-join')
-  try {
-    // Do not forward gossip after quarter 2
-    if (CycleCreator.currentQuarter >= 3) return
-
-    //  Validate of payload is done in addJoinRequest
-    if (addJoinRequest(payload).success)
-      Comms.sendGossip('gossip-join', payload, tracker, sender, NodeList.byIdOrder, false)
-  } finally {
-    profilerInstance.scopedProfileSectionEnd('gossip-join')
-  }
-}
-
-const routes = {
-  external: [cycleMarkerRoute, joinRoute, joinedRoute],
-  gossip: {
-    'gossip-join': gossipJoinRoute,
-  },
-}
-
-// if join v2 is enabled, register the gossip handler for gossip-valid-join-requests
-if (config.p2p.useJoinProtocolV2) {
-  /**
-    * Part of Join Protocol v2. Gossips *all* valid join requests. A join request
-    * does not have to be successful to be gossiped.
-    */
-  const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P.NodeListTypes.Node['id']> = (
-    payload: P2P.JoinTypes.JoinRequest,
-    sender: P2P.NodeListTypes.Node['id'],
-    tracker: string,
-  ) => {
-    // do not forward gossip after quarter 2
-    if (CycleCreator.currentQuarter > 2) return
-
-    // TODO: add join request to standby node list (not done yet)
-    Comms.sendGossip('gossip-valid-join-requests', payload, tracker, sender, NodeList.byIdOrder, false)
-  }
-
-  routes['gossip-valid-join-requests'] = gossipValidJoinRequests
-}
 
 /** FUNCTIONS */
 
@@ -812,7 +676,7 @@ function info(...msg: string[]): void {
   p2pLogger.info(entry)
 }
 
-function warn(...msg: string[]): void {
+export function warn(...msg: string[]): void {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
