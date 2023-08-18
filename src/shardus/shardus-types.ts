@@ -717,6 +717,8 @@ export interface ServerConfiguration {
     validateArchiverAppData: boolean
     /** use the mode system to regulate network growth and transactions*/
     useNetworkModes: boolean
+    /** Use the new join protocol that gossips all valid join requests to validators.  */
+    useJoinProtocolV2: boolean
   }
   /** Server IP configuration */
   ip?: {

@@ -87,7 +87,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
 
     // if the join request was valid (not fatal) and the port was reachable, this join request is free to be
     // gossiped to all nodes according to Join Protocol v2
-    if (!validJoinRequest.fatal) {
+    if (config.p2p.useJoinProtocolV2 && !validJoinRequest.fatal) {
       Comms.sendGossip('gossip-valid-join-requests', joinRequest, '', null, NodeList.byIdOrder, true)
     }
 
@@ -140,28 +140,32 @@ const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P
   }
 }
 
-/**
-  * Part of Join Protocol v2. Gossips *all* valid join requests. A join request
-  * does not have to be successful to be gossiped.
-  */
-const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P.NodeListTypes.Node['id']> = (
-  payload: P2P.JoinTypes.JoinRequest,
-  sender: P2P.NodeListTypes.Node['id'],
-  tracker: string,
-) => {
-  // do not forward gossip after quarter 2
-  if (CycleCreator.currentQuarter > 2) return
-
-  // TODO: add join request to standby node list (not done yet)
-  Comms.sendGossip('gossip-valid-join-requests', payload, tracker, sender, NodeList.byIdOrder, false)
-}
-
 const routes = {
   external: [cycleMarkerRoute, joinRoute, joinedRoute],
   gossip: {
     'gossip-join': gossipJoinRoute,
-    'gossip-valid-join-requests': gossipValidJoinRequests,
   },
+}
+
+// if join v2 is enabled, register the gossip handler for gossip-valid-join-requests
+if (config.p2p.useJoinProtocolV2) {
+  /**
+    * Part of Join Protocol v2. Gossips *all* valid join requests. A join request
+    * does not have to be successful to be gossiped.
+    */
+  const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P.NodeListTypes.Node['id']> = (
+    payload: P2P.JoinTypes.JoinRequest,
+    sender: P2P.NodeListTypes.Node['id'],
+    tracker: string,
+  ) => {
+    // do not forward gossip after quarter 2
+    if (CycleCreator.currentQuarter > 2) return
+
+    // TODO: add join request to standby node list (not done yet)
+    Comms.sendGossip('gossip-valid-join-requests', payload, tracker, sender, NodeList.byIdOrder, false)
+  }
+
+  routes['gossip-valid-join-requests'] = gossipValidJoinRequests
 }
 
 /** FUNCTIONS */
