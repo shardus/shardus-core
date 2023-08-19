@@ -41,7 +41,7 @@ export function init(): void {
  */
 export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<void, Error> {
   return syncValidValidatorList(activeNodes).andThen(([validatorList, validatorListHash]) =>
-    syncValidArchiverList(activeNodes).andThen(([archiverList, archiverListHash]) =>
+    syncArchiverList(activeNodes).andThen(([archiverList, archiverListHash]) =>
       syncLatestCycleRecord(activeNodes).andThen((cycle) => {
         if (cycle.nodeListHash !== validatorListHash) {
           return errAsync(new Error(`validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`))
@@ -105,7 +105,7 @@ function syncValidValidatorList(
  * @returns {ResultAsync<[P2P.ArchiversTypes.JoinedArchiver[], hexstring], Error>} - A ResultAsync object. On success, it will contain an array of
  * JoinedArchiver objects and the archiver list hash, and on error, it will contain an Error object. The function is asynchronous and can be awaited.
  */
-function syncValidArchiverList(
+function syncArchiverList(
   activeNodes: P2P.SyncTypes.ActiveNode[]
 ): ResultAsync<[P2P.ArchiversTypes.JoinedArchiver[], hexstring], Error> {
   // run a robust query for the lastest archiver list hash
