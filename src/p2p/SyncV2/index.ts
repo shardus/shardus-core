@@ -70,9 +70,9 @@ export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<voi
  *
  * @param {P2P.SyncTypes.ActiveNode[]} activeNodes - An array of active nodes to be queried.
  * The function first performs a robust query for the latest node list hash.
- * After obtaining the hash, it retrieves the full node list from one of the winning nodes.
- * It then verifies whether a hash of the retrieved node list matches the previously obtained hash.
- * If it matches, the node list is returned.
+ * Then, it requests a full list from one of the winning nodes using the hash
+ * retrieved. The node receiving the request may or may not have the list whose
+ * hash matches the one requested.
  *
  * @returns {ResultAsync<[P2P.NodeListTypes.Node[], hexstring], Error>} - A
  * ResultAsync object. On success, it will contain an array of Node objects and
