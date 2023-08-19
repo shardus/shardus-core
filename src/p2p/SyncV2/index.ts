@@ -66,7 +66,7 @@ export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<voi
 }
 
 /**
- * This function queries for a valid validator list.
+ * This function queries for a validator list from other active nodes.
  *
  * @param {P2P.SyncTypes.ActiveNode[]} activeNodes - An array of active nodes to be queried.
  * The function first performs a robust query for the latest node list hash.
@@ -94,13 +94,13 @@ function syncValidValidatorList(
 }
 
 /**
- * This function queries for a valid archiver list.
+ * This function queries for an archiver list from other active nodes.
  *
  * @param {P2P.SyncTypes.ActiveNode[]} activeNodes - An array of active nodes to be queried.
  * The function first performs a robust query for the latest archiver list hash.
- * After obtaining the hash, it retrieves the full archiver list from one of the winning nodes.
- * It then verifies whether a hash of the retrieved archiver list matches the previously obtained hash.
- * If it matches, the archiver list is returned.
+ * Then, it requests a full list from one of the winning nodes using the hash
+ * retrieved. The node receiving the request may or may not have the list whose
+ * hash matches the one requested.
  *
  * @returns {ResultAsync<[P2P.ArchiversTypes.JoinedArchiver[], hexstring], Error>} - A ResultAsync object. On success, it will contain an array of
  * JoinedArchiver objects and the archiver list hash, and on error, it will contain an Error object. The function is asynchronous and can be awaited.
