@@ -3,8 +3,13 @@
   * TODO: Rename this module later?
   */
 
-import { P2P } from "@shardus/types";
+import { hexstring, P2P } from "@shardus/types";
 import { JoinRequest, StandbyAdditionInfo } from "@shardus/types/build/src/p2p/JoinTypes";
+import { crypto } from '../Context'
+import * as CycleChain from '../CycleChain'
+import rfdc from 'rfdc'
+
+const clone = rfdc()
 
 /** The list of nodes that are currently on standby. */
 const standbyNodesInfo: Map<StandbyAdditionInfo['publicKey'], StandbyAdditionInfo> = new Map()
@@ -46,4 +51,41 @@ export function addStandbyNodes(...nodes: StandbyAdditionInfo[]): void {
   for (const node of nodes) {
     standbyNodesInfo.set(node.publicKey, node)
   }
+}
+
+let lastHashedList: StandbyAdditionInfo[] = []
+
+/**
+  * Returns the list of standby nodes, sorted by their public keys.
+  */
+export function getSortedStandbyNodeList(): StandbyAdditionInfo[] {
+  return [...standbyNodesInfo.values()].sort((a, b) =>
+    // using mathematical comparison in case localeCompare is inconsistent.
+    // we will use a simple ternary statement for this that doens't account for
+    // equality. this should be fine as no two public keys should be the same.
+    a.publicKey > b.publicKey ? 1 : -1
+  )
+}
+
+/** Calculates and returns a hash based on the list of standby nodes, sorted by public key. This will also update the recorded `lastHashedList` of nodes, which can be retrieved via `getLastHashedStandbyList`. */
+export function computeNewStandbyListHash(): hexstring {
+  // set the lastHashedList to the current list by pubkey, then hash.
+  // deep cloning is necessary as standby node information may be mutated by
+  // reference.
+  lastHashedList = clone(getSortedStandbyNodeList())
+  const hash = crypto.hash(lastHashedList)
+  return hash
+}
+
+/**
+ * Returns the standby node list hash from the last complete cycle, if available. If you
+ * want to compute a new hash instead, use `computeNewStandbyListHash`.
+ */
+export function getStandbyListHash(): hexstring | undefined {
+  return CycleChain.newest?.standbyNodeListHash
+}
+
+/** Returns the last list of standby information that had its hash computed. */
+export function getLastHashedStandbyList(): StandbyAdditionInfo[] {
+  return lastHashedList
 }
