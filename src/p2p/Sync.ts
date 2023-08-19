@@ -15,6 +15,7 @@ import { robustQuery } from './Utils'
 import { profilerInstance } from '../utils/profiler'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { byJoinOrder } from './NodeList'
+import { addStandbyNodes } from './Join/v2'
 
 /** STATE */
 
@@ -312,6 +313,11 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
 
   const changes = parse(cycle)
   applyNodeListChange(changes, true, cycle)
+
+  // for join v2, also add any new standby nodes to the standy node list
+  if (config.p2p.useJoinProtocolV2 && cycle.standbyAdd) {
+    addStandbyNodes(...cycle.standbyAdd)
+  }
 
   CycleChain.append(cycle)
 
