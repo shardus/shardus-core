@@ -16,6 +16,7 @@ import { isBogonIP, isInvalidIP, isIPv6 } from '../../utils/functions/checkIP'
 import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { Logger } from 'log4js'
 import { routes } from './routes'
+import { clearNewJoinRequests, getNewJoinRequests } from './v2'
 
 /** STATE */
 
@@ -207,6 +208,20 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
 
   record.syncing = NodeList.byJoinOrder.length - NodeList.activeByIdOrder.length
   record.joinedConsensors = joinedConsensors.sort()
+
+  // for join v2, add new standby nodes to the standbyAdd field
+  if (config.p2p.useJoinProtocolV2) {
+    record.standbyAdd = [];
+    for (const joinRequest of getNewJoinRequests()) {
+      record.standbyAdd.push({
+        publicKey: joinRequest.nodeInfo.publicKey,
+        ip: joinRequest.nodeInfo.externalIp,
+        port: joinRequest.nodeInfo.externalPort,
+      })
+    }
+
+    clearNewJoinRequests();
+  }
 }
 
 export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
