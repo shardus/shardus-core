@@ -16,6 +16,7 @@ import { profilerInstance } from '../utils/profiler'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { byJoinOrder } from './NodeList'
 import { addStandbyNodes } from './Join/v2'
+import * as JoinV2 from './Join/v2'
 
 /** STATE */
 
@@ -293,6 +294,7 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord) {
   // get the node list hashes *before* applying node changes
   cycle.nodeListHash = NodeList.computeNewNodeListHash()
   cycle.archiverListHash = Archivers.computeNewArchiverListHash()
+  cycle.standbyNodeListHash = JoinV2.computeNewStandbyListHash()
 
   const marker = CycleCreator.makeCycleMarker(cycle)
   if (CycleChain.cyclesByMarker[marker]) {
