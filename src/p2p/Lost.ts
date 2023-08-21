@@ -471,10 +471,9 @@ function reportLost(target, reason: string, requestId: string) {
   // [TODO] - remove the following line after testing killother
   if (allowKillRoute && reason === 'killother') msg.killother = true
   if (logFlags.p2pNonFatal) {
-    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, reporter: ${Self.ip}:${Self.port} id: ${Self.id}`)
-    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${checker.internalIp}:${checker.internalPort} id: ${checker.id}`)
-    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${target.internalIp}:${target.internalPort} id: ${target.id}`)
-    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${target.internalIp}:${target.internalPort} id: ${target.id}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, reporter: ${Self.ip}:${Self.port} id: ${Self.id} node details: ${JSON.stringify(Self)}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${checker.internalIp}:${checker.internalPort} id: ${checker.id} node details: ${JSON.stringify(checker)}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, target: ${target.internalIp}:${target.internalPort} id: ${target.id} node details: ${JSON.stringify(target)}`)
     /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, msg: ${JSON.stringify(msg)}`)
   }
   const msgCopy = JSON.parse(shardusCrypto.stringify(msg))
@@ -511,7 +510,7 @@ async function lostReportHandler(payload, response, sender) {
     // for request tracing
     err = validateTypes(payload, { timestamp: 'n', requestId: 's' })
     if (!err) {
-      /* prettier-ignore */ info(`Lost report tracing, requestId: ${payload.requestId}, timestamp: ${payload.timestamp}, sender: ${sender.id}`)
+      /* prettier-ignore */ info(`Lost report tracing, requestId: ${payload.requestId}, timestamp: ${payload.timestamp}, sender: ${JSON.stringify(sender)}`)
       requestId = payload.requestId
     }
     err = validateTypes(payload, { target: 's', reporter: 's', checker: 's', cycle: 'n', sign: 'o' })
