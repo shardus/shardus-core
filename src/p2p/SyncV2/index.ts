@@ -6,7 +6,7 @@
 import { ResultAsync } from 'neverthrow'
 import { P2P } from '@shardus/types'
 import {
-  getCurrentCycleDataFromNode,
+  getCycleDataFromNode,
   initLogger,
   robustQueryForCycleRecordHash,
   robustQueryForValidatorListHash,
@@ -14,6 +14,7 @@ import {
   getArchiverListFromNode,
   robustQueryForArchiverListHash,
 } from './queries'
+import { verifyArchiverList, verifyCycleRecord, verifyValidatorList } from './verify'
 import * as Archivers from '../Archivers'
 import * as NodeList from '../NodeList'
 import * as CycleChain from '../CycleChain'
@@ -39,7 +40,7 @@ export function init(): void {
  * error, it will contain an Error object. The function is asynchronous and can be awaited.
  */
 export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<void, Error> {
-  return syncValidatorList(activeNodes).andThen((validatorList) =>
+  return syncValidValidatorList(activeNodes).andThen((validatorList) =>
     syncValidArchiverList(activeNodes).andThen((archiverList) =>
       syncLatestCycleRecord(activeNodes).map((cycle) => {
         NodeList.reset()
@@ -69,15 +70,18 @@ export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<voi
  * an array of Node objects, and on error, it will contain an Error object. The function is asynchronous
  * and can be awaited.
  */
-function syncValidatorList(
+function syncValidValidatorList(
   activeNodes: P2P.SyncTypes.ActiveNode[]
 ): ResultAsync<P2P.NodeListTypes.Node[], Error> {
   // run a robust query for the lastest node list hash
-  return robustQueryForValidatorListHash(activeNodes).andThen(({ value, winningNodes }) => {
+  return robustQueryForValidatorListHash(activeNodes).andThen(({ value, winningNodes }) =>
     // get full node list from one of the winning nodes
-    console.log('requesting validator list with hash', value.nodeListHash)
-    return getValidatorListFromNode(winningNodes[0], value.nodeListHash)
-  })
+    getValidatorListFromNode(winningNodes[0], value.nodeListHash).andThen((nodeList) =>
+      // verify a hash of the retrieved node list matches the hash from before.
+      // if it does, return the node list
+      verifyValidatorList(nodeList, value.nodeListHash).map(() => nodeList)
+    )
+  )
 }
 
 /**
@@ -97,11 +101,14 @@ function syncValidArchiverList(
   activeNodes: P2P.SyncTypes.ActiveNode[]
 ): ResultAsync<P2P.ArchiversTypes.JoinedArchiver[], Error> {
   // run a robust query for the lastest archiver list hash
-  return robustQueryForArchiverListHash(activeNodes).andThen(({ value, winningNodes }) => {
+  return robustQueryForArchiverListHash(activeNodes).andThen(({ value, winningNodes }) =>
     // get full archiver list from one of the winning nodes
-    console.log('requesting archiver list with hash', value.archiverListHash)
-    return getArchiverListFromNode(winningNodes[0], value.archiverListHash)
-  })
+    getArchiverListFromNode(winningNodes[0], value.archiverListHash).andThen((archiverList) =>
+      // verify a hash of the retrieved archiver list matches the hash from before.
+      // if it does, return the archiver list
+      verifyArchiverList(archiverList, value.archiverListHash).map(() => archiverList)
+    )
+  )
 }
 
 /**
@@ -123,5 +130,10 @@ function syncLatestCycleRecord(
   // run a robust query for the latest cycle record hash
   return robustQueryForCycleRecordHash(activeNodes).andThen(({ value: cycleRecordHash, winningNodes }) =>
     // get current cycle record from node
-    getCurrentCycleDataFromNode(winningNodes[0], cycleRecordHash))
+    getCycleDataFromNode(winningNodes[0], cycleRecordHash).andThen((cycle) =>
+      // verify the cycle record marker matches the hash from before. if it
+      // does, return the cycle
+      verifyCycleRecord(cycle, cycleRecordHash).map(() => cycle)
+    )
+  )
 }
