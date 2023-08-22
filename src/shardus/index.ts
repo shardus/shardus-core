@@ -476,6 +476,7 @@ class Shardus extends EventEmitter {
       scheduleLostReport(node, 'error', requestId)
       /** [TODO] Report lost */
       nestedCountersInstance.countEvent('lostNodes', 'error')
+      nestedCountersInstance.countRareEvent('lostNodes', `error  ${node.internalIp}:${node.internalPort}`)
     })
 
     // Setup storage
