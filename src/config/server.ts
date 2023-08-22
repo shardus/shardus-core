@@ -85,7 +85,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     useLruCacheForSocketMgmt: false,
     lruCacheSizeForSocketMgmt: 1000,
     instantForwardReceipts: false,
-    maxArchiversSubscriptionPerNode: 2,
+    maxArchiversSubscriptionPerNode: 2
   },
   ip: {
     externalIp: '0.0.0.0',
@@ -177,6 +177,8 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     fifoUnlockFix2: false,
     fifoUnlockFix3: false,
     enableAccountFetchForQueueCounts: false,
+    configChangeMaxCyclesToKeep: 5,
+    configChangeMaxChangesToKeep: 1000
   },
   sharding: { nodesPerConsensusGroup: 5, nodesPerEdge: 2, executeInOneShard: false },
   mode: ServerMode.Debug,

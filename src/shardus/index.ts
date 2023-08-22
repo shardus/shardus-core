@@ -1912,6 +1912,12 @@ class Shardus extends EventEmitter {
           appData: any
         ) => application.updateNetworkChangeQueue(account, appData)
       }
+      if (typeof application.pruneNetworkChangeQueue === 'function') {
+        applicationInterfaceImpl.pruneNetworkChangeQueue = async (
+          account: ShardusTypes.WrappedData,
+          appData: any
+        ) => application.pruneNetworkChangeQueue(account, appData)
+      }
       if (typeof application.signAppData === 'function') {
         applicationInterfaceImpl.signAppData = application.signAppData
       }
@@ -2110,6 +2116,9 @@ class Shardus extends EventEmitter {
     let appData = change.appData
 
     this.patchObject(this.config, changeObj, appData)
+
+    const prunedData: WrappedData[] = await this.app.pruneNetworkChangeQueue(account, lastCycle.counter)
+    await this.stateManager.checkAndSetAccountData(prunedData, 'global network account update', true)
 
     if (appData) {
       const data: WrappedData[] = await this.app.updateNetworkChangeQueue(account, appData)
