@@ -1769,8 +1769,11 @@ class Shardus extends EventEmitter {
       // Stores the records into the Accounts table if the hash of the Acc_data matches State_id
       // Returns a list of failed Acc_id
       if (typeof application.setAccountData === 'function') {
-        applicationInterfaceImpl.setAccountData = async (accountRecords) =>
+        applicationInterfaceImpl.setAccountData = async (accountRecords) => {
+          this.profiler.scopedProfileSectionStart('process-dapp.setAccountData', false); 
           application.setAccountData(accountRecords)
+          this.profiler.scopedProfileSectionEnd('process-dapp.setAccountData'); 
+        }
       } else {
         throw new Error('Missing required interface function. setAccountData()')
       }
@@ -1784,8 +1787,13 @@ class Shardus extends EventEmitter {
       }
 
       if (typeof application.getAccountDataByList === 'function') {
-        applicationInterfaceImpl.getAccountDataByList = async (addressList) =>
-          application.getAccountDataByList(addressList)
+        applicationInterfaceImpl.getAccountDataByList = async (addressList) =>{
+          this.profiler.scopedProfileSectionStart('process-dapp.getAccountDataByList', false); 
+          console.log("process-dapp.getAccountDataByList");
+          const accData =  await application.getAccountDataByList(addressList)
+          this.profiler.scopedProfileSectionEnd('process-dapp.getAccountDataByList'); 
+          return accData;
+        }
       } else {
         throw new Error('Missing required interface function. getAccountDataByList()')
       }
@@ -1816,7 +1824,12 @@ class Shardus extends EventEmitter {
       }
 
       if (typeof application.sync === 'function') {
-        applicationInterfaceImpl.sync = async () => application.sync()
+        applicationInterfaceImpl.sync = async () => {
+          this.profiler.scopedProfileSectionStart('process-dapp.sync', false); 
+          const res = await application.sync()
+          this.profiler.scopedProfileSectionEnd('process-dapp.sync'); 
+          return res
+        }
       } else {
         const thisPtr = this
         applicationInterfaceImpl.sync = async function () {
