@@ -2120,7 +2120,6 @@ class Shardus extends EventEmitter {
     const prunedData: WrappedData[] = await this.app.pruneNetworkChangeQueue(account, lastCycle.counter)
     await this.stateManager.checkAndSetAccountData(prunedData, 'global network account update', true)
 
-
     if (appData) {
       const data: WrappedData[] = await this.app.updateNetworkChangeQueue(account, appData)
       await this.stateManager.checkAndSetAccountData(data, 'global network account update', true)
