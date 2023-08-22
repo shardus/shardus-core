@@ -459,7 +459,7 @@ class Shardus extends EventEmitter {
       this.mainLogger.error('Socket connection break', e)
     }
     this.network.on('timeout', (node, requestId: string) => {
-      console.log(`In Shardus got network timeout for ${requestId} from node: ${node}`)
+      console.log(`In Shardus got network timeout for ${requestId} from node: ${JSON.stringify(node)}`)
       const result = isApopMarkedNode(node.id)
       if (result) {
         return
@@ -473,7 +473,7 @@ class Shardus extends EventEmitter {
     })
     this.network.on('error', (node) => {
       const requestId = generateUUID()
-      console.log(`In Shardus got network error for ${requestId} from node: ${node}`)
+      console.log(`In Shardus got network error for ${requestId} from node: ${JSON.stringify(node)}`)
       scheduleLostReport(node, 'error', requestId)
       /** [TODO] Report lost */
       nestedCountersInstance.countEvent('lostNodes', 'error')

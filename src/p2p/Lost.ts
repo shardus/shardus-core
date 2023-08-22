@@ -501,7 +501,7 @@ async function lostReportHandler(payload, response, sender) {
     // for request tracing
     err = validateTypes(payload, { timestamp: 'n', requestId: 's' })
     if (!err) {
-      /* prettier-ignore */ info(`Lost report tracing, requestId: ${payload.requestId}, timestamp: ${payload.timestamp}, sender: ${sender.id}`)
+      /* prettier-ignore */ info(`Lost report tracing, requestId: ${payload.requestId}, timestamp: ${payload.timestamp}, sender: ${JSON.stringify(sender)}`)
       requestId = payload.requestId
     }
     err = validateTypes(payload, { target: 's', reporter: 's', checker: 's', cycle: 'n', sign: 'o' })
