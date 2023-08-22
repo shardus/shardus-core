@@ -209,12 +209,16 @@ export class NetworkClass extends EventEmitter {
     }
     for (const node of nodes) {
       if (!logged) this.logger.playbackLog('self', node, 'InternalTell', route, id, message)
+      const requestId = generateUUID()
+        mainLogger.info(`Initiating tell request with requestId: ${requestId}`)
+        mainLogger.info(`requestId: ${requestId}, node: ${JSON.stringify(node)}`)
+        mainLogger.info(`route: ${route}, message: ${message} requestId: ${requestId}`)
       this.InternalTellCounter++
       const promise = this.sn.send(node.internalPort, node.internalIp, data)
       promise.catch((err) => {
         if (logFlags.error) this.mainLogger.error('Network: ' + err)
         if (logFlags.error) this.mainLogger.error(err.stack)
-        this.emit('error', node)
+        this.emit('error', node, requestId)
       })
       promises.push(promise)
     }

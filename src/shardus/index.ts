@@ -471,8 +471,7 @@ class Shardus extends EventEmitter {
       nestedCountersInstance.countRareEvent('lostNodes', `timeout  ${node.internalIp}:${node.internalPort}`)
       if (this.network.statisticsInstance) this.network.statisticsInstance.incrementCounter('lostNodeTimeout')
     })
-    this.network.on('error', (node) => {
-      const requestId = generateUUID()
+    this.network.on('error', (node, requestId: string) => {
       console.log(`In Shardus got network error for ${requestId} from node: ${JSON.stringify(node)}`)
       scheduleLostReport(node, 'error', requestId)
       /** [TODO] Report lost */
