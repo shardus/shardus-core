@@ -314,48 +314,11 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     }
   }
 
-  // Validate joinReq
-  let err = utils.validateTypes(joinRequest, {
-    cycleMarker: 's',
-    nodeInfo: 'o',
-    sign: 'o',
-    version: 's',
-  })
-  if (err) {
-    warn('join bad joinRequest ' + err)
-    return {
-      success: false,
-      reason: `Bad join request object structure`,
-      fatal: true,
-    }
-  }
-  err = utils.validateTypes(joinRequest.nodeInfo, {
-    activeTimestamp: 'n',
-    address: 's',
-    externalIp: 's',
-    externalPort: 'n',
-    internalIp: 's',
-    internalPort: 'n',
-    joinRequestTimestamp: 'n',
-    publicKey: 's',
-  })
-  if (err) {
-    warn('join bad joinRequest.nodeInfo ' + err)
-    return {
-      success: false,
-      reason: 'Bad nodeInfo object structure within join request',
-      fatal: true,
-    }
-  }
-  err = utils.validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
-  if (err) {
-    warn('join bad joinRequest.sign ' + err)
-    return {
-      success: false,
-      reason: 'Bad signature object structure within join request',
-      fatal: true,
-    }
-  }
+  // validate `joinRequest`'s types. if there was an error in validation, `errResult`
+  // will be non-null.
+  const errResult = verifyJoinRequestTypes(joinRequest);
+  if (errResult) return errResult;
+
   if (config.p2p.checkVersion && !isEqualOrNewerVersion(version, joinRequest.version)) {
     /* prettier-ignore */ warn(`version number is old. Our node version is ${version}. Join request node version is ${joinRequest.version}`)
     nestedCountersInstance.countEvent('p2p', `join-reject-version ${joinRequest.version}`)
@@ -698,6 +661,64 @@ export function computeNodeId(publicKey: string, cycleMarker: string): string {
     info(`Node ID is: ${nodeId}`)
   }
   return nodeId
+}
+
+/**
+  * This function is a little weird because it was taken directly from
+  * `addJoinRequest`, but here's how it works:
+  *
+  * It validates the types of the `joinRequest`. If the types are invalid, it
+  * returns a `JoinRequestResponse` object with `success` set to `false` and
+  * `fatal` set to `true`. The `reason` field will contain a message describing
+  * the validation error.
+  *
+  * If the types are valid, it returns `null`.
+  */
+function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
+  // Validate joinReq
+  let err = utils.validateTypes(joinRequest, {
+    cycleMarker: 's',
+    nodeInfo: 'o',
+    sign: 'o',
+    version: 's',
+  })
+  if (err) {
+    warn('join bad joinRequest ' + err)
+    return {
+      success: false,
+      reason: `Bad join request object structure`,
+      fatal: true,
+    }
+  }
+  err = utils.validateTypes(joinRequest.nodeInfo, {
+    activeTimestamp: 'n',
+    address: 's',
+    externalIp: 's',
+    externalPort: 'n',
+    internalIp: 's',
+    internalPort: 'n',
+    joinRequestTimestamp: 'n',
+    publicKey: 's',
+  })
+  if (err) {
+    warn('join bad joinRequest.nodeInfo ' + err)
+    return {
+      success: false,
+      reason: 'Bad nodeInfo object structure within join request',
+      fatal: true,
+    }
+  }
+  err = utils.validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
+  if (err) {
+    warn('join bad joinRequest.sign ' + err)
+    return {
+      success: false,
+      reason: 'Bad signature object structure within join request',
+      fatal: true,
+    }
+  }
+
+  return null
 }
 
 function info(...msg: string[]): void {
