@@ -146,6 +146,7 @@ class Storage {
         '`refuted` JSON NOT NULL',
         '`nodeListHash` TEXT NOT NULL',
         '`archiverListHash` TEXT NOT NULL',
+        '`standbyAdd` JSON NOT NULL',
         '`standbyNodeListHash` TEXT NOT NULL'].join(', ')
       + ')'
     )
