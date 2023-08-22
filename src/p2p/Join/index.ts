@@ -290,6 +290,20 @@ export interface JoinRequestResponse {
   /** Whether the join request could not be accepted due to some error, usually in validating a join request. TODO: consider renaming to `invalid`? */
   fatal: boolean
 }
+
+/**
+ * Processes a join request by validating the joining node's information,
+ * ensuring compatibility with the network's version, checking cryptographic signatures, and responding
+ * with either an acceptance or rejection based on the provided criteria.
+ * 
+ * This function serves as a critical part of the network's security, allowing only valid and authenticated
+ * nodes to participate in the network activities.
+ *
+ * @function
+ * @param {P2P.JoinTypes.JoinRequest} joinRequest - The request object containing information about the joining node.
+ * @returns {JoinRequestResponse} The result of the join request, with details about acceptance or rejection.
+ * @throws {Error} Throws an error if the validation of the join request fails.
+ */
 export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse {
   if (Self.p2pIgnoreJoinRequests === true) {
     if (logFlags.p2pNonFatal) info(`Join request ignored. p2pIgnoreJoinRequests === true`)
