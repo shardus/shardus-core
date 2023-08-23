@@ -218,7 +218,8 @@ export class NetworkClass extends EventEmitter {
       promise.catch((err) => {
         if (logFlags.error) this.mainLogger.error('Network: ' + err)
         if (logFlags.error) this.mainLogger.error(err.stack)
-        this.emit('error', node, requestId)
+        let errorGroup = ('' + err).slice(0,20)
+        this.emit('error', node, requestId, "tell", errorGroup)
       })
       promises.push(promise)
     }
@@ -261,7 +262,7 @@ export class NetworkClass extends EventEmitter {
           nestedCountersInstance.countRareEvent('network', 'timeout ' + route)
           if (logFlags.error) this.mainLogger.error('Network: ' + err)
           if (logFlags.error) this.mainLogger.error(err.stack)
-          this.emit('timeout', node, requestId)
+          this.emit('timeout', node, requestId, "ask")
           reject(err)
         }
         if (!logged) this.logger.playbackLog('self', node, 'InternalAsk', route, id, message)
@@ -276,7 +277,8 @@ export class NetworkClass extends EventEmitter {
           )
         } catch (err) {
           if (logFlags.error) this.mainLogger.error('Network: ' + err)
-          this.emit('error', node)
+          let errorGroup = ('' + err).slice(0,20)
+          this.emit('error', node, requestId, "ask", errorGroup)
         }
       } finally {
         profilerInstance.profileSectionEnd('net-ask')
