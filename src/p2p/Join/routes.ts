@@ -73,8 +73,11 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
     // if the join request was valid and accepted, gossip that this join request
     // was accepted to other nodes
     if (validJoinRequest.success) {
-      Comms.sendGossip('gossip-join', joinRequest, '', null, NodeList.byIdOrder, true)
-      nestedCountersInstance.countEvent('p2p', 'initiate gossip-join')
+      // only gossip join requests if we are still using the old join protocol
+      if (!config.p2p.useJoinProtocolV2) {
+        Comms.sendGossip('gossip-join', joinRequest, '', null, NodeList.byIdOrder, true)
+        nestedCountersInstance.countEvent('p2p', 'initiate gossip-join')
+      } else warn('join request received but not being gossiped for join protocol v2')
     }
     return res.json(validJoinRequest)
   },
@@ -106,17 +109,20 @@ const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P
   sender,
   tracker
 ) => {
-  profilerInstance.scopedProfileSectionStart('gossip-join')
-  try {
-    // Do not forward gossip after quarter 2
-    if (CycleCreator.currentQuarter >= 3) return
+  // only gossip join requests if we are still using the old join protocol
+  if (!config.p2p.useJoinProtocolV2) {
+    profilerInstance.scopedProfileSectionStart('gossip-join')
+    try {
+      // Do not forward gossip after quarter 2
+      if (CycleCreator.currentQuarter >= 3) return
 
-    //  Validate of payload is done in addJoinRequest
-    if (addJoinRequest(payload).success)
-      Comms.sendGossip('gossip-join', payload, tracker, sender, NodeList.byIdOrder, false)
-  } finally {
-    profilerInstance.scopedProfileSectionEnd('gossip-join')
-  }
+      //  Validate of payload is done in addJoinRequest
+      if (addJoinRequest(payload).success)
+        Comms.sendGossip('gossip-join', payload, tracker, sender, NodeList.byIdOrder, false)
+    } finally {
+      profilerInstance.scopedProfileSectionEnd('gossip-join')
+    }
+  } else warn('gossip-join received but ignored for join protocol v2')
 }
 
 /**
