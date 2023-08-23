@@ -17,6 +17,7 @@ import * as utils from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { profilerInstance } from '../utils/profiler'
 import NatAPI = require('nat-api')
+import { formatErrorMessage } from '../utils'
 
 /** TYPES */
 export interface IPInfo {
@@ -217,7 +218,7 @@ export class NetworkClass extends EventEmitter {
       const promise = this.sn.send(node.internalPort, node.internalIp, data)
       promise.catch((err) => {
         if (logFlags.error) this.mainLogger.error('Network: ' + err)
-        if (logFlags.error) this.mainLogger.error(err.stack)
+        if (logFlags.error) this.mainLogger.error('Network: ' + formatErrorMessage(err.stack))
         let errorGroup = ('' + err).slice(0,20)
         this.emit('error', node, requestId, "tell", errorGroup)
       })
@@ -261,7 +262,7 @@ export class NetworkClass extends EventEmitter {
           const err = new Error(`Request timed out. ${utils.stringifyReduce(id)}`)
           nestedCountersInstance.countRareEvent('network', 'timeout ' + route)
           if (logFlags.error) this.mainLogger.error('Network: ' + err)
-          if (logFlags.error) this.mainLogger.error(err.stack)
+          if (logFlags.error) this.mainLogger.error('Network: ' + formatErrorMessage(err.stack))
           this.emit('timeout', node, requestId, "ask")
           reject(err)
         }
