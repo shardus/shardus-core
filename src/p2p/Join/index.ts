@@ -384,12 +384,6 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     nestedCountersInstance.countEvent('p2p', `join-reject-bogon-ex:${er}`)
   }
 
-  const selectionKeyResult = getSelectionKey(joinRequest);
-  if (selectionKeyResult.isErr()) {
-    return selectionKeyResult.error;
-  }
-  const selectionKey = selectionKeyResult.value;
-
   const node = joinRequest.nodeInfo
   if (logFlags.p2pNonFatal) info(`Got join request for ${node.externalIp}:${node.externalPort}`)
 
@@ -476,6 +470,13 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
   toAccept = add
 
   if (!config.p2p.useJoinProtocolV2) {
+    // get the selection key
+    const selectionKeyResult = getSelectionKey(joinRequest);
+    if (selectionKeyResult.isErr()) {
+      return selectionKeyResult.error;
+    }
+    const selectionKey = selectionKeyResult.value;
+
     // Check if we are better than the lowest selectionNum
     const last = requests.length > 0 ? requests[requests.length - 1] : undefined
     /*
