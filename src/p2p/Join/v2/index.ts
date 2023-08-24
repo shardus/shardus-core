@@ -33,7 +33,7 @@ const allJoinRequests: Map<P2P.P2PTypes.Node['publicKey'], JoinRequest> = new Ma
   */
 export function saveJoinRequest(joinRequest: JoinRequest): void {
   newJoinRequests.push(joinRequest)
-  allJoinRequests.set(joinRequest.nodeInfo.publicKey, newJoinRequests)
+  allJoinRequests.set(joinRequest.nodeInfo.publicKey, joinRequest)
 }
 
 export function getNewJoinRequests(): JoinRequest[] {
