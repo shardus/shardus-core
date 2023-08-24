@@ -1,3 +1,4 @@
+import { P2P } from "@shardus/types"
 import { Ordering } from ".."
 
 export const deepCopy = <T>(obj: T): T => {
@@ -402,4 +403,7 @@ export function formatErrorMessage(err: unknown): string {
   }
 
   return errMsg
+}
+export function logNode( node : P2P.NodeListTypes.Node ): string {
+  return `Node ID : ${node.id} Node Address : ${node.address} externalPort : ${node.externalPort} externalIP : ${node.externalIp}`
 }

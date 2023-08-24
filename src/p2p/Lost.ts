@@ -14,7 +14,7 @@ import { Handler } from 'express'
 import * as http from '../http'
 import { logFlags } from '../logger'
 import * as utils from '../utils'
-import { binarySearch, validateTypes } from '../utils'
+import { binarySearch, logNode, validateTypes } from '../utils'
 import getCallstack from '../utils/getCallstack'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { profilerInstance } from '../utils/profiler'
@@ -423,7 +423,7 @@ export function scheduleLostReport(target: P2P.NodeListTypes.Node, reason: strin
   if (!config.p2p.aggregateLostReportsTillQ1) return reportLost(target, reason, requestId)
   if (requestId.length == 0) requestId = generateUUID()
   info(`Scheduling lost report for ${target.id}, requestId: ${requestId}.`)
-  info(`Target node details for requestId: ${requestId}: ${JSON.stringify(target)}`)
+  info(`Target node details for requestId: ${requestId}: ${logNode(target)}`)
   info(`Scheduled lost report in ${currentCycle} for requestId: ${requestId}.`)
 
   const key = `${target.id}-${currentCycle}`
@@ -445,7 +445,7 @@ export function scheduleLostReport(target: P2P.NodeListTypes.Node, reason: strin
 // This gets called from Shardus when network module emits timeout or error
 function reportLost(target, reason: string, requestId: string) {
   info(`Reporting lost for ${target.id}, requestId: ${requestId}.`)
-  info(`Target node details for requestId: ${requestId}: ${JSON.stringify(target)}`)
+  info(`Target node details for requestId: ${requestId}: ${logNode(target)}`)
   if (target.id === Self.id) return // don't report self
   if (stopReporting[target.id]) return // this node already appeared in the lost field of the cycle record, we dont need to keep reporting
   // we set isDown cache to the cycle number here; to speed up deciding if a node is down
@@ -464,9 +464,9 @@ function reportLost(target, reason: string, requestId: string) {
   }
   // [TODO] - remove the following line after testing killother
   if (allowKillRoute && reason === 'killother') msg.killother = true
-    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, reporter: ${Self.ip}:${Self.port} id: ${Self.id} node details: ${JSON.stringify(Self)}`)
-    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${checker.internalIp}:${checker.internalPort} id: ${checker.id} node details: ${JSON.stringify(checker)}`)
-    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, target: ${target.internalIp}:${target.internalPort} id: ${target.id} node details: ${JSON.stringify(target)}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, reporter: ${Self.ip}:${Self.port} id: ${Self.id}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, checker: ${checker.internalIp}:${checker.internalPort} node details: ${logNode(checker)}`)
+    /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, target: ${target.internalIp}:${target.internalPort} node details: ${logNode(target)}`)
     /* prettier-ignore */ info(`Sending investigate request. requestId: ${requestId}, msg: ${JSON.stringify(msg)}`)
 
   const msgCopy = JSON.parse(shardusCrypto.stringify(msg))
@@ -496,12 +496,12 @@ async function lostReportHandler(payload, response, sender) {
   profilerInstance.scopedProfileSectionStart('lost-report')
   try {
     let requestId = generateUUID()
-    /* prettier-ignore */ info(`Got investigate request requestId: ${requestId}, req: ${JSON.stringify(payload)} from ${JSON.stringify(sender)}`)
+    /* prettier-ignore */ info(`Got investigate request requestId: ${requestId}, req: ${JSON.stringify(payload)} from ${logNode(sender)}`)
     let err = ''
     // for request tracing
     err = validateTypes(payload, { timestamp: 'n', requestId: 's' })
     if (!err) {
-      /* prettier-ignore */ info(`Lost report tracing, requestId: ${payload.requestId}, timestamp: ${payload.timestamp}, sender: ${JSON.stringify(sender)}`)
+      /* prettier-ignore */ info(`Lost report tracing, requestId: ${payload.requestId}, timestamp: ${payload.timestamp}, sender: ${logNode(sender)}`)
       requestId = payload.requestId
     }
     err = validateTypes(payload, { target: 's', reporter: 's', checker: 's', cycle: 'n', sign: 'o' })

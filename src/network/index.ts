@@ -212,7 +212,7 @@ export class NetworkClass extends EventEmitter {
       if (!logged) this.logger.playbackLog('self', node, 'InternalTell', route, id, message)
       const requestId = generateUUID()
         mainLogger.info(`Initiating tell request with requestId: ${requestId}`)
-        mainLogger.info(`requestId: ${requestId}, node: ${JSON.stringify(node)}`)
+        mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
         mainLogger.info(`route: ${route}, message: ${message} requestId: ${requestId}`)
       this.InternalTellCounter++
       const promise = this.sn.send(node.internalPort, node.internalIp, data)
@@ -241,7 +241,7 @@ export class NetworkClass extends EventEmitter {
 
       const requestId = generateUUID()
       mainLogger.info(`Initiating ask request with requestId: ${requestId}`)
-      mainLogger.info(`requestId: ${requestId}, node: ${JSON.stringify(node)}`)
+      mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
       mainLogger.info(`route: ${route}, message: ${message} requestId: ${requestId}`)
 
       try {

@@ -36,7 +36,7 @@ import { DebugComplete } from '../state-manager/TransactionQueue'
 import Statistics from '../statistics'
 import Storage from '../storage'
 import * as utils from '../utils'
-import { groupResolvePromises, inRangeOfCurrentTime } from '../utils'
+import { groupResolvePromises, inRangeOfCurrentTime, logNode } from '../utils'
 import { getSocketReport } from '../utils/debugUtils'
 import MemoryReporting from '../utils/memoryReporting'
 import NestedCounters, { nestedCountersInstance } from '../utils/nestedCounters'
@@ -459,7 +459,7 @@ class Shardus extends EventEmitter {
       this.mainLogger.error('Socket connection break', e)
     }
     this.network.on('timeout', (node, requestId: string, context: string) => {
-      console.log(`In Shardus got network timeout-${context} for request ID - ${requestId} from node: ${JSON.stringify(node)}`)
+      console.log(`In Shardus got network timeout-${context} for request ID - ${requestId} from node: ${logNode(node)}`)
       const result = isApopMarkedNode(node.id)
       if (result) {
         return
@@ -472,7 +472,7 @@ class Shardus extends EventEmitter {
       if (this.network.statisticsInstance) this.network.statisticsInstance.incrementCounter('lostNodeTimeout')
     })
     this.network.on('error', (node, requestId: string, context: string, errorGroup: string) => {
-      console.log(`In Shardus got network error-${context} for request ID ${requestId} from node: ${JSON.stringify(node)}`)
+      console.log(`In Shardus got network error-${context} for request ID ${requestId} from node: ${logNode(node)}`)
       console.log(`Error group for request ID - ${requestId}: ${errorGroup}`)
       scheduleLostReport(node, 'error', requestId)
       /** [TODO] Report lost */
