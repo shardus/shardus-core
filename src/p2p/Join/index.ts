@@ -506,15 +506,9 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     // ----- should create preconfigured hooks for adding POW, allowing join based on netadmin sig, etc.
 
     // Check the signature as late as possible since it is expensive
-    if (!crypto.verify(joinRequest, joinRequest.nodeInfo.publicKey)) {
-      warn('join bad sign ' + JSON.stringify(joinRequest))
-      nestedCountersInstance.countEvent('p2p', `join-reject-bad-sign`)
-      return {
-        success: false,
-        reason: 'Bad signature',
-        fatal: true,
-      }
-    }
+    const validationErr = checkJoinRequestSignature(joinRequest);
+    if (validationErr) return validationErr;
+
     // Insert sorted into best list if we made it this far
     utils.insertSorted(requests, { ...joinRequest, selectionNum }, (a, b) =>
       a.selectionNum < b.selectionNum ? 1 : a.selectionNum > b.selectionNum ? -1 : 0
@@ -734,6 +728,19 @@ export function getSelectionKey(joinRequest: P2P.JoinTypes.JoinRequest): Result<
       })
     }
   }
+}
+
+export function checkJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
+  if (!crypto.verify(joinRequest, joinRequest.nodeInfo.publicKey)) {
+    warn('join bad sign ' + JSON.stringify(joinRequest))
+    nestedCountersInstance.countEvent('p2p', `join-reject-bad-sign`)
+    return {
+      success: false,
+      reason: 'Bad signature',
+      fatal: true,
+    }
+  }
+  return null
 }
 
 /**
