@@ -24,7 +24,7 @@ let newJoinRequests: JoinRequest[] = []
 /**
   * All join requests that have been received from other nodes.
   */
-const allJoinRequests: Map<P2P.P2PTypes.Node['publicKey'], JoinRequest[]> = new Map()
+const allJoinRequests: Map<P2P.P2PTypes.Node['publicKey'], JoinRequest> = new Map()
 
 /**
   * Pushes the join request onto the list of new join requests. Its node's info
