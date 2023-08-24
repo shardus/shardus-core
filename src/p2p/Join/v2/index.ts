@@ -89,3 +89,11 @@ export function getStandbyListHash(): hexstring | undefined {
 export function getLastHashedStandbyList(): StandbyAdditionInfo[] {
   return lastHashedList
 }
+
+export function getStandbyNodesInfoMap(): Map<P2P.JoinTypes.StandbyAdditionInfo['publicKey'], P2P.JoinTypes.StandbyAdditionInfo> {
+  return standbyNodesInfo
+}
+
+export function getAllJoinRequestsMap(): Map<P2P.P2PTypes.Node['publicKey'], P2P.JoinTypes.JoinRequest> {
+  return allJoinRequests
+}
