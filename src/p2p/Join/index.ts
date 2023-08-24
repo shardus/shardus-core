@@ -202,18 +202,11 @@ export function dropInvalidTxs(txs: P2P.JoinTypes.Txs): P2P.JoinTypes.Txs {
 }
 
 export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTypes.CycleRecord): void {
-  const joinedConsensors = txs.join.map((joinRequest) => {
-    const { nodeInfo, cycleMarker: cycleJoined } = joinRequest
-    const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
-    const counterRefreshed = record.counter
-    return { ...nodeInfo, cycleJoined, counterRefreshed, id }
-  })
-  /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("new desired count: ", record.desired)
   record.syncing = NodeList.byJoinOrder.length - NodeList.activeByIdOrder.length
-  record.joinedConsensors = joinedConsensors.sort()
 
-  // for join v2, add new standby nodes to the standbyAdd field
   if (config.p2p.useJoinProtocolV2) {
+    // for join v2, add new standby nodes to the standbyAdd field
+
     record.standbyAdd = [];
     for (const joinRequest of getNewJoinRequests()) {
       record.standbyAdd.push({
@@ -224,6 +217,18 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
     }
 
     clearNewJoinRequests();
+  } else {
+    // old protocol handling
+    record.joinedConsensors =
+      txs.join
+        .map((joinRequest) => {
+          const { nodeInfo, cycleMarker: cycleJoined } = joinRequest
+          const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
+          const counterRefreshed = record.counter
+          return { ...nodeInfo, cycleJoined, counterRefreshed, id }
+        })
+        .sort()
+    /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("new desired count: ", record.desired)
   }
 }
 
