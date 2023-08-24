@@ -493,7 +493,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     */
     const obj = {
       cycleNumber: CycleChain.newest.counter,
-      selectionKey: selectionKey ? selectionKey : node.publicKey,
+      selectionKey: selectionKey || node.publicKey,
     }
     const selectionNum = crypto.hash(obj)
     if (last && requests.length >= toAccept && !crypto.isGreaterHash(selectionNum, last.selectionNum)) {
