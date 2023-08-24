@@ -36,12 +36,13 @@ export function saveJoinRequest(joinRequest: JoinRequest): void {
   allJoinRequests.set(joinRequest.nodeInfo.publicKey, joinRequest)
 }
 
-export function getNewJoinRequests(): JoinRequest[] {
-  return newJoinRequests
-}
-
-export function clearNewJoinRequests(): void {
+/**
+  * Returns the list of new join requests and empties the list.
+  */
+export function drainNewJoinRequests(): JoinRequest[] {
+  const tmp = newJoinRequests
   newJoinRequests = []
+  return tmp
 }
 
 /**

@@ -17,7 +17,7 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { Logger } from 'log4js'
 import { calculateToAcceptV2 } from '../ModeSystemFuncs'
 import { routes } from './routes'
-import { clearNewJoinRequests, getNewJoinRequests } from './v2'
+import { drainNewJoinRequests } from './v2'
 import { err, ok, Result } from 'neverthrow'
 
 /** STATE */
@@ -207,17 +207,14 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
 
   if (config.p2p.useJoinProtocolV2) {
     // for join v2, add new standby nodes to the standbyAdd field
-
     record.standbyAdd = [];
-    for (const joinRequest of getNewJoinRequests()) {
+    for (const joinRequest of drainNewJoinRequests()) {
       record.standbyAdd.push({
         publicKey: joinRequest.nodeInfo.publicKey,
         ip: joinRequest.nodeInfo.externalIp,
         port: joinRequest.nodeInfo.externalPort,
       })
     }
-
-    clearNewJoinRequests();
   } else {
     // old protocol handling
     record.joinedConsensors =
