@@ -429,7 +429,7 @@ export function scheduleLostReport(target: P2P.NodeListTypes.Node, reason: strin
   const key = `${target.id}-${currentCycle}`
 
   if (scheduledForLostReport.has(key)) {
-    const previousScheduleValue = scheduledForLostReport.get(target.id)
+    const previousScheduleValue = scheduledForLostReport.get(key)
       /* prettier-ignore */ info(`Target node ${target.id} already scheduled for lost report. requestId: ${previousScheduleValue.requestId}.`)
       /* prettier-ignore */ info(`Previous scheduled lost report details for ${target.id}: ${JSON.stringify(previousScheduleValue)}`)
   }
