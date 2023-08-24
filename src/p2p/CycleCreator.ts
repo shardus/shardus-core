@@ -25,6 +25,7 @@ import { errorToStringFull, formatErrorMessage } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { randomBytes } from '@shardus/crypto-utils'
 import { digestCycle, syncNewCycles } from './Sync'
+import { executeNodeSelection } from './Join/v2/select'
 
 /** CONSTANTS */
 
@@ -409,6 +410,8 @@ function runQ2() {
   currentQuarter = 2
   Self.emitter.emit('cycle_q2_start')
   if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`)
+
+  executeNodeSelection()
 }
 
 /**
