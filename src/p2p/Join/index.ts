@@ -492,70 +492,78 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
   /* prettier-ignore */ if (logFlags && logFlags.verbose) { console.log(`results of calculateToAcceptV2: add: ${add}, remove: ${remove}`) }
   toAccept = add
 
-  // Check if we are better than the lowest selectionNum
-  const last = requests.length > 0 ? requests[requests.length - 1] : undefined
-  /*
-    (This is implemented on 22/12/2021 in commit 9bf8b052673d03e7b7ba0e36321bb8d2fee5cc37)
-    To calculate selectionNumber, we now use the hash of selectionKey and cycle number
-    Selection key is provided by the application , and we can hash that with the cycle number.
-    For example the application may want to use the staking address or the POW.
-    It should be something that the node cannot easily change to
-    guess a high selection number. If we generate a network
-    random number we have to be careful that a node inside the network
-    does not have an advantage by having access to this info and
-    is able to create a stronger selectionNum. If no selectionKey is provided,
-    joining node public key and cycle number are hashed to calculate selectionNumber.
-  */
-  const obj = {
-    cycleNumber: CycleChain.newest.counter,
-    selectionKey: selectionKey ? selectionKey : node.publicKey,
-  }
-  const selectionNum = crypto.hash(obj)
-  if (last && requests.length >= toAccept && !crypto.isGreaterHash(selectionNum, last.selectionNum)) {
-    if (logFlags.p2pNonFatal) info('Join request not better than lowest, not added.')
-    if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-hash-not-good-enough`)
+  if (!config.p2p.useJoinProtocolV2) {
+    // Check if we are better than the lowest selectionNum
+    const last = requests.length > 0 ? requests[requests.length - 1] : undefined
+    /*
+      (This is implemented on 22/12/2021 in commit 9bf8b052673d03e7b7ba0e36321bb8d2fee5cc37)
+      To calculate selectionNumber, we now use the hash of selectionKey and cycle number
+      Selection key is provided by the application , and we can hash that with the cycle number.
+      For example the application may want to use the staking address or the POW.
+      It should be something that the node cannot easily change to
+      guess a high selection number. If we generate a network
+      random number we have to be careful that a node inside the network
+      does not have an advantage by having access to this info and
+      is able to create a stronger selectionNum. If no selectionKey is provided,
+      joining node public key and cycle number are hashed to calculate selectionNumber.
+    */
+    const obj = {
+      cycleNumber: CycleChain.newest.counter,
+      selectionKey: selectionKey ? selectionKey : node.publicKey,
+    }
+    const selectionNum = crypto.hash(obj)
+    if (last && requests.length >= toAccept && !crypto.isGreaterHash(selectionNum, last.selectionNum)) {
+      if (logFlags.p2pNonFatal) info('Join request not better than lowest, not added.')
+      if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-hash-not-good-enough`)
+      return {
+        success: false,
+        reason: 'Join request not better than lowest, not added',
+        fatal: false,
+      }
+    }
+
+    // TODO: call into application
+    // ----- application should decide the ranking order of the join requests
+    // ----- if hook doesn't exist, then we go with default order based on selection number
+    // ----- hook signature = (currentList, newJoinRequest, numDesired) returns [newOrder, added]
+    // ----- should create preconfigured hooks for adding POW, allowing join based on netadmin sig, etc.
+
+    // Check the signature as late as possible since it is expensive
+    if (!crypto.verify(joinRequest, joinRequest.nodeInfo.publicKey)) {
+      warn('join bad sign ' + JSON.stringify(joinRequest))
+      nestedCountersInstance.countEvent('p2p', `join-reject-bad-sign`)
+      return {
+        success: false,
+        reason: 'Bad signature',
+        fatal: true,
+      }
+    }
+    // Insert sorted into best list if we made it this far
+    utils.insertSorted(requests, { ...joinRequest, selectionNum }, (a, b) =>
+      a.selectionNum < b.selectionNum ? 1 : a.selectionNum > b.selectionNum ? -1 : 0
+    )
+    if (logFlags.p2pNonFatal)
+      info(`Added join request for ${joinRequest.nodeInfo.externalIp}:${joinRequest.nodeInfo.externalPort}`)
+
+    // If we have > maxJoinedPerCycle requests, trim them down
+    if (logFlags.p2pNonFatal) info(`Requests: ${requests.length}, toAccept: ${toAccept}`)
+    if (requests.length > toAccept) {
+      const over = requests.length - toAccept
+      requests.splice(-over)
+      //    info(`Over maxJoinedPerCycle; removed ${over} requests from join requests`)
+    }
+
     return {
-      success: false,
-      reason: 'Join request not better than lowest, not added',
+      success: true,
+      reason: 'Join request accepted',
       fatal: false,
     }
-  }
-
-  // TODO: call into application
-  // ----- application should decide the ranking order of the join requests
-  // ----- if hook doesn't exist, then we go with default order based on selection number
-  // ----- hook signature = (currentList, newJoinRequest, numDesired) returns [newOrder, added]
-  // ----- should create preconfigured hooks for adding POW, allowing join based on netadmin sig, etc.
-
-  // Check the signature as late as possible since it is expensive
-  if (!crypto.verify(joinRequest, joinRequest.nodeInfo.publicKey)) {
-    warn('join bad sign ' + JSON.stringify(joinRequest))
-    nestedCountersInstance.countEvent('p2p', `join-reject-bad-sign`)
+  } else {
     return {
       success: false,
-      reason: 'Bad signature',
-      fatal: true,
+      reason: 'Join Protocol v2 is enabled, and selection is not implemented for Join Protocol v2 yet',
+      fatal: false,
     }
-  }
-  // Insert sorted into best list if we made it this far
-  utils.insertSorted(requests, { ...joinRequest, selectionNum }, (a, b) =>
-    a.selectionNum < b.selectionNum ? 1 : a.selectionNum > b.selectionNum ? -1 : 0
-  )
-  if (logFlags.p2pNonFatal)
-    info(`Added join request for ${joinRequest.nodeInfo.externalIp}:${joinRequest.nodeInfo.externalPort}`)
-
-  // If we have > maxJoinedPerCycle requests, trim them down
-  if (logFlags.p2pNonFatal) info(`Requests: ${requests.length}, toAccept: ${toAccept}`)
-  if (requests.length > toAccept) {
-    const over = requests.length - toAccept
-    requests.splice(-over)
-    //    info(`Over maxJoinedPerCycle; removed ${over} requests from join requests`)
-  }
-
-  return {
-    success: true,
-    reason: 'Join request accepted',
-    fatal: false,
   }
 }
 
