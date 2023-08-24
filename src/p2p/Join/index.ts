@@ -470,12 +470,6 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
   toAccept = add
 
   if (!config.p2p.useJoinProtocolV2) {
-    // get the selection key
-    const selectionKeyResult = getSelectionKey(joinRequest);
-    if (selectionKeyResult.isErr()) {
-      return selectionKeyResult.error;
-    }
-    const selectionKey = selectionKeyResult.value;
 
     // Check if we are better than the lowest selectionNum
     const last = requests.length > 0 ? requests[requests.length - 1] : undefined
@@ -491,11 +485,10 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
       is able to create a stronger selectionNum. If no selectionKey is provided,
       joining node public key and cycle number are hashed to calculate selectionNumber.
     */
-    const obj = {
-      cycleNumber: CycleChain.newest.counter,
-      selectionKey: selectionKey || node.publicKey,
-    }
-    const selectionNum = crypto.hash(obj)
+    const selectionNumResult = computeSelectionNum(joinRequest, node.publicKey);
+    if (selectionNumResult.isErr()) return selectionNumResult.error;
+    const selectionNum = selectionNumResult.value;
+
     if (last && requests.length >= toAccept && !crypto.isGreaterHash(selectionNum, last.selectionNum)) {
       if (logFlags.p2pNonFatal) info('Join request not better than lowest, not added.')
       if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-hash-not-good-enough`)
@@ -741,6 +734,27 @@ export function getSelectionKey(joinRequest: P2P.JoinTypes.JoinRequest): Result<
       })
     }
   }
+}
+
+/**
+  * Computes a selection number given a join request and a public key. The
+  * public key is used as a fallback for the selection key if the selection key
+  * cannot be retrieved.
+  */
+export function computeSelectionNum(joinRequest: P2P.JoinTypes.JoinRequest, publicKey: string): Result<string, JoinRequestResponse> {
+    // get the selection key
+    const selectionKeyResult = getSelectionKey(joinRequest);
+    if (selectionKeyResult.isErr()) {
+      return err(selectionKeyResult.error);
+    }
+    const selectionKey = selectionKeyResult.value;
+
+    // calculate the selection number based on the selection key
+    const obj = {
+      cycleNumber: CycleChain.newest.counter,
+      selectionKey: selectionKey || publicKey,
+    }
+    return ok(crypto.hash(obj))
 }
 
 function info(...msg: string[]): void {
