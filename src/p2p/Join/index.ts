@@ -76,7 +76,7 @@ export function getNodeRequestingJoin(): P2P.P2PTypes.P2PNode[] {
 }
 
 /** calculateToAccept - calculates the number of nodes to accept into the network */
-function calculateToAccept(): number {
+export function calculateToAccept(): number {
   const desired = CycleChain.newest.desired
   const active = CycleChain.newest.active
   let maxJoin = config.p2p.maxJoinedPerCycle // [TODO] allow autoscaling to change this
