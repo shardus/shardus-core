@@ -18,6 +18,7 @@ import { Logger } from 'log4js'
 import { calculateToAcceptV2 } from '../ModeSystemFuncs'
 import { routes } from './routes'
 import { clearNewJoinRequests, getNewJoinRequests } from './v2'
+import { err, ok, Result } from 'neverthrow'
 
 /** STATE */
 
@@ -383,35 +384,12 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     nestedCountersInstance.countEvent('p2p', `join-reject-bogon-ex:${er}`)
   }
 
-  let selectionKey: unknown
-
-  if (typeof shardus.app.validateJoinRequest === 'function') {
-    try {
-      mode = CycleChain.newest.mode || null
-      const validationResponse = shardus.app.validateJoinRequest(joinRequest, mode, CycleChain.newest, config.p2p.minNodes)
-
-      if (validationResponse.success !== true) {
-        error(`Validation of join request data is failed due to ${validationResponse.reason || 'unknown reason'}`)
-        nestedCountersInstance.countEvent('p2p', `join-reject-dapp`)
-        return {
-          success: validationResponse.success,
-          reason: validationResponse.reason,
-          fatal: validationResponse.fatal,
-        }
-      }
-      if (typeof validationResponse.data === 'string') {
-        selectionKey = validationResponse.data
-      }
-    } catch (e) {
-      warn(`shardus.app.validateJoinRequest failed due to ${e}`)
-      nestedCountersInstance.countEvent('p2p', `join-reject-ex ${e}`)
-      return {
-        success: false,
-        reason: `Could not validate join request due to Error`,
-        fatal: true,
-      }
-    }
+  const selectionKeyResult = getSelectionKey(joinRequest);
+  if (selectionKeyResult.isErr()) {
+    return selectionKeyResult.error;
   }
+  const selectionKey = selectionKeyResult.value;
+
   const node = joinRequest.nodeInfo
   if (logFlags.p2pNonFatal) info(`Got join request for ${node.externalIp}:${node.externalPort}`)
 
@@ -732,6 +710,36 @@ function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): JoinReq
   }
 
   return null
+}
+
+function getSelectionKey(joinRequest: P2P.JoinTypes.JoinRequest): Result<string, JoinRequestResponse> {
+  if (typeof shardus.app.validateJoinRequest === 'function') {
+    try {
+      mode = CycleChain.newest.mode || null
+      const validationResponse = shardus.app.validateJoinRequest(joinRequest, mode, CycleChain.newest, config.p2p.minNodes)
+
+      if (validationResponse.success !== true) {
+        error(`Validation of join request data is failed due to ${validationResponse.reason || 'unknown reason'}`)
+        nestedCountersInstance.countEvent('p2p', `join-reject-dapp`)
+        return err({
+          success: validationResponse.success,
+          reason: validationResponse.reason,
+          fatal: validationResponse.fatal,
+        })
+      }
+      if (typeof validationResponse.data === 'string') {
+        return ok(validationResponse.data)
+      }
+    } catch (e) {
+      warn(`shardus.app.validateJoinRequest failed due to ${e}`)
+      nestedCountersInstance.countEvent('p2p', `join-reject-ex ${e}`)
+      return err({
+        success: false,
+        reason: `Could not validate join request due to Error`,
+        fatal: true,
+      })
+    }
+  }
 }
 
 function info(...msg: string[]): void {
