@@ -5,8 +5,8 @@
 
 import { hexstring, P2P } from "@shardus/types";
 import { JoinRequest, StandbyAdditionInfo } from "@shardus/types/build/src/p2p/JoinTypes";
-import { crypto } from '../Context'
-import * as CycleChain from '../CycleChain'
+import { crypto } from '../../Context'
+import * as CycleChain from '../../CycleChain'
 import rfdc from 'rfdc'
 
 const clone = rfdc()
