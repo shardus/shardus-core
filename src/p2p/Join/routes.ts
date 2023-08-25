@@ -62,24 +62,24 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
     }
 
     //  Validate of joinReq is done in addJoinRequest
-    const validJoinRequest = addJoinRequest(joinRequest)
+    const joinRequestResponse = addJoinRequest(joinRequest)
 
     // if the join request was valid (not fatal) and the port was reachable, this join request is free to be
     // gossiped to all nodes according to Join Protocol v2
-    if (config.p2p.useJoinProtocolV2 && !validJoinRequest.fatal) {
+    if (config.p2p.useJoinProtocolV2 && !joinRequestResponse.fatal) {
       Comms.sendGossip('gossip-valid-join-requests', joinRequest, '', null, NodeList.byIdOrder, true)
     }
 
     // if the join request was valid and accepted, gossip that this join request
     // was accepted to other nodes
-    if (validJoinRequest.success) {
+    if (joinRequestResponse.success) {
       // only gossip join requests if we are still using the old join protocol
       if (!config.p2p.useJoinProtocolV2) {
         Comms.sendGossip('gossip-join', joinRequest, '', null, NodeList.byIdOrder, true)
         nestedCountersInstance.countEvent('p2p', 'initiate gossip-join')
       } else warn('join request received but not being gossiped for join protocol v2')
     }
-    return res.json(validJoinRequest)
+    return res.json(joinRequestResponse)
   },
 }
 
