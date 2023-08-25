@@ -764,19 +764,19 @@ export function checkJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest
   * cannot be retrieved.
   */
 export function computeSelectionNum(joinRequest: P2P.JoinTypes.JoinRequest, publicKey: string): Result<string, JoinRequestResponse> {
-    // get the selection key
-    const selectionKeyResult = getSelectionKey(joinRequest);
-    if (selectionKeyResult.isErr()) {
-      return err(selectionKeyResult.error);
-    }
-    const selectionKey = selectionKeyResult.value;
+  // get the selection key
+  const selectionKeyResult = getSelectionKey(joinRequest);
+  if (selectionKeyResult.isErr()) {
+    return err(selectionKeyResult.error);
+  }
+  const selectionKey = selectionKeyResult.value;
 
-    // calculate the selection number based on the selection key
-    const obj = {
-      cycleNumber: CycleChain.newest.counter,
-      selectionKey: selectionKey || publicKey,
-    }
-    return ok(crypto.hash(obj))
+  // calculate the selection number based on the selection key
+  const obj = {
+    cycleNumber: CycleChain.newest.counter,
+    selectionKey: selectionKey || publicKey,
+  }
+  return ok(crypto.hash(obj))
 }
 
 function info(...msg: string[]): void {
