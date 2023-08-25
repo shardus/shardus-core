@@ -17,8 +17,9 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { Logger } from 'log4js'
 import { calculateToAcceptV2 } from '../ModeSystemFuncs'
 import { routes } from './routes'
-import { drainNewJoinRequests } from './v2'
+import { drainNewJoinRequests, getAllJoinRequestsMap } from './v2'
 import { err, ok, Result } from 'neverthrow'
+import { drainSelectedPublicKeys } from './v2/select'
 
 /** STATE */
 
@@ -206,7 +207,7 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
   record.syncing = NodeList.byJoinOrder.length - NodeList.activeByIdOrder.length
 
   if (config.p2p.useJoinProtocolV2) {
-    // for join v2, add new standby nodes to the standbyAdd field
+    // for join v2, add new standby nodes to the standbyAdd field ...
     record.standbyAdd = [];
     for (const joinRequest of drainNewJoinRequests()) {
       record.standbyAdd.push({
@@ -215,6 +216,23 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
         port: joinRequest.nodeInfo.externalPort,
       })
     }
+
+    // ... and add any standby nodes that are now allowed to join
+    record.joinedConsensors =
+      drainSelectedPublicKeys()
+        .map((publicKey) => {
+          const joinRequest = getAllJoinRequestsMap().get(publicKey)
+
+          // TODO: does `cycleJoined` need to be updated? is it supposed
+          // to be the cycle that the node sent its join request, or the
+          // cycle that it became active? currently it is likely the cycle that
+          // the join request was sent
+          const { nodeInfo, cycleMarker: cycleJoined } = joinRequest
+          const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
+          const counterRefreshed = record.counter
+          return { ...nodeInfo, cycleJoined, counterRefreshed, id }
+        })
+        .sort();
   } else {
     // old protocol handling
     record.joinedConsensors =
@@ -298,7 +316,7 @@ export interface JoinRequestResponse {
  * Processes a join request by validating the joining node's information,
  * ensuring compatibility with the network's version, checking cryptographic signatures, and responding
  * with either an acceptance or rejection based on the provided criteria.
- * 
+ *
  * This function serves as a critical part of the network's security, allowing only valid and authenticated
  * nodes to participate in the network activities.
  *
