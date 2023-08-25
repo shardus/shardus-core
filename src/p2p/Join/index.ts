@@ -17,7 +17,7 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { Logger } from 'log4js'
 import { calculateToAcceptV2 } from '../ModeSystemFuncs'
 import { routes } from './routes'
-import { drainNewJoinRequests, getAllJoinRequestsMap } from './v2'
+import { drainNewJoinRequests, getAllJoinRequestsMap, getStandbyNodesInfoMap } from './v2'
 import { err, ok, Result } from 'neverthrow'
 import { drainSelectedPublicKeys } from './v2/select'
 
@@ -230,6 +230,10 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
           const { nodeInfo, cycleMarker: cycleJoined } = joinRequest
           const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
           const counterRefreshed = record.counter
+
+          // finally, remove the node from the standby list
+          getStandbyNodesInfoMap().delete(publicKey)
+
           return { ...nodeInfo, cycleJoined, counterRefreshed, id }
         })
         .sort();
