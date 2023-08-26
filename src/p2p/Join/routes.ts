@@ -14,6 +14,7 @@ import { isBogonIP } from '../../utils/functions/checkIP'
 import { isPortReachable } from '../../utils/isPortReachable'
 import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { profilerInstance } from '../../utils/profiler'
+import { saveJoinRequest } from './v2'
 
 const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
@@ -137,7 +138,10 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequ
   // do not forward gossip after quarter 2
   if (CycleCreator.currentQuarter > 2) return
 
-  // TODO: add join request to standby node list (not done yet)
+  // add the join request to the global list of join requests. this will also
+  // add it to the list of new join requests that will be processed as part of
+  // cycle creation to create a standy node list
+  saveJoinRequest(payload)
   Comms.sendGossip('gossip-valid-join-requests', payload, tracker, sender, NodeList.byIdOrder, false)
 }
 
