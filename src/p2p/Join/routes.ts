@@ -14,6 +14,8 @@ import { isBogonIP } from '../../utils/functions/checkIP'
 import { isPortReachable } from '../../utils/isPortReachable'
 import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { profilerInstance } from '../../utils/profiler'
+import * as acceptance from './v2/acceptance'
+import { attempt } from '../Utils'
 import { saveJoinRequest } from './v2'
 
 const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
@@ -105,6 +107,29 @@ const joinedRoute: P2P.P2PTypes.Route<Handler> = {
   },
 }
 
+const acceptedRoute: P2P.P2PTypes.Route<Handler> = {
+  method: 'GET',
+  name: 'accepted/:cycleMarker',
+  handler: async (req, res) => {
+    const cycleMarker = req.params.cycleMarker
+
+    try {
+      await attempt(async () => {
+        const result = await acceptance.confirmAcceptance(req.params.cycleMarker)
+        if (result.isErr()) {
+          throw result.error
+        } else if (!result.value) {
+          throw new Error(`this node was not found in cycle ${cycleMarker}; assuming not accepted`)
+        } else {
+          acceptance.getEventEmitter().emit('accepted')
+        }
+      })
+    } catch (err) {
+      res.status(400).json(err)
+    }
+  },
+}
+
 const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P.NodeListTypes.Node['id']> = (
   payload,
   sender,
@@ -146,7 +171,7 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequ
 }
 
 export const routes = {
-  external: [cycleMarkerRoute, joinRoute, joinedRoute],
+  external: [cycleMarkerRoute, joinRoute, joinedRoute, acceptedRoute],
   gossip: {
     'gossip-join': gossipJoinRoute,
     'gossip-valid-join-requests': gossipValidJoinRequests
