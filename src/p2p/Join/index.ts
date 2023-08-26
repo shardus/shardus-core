@@ -793,7 +793,7 @@ export function warn(...msg: string[]): void {
   p2pLogger.warn(entry)
 }
 
-function error(...msg: string[]): void {
+export function error(...msg: string[]): void {
   const entry = `Join: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
