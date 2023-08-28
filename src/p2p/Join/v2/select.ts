@@ -27,11 +27,16 @@ export function selectNodes(maxAllowed: number): void {
   // construct a list of objects that we'll sort by `selectionNum`. we'll use
   // the public key to get the join request associated with the public key and
   // inform the node later that it has been accepted
-  const objs = []
+  const objs: { publicKey: string, selectionNum: string }[] = []
   for (const publicKey of standbyNodesInfo.keys()) {
     const joinRequest = joinRequests.get(publicKey)
-    const selectionNum = computeSelectionNum(joinRequest, publicKey)
-    objs.push({ publicKey, selectionNum })
+
+    const selectionNumResult = computeSelectionNum(joinRequest, publicKey)
+    if (selectionNumResult.isErr()) {
+      console.error(`failed to compute selection number for node ${publicKey}:`, JSON.stringify(selectionNumResult.error))
+      continue
+    }
+    objs.push({ publicKey, selectionNum: selectionNumResult.value })
   }
 
   // sort the objects by their selection numbers
