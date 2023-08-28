@@ -17,6 +17,7 @@ import * as CycleCreator from './CycleCreator'
 import { calcIncomingTimes } from './CycleCreator'
 import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
+import * as Acceptance from './Join/v2/acceptance'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
 import { getNewestCycle } from './Sync'
@@ -242,14 +243,23 @@ async function joinNetwork(
     if (logFlags.p2pNonFatal) info('Waiting approx. one cycle then checking again...')
   }
 
-  // Wait until a Q4 before we loop ..
-  // This is a bit faster than before and should allow nodes to try joining
-  // without skipping a cycle
-  let untilQ4 = startQ4 - Date.now()
-  while (untilQ4 < 0) {
-    untilQ4 += latestCycle.duration * 1000
+  if (Context.config.p2p.useJoinProtocolV2) {
+    // if using join protocol v2, simply wait for the 'accepted' event to fire
+    await acceptedTrigger();
+
+    // then, we can fetch the id from the network and return
+    const id = await Join.fetchJoined(activeNodes)
+    return { isFirst, id }
+  } else {
+    // otherwise, wait until a Q4 before we loop ..
+    // This is a bit faster than before and should allow nodes to try joining
+    // without skipping a cycle
+    let untilQ4 = startQ4 - Date.now()
+    while (untilQ4 < 0) {
+      untilQ4 += latestCycle.duration * 1000
+    }
+    await utils.sleep(untilQ4 + 500)
   }
-  await utils.sleep(untilQ4 + 500)
 
   return {
     isFirst: undefined,
@@ -520,4 +530,12 @@ export function setIsFirst(val: boolean): void {
 
 export function getIsFirst(): boolean {
   return isFirst
+}
+
+function acceptedTrigger(): Promise<void> {
+  return new Promise((resolve) => {
+    Acceptance.getEventEmitter().once('accepted', () => {
+      resolve()
+    })
+  })
 }
