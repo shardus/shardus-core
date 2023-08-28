@@ -6,11 +6,11 @@
 import { getAllJoinRequestsMap, getStandbyNodesInfoMap } from ".";
 import { calculateToAccept, computeSelectionNum } from "..";
 
-let selectedPublicKeys: string[] = [];
+const selectedPublicKeys: Set<string> = new Set();
 
 export function executeNodeSelection(): void {
   const numToAccept = calculateToAccept()
-  selectedPublicKeys = selectNodes(numToAccept)
+  selectNodes(numToAccept)
 }
 
 /**
@@ -20,7 +20,7 @@ export function executeNodeSelection(): void {
   *
   * @returns The list of public keys of the nodes that have been selected.
   */
-export function selectNodes(maxAllowed: number): string[] {
+export function selectNodes(maxAllowed: number): void {
   const standbyNodesInfo = getStandbyNodesInfoMap()
   const joinRequests = getAllJoinRequestsMap()
 
@@ -38,21 +38,18 @@ export function selectNodes(maxAllowed: number): string[] {
   objs.sort((a, b) =>
     a.selectionNum < b.selectionNum ? 1 : a.selectionNum > b.selectionNum ? -1 : 0)
 
-  // remove any excess nodes if we are over the allowed limit
-  if (objs.length > maxAllowed) {
-    const excess = objs.length - maxAllowed
-    objs.splice(-excess)
-  }
-
-  return objs
+  // add as many keys as we're allowed to the set
+  while (selectedPublicKeys.size < maxAllowed && objs.length > 0)
+    selectedPublicKeys.add(objs.splice(0, 1)[0].publicKey)
 }
+
 
 /**
   * Returns the list of public keys of the nodes that have been selected and
   * empties the list.
   */
 export function drainSelectedPublicKeys(): string[] {
-  const tmp = selectedPublicKeys
-  selectedPublicKeys = []
+  const tmp = [...selectedPublicKeys.values()]
+  selectedPublicKeys.clear()
   return tmp
 }
