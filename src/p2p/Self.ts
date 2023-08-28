@@ -197,7 +197,7 @@ async function joinNetwork(
     // Check if joined by trying to set our node ID
     const id = await Join.fetchJoined(activeNodes)
     if (id) {
-      return { isFirst, id }
+      return { isFirst: false, id }
     }
   }
 
