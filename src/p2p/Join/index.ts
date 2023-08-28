@@ -17,7 +17,7 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { Logger } from 'log4js'
 import { calculateToAcceptV2 } from '../ModeSystemFuncs'
 import { routes } from './routes'
-import { drainNewJoinRequests, getAllJoinRequestsMap, getStandbyNodesInfoMap } from './v2'
+import { drainNewJoinRequests, getAllJoinRequestsMap, getStandbyNodesInfoMap, saveJoinRequest } from './v2'
 import { err, ok, Result } from 'neverthrow'
 import { drainSelectedPublicKeys } from './v2/select'
 
@@ -563,6 +563,9 @@ export async function firstJoin(): Promise<string> {
   const request = await createJoinRequest(zeroMarker)
   // Add own join request
   utils.insertSorted(requests, request)
+  if (config.p2p.useJoinProtocolV2) {
+    saveJoinRequest(request)
+  }
   // Return node ID
   return computeNodeId(crypto.keypair.publicKey, zeroMarker)
 }
