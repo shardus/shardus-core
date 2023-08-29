@@ -178,7 +178,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     fifoUnlockFix3: false,
     enableAccountFetchForQueueCounts: false,
     configChangeMaxCyclesToKeep: 5,
-    configChangeMaxChangesToKeep: 1000
+    configChangeMaxChangesToKeep: 1000,
   },
   sharding: { nodesPerConsensusGroup: 5, nodesPerEdge: 2, executeInOneShard: false },
   mode: ServerMode.Debug,
