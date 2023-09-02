@@ -18,6 +18,7 @@ import { profilerInstance } from '../utils/profiler'
 import * as Refresh from './Refresh'
 import * as Rotation from './Rotation'
 import * as SafetyMode from './SafetyMode'
+import * as Modes from './Modes'
 import * as Self from './Self'
 import { compareQuery, Comparison } from './Utils'
 import { errorToStringFull, formatErrorMessage } from '../utils'
@@ -39,17 +40,35 @@ let cycleLogger: Logger
 
 // don't forget to add new modules here
 //   need to keep the Lost module after the Apoptosis module
-export const submodules = [
-  Archivers,
-  Join,
-  Active,
-  Rotation,
-  Refresh,
-  Apoptosis,
-  Lost,
-  SafetyMode,
-  CycleAutoScale,
-]
+
+let submodules_temp = []
+if (config.p2p.useNetworkModes) {
+  submodules_temp = [
+    Archivers,
+    Join,
+    Active,
+    Rotation,
+    Refresh,
+    Apoptosis,
+    Lost,
+    Modes,
+    CycleAutoScale
+  ]
+} else {
+  submodules_temp = [
+    Archivers,
+    Join,
+    Active,
+    Rotation,
+    Refresh,
+    Apoptosis,
+    Lost,
+    SafetyMode,
+    CycleAutoScale
+  ]
+}
+
+export const submodules = submodules_temp
 
 export let currentQuarter = -1 // means we have not started creating cycles
 export let currentCycle = 0
