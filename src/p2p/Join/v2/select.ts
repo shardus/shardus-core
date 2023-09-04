@@ -35,7 +35,7 @@ export function selectNodes(maxAllowed: number): void {
     const joinRequest = joinRequests.get(publicKey)
 
     console.log("computing selection number for", publicKey)
-    const selectionNumResult = computeSelectionNum(joinRequest, publicKey)
+    const selectionNumResult = computeSelectionNum(joinRequest)
     if (selectionNumResult.isErr()) {
       console.error(`failed to compute selection number for node ${publicKey}:`, JSON.stringify(selectionNumResult.error))
       continue

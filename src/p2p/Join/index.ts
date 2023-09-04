@@ -507,7 +507,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
       is able to create a stronger selectionNum. If no selectionKey is provided,
       joining node public key and cycle number are hashed to calculate selectionNumber.
     */
-    const selectionNumResult = computeSelectionNum(joinRequest, node.publicKey);
+    const selectionNumResult = computeSelectionNum(joinRequest);
     if (selectionNumResult.isErr()) return selectionNumResult.error;
     const selectionNum = selectionNumResult.value;
 
@@ -725,6 +725,11 @@ function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): JoinReq
   return null
 }
 
+/**
+  * Returns the selection key pertaining to the given `joinRequest`. If
+  * `shardus.app.validateJoinRequest` is not a function, then the selection key
+  * is the public key of the node that sent the join request.
+  */
 function getSelectionKey(joinRequest: P2P.JoinTypes.JoinRequest): Result<string, JoinRequestResponse> {
   if (typeof shardus.app.validateJoinRequest === 'function') {
     try {
@@ -742,6 +747,8 @@ function getSelectionKey(joinRequest: P2P.JoinTypes.JoinRequest): Result<string,
       }
       if (typeof validationResponse.data === 'string') {
         return ok(validationResponse.data)
+      } else {
+        return ok(joinRequest.nodeInfo.publicKey)
       }
     } catch (e) {
       warn(`shardus.app.validateJoinRequest failed due to ${e}`)
@@ -752,6 +759,8 @@ function getSelectionKey(joinRequest: P2P.JoinTypes.JoinRequest): Result<string,
         fatal: true,
       })
     }
+  } else {
+    return ok(joinRequest.nodeInfo.publicKey)
   }
 }
 
@@ -769,11 +778,9 @@ export function checkJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest
 }
 
 /**
-  * Computes a selection number given a join request and a public key. The
-  * public key is used as a fallback for the selection key if the selection key
-  * cannot be retrieved.
+  * Computes a selection number given a join request.
   */
-export function computeSelectionNum(joinRequest: P2P.JoinTypes.JoinRequest, publicKey: string): Result<string, JoinRequestResponse> {
+export function computeSelectionNum(joinRequest: P2P.JoinTypes.JoinRequest): Result<string, JoinRequestResponse> {
   // get the selection key
   const selectionKeyResult = getSelectionKey(joinRequest);
   if (selectionKeyResult.isErr()) {
@@ -784,7 +791,7 @@ export function computeSelectionNum(joinRequest: P2P.JoinTypes.JoinRequest, publ
   // calculate the selection number based on the selection key
   const obj = {
     cycleNumber: CycleChain.newest.counter,
-    selectionKey: selectionKey || publicKey,
+    selectionKey: selectionKey,
   }
   return ok(crypto.hash(obj))
 }
