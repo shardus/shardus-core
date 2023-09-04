@@ -32,6 +32,7 @@ const allJoinRequests: Map<P2P.P2PTypes.Node['publicKey'], JoinRequest> = new Ma
   * digestion.
   */
 export function saveJoinRequest(joinRequest: JoinRequest): void {
+  console.log('saving join request:', joinRequest)
   newJoinRequests.push(joinRequest)
   allJoinRequests.set(joinRequest.nodeInfo.publicKey, joinRequest)
 }
@@ -40,6 +41,7 @@ export function saveJoinRequest(joinRequest: JoinRequest): void {
   * Returns the list of new join requests and empties the list.
   */
 export function drainNewJoinRequests(): JoinRequest[] {
+  console.log('draining new join requests:', newJoinRequests)
   const tmp = newJoinRequests
   newJoinRequests = []
   return tmp
@@ -49,6 +51,7 @@ export function drainNewJoinRequests(): JoinRequest[] {
   * Adds nodes to the standby node list.
   */
 export function addStandbyNodes(...nodes: StandbyAdditionInfo[]): void {
+  console.log('adding standby nodes:', nodes)
   for (const node of nodes) {
     standbyNodesInfo.set(node.publicKey, node)
   }
@@ -60,6 +63,7 @@ let lastHashedList: StandbyAdditionInfo[] = []
   * Returns the list of standby nodes, sorted by their public keys.
   */
 export function getSortedStandbyNodeList(): StandbyAdditionInfo[] {
+  console.log('getting sorted standby node list')
   return [...standbyNodesInfo.values()].sort((a, b) =>
     // using mathematical comparison in case localeCompare is inconsistent.
     // we will use a simple ternary statement for this that doens't account for
@@ -70,6 +74,7 @@ export function getSortedStandbyNodeList(): StandbyAdditionInfo[] {
 
 /** Calculates and returns a hash based on the list of standby nodes, sorted by public key. This will also update the recorded `lastHashedList` of nodes, which can be retrieved via `getLastHashedStandbyList`. */
 export function computeNewStandbyListHash(): hexstring {
+  console.log('computing new standby list hash')
   // set the lastHashedList to the current list by pubkey, then hash.
   // deep cloning is necessary as standby node information may be mutated by
   // reference.
@@ -83,18 +88,22 @@ export function computeNewStandbyListHash(): hexstring {
  * want to compute a new hash instead, use `computeNewStandbyListHash`.
  */
 export function getStandbyListHash(): hexstring | undefined {
+  console.log('getting standby list hash')
   return CycleChain.newest?.standbyNodeListHash
 }
 
 /** Returns the last list of standby information that had its hash computed. */
 export function getLastHashedStandbyList(): StandbyAdditionInfo[] {
+  console.log('getting last hashed standby list')
   return lastHashedList
 }
 
 export function getStandbyNodesInfoMap(): Map<P2P.JoinTypes.StandbyAdditionInfo['publicKey'], P2P.JoinTypes.StandbyAdditionInfo> {
+  console.log('getting standby nodes info map')
   return standbyNodesInfo
 }
 
 export function getAllJoinRequestsMap(): Map<P2P.P2PTypes.Node['publicKey'], P2P.JoinTypes.JoinRequest> {
+  console.log('getting all join requests map')
   return allJoinRequests
 }

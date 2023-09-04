@@ -10,6 +10,7 @@ const selectedPublicKeys: Set<string> = new Set();
 
 export function executeNodeSelection(): void {
   const numToAccept = calculateToAccept()
+  console.log(`selecting ${numToAccept} nodes to accept`)
   selectNodes(numToAccept)
 }
 
@@ -23,6 +24,8 @@ export function executeNodeSelection(): void {
 export function selectNodes(maxAllowed: number): void {
   const standbyNodesInfo = getStandbyNodesInfoMap()
   const joinRequests = getAllJoinRequestsMap()
+  console.log("selecting from standbyNodesInfo", standbyNodesInfo)
+  console.log("selecting from joinRequests", joinRequests)
 
   // construct a list of objects that we'll sort by `selectionNum`. we'll use
   // the public key to get the join request associated with the public key and
@@ -31,6 +34,7 @@ export function selectNodes(maxAllowed: number): void {
   for (const publicKey of standbyNodesInfo.keys()) {
     const joinRequest = joinRequests.get(publicKey)
 
+    console.log("computing selection number for", publicKey)
     const selectionNumResult = computeSelectionNum(joinRequest, publicKey)
     if (selectionNumResult.isErr()) {
       console.error(`failed to compute selection number for node ${publicKey}:`, JSON.stringify(selectionNumResult.error))

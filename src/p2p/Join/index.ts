@@ -218,10 +218,13 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
     }
 
     // ... and add any standby nodes that are now allowed to join
+    const selectedPublicKeys = drainSelectedPublicKeys()
+    console.log('selected public keys', selectedPublicKeys)
     record.joinedConsensors =
-      drainSelectedPublicKeys()
+      selectedPublicKeys
         .map((publicKey) => {
           const joinRequest = getAllJoinRequestsMap().get(publicKey)
+          console.log('selected join request', joinRequest)
 
           // TODO: does `cycleJoined` need to be updated? is it supposed
           // to be the cycle that the node sent its join request, or the
