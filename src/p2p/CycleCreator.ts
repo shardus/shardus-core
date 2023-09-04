@@ -311,6 +311,7 @@ async function cycleCreator() {
         // if node list hashes are not set at this point, set them to empty strings
         data.nodeListHash = data.nodeListHash || ''
         data.archiverListHash = data.archiverListHash || ''
+        data.standbyNodeListHash = data.standbyNodeListHash || ''
         await storage.addCycles(data)
       }
       lastSavedData = data
