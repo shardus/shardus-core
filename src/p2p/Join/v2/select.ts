@@ -3,6 +3,8 @@
   * to join the network.
   */
 
+import { crypto } from "../../Context";
+
 import { getAllJoinRequestsMap, getStandbyNodesInfoMap } from ".";
 import { calculateToAccept, computeSelectionNum } from "..";
 
@@ -61,4 +63,8 @@ export function drainSelectedPublicKeys(): string[] {
   const tmp = [...selectedPublicKeys.values()]
   selectedPublicKeys.clear()
   return tmp
+}
+
+export function forceSelectSelf(): void {
+  selectedPublicKeys.add(crypto.keypair.publicKey)
 }

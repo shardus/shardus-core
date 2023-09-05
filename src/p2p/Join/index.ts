@@ -19,7 +19,7 @@ import { calculateToAcceptV2 } from '../ModeSystemFuncs'
 import { routes } from './routes'
 import { drainNewJoinRequests, getAllJoinRequestsMap, getStandbyNodesInfoMap, saveJoinRequest } from './v2'
 import { err, ok, Result } from 'neverthrow'
-import { drainSelectedPublicKeys } from './v2/select'
+import { drainSelectedPublicKeys, forceSelectSelf } from './v2/select'
 
 /** STATE */
 
@@ -568,6 +568,7 @@ export async function firstJoin(): Promise<string> {
   utils.insertSorted(requests, request)
   if (config.p2p.useJoinProtocolV2) {
     saveJoinRequest(request)
+    forceSelectSelf()
   }
   // Return node ID
   return computeNodeId(crypto.keypair.publicKey, zeroMarker)
