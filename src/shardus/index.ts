@@ -42,6 +42,7 @@ import MemoryReporting from '../utils/memoryReporting'
 import NestedCounters, { nestedCountersInstance } from '../utils/nestedCounters'
 import Profiler, { profilerInstance } from '../utils/profiler'
 import { startSaving } from './saveConsoleOutput'
+import { isDebugMode } from '../debug'
 
 // the following can be removed now since we are not using the old p2p code
 //const P2P = require('../p2p')
@@ -2024,7 +2025,17 @@ class Shardus extends EventEmitter {
       let reportIntermediateStatus = req.query.reportIntermediateStatus === 'true'
       const nodeInfo = Self.getPublicNodeInfo(reportIntermediateStatus)
       const appData = this.app.getNodeInfoAppData()
-      res.json({ nodeInfo: { ...nodeInfo, appData } })
+      let result = { nodeInfo: { ...nodeInfo, appData } } as any
+      if (isDebugMode() && req.query.debug === 'true') {
+        result.debug = {
+          queriedWhen: new Date().toISOString(),
+          startedWhen: (new Date(Date.now() - process.uptime() * 1000)).toISOString(),
+          uptimeMins: (process.uptime() / 60).toFixed(2),
+          curCycleMarker: CycleChain.getCurrentCycleMarker() ?? null,
+          newestCycle: CycleChain.getNewest() ?? null,
+        }
+      }
+      res.json(result)
     })
     this.network.registerExternalGet('socketReport', isDebugModeMiddleware, async (req, res) => {
       res.json(await getSocketReport())
