@@ -41,34 +41,9 @@ let cycleLogger: Logger
 // don't forget to add new modules here
 //   need to keep the Lost module after the Apoptosis module
 
-let submodules_temp = []
-if (config.p2p.useNetworkModes) {
-  submodules_temp = [
-    Archivers,
-    Join,
-    Active,
-    Rotation,
-    Refresh,
-    Apoptosis,
-    Lost,
-    Modes,
-    CycleAutoScale
-  ]
-} else {
-  submodules_temp = [
-    Archivers,
-    Join,
-    Active,
-    Rotation,
-    Refresh,
-    Apoptosis,
-    Lost,
-    SafetyMode,
-    CycleAutoScale
-  ]
-}
+export let submodules = []
 
-export const submodules = submodules_temp
+console.log("under submodules: ", config)
 
 export let currentQuarter = -1 // means we have not started creating cycles
 export let currentCycle = 0
@@ -171,6 +146,35 @@ export function init() {
   cycleLogger = logger.getLogger('cycle')
 
   // Init submodules
+  if(config.p2p.useNetworkModes) {
+    submodules = [
+      Archivers,
+      Join,
+      Active,
+      Rotation,
+      Refresh,
+      Apoptosis,
+      Lost,
+      Modes,
+      CycleAutoScale
+    ]
+  } else {
+    submodules = [
+      Archivers,
+      Join,
+      Active,
+      Rotation,
+      Refresh,
+      Apoptosis,
+      Lost,
+      SafetyMode,
+      CycleAutoScale
+    ]
+  }
+
+  console.log("inside init: ", config)
+  console.log("submodules contents after if: ", submodules)
+
   for (const submodule of submodules) {
     if (submodule.init) submodule.init()
   }
@@ -456,6 +460,8 @@ async function runQ3() {
   // Get txs and create this cycle's record, marker, and cert
   txs = collectCycleTxs()
   ;({ record, marker, cert } = makeCycleData(txs, CycleChain.newest))
+
+  console.log("cycle record: ", record)
 
   /*
   info(`
