@@ -226,8 +226,8 @@ async function joinNetwork(
   const { startQ1, startQ4 } = calcIncomingTimes(latestCycle)
   if (logFlags.p2pNonFatal) info(`Next cycles Q1 start ${startQ1}; Currently ${Date.now()}`)
 
-  // only submit join requests if this is our first time or if we are using the old protocol
-  if (firstTime || !Context.config.p2p.useJoinProtocolV2) {
+  // only submit join requests if we are using the old protocol or if we have not yet successfully submitted a join request
+  if (!Context.config.p2p.useJoinProtocolV2 || !Join.getHasSubmittedJoinRequest()) {
     // Wait until a Q1 then send join request to active nodes
     let untilQ1 = startQ1 - Date.now()
     while (untilQ1 < 0) {

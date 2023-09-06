@@ -42,6 +42,11 @@ export function getAllowBogon(): boolean {
 
 let mode = null
 
+let hasSubmittedJoinRequest = false
+export function getHasSubmittedJoinRequest(): boolean {
+  return hasSubmittedJoinRequest
+}
+
 /** FUNCTIONS */
 
 /** CycleCreator Functions */
@@ -617,14 +622,20 @@ export async function submitJoin(
     }
   }
 
-  return Promise.all(promises).then((responses: JoinRequestResponse[]) => {
+  try {
+    const responses = await Promise.all(promises)
+
     for (const res of responses) {
       mainLogger.info(`Join Request Response: ${JSON.stringify(res)}`)
       if (res.fatal) {
         throw new Error(`Fatal: Join request Reason: ${res.reason}`)
       }
     }
-  })
+  } catch (e) {
+    throw new Error(`submitJoin: Error posting join request: ${e}`)
+  }
+
+  hasSubmittedJoinRequest = true
 }
 
 export async function fetchJoined(activeNodes: P2P.P2PTypes.Node[]): Promise<string> {
