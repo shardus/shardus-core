@@ -20,6 +20,7 @@ import { routes } from './routes'
 import { drainNewJoinRequests, getAllJoinRequestsMap, getStandbyNodesInfoMap, saveJoinRequest } from './v2'
 import { err, ok, Result } from 'neverthrow'
 import { drainSelectedPublicKeys, forceSelectSelf } from './v2/select'
+import * as acceptance from './v2/acceptance'
 
 /** STATE */
 
@@ -32,7 +33,6 @@ let seen: Set<P2P.P2PTypes.Node['publicKey']>
 let lastLoggedCycle = 0
 
 let allowBogon = false
-
 export function setAllowBogon(value: boolean): void {
   allowBogon = value
 }
@@ -583,8 +583,10 @@ export async function submitJoin(
   nodes: P2P.P2PTypes.Node[],
   joinRequest: P2P.JoinTypes.JoinRequest & P2P.P2PTypes.SignedObject
 ): Promise<void> {
-  // Send the join request to a handful of the active node all at once:w
+  // Send the join request to a handful of the active node all at once
   const selectedNodes = utils.getRandom(nodes, Math.min(nodes.length, 5))
+  acceptance.provideActiveNodes(selectedNodes)
+
   const promises = []
   if (logFlags.p2pNonFatal) info(`Sending join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`)
 
