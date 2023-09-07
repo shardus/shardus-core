@@ -1,5 +1,5 @@
 import { hexstring, P2P } from "@shardus/types";
-import { ok } from "neverthrow";
+import { err, ok } from "neverthrow";
 import { EventEmitter } from "events";
 import { Result } from "neverthrow";
 import * as http from '../../../http'
@@ -18,6 +18,10 @@ export function getEventEmitter(): EventEmitter {
 }
 
 export async function confirmAcceptance(onCycleMarker: hexstring): Promise<Result<boolean, Error>> {
+  if (activeNodes.length === 0) {
+    return err(new Error('no active nodes provided'))
+  }
+
   // we need to query for the cycle record from a node to confirm that we were,
   // in fact, accepted during the cycle
   const randomNode = getRandom(activeNodes, 1)[0]
