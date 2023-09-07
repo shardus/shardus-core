@@ -131,7 +131,7 @@ const acceptedRoute: P2P.P2PTypes.Route<Handler> = {
         }
       })
     } catch (err) {
-      res.status(400).json(err)
+      res.status(400).send(err)
     }
   },
 }
