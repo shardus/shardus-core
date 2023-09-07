@@ -2032,6 +2032,7 @@ class Shardus extends EventEmitter {
           queriedWhen: new Date().toISOString(),
           startedWhen: (new Date(Date.now() - process.uptime() * 1000)).toISOString(),
           uptimeMins: (process.uptime() / 60).toFixed(2),
+          pid: process.pid,
           currentQuarter: CycleCreator.currentQuarter,
           currentCycleMarker: CycleChain.getCurrentCycleMarker() ?? null,
           newestCycle: CycleChain.getNewest() ?? null,
