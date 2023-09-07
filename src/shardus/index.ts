@@ -18,6 +18,7 @@ import * as Context from '../p2p/Context'
 import { config } from '../p2p/Context'
 import * as AutoScaling from '../p2p/CycleAutoScale'
 import * as CycleChain from '../p2p/CycleChain'
+import * as CycleCreator from '../p2p/CycleCreator'
 import { netConfig } from '../p2p/CycleCreator'
 import * as GlobalAccounts from '../p2p/GlobalAccounts'
 import { scheduleLostReport } from '../p2p/Lost'
@@ -2031,7 +2032,8 @@ class Shardus extends EventEmitter {
           queriedWhen: new Date().toISOString(),
           startedWhen: (new Date(Date.now() - process.uptime() * 1000)).toISOString(),
           uptimeMins: (process.uptime() / 60).toFixed(2),
-          curCycleMarker: CycleChain.getCurrentCycleMarker() ?? null,
+          currentQuarter: CycleCreator.currentQuarter,
+          currentCycleMarker: CycleChain.getCurrentCycleMarker() ?? null,
           newestCycle: CycleChain.getNewest() ?? null,
         }
       }
