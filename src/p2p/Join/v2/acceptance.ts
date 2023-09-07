@@ -8,6 +8,11 @@ import { crypto } from "../../Context";
 import { JoinedConsensor } from "@shardus/types/build/src/p2p/JoinTypes";
 
 let activeNodes: P2P.P2PTypes.Node[] = []
+
+/**
+  * Provide a list of active nodes that the join protocol can use to confirm
+  * whether or not this node was accepted into the cycle.
+  */
 export function provideActiveNodes(nodes: P2P.P2PTypes.Node[]): void {
   activeNodes = nodes
 }
