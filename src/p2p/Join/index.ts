@@ -585,7 +585,6 @@ export async function submitJoin(
 ): Promise<void> {
   // Send the join request to a handful of the active node all at once
   const selectedNodes = utils.getRandom(nodes, Math.min(nodes.length, 5))
-  acceptance.provideActiveNodes(selectedNodes)
 
   const promises = []
   if (logFlags.p2pNonFatal) info(`Sending join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`)
@@ -614,6 +613,7 @@ export async function submitJoin(
     }
   }
 
+  acceptance.provideActiveNodes(selectedNodes)
   for (const node of selectedNodes) {
     try {
       promises.push(http.post(`${node.ip}:${node.port}/join`, joinRequest))
