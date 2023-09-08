@@ -34,8 +34,8 @@ export async function confirmAcceptance(onCycleMarker: hexstring): Promise<Resul
   let cycle: P2P.CycleCreatorTypes.CycleRecord
   try {
     cycle = await getCycleFromNode(randomNode, onCycleMarker)
-  } catch (err) {
-    return err(new Error(`error getting cycle from node ${randomNode.ip}:${randomNode.port}: ${err}`))
+  } catch (e) {
+    return err(new Error(`error getting cycle from node ${randomNode.ip}:${randomNode.port}: ${e}`))
   }
 
   const ourPublicKey = crypto.getPublicKey()
