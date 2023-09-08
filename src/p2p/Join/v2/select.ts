@@ -78,13 +78,12 @@ export async function notifyNewestJoinedConsensors(): Promise<void> {
 
     // no need to notify ourselves
     if (publicKey === crypto.keypair.publicKey) continue
-
     console.log('notifying node', publicKey, 'that it has been selected')
-    try {
-      await http.get(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted/${marker}`)
-    } catch (e) {
+
+    // make the call, but don't await. it might take a while.
+    http.get(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted/${marker}`).catch(e => {
       console.error(`failed to notify node ${publicKey} that it has been selected:`, e)
-    }
+    })
   }
 }
 
