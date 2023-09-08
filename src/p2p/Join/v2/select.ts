@@ -61,6 +61,7 @@ export function selectNodes(maxAllowed: number): void {
   * calling their `accepted` endpoints.`
   */
 export async function notifyNewestJoinedConsensors(): Promise<void> {
+  const marker = CycleChain.getCurrentCycleMarker()
   for (const joinedConsensor of CycleChain.newest.joinedConsensors) {
     const publicKey = joinedConsensor.publicKey
 
@@ -69,7 +70,7 @@ export async function notifyNewestJoinedConsensors(): Promise<void> {
 
     console.log('notifying node', publicKey, 'that it has been selected')
     try {
-      await http.get(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted/${CycleChain.getCurrentCycleMarker()}`)
+      await http.get(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted/${marker}`)
     } catch (e) {
       console.error(`failed to notify node ${publicKey} that it has been selected:`, e)
     }
