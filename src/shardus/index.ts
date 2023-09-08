@@ -44,6 +44,8 @@ import NestedCounters, { nestedCountersInstance } from '../utils/nestedCounters'
 import Profiler, { profilerInstance } from '../utils/profiler'
 import { startSaving } from './saveConsoleOutput'
 import { isDebugMode } from '../debug'
+import * as JoinV2 from '../p2p/Join/v2'
+
 
 // the following can be removed now since we are not using the old p2p code
 //const P2P = require('../p2p')
@@ -2022,6 +2024,7 @@ class Shardus extends EventEmitter {
     this.network.registerExternalGet('netconfig', async (req, res) => {
       res.json({ config: netConfig })
     })
+
     this.network.registerExternalGet('nodeInfo', async (req, res) => {
       let reportIntermediateStatus = req.query.reportIntermediateStatus === 'true'
       const nodeInfo = Self.getPublicNodeInfo(reportIntermediateStatus)
@@ -2031,7 +2034,7 @@ class Shardus extends EventEmitter {
         result.debug = {
           queriedWhen: new Date().toISOString(),
           startedWhen: (new Date(Date.now() - process.uptime() * 1000)).toISOString(),
-          uptimeMins: (process.uptime() / 60).toFixed(2),
+          uptimeMins: Math.round(100 * process.uptime() / 60) / 100,
           pid: process.pid,
           currentQuarter: CycleCreator.currentQuarter,
           currentCycleMarker: CycleChain.getCurrentCycleMarker() ?? null,
@@ -2040,6 +2043,27 @@ class Shardus extends EventEmitter {
       }
       res.json(result)
     })
+
+    this.network.registerExternalGet('joinInfo', isDebugModeMiddleware, async (req, res) => {
+      const nodeInfo = Self.getPublicNodeInfo(true)
+      res.json({
+        respondedWhen: new Date().toISOString(),
+        startedWhen: (new Date(Date.now() - process.uptime() * 1000)).toISOString(),
+        uptimeMins: Math.round(100 * process.uptime() / 60) / 100,
+        pid: process.pid,
+        publicKey: nodeInfo.publicKey,
+        id: nodeInfo.id,
+        status: nodeInfo.status,
+        currentQuarter: CycleCreator.currentQuarter,
+        currentCycleMarker: CycleChain.getCurrentCycleMarker() ?? null,
+        previousCycleMarker: CycleChain.getNewest()?.previous,
+        getStandbyListHash: JoinV2.getStandbyListHash(),
+        getLastHashedStandbyList: JoinV2.getLastHashedStandbyList(),
+        getSortedStandbyNodeList: JoinV2.getSortedStandbyNodeList(),
+        getSortedAllJoinRequestsMap: JoinV2.getSortedAllJoinRequestsMap(),
+      })
+    })
+
     this.network.registerExternalGet('socketReport', isDebugModeMiddleware, async (req, res) => {
       res.json(await getSocketReport())
     })
