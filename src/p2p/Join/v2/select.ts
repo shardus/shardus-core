@@ -4,6 +4,7 @@
   */
 
 import { crypto } from "../../Context";
+import * as Self from "../../Self";
 import * as CycleChain from "../../CycleChain";
 import * as http from '../../../http'
 
@@ -12,7 +13,17 @@ import { calculateToAccept, computeSelectionNum } from "..";
 
 const selectedPublicKeys: Set<string> = new Set();
 
+/**
+  * Decides how many nodes to accept into the network, then selects nodes that
+  * will be allowed to join. If this node isn't active yet, selection will be
+  * skipped.
+  */
 export function executeNodeSelection(): void {
+  if (!Self.isActive) {
+    console.warn('not selecting nodes because we are not active yet')
+    return
+  }
+
   const numToAccept = calculateToAccept()
   console.log(`selecting ${numToAccept} nodes to accept`)
   selectNodes(numToAccept)
