@@ -204,8 +204,9 @@ export function validateRecordTypes(rec: P2P.JoinTypes.Record): string {
 }
 
 export function dropInvalidTxs(txs: P2P.JoinTypes.Txs): P2P.JoinTypes.Txs {
-  const join = txs.join.filter(() => validateJoinRequest())
-  return { join }
+  // TODO drop any invalid join requests. NOTE: this has never been implemented
+  // yet, so this task is not a side effect of any work on join v2.
+  return { join: txs.join }
 }
 
 export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTypes.CycleRecord): void {
@@ -338,77 +339,9 @@ export interface JoinRequestResponse {
  * @throws {Error} Throws an error if the validation of the join request fails.
  */
 export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse {
-  if (Self.p2pIgnoreJoinRequests === true) {
-    if (logFlags.p2pNonFatal) info(`Join request ignored. p2pIgnoreJoinRequests === true`)
-    return {
-      success: false,
-      fatal: false,
-      reason: `Join request ignored. p2pIgnoreJoinRequests === true`,
-    }
-  }
-
-  // validate `joinRequest`'s types. if there was an error in validation, `errResult`
-  // will be non-null.
-  const errResult = verifyJoinRequestTypes(joinRequest);
-  if (errResult) return errResult;
-
-  if (config.p2p.checkVersion && !isEqualOrNewerVersion(version, joinRequest.version)) {
-    /* prettier-ignore */ warn(`version number is old. Our node version is ${version}. Join request node version is ${joinRequest.version}`)
-    nestedCountersInstance.countEvent('p2p', `join-reject-version ${joinRequest.version}`)
-    return {
-      success: false,
-      reason: `Old shardus core version, please statisfy at least ${version}`,
-      fatal: true,
-    }
-  }
-
-  //If the node that signed the request is not the same as the node that is joining
-  if (joinRequest.sign.owner != joinRequest.nodeInfo.publicKey) {
-    /* prettier-ignore */ warn(`join-reject owner != publicKey ${{ sign: joinRequest.sign.owner, info: joinRequest.nodeInfo.publicKey }}`)
-    nestedCountersInstance.countEvent('p2p', `join-reject owner != publicKey`)
-    return {
-      success: false,
-      reason: `Bad signature, sign owner and node attempted joining mismatched`,
-      fatal: true,
-    }
-  }
-
-  if (isIPv6(joinRequest.nodeInfo.externalIp)) {
-    warn('Got join request from IPv6')
-    nestedCountersInstance.countEvent('p2p', `join-reject-ipv6`)
-    return {
-      success: false,
-      reason: `Bad ip version, IPv6 are not accepted`,
-      fatal: true,
-    }
-  }
-
-  try {
-    //test or bogon IPs and reject the join request if they appear
-    if (allowBogon === false) {
-      if (isBogonIP(joinRequest.nodeInfo.externalIp)) {
-        warn('Got join request from Bogon IP')
-        nestedCountersInstance.countEvent('p2p', `join-reject-bogon`)
-        return {
-          success: false,
-          reason: `Bad ip, bogon ip not accepted`,
-          fatal: true,
-        }
-      }
-    } else {
-      //even if not checking bogon still reject other invalid IPs that would be unusable
-      if (isInvalidIP(joinRequest.nodeInfo.externalIp)) {
-        warn('Got join request from invalid reserved IP')
-        nestedCountersInstance.countEvent('p2p', `join-reject-reserved`)
-        return {
-          success: false,
-          reason: `Bad ip, reserved ip not accepted`,
-          fatal: true,
-        }
-      }
-    }
-  } catch (er) {
-    nestedCountersInstance.countEvent('p2p', `join-reject-bogon-ex:${er}`)
+  const response = validateJoinRequest(joinRequest)
+  if (response) {
+    return response
   }
 
   const node = joinRequest.nodeInfo
@@ -559,7 +492,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
   } else {
     return {
       success: false,
-      reason: 'Join Protocol v2 is enabled, and selection is not implemented for Join Protocol v2 yet',
+      reason: 'Join Protocol v2 is enabled and selection will happen eventually. Wait your turn!',
       fatal: false,
     }
   }
@@ -666,9 +599,94 @@ export async function fetchJoined(activeNodes: P2P.P2PTypes.Node[]): Promise<str
   }
 }
 
-function validateJoinRequest(): boolean {
-  // [TODO] Implement this
-  return true
+/**
+  * Returns a `JoinRequestResponse` object if the given `joinRequest` is invalid or rejected for any reason.
+  */
+function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
+  if (Self.p2pIgnoreJoinRequests === true) {
+    if (logFlags.p2pNonFatal) info(`Join request ignored. p2pIgnoreJoinRequests === true`)
+    return {
+      success: false,
+      fatal: false,
+      reason: `Join request ignored. p2pIgnoreJoinRequests === true`,
+    }
+  }
+
+  // validate `joinRequest`'s types. if there was an error in validation, `errResult`
+  // will be non-null.
+  const errResult = verifyJoinRequestTypes(joinRequest);
+  if (errResult) return errResult;
+
+  if (config.p2p.checkVersion && !isEqualOrNewerVersion(version, joinRequest.version)) {
+    /* prettier-ignore */ warn(`version number is old. Our node version is ${version}. Join request node version is ${joinRequest.version}`)
+    nestedCountersInstance.countEvent('p2p', `join-reject-version ${joinRequest.version}`)
+    return {
+      success: false,
+      reason: `Old shardus core version, please statisfy at least ${version}`,
+      fatal: true,
+    }
+  }
+
+  //If the node that signed the request is not the same as the node that is joining
+  if (joinRequest.sign.owner != joinRequest.nodeInfo.publicKey) {
+    /* prettier-ignore */ warn(`join-reject owner != publicKey ${{ sign: joinRequest.sign.owner, info: joinRequest.nodeInfo.publicKey }}`)
+    nestedCountersInstance.countEvent('p2p', `join-reject owner != publicKey`)
+    return {
+      success: false,
+      reason: `Bad signature, sign owner and node attempted joining mismatched`,
+      fatal: true,
+    }
+  }
+
+  if (isIPv6(joinRequest.nodeInfo.externalIp)) {
+    warn('Got join request from IPv6')
+    nestedCountersInstance.countEvent('p2p', `join-reject-ipv6`)
+    return {
+      success: false,
+      reason: `Bad ip version, IPv6 are not accepted`,
+      fatal: true,
+    }
+  }
+
+  // lastly, validate the IP of the join request. if this passes, validation
+  // passes
+  return validateJoinRequestHost(joinRequest)
+}
+
+/**
+  * Returns an error response if the given `joinRequest` is invalid or rejected
+  * based on its IP address.
+  */
+function validateJoinRequestHost(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
+  try {
+    //test or bogon IPs and reject the join request if they appear
+    if (allowBogon === false) {
+      if (isBogonIP(joinRequest.nodeInfo.externalIp)) {
+        warn('Got join request from Bogon IP')
+        nestedCountersInstance.countEvent('p2p', `join-reject-bogon`)
+        return {
+          success: false,
+          reason: `Bad ip, bogon ip not accepted`,
+          fatal: true,
+        }
+      }
+    } else {
+      //even if not checking bogon still reject other invalid IPs that would be unusable
+      if (isInvalidIP(joinRequest.nodeInfo.externalIp)) {
+        warn('Got join request from invalid reserved IP')
+        nestedCountersInstance.countEvent('p2p', `join-reject-reserved`)
+        return {
+          success: false,
+          reason: `Bad ip, reserved ip not accepted`,
+          fatal: true,
+        }
+      }
+    }
+  } catch (er) {
+    nestedCountersInstance.countEvent('p2p', `join-reject-bogon-ex:${er}`)
+  }
+
+  return null
 }
 
 export function computeNodeId(publicKey: string, cycleMarker: string): string {
