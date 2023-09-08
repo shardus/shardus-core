@@ -2046,7 +2046,7 @@ class Shardus extends EventEmitter {
 
     this.network.registerExternalGet('joinInfo', isDebugModeMiddleware, async (req, res) => {
       const nodeInfo = Self.getPublicNodeInfo(true)
-      res.json({
+      let result = {
         respondedWhen: new Date().toISOString(),
         startedWhen: (new Date(Date.now() - process.uptime() * 1000)).toISOString(),
         uptimeMins: Math.round(100 * process.uptime() / 60) / 100,
@@ -2061,7 +2061,8 @@ class Shardus extends EventEmitter {
         getLastHashedStandbyList: JoinV2.getLastHashedStandbyList(),
         getSortedStandbyNodeList: JoinV2.getSortedStandbyNodeList(),
         getSortedAllJoinRequestsMap: JoinV2.getSortedAllJoinRequestsMap(),
-      })
+      }
+      res.json(deepReplace(result, undefined, '__undefined__'))
     })
 
     this.network.registerExternalGet('socketReport', isDebugModeMiddleware, async (req, res) => {
@@ -2365,6 +2366,27 @@ class Shardus extends EventEmitter {
       signatures: signatures,
     }
   }
+}
+
+function deepReplace(obj: object | ArrayLike<any>, find: any, replace: any): any {
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      if (obj[i] === find) {
+        obj[i] = replace
+      } else if (typeof obj[i] === 'object' && obj[i] !== null) {
+        deepReplace(obj[i], find, replace)
+      }
+    }
+  } else if (typeof obj === 'object' && obj !== null) {
+    for (const key in obj) {
+      if (obj[key] === find) {
+        obj[key] = replace
+      } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+        deepReplace(obj[key], find, replace)
+      }
+    }
+  }
+  return obj
 }
 
 // tslint:disable-next-line: no-default-export
