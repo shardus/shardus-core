@@ -298,7 +298,11 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
   if (config.p2p.useSyncProtocolV2 || config.p2p.writeSyncProtocolV2) {
     cycle.nodeListHash = NodeList.computeNewNodeListHash()
     cycle.archiverListHash = Archivers.computeNewArchiverListHash()
-    cycle.standbyNodeListHash = JoinV2.computeNewStandbyListHash()
+
+    // for join v2, also get the standby node list hash
+    if (config.p2p.useJoinProtocolV2) {
+      cycle.standbyNodeListHash = JoinV2.computeNewStandbyListHash()
+    }
   }
 
   const marker = CycleCreator.makeCycleMarker(cycle)
