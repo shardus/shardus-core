@@ -17,11 +17,13 @@ export async function submitUnjoin(activeNodes: P2P.P2PTypes.Node[]): Promise<Re
   // TODO
 }
 
-/** 
-  * Deletes standby nodes and join requests associated with the unjoin request
-  * if the unjoin request is valid.
+/**
+  * Process a new unjoin request, adding it to the set of new unjoin requests
+  * that will be recorded in the next cycle.
+  *
+  * Returns with an error if the unjoin request is invalid.
   */
-export function processUnjoinRequest(unjoinRequest: UnjoinRequest): Result<void, Error> {
+export function processNewUnjoinRequest(unjoinRequest: UnjoinRequest): Result<void, Error> {
   return validateUnjoinRequest(unjoinRequest).map(() => {
     // TODO remove join request and standby node info
   })
