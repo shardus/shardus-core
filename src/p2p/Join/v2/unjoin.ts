@@ -10,6 +10,9 @@ export type UnjoinRequest = SignedObject<{
   publicKey: hexstring
 }>
 
+/** A Set of new public keys of nodes that have submitted unjoin requests. */
+const newUnjoinRequests: Set<hexstring> = new Set()
+
 /**
   * Submits a request to leave the network's standby node list.
   */
@@ -25,7 +28,7 @@ export async function submitUnjoin(activeNodes: P2P.P2PTypes.Node[]): Promise<Re
   */
 export function processNewUnjoinRequest(unjoinRequest: UnjoinRequest): Result<void, Error> {
   return validateUnjoinRequest(unjoinRequest).map(() => {
-    // TODO remove join request and standby node info
+    newUnjoinRequests.add(unjoinRequest.publicKey)
   })
 }
 
