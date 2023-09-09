@@ -16,7 +16,7 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { profilerInstance } from '../../utils/profiler'
 import * as acceptance from './v2/acceptance'
 import { attempt } from '../Utils'
-import { getStandbyNodesInfoMap, saveJoinRequest } from './v2'
+import { getStandbyNodesInfoMap, saveJoinRequest, UnjoinRequest } from './v2'
 
 const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
@@ -108,6 +108,14 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
   },
 }
 
+const unjoinRoute: P2P.P2PTypes.Route<Handler> = {
+  method: 'POST',
+  name: 'unjoin',
+  handler: (req, res) => {
+    // TODO
+  }
+}
+
 const joinedRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'joined/:publicKey',
@@ -190,10 +198,20 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequ
   Comms.sendGossip('gossip-valid-join-requests', payload, tracker, sender, NodeList.byIdOrder, false)
 }
 
+const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<UnjoinRequest, P2P.NodeListTypes.Node['id']> = (
+  payload: UnjoinRequest,
+  sender: P2P.NodeListTypes.Node['id'],
+  tracker: string,
+) => {
+  // TODO
+}
+
 export const routes = {
   external: [cycleMarkerRoute, joinRoute, joinedRoute, acceptedRoute],
   gossip: {
     'gossip-join': gossipJoinRoute,
-    'gossip-valid-join-requests': gossipValidJoinRequests
+    'gossip-valid-join-requests': gossipValidJoinRequests,
+    'gossip-unjoin': gossipUnjoinRequests,
   },
 }
+
