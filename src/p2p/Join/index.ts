@@ -820,9 +820,17 @@ export function computeSelectionNum<T extends P2P.JoinTypes.StandbyInfo>(joinReq
   // calculate the selection number based on the selection key
   const obj = {
     cycleNumber: CycleChain.newest.counter,
-    selectionKey: selectionKey,
+    selectionKey,
   }
-  return ok(crypto.hash(obj))
+  const selectionNum = crypto.hash(obj)
+
+  // save the selection num to the join request for join v2 so we don't have to
+  // calculate it again later
+  if (config.p2p.useJoinProtocolV2) {
+    joinRequest.selectionNum = selectionNum
+  }
+
+  return ok(selectionNum)
 }
 
 function info(...msg: string[]): void {
