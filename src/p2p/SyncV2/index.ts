@@ -47,40 +47,40 @@ export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<voi
   return syncValidValidatorList(activeNodes).andThen(([validatorList, validatorListHash]) =>
     syncArchiverList(activeNodes).andThen(([archiverList, archiverListHash]) =>
       syncStandbyNodeList(activeNodes).andThen((standbyNodeList) =>
-      syncLatestCycleRecord(activeNodes).andThen((cycle) => {
-        if (cycle.nodeListHash !== validatorListHash) {
-          return errAsync(
-            new Error(
-              `validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
+        syncLatestCycleRecord(activeNodes).andThen((cycle) => {
+          if (cycle.nodeListHash !== validatorListHash) {
+            return errAsync(
+              new Error(
+                `validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
+              )
             )
-          )
-        } else if (cycle.archiverListHash !== archiverListHash) {
-          return errAsync(
-            new Error(
-              `archiver list hash from received cycle (${cycle.archiverListHash}) does not match the hash received from robust query (${archiverListHash})`
+          } else if (cycle.archiverListHash !== archiverListHash) {
+            return errAsync(
+              new Error(
+                `archiver list hash from received cycle (${cycle.archiverListHash}) does not match the hash received from robust query (${archiverListHash})`
+              )
             )
-          )
-        }
+          }
 
-        NodeList.reset()
-        NodeList.addNodes(validatorList)
+          NodeList.reset()
+          NodeList.addNodes(validatorList)
 
           // add archivers
-        for (const archiver of archiverList) {
-          Archivers.archivers.set(archiver.publicKey, archiver)
-        }
+          for (const archiver of archiverList) {
+            Archivers.archivers.set(archiver.publicKey, archiver)
+          }
 
           // add standby nodes
           addStandbyNodes(...standbyNodeList)
 
           // add latest cycle
-        CycleChain.reset()
-        digestCycle(cycle, 'syncV2')
+          CycleChain.reset()
+          digestCycle(cycle, 'syncV2')
 
-        return okAsync(void 0)
-      })
+          return okAsync(void 0)
+        })
+      )
     )
-  )
   )
 }
 
