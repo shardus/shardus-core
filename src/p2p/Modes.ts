@@ -70,8 +70,9 @@ export function updateRecord(
     // Get safety mode field values from snapshot
     Object.assign(record, { mode: 'forming' })
   }
-  // If you're not the first node and the modules have just been swapped last cycle
+  // If you're not the first node
   else if (prev) {
+    //  if the modules have just been swapped last cycle
     if (prev.mode === undefined && prev.safetyMode !== undefined) {
       if(hasAlreadyEnteredProcessing === false) {
         record.mode = 'forming'
@@ -82,6 +83,7 @@ export function updateRecord(
       } else if (enterRecovery(prev.active)) {
         record.mode = 'recovery'
       }
+    // for all other cases
     } else {
       record.mode = prev.mode
 
