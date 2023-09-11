@@ -4,6 +4,7 @@ import * as Comms from './Comms'
 import * as Context from './Context'
 import * as Self from './Self'
 import { validateTypes } from '../utils'
+import { hasAlreadyEnteredProcessing } from './CycleCreator'
 
 
 /** STATE */
@@ -48,11 +49,11 @@ export function init() {
 
 export function reset() {}
 
-export function getTxs(): P2P.SafetyModeTypes.Txs {
+export function getTxs(): P2P.ModesTypes.Txs {
   return
 }
 
-export function dropInvalidTxs(txs: P2P.SafetyModeTypes.Txs): P2P.SafetyModeTypes.Txs {
+export function dropInvalidTxs(txs: P2P.ModesTypes.Txs): P2P.ModesTypes.Txs {
   return
 }
 
@@ -60,7 +61,7 @@ export function dropInvalidTxs(txs: P2P.SafetyModeTypes.Txs): P2P.SafetyModeType
 Given the txs and prev cycle record mutate the referenced record
 */
 export function updateRecord(
-  txs: P2P.SafetyModeTypes.Txs,
+  txs: P2P.ModesTypes.Txs,
   record: P2P.CycleCreatorTypes.CycleRecord,
   prev: P2P.CycleCreatorTypes.CycleRecord
 ) {
@@ -69,35 +70,49 @@ export function updateRecord(
     // Get safety mode field values from snapshot
     Object.assign(record, { mode: 'forming' })
   }
-  // If you're not the first node
-  else {
-    // Just copy the mode for now
-    if (prev) {
+  // If you're not the first node and the modules have just been swapped last cycle
+  else if (prev) {
+    if (prev.mode === undefined && prev.safetyMode !== undefined) {
+      if(hasAlreadyEnteredProcessing === false) {
+        record.mode = 'forming'
+      } else if (enterProcessing(prev.active)) {
+        record.mode = 'processing'
+      } else if (enterSafety(prev)) {
+        record.mode = 'safety'
+      } else if (enterRecovery(prev.active)) {
+        record.mode = 'recovery'
+      }
+    } else {
       record.mode = prev.mode
-    }
-  }
 
-  if (prev) {
-    // set mode to recovery
-    if (prev.mode !== 'forming' && enterRecovery(prev)) {
-        if (prev.mode !== 'recovery') {
-          record.mode = 'recovery'
+      if (prev.mode === 'forming') {
+        if (enterProcessing(prev.active)) {
+          record.mode = 'processing'
         }
-    // set mode to safety
-    } else if (prev.mode !== 'forming' && enterSafety(prev)) {
-        if (prev.mode !== 'safety') {
+      } else if (prev.mode === 'processing') {
+        if (enterRecovery(prev.active)) {
+          record.mode = 'recovery'
+        } else if (enterSafety(prev)) {
           record.mode = 'safety'
         }
-    // set mode to processing
-    } else if (enterProcessing(prev)) {
-      if (prev.mode !== 'processing') {
-        record.mode = 'processing'
+      } else if (prev.mode === 'safety') {
+        if (enterRecovery(prev.active)) {
+          record.mode = 'recovery'
+        } else if (enterProcessing(prev.active)) {
+          record.mode = 'processing'
+        }
+      } else if (prev.mode === 'recovery') {
+        if (enterSafety(prev)) {
+          record.mode = 'safety'
+        } else if (enterProcessing(prev.active)) {
+          record.mode = 'processing'
+        }
       }
     }
   }
 }
 
-export function validateRecordTypes(rec: P2P.SafetyModeTypes.Record): string {
+export function validateRecordTypes(rec: P2P.ModesTypes.Record): string {
   let err = validateTypes(rec, { mode: 's' })
   if (err) return err
   return ''
@@ -121,25 +136,23 @@ export function sendRequests() {}
 /* These functions make the code neater and easier to understand
 */
 
-function enterRecovery(prev: P2P.CycleCreatorTypes.CycleRecord): Boolean {
-  return prev.active < (0.5 * Context.config.p2p.minNodes)
+function enterRecovery(activeCount: number): Boolean {
+  return activeCount < (0.5 * Context.config.p2p.minNodes)
 }
 
-function enterSafety(prev: P2P.CycleCreatorTypes.CycleRecord): Boolean {
-  return prev.active < (0.9 * Context.config.p2p.minNodes)
+function enterSafety(prevRecord: P2P.CycleCreatorTypes.CycleRecord): Boolean {
+  if (prevRecord.mode === 'recovery') {
+    return prevRecord.active >= (0.6 * Context.config.p2p.minNodes) && prevRecord.active < (0.9 * Context.config.p2p.minNodes) 
+  } else {
+    return prevRecord.active >= (0.5 * Context.config.p2p.minNodes) && prevRecord.active < (0.9 * Context.config.p2p.minNodes) 
+  }
 }
 
-function enterProcessing(prev: P2P.CycleCreatorTypes.CycleRecord): Boolean {
-  let enterProcessing = false
+function enterProcessing(activeCount: number): Boolean {
   /* 
   In the future the change from recovery to processing will need to be updated in the recovery project.
   per Andrew, we may want a sticky state that doesn't enter processing until something indicates the data is restored,
   and we may even want the nodes to get to minnodes count before the archivers start patching data
   */
-  if (prev.mode === 'recovery') {
-    enterProcessing = prev.active >= Context.config.p2p.minNodes
-  } else {
-    enterProcessing = prev.active >= 0.9 * Context.config.p2p.minNodes
-  }
-  return enterProcessing
+  return activeCount >= Context.config.p2p.minNodes
 }

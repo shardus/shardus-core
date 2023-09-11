@@ -103,7 +103,6 @@ export async function startup(): Promise<boolean> {
       } else {
         //not in witness mode
       }
-
       // Otherwise, try to join the network
       ;({ isFirst, id } = await joinNetwork(activeNodes, firstTime))
     } catch (err) {
@@ -135,7 +134,6 @@ export async function startup(): Promise<boolean> {
 
   // Start creating cycle records
   await CycleCreator.startCycles()
-
   p2pSyncEnd = Date.now()
   p2pJoinTime = (p2pSyncEnd - p2pSyncStart) / 1000
 
@@ -233,7 +231,6 @@ async function joinNetwork(
 
   if (logFlags.p2pNonFatal) info(`Waiting ${untilQ1 + 500} ms for Q1 before sending join...`)
   await utils.sleep(untilQ1 + 500) // Not too early
-
   await Join.submitJoin(activeNodes, request)
 
   // Wait approx. one cycle then check again
@@ -259,7 +256,6 @@ async function joinNetwork(
 async function syncCycleChain(): Promise<void> {
   // You're already synced if you're first
   if (isFirst) return
-
   let synced = false
   while (!synced) {
     // Once joined, sync to the network
