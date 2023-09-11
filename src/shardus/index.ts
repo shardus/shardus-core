@@ -2060,7 +2060,6 @@ class Shardus extends EventEmitter {
         getStandbyListHash: JoinV2.getStandbyListHash(),
         getLastHashedStandbyList: JoinV2.getLastHashedStandbyList(),
         getSortedStandbyNodeList: JoinV2.getSortedStandbyNodeList(),
-        getSortedAllJoinRequestsMap: JoinV2.getSortedAllJoinRequestsMap(),
       }
       res.json(deepReplace(result, undefined, '__undefined__'))
     })

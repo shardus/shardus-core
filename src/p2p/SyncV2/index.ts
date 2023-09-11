@@ -22,7 +22,7 @@ import * as NodeList from '../NodeList'
 import * as CycleChain from '../CycleChain'
 import { initRoutes } from './routes'
 import { digestCycle } from '../Sync'
-import { StandbyAdditionInfo } from '@shardus/types/build/src/p2p/JoinTypes'
+import { StandbyInfo } from '@shardus/types/build/src/p2p/JoinTypes'
 import { addStandbyNodes } from '../Join/v2'
 
 /** Initializes logging and endpoints for Sync V2. */
@@ -157,7 +157,7 @@ function syncArchiverList(
  */
 function syncStandbyNodeList(
   activeNodes: P2P.SyncTypes.ActiveNode[]
-): ResultAsync<StandbyAdditionInfo[], Error> {
+): ResultAsync<StandbyInfo[], Error> {
   // run a robust query for the lastest archiver list hash
   return robustQueryForStandbyNodeListHash(activeNodes).andThen(({ value, winningNodes }) => {
     // get full archiver list from one of the winning nodes

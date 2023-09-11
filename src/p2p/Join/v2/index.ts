@@ -3,28 +3,26 @@
   * TODO: Rename this module later?
   */
 
-import { hexstring, P2P } from "@shardus/types";
-import { JoinRequest, StandbyAdditionInfo } from "@shardus/types/build/src/p2p/JoinTypes";
+import { hexstring } from "@shardus/types";
+import { JoinRequest, StandbyInfo } from "@shardus/types/build/src/p2p/JoinTypes";
 import { crypto } from '../../Context'
 import * as CycleChain from '../../CycleChain'
 import rfdc from 'rfdc'
 
 const clone = rfdc()
 
+/** Just a local convenience type. */
+type publickey = StandbyInfo['nodeInfo']['publicKey']
+
 /** The list of nodes that are currently on standby. */
-const standbyNodesInfo: Map<StandbyAdditionInfo['publicKey'], StandbyAdditionInfo> = new Map()
+const standbyNodesInfo: Map<publickey, StandbyInfo> = new Map()
 
 /**
   * New join requests received during the node's current cycle. This list is
-  * "flushed" when the cycle is digested. Its entries are added to `standbyNodeList` as part of cycle...
+  * "drained" when the cycle is digested. Its entries are added to `standbyNodeList` as part of cycle...
   * digestion. appetizing!
   */
-let newJoinRequests: JoinRequest[] = []
-
-/**
-  * All join requests that have been received from other nodes.
-  */
-const allJoinRequests: Map<P2P.P2PTypes.Node['publicKey'], JoinRequest> = new Map()
+let newStandbyInfos: StandbyInfo[] = []
 
 /**
   * Pushes the join request onto the list of new join requests. Its node's info
@@ -32,43 +30,47 @@ const allJoinRequests: Map<P2P.P2PTypes.Node['publicKey'], JoinRequest> = new Ma
   * digestion.
   */
 export function saveJoinRequest(joinRequest: JoinRequest): void {
+  const standbyAdditionInfo = {
+    nodeInfo: joinRequest.nodeInfo,
+    publicKey: joinRequest.nodeInfo.publicKey,
+    selectionNum: joinRequest.selectionNum,
+  }
   console.log('saving join request:', joinRequest)
-  newJoinRequests.push(joinRequest)
-  allJoinRequests.set(joinRequest.nodeInfo.publicKey, joinRequest)
+  newStandbyInfos.push(standbyAdditionInfo)
 }
 
 /**
-  * Returns the list of new join requests and empties the list.
+  * Returns the list of new standby info and empties the list.
   */
-export function drainNewJoinRequests(): JoinRequest[] {
-  console.log('draining new join requests:', newJoinRequests)
-  const tmp = newJoinRequests
-  newJoinRequests = []
+export function drainNewStandbyInfo(): StandbyInfo[] {
+  console.log('draining new standby info:', newStandbyInfos)
+  const tmp = newStandbyInfos
+  newStandbyInfos = []
   return tmp
 }
 
 /**
   * Adds nodes to the standby node list.
   */
-export function addStandbyNodes(...nodes: StandbyAdditionInfo[]): void {
+export function addStandbyNodes(...nodes: StandbyInfo[]): void {
   console.log('adding standby nodes:', nodes)
   for (const node of nodes) {
-    standbyNodesInfo.set(node.publicKey, node)
+    standbyNodesInfo.set(node.nodeInfo.publicKey, node)
   }
 }
 
-let lastHashedList: StandbyAdditionInfo[] = []
+let lastHashedList: StandbyInfo[] = []
 
 /**
   * Returns the list of standby nodes, sorted by their public keys.
   */
-export function getSortedStandbyNodeList(): StandbyAdditionInfo[] {
+export function getSortedStandbyNodeList(): StandbyInfo[] {
   console.log('getting sorted standby node list')
   return [...standbyNodesInfo.values()].sort((a, b) =>
     // using mathematical comparison in case localeCompare is inconsistent.
     // we will use a simple ternary statement for this that doens't account for
     // equality. this should be fine as no two public keys should be the same.
-    a.publicKey > b.publicKey ? 1 : -1
+    a.nodeInfo.publicKey > b.nodeInfo.publicKey ? 1 : -1
   )
 }
 
@@ -93,24 +95,12 @@ export function getStandbyListHash(): hexstring | undefined {
 }
 
 /** Returns the last list of standby information that had its hash computed. */
-export function getLastHashedStandbyList(): StandbyAdditionInfo[] {
+export function getLastHashedStandbyList(): StandbyInfo[] {
   console.log('getting last hashed standby list')
   return lastHashedList
 }
 
-export function getStandbyNodesInfoMap(): Map<P2P.JoinTypes.StandbyAdditionInfo['publicKey'], P2P.JoinTypes.StandbyAdditionInfo> {
+export function getStandbyNodesInfoMap(): Map<publickey, StandbyInfo> {
   console.log('getting standby nodes info map')
   return standbyNodesInfo
-}
-
-export function getAllJoinRequestsMap(): Map<P2P.P2PTypes.Node['publicKey'], P2P.JoinTypes.JoinRequest> {
-  console.log('getting all join requests map')
-  return allJoinRequests
-}
-
-export function getSortedAllJoinRequestsMap(): any {
-  let arr = []
-  for (const [key, value] of allJoinRequests.entries())
-    arr.push({ key, ...value })
-  return arr.sort((a, b) => a.key > b.key ? 1 : -1)
 }

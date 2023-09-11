@@ -8,7 +8,7 @@ import * as Self from "../../Self";
 import * as CycleChain from "../../CycleChain";
 import * as http from '../../../http'
 
-import { getAllJoinRequestsMap, getStandbyNodesInfoMap } from ".";
+import { getStandbyNodesInfoMap } from ".";
 import { calculateToAccept, computeSelectionNum } from "..";
 
 const selectedPublicKeys: Set<string> = new Set();
@@ -38,19 +38,15 @@ export function executeNodeSelection(): void {
   */
 export function selectNodes(maxAllowed: number): void {
   const standbyNodesInfo = getStandbyNodesInfoMap()
-  const joinRequests = getAllJoinRequestsMap()
   console.log("selecting from standbyNodesInfo", standbyNodesInfo)
-  console.log("selecting from joinRequests", joinRequests)
 
   // construct a list of objects that we'll sort by `selectionNum`. we'll use
   // the public key to get the join request associated with the public key and
   // inform the node later that it has been accepted
   const objs: { publicKey: string, selectionNum: string }[] = []
-  for (const publicKey of standbyNodesInfo.keys()) {
-    const joinRequest = joinRequests.get(publicKey)
-
+  for (const [publicKey, info] of standbyNodesInfo) {
     console.log("computing selection number for", publicKey)
-    const selectionNumResult = computeSelectionNum(joinRequest)
+    const selectionNumResult = computeSelectionNum(info)
     if (selectionNumResult.isErr()) {
       console.error(`failed to compute selection number for node ${publicKey}:`, JSON.stringify(selectionNumResult.error))
       continue

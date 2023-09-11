@@ -17,7 +17,7 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { Logger } from 'log4js'
 import { calculateToAcceptV2 } from '../ModeSystemFuncs'
 import { routes } from './routes'
-import { drainNewJoinRequests, getAllJoinRequestsMap, getStandbyNodesInfoMap, saveJoinRequest } from './v2'
+import { drainNewStandbyInfo, getStandbyNodesInfoMap, saveJoinRequest } from './v2'
 import { err, ok, Result } from 'neverthrow'
 import { drainSelectedPublicKeys, forceSelectSelf } from './v2/select'
 import * as acceptance from './v2/acceptance'
@@ -215,12 +215,8 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
 
   if (config.p2p.useJoinProtocolV2) {
     // for join v2, add new standby nodes to the standbyAdd field ...
-    for (const joinRequest of drainNewJoinRequests()) {
-      record.standbyAdd.push({
-        publicKey: joinRequest.nodeInfo.publicKey,
-        ip: joinRequest.nodeInfo.externalIp,
-        port: joinRequest.nodeInfo.externalPort,
-      })
+    for (const standbyNode of drainNewStandbyInfo()) {
+      record.standbyAdd.push(standbyNode)
     }
 
     // ... and add any standby nodes that are now allowed to join
@@ -229,14 +225,15 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
     record.joinedConsensors =
       selectedPublicKeys
         .map((publicKey) => {
-          const joinRequest = getAllJoinRequestsMap().get(publicKey)
-          console.log('selected join request', joinRequest)
+          const standbyInfo = getStandbyNodesInfoMap().get(publicKey)
+          console.log('selected standby node', standbyInfo)
 
           // TODO: does `cycleJoined` need to be updated? is it supposed
           // to be the cycle that the node sent its join request, or the
           // cycle that it became active? currently it is likely the cycle that
           // the join request was sent
-          const { nodeInfo, cycleMarker: cycleJoined } = joinRequest
+          const { nodeInfo } = standbyInfo
+          const cycleJoined = CycleChain.getCurrentCycleMarker()
           const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
           const counterRefreshed = record.counter
 
@@ -762,7 +759,7 @@ function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): JoinReq
   * `shardus.app.validateJoinRequest` is not a function, then the selection key
   * is the public key of the node that sent the join request.
   */
-function getSelectionKey(joinRequest: P2P.JoinTypes.JoinRequest): Result<string, JoinRequestResponse> {
+function getSelectionKey<T extends P2P.JoinTypes.StandbyInfo>(joinRequest: T): Result<string, JoinRequestResponse> {
   if (typeof shardus.app.validateJoinRequest === 'function') {
     try {
       mode = CycleChain.newest.mode || null
@@ -812,7 +809,7 @@ export function checkJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest
 /**
   * Computes a selection number given a join request.
   */
-export function computeSelectionNum(joinRequest: P2P.JoinTypes.JoinRequest): Result<string, JoinRequestResponse> {
+export function computeSelectionNum<T extends P2P.JoinTypes.StandbyInfo>(joinRequest: T): Result<string, JoinRequestResponse> {
   // get the selection key
   const selectionKeyResult = getSelectionKey(joinRequest);
   if (selectionKeyResult.isErr()) {
