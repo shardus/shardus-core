@@ -24,6 +24,7 @@ import { errorToStringFull, formatErrorMessage } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { randomBytes } from '@shardus/crypto-utils'
 import { digestCycle, syncNewCycles } from './Sync'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 /** CONSTANTS */
 
@@ -1016,7 +1017,7 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
       certs: bestCycleCert.get(bestMarker),
       record: bestRecord,
     }
-    const resp: CompareCertRes = await Comms.ask(node, 'compare-cert', req) // NEED to set the route string
+    const resp: CompareCertRes = await Comms.ask(node, 'compare-cert', req, false, '', TimeoutPriority.LOW) // NEED to set the route string
     if (!validateCertsRecordTypes(resp, 'compareCycleCert')) return [null, node]
     // [TODO] - submodules need to validate their part of the record
     if (!(resp && resp.certs && resp.certs[0].marker && resp.record)) {

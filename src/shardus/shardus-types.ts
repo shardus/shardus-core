@@ -545,6 +545,13 @@ export enum ServerMode {
   Debug = 'debug',
   Release = 'release',
 }
+/* This allows us to assign a timeout based on the priority of the request */
+export enum TimeoutPriority {
+  LOW = 1000,    // 1 second for a low priority request
+  MEDIUM = 5000,  // 5 seconds for a medium priority request
+  HIGH = 10000    // 10 seconds for a high priority request
+}
+
 
 export interface ServerConfiguration {
   /** The heartbeatInterval parameter is an Integer that defines the number of seconds between each heartbeat logged within shardus */

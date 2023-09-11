@@ -9,7 +9,7 @@ import { P2PModuleContext as P2P } from '../p2p/Context'
 import * as CycleChain from '../p2p/CycleChain'
 import * as Self from '../p2p/Self'
 import * as Shardus from '../shardus/shardus-types'
-import { TimestampReceipt } from '../shardus/shardus-types'
+import { TimeoutPriority, TimestampReceipt } from '../shardus/shardus-types'
 import Storage from '../storage'
 import * as utils from '../utils'
 import { Ordering } from '../utils'
@@ -370,7 +370,10 @@ class TransactionConsenus {
         cycleCounter,
         txId,
         tx,
-      })
+        }, 
+        false,
+        '',
+        TimeoutPriority.LOW)
       delete timestampReceipt.isResponse
       const isValid = this.crypto.verify(timestampReceipt, homeNode.node.publicKey)
       if (isValid) {

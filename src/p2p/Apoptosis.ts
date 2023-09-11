@@ -32,6 +32,7 @@ import { isDebugMode } from '../debug'
 import { profilerInstance } from '../utils/profiler'
 import getCallstack from '../utils/getCallstack'
 import { nestedCountersInstance } from '../utils/nestedCounters'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 /** STATE */
 
@@ -293,7 +294,7 @@ export async function apoptosizeSelf(message: string) {
     //  use ask instead of tell and expect the node to
     //          acknowledge it received the request by sending 'pass'
     if (node.id === Self.id) return null
-    const res = Comms.ask(node, internalRouteName, proposal)
+    const res = Comms.ask(node, internalRouteName, proposal, false, '', TimeoutPriority.LOW)
     return res
   }
   const eF = (item1, item2) => {

@@ -27,6 +27,7 @@ import { activeByIdOrder, byIdOrder, nodes } from './NodeList'
 import * as Self from './Self'
 import { generateUUID } from './Utils'
 import { CycleData } from '@shardus/types/build/src/p2p/CycleCreatorTypes'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 /** STATE */
 
@@ -684,7 +685,7 @@ async function isDownCheck(node) {
   info(`Checking internal connection for ${node.id}`)
 
   //using the 'apoptosize' route to check if the node is up.
-  const res = await Comms.ask(node, 'apoptosize', { id: 'isDownCheck' })
+  const res = await Comms.ask(node, 'apoptosize', { id: 'isDownCheck' }, false, '', TimeoutPriority.LOW)
   try {
     if (typeof res.s !== 'string') {
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', 'isDownCheck-down-1', 1)
