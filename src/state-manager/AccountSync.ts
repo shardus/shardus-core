@@ -28,6 +28,7 @@ import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { errorToStringFull } from '../utils'
 import SyncTracker from './SyncTracker'
 import { Logger as L4jsLogger } from 'log4js'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 const REDUNDANCY = 3
 
@@ -935,7 +936,7 @@ class AccountSync {
 
       // Various failure cases will alter the returned result so that it is tallied in a more orderly way.
       // The random numbers were kept to prevent the hash of results from being equal, but now custom equalFn takes care of this concern
-      let result = await this.p2p.ask(node, 'get_globalaccountreport', {})
+      let result = await this.p2p.ask(node, 'get_globalaccountreport', {}, false, '', TimeoutPriority.LOW)
       if (result === false) {
         /* prettier-ignore */ nestedCountersInstance.countEvent('sync', `DATASYNC: getRobustGlobalReport_${tag} result === false`)
         /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`ASK FAIL getRobustGlobalReport result === false node:${utils.stringifyReduce(node.id)}`)

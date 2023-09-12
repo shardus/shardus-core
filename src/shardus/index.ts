@@ -28,7 +28,7 @@ import * as Wrapper from '../p2p/Wrapper'
 import RateLimiting from '../rate-limiting'
 import Reporter from '../reporter'
 import * as ShardusTypes from '../shardus/shardus-types'
-import { WrappedData } from '../shardus/shardus-types'
+import { TimeoutPriority, WrappedData } from '../shardus/shardus-types'
 import * as Snapshot from '../snapshot'
 import StateManager from '../state-manager'
 import { CachedAppData, QueueCountsResult } from '../state-manager/state-manager-types'
@@ -2285,7 +2285,10 @@ class Shardus extends EventEmitter {
             hash,
             nodesToSign,
             appData,
-          })
+          }, 
+          false,
+          '',
+          TimeoutPriority.LOW)
         }),
         (res) => {
           if (res.success) return true

@@ -10,6 +10,7 @@ import { errorToStringFull } from '../utils'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 
 import DataSourceHelper from './DataSourceHelper'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 export default class SyncTracker {
   accountSync: AccountSync //parent sync manager
@@ -281,9 +282,10 @@ export default class SyncTracker {
           const result = await this.p2p.ask(
             this.dataSourceHelper.dataSourceNode,
             'get_account_data_by_list',
-            message
-          )
-
+            message,
+            false, 
+            '', 
+            TimeoutPriority.LOW)
           if (result == null) {
             /* prettier-ignore */ if (logFlags.verbose) if (logFlags.error) this.accountSync.mainLogger.error('ASK FAIL syncStateTableData result == null')
             if (this.dataSourceHelper.tryNextDataSourceNode('syncStateDataGlobals2') == false) {

@@ -12,6 +12,7 @@ import StateManager from '.'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { QueueEntry, AppliedVote, AccountHashCache, RequestStateForTxResp } from './state-manager-types'
 import { Logger as log4jsLogger } from 'log4js'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 class TransactionRepair {
   app: Shardus.App
@@ -511,7 +512,7 @@ class TransactionRepair {
                   txid: queueEntry.acceptedTx.txId,
                   timestamp: queueEntry.acceptedTx.timestamp,
                 }
-                result = await this.p2p.ask(node, 'request_state_for_tx_post', message) // not sure if we should await this.
+                result = await this.p2p.ask(node, 'request_state_for_tx_post', message, false, '', TimeoutPriority.LOW) // not sure if we should await this.
 
                 if (result == null) {
                   if (logFlags.verbose) {

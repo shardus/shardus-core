@@ -37,6 +37,7 @@ import {
 import stringify from 'fast-stable-stringify'
 import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
 import { Logger as L4jsLogger } from 'log4js'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 interface Receipt {
   tx: AcceptedTx
@@ -1880,7 +1881,7 @@ class TransactionQueue {
             txid: queueEntry.acceptedTx.txId,
             timestamp: queueEntry.acceptedTx.timestamp,
           }
-          const result: RequestStateForTxResp = await this.p2p.ask(node, 'request_state_for_tx', message)
+          const result: RequestStateForTxResp = await this.p2p.ask(node, 'request_state_for_tx', message, false, '', TimeoutPriority.LOW)
 
           if (result == null) {
             if (logFlags.verbose) {
@@ -2030,7 +2031,7 @@ class TransactionQueue {
         }
 
         const message = { txid: queueEntry.acceptedTx.txId, timestamp: queueEntry.acceptedTx.timestamp }
-        const result: RequestReceiptForTxResp = await this.p2p.ask(node, 'request_receipt_for_tx', message) // not sure if we should await this.
+        const result: RequestReceiptForTxResp = await this.p2p.ask(node, 'request_receipt_for_tx', message, false, '', TimeoutPriority.LOW) // not sure if we should await this.
 
         if (result == null) {
           if (logFlags.verbose) {
@@ -2160,8 +2161,10 @@ class TransactionQueue {
         const result: RequestReceiptForTxResp_old = await this.p2p.ask(
           node,
           'request_receipt_for_tx_old',
-          message
-        ) // not sure if we should await this.
+          message,
+          false, 
+          '', 
+          TimeoutPriority.LOW) // not sure if we should await this.
 
         if (result == null) {
           if (logFlags.verbose) {

@@ -17,6 +17,7 @@ import {
   QueueEntry,
   StringNodeObjectMap,
 } from './state-manager-types'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 class CachedAppDataManager {
   app: Shardus.App
@@ -438,8 +439,10 @@ class CachedAppDataManager {
       const r: CachedAppData | boolean = await this.p2p.ask(
         randomConsensusNode,
         'get_cached_app_data',
-        message
-      )
+        message,
+        false, 
+        '', 
+        TimeoutPriority.LOW)
       if (r === false) {
         if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteCachedAppData r === false')
       }

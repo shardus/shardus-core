@@ -76,6 +76,7 @@ import { ReceiptMapResult } from '@shardus/types/build/src/state-manager/StateMa
 import { Logger as Log4jsLogger } from 'log4js'
 import { NodeInfo } from '@shardus/types/build/src/p2p/P2PTypes'
 import { timingSafeEqual } from 'crypto'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 export type Callback = (...args: unknown[]) => void
 
@@ -2052,8 +2053,10 @@ class StateManager {
         const r: QueueCountsResponse | boolean = await this.p2p.ask(
           randomConsensusNode,
           'get_account_queue_count',
-          message
-        )
+          message,
+          false, 
+          '', 
+          TimeoutPriority.LOW)
         if (r === false) {
           if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteAccountQueueCount r === false')
         }
@@ -2145,8 +2148,10 @@ class StateManager {
       const r: GetAccountDataWithQueueHintsResp | boolean = await this.p2p.ask(
         randomConsensusNode,
         'get_account_data_with_queue_hints',
-        message
-      )
+        message,
+        false, 
+        '', 
+        TimeoutPriority.LOW)
       if (r === false) {
         if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteAccount r === false')
       }
@@ -2231,7 +2236,7 @@ class StateManager {
     }
 
     const message = { accountIds: [address] }
-    const result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
+    const result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message, false, '', TimeoutPriority.LOW)
     if (result === false) {
       if (logFlags.error) this.mainLogger.error('ASK FAIL getRemoteAccount result === false')
     }

@@ -36,6 +36,7 @@ import {
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { errorToStringFull, Ordering } from '../utils'
 import { Response } from 'express-serve-static-core'
+import { TimeoutPriority } from '../shardus/shardus-types'
 
 type Line = {
   raw: string
@@ -1614,7 +1615,7 @@ class AccountPatcher {
     const promises = []
     for (const [key, value] of requestMap) {
       try {
-        const promise = this.p2p.ask(key, 'get_trie_hashes', value)
+        const promise = this.p2p.ask(key, 'get_trie_hashes', value, false, '', TimeoutPriority.LOW)
         promises.push(promise)
       } catch (error) {
         this.statemanager_fatal('getChildrenOf failed', `getChildrenOf failed: ` + errorToStringFull(error))
@@ -1697,7 +1698,7 @@ class AccountPatcher {
     const promises = []
     for (const [key, value] of requestMap) {
       try {
-        const promise = this.p2p.ask(key, 'get_trie_accountHashes', value)
+        const promise = this.p2p.ask(key, 'get_trie_accountHashes', value, false, '', TimeoutPriority.LOW)
         promises.push(promise)
       } catch (error) {
         this.statemanager_fatal(
@@ -2826,8 +2827,10 @@ class AccountPatcher {
             const promise = this.p2p.ask(
               requestEntry.node,
               'get_account_data_by_hashes',
-              requestEntry.request
-            )
+              requestEntry.request,
+              false,
+              '',
+              TimeoutPriority.LOW)
             promises.push(promise)
             offset = offset + accountPerRequest
             getAccountStats.multiRequests++
@@ -2839,7 +2842,7 @@ class AccountPatcher {
 
           //would it be better to resync if we have a high number of errors?  not easy to answer this.
         } else {
-          const promise = this.p2p.ask(requestEntry.node, 'get_account_data_by_hashes', requestEntry.request)
+          const promise = this.p2p.ask(requestEntry.node, 'get_account_data_by_hashes', requestEntry.request, false, '', TimeoutPriority.LOW)
           promises.push(promise)
           getAccountStats.requested = requestEntry.request.accounts.length
         }
