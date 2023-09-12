@@ -547,9 +547,9 @@ export enum ServerMode {
 }
 /* This allows us to assign a timeout based on the priority of the request */
 export enum TimeoutPriority {
-  LOW = 1000,    // 1 second for a low priority request
-  MEDIUM = 5000,  // 5 seconds for a medium priority request
-  HIGH = 10000    // 10 seconds for a high priority request
+  LOW = 0,    // 1 second for a low priority request
+  MEDIUM = 2500,  // 5 seconds for a medium priority request
+  HIGH = 5000,    // 10 seconds for a high priority request
 }
 
 
