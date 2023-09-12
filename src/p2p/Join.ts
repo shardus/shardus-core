@@ -300,9 +300,6 @@ export function dropInvalidTxs(txs: P2P.JoinTypes.Txs): P2P.JoinTypes.Txs {
 }
 
 export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTypes.CycleRecord): void {
-  // TODO: REMOVE THIS
-  console.log('TEST: newest cycleRecord using CycleChain.newest:' + JSON.stringify(CycleChain.newest) )
-
   const joinedConsensors = txs.join.map((joinRequest) => {
     const { nodeInfo, cycleMarker: cycleJoined } = joinRequest
     const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
@@ -488,10 +485,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
   if (typeof shardus.app.validateJoinRequest === 'function') {
     try {
       mode = CycleChain.newest.mode
-      console.log(`TESTING: mode using CycleChain.newest.mode is ${mode}`)
-      // remove this comment before commit
-      // TEST: TODO [] need to see how Ahmed is implementing mode in his branch
-      
+
       const validationResponse = shardus.app.validateJoinRequest(joinRequest, mode)
       if (validationResponse.success !== true) {
         error(`Validation of join request data is failed due to ${validationResponse.reason || 'unknown reason'}`)

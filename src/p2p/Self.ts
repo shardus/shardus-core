@@ -207,7 +207,6 @@ async function joinNetwork(
     // Wait for Context.config.p2p.cycleDuration and try again
     throw new Error('Node not ready to join')
   }
-  console.log('TESTING: latestCycle in self.ts', latestCycle)
   // Create join request from latest cycle
   const request = await Join.createJoinRequest(latestCycle.previous)
 
