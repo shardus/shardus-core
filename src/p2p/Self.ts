@@ -20,6 +20,7 @@ import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
+import * as CycleChain from './CycleChain'
 
 /** STATE */
 
@@ -39,6 +40,8 @@ export let p2pSyncStart = 0
 export let p2pSyncEnd = 0
 
 export let p2pIgnoreJoinRequests = true
+
+let mode = null
 
 /*
   Records the state of the node (INITIALIZING -> STANDBY -> SYNCING -> ACTIVE)
@@ -196,7 +199,7 @@ async function joinNetwork(
 
   // Get latest cycle record from active nodes
   const latestCycle = await Sync.getNewestCycle(activeNodes)
-
+  mode = latestCycle.mode
   const publicKey = Context.crypto.getPublicKey()
   // [] TODO: remove this comment after mode as been typed from Ahmed's branch
   const isReadyToJoin = await Context.shardus.app.isReadyToJoin(latestCycle, publicKey, activeNodes, mode)
@@ -204,7 +207,7 @@ async function joinNetwork(
     // Wait for Context.config.p2p.cycleDuration and try again
     throw new Error('Node not ready to join')
   }
-
+  console.log('TESTING: latestCycle in self.ts', latestCycle)
   // Create join request from latest cycle
   const request = await Join.createJoinRequest(latestCycle.previous)
 
