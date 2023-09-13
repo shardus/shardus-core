@@ -199,9 +199,8 @@ async function joinNetwork(
 
   // Get latest cycle record from active nodes
   const latestCycle = await Sync.getNewestCycle(activeNodes)
-  mode = latestCycle.mode
+  mode = latestCycle.mode || null
   const publicKey = Context.crypto.getPublicKey()
-  // [] TODO: remove this comment after mode as been typed from Ahmed's branch
   const isReadyToJoin = await Context.shardus.app.isReadyToJoin(latestCycle, publicKey, activeNodes, mode)
   if (!isReadyToJoin) {
     // Wait for Context.config.p2p.cycleDuration and try again

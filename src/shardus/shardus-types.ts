@@ -296,7 +296,7 @@ export interface App {
     nodePublicKey: string,
     activeNodes: P2P.P2PTypes.Node[],
     // [] TODO: add type for mode by checking how Ahmed set the type...
-    mode: string
+    mode: P2P.ModesTypes.Record['mode']
   ) => Promise<boolean>
 
   getNodeInfoAppData?: () => any

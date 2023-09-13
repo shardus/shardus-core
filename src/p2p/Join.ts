@@ -484,7 +484,7 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
 
   if (typeof shardus.app.validateJoinRequest === 'function') {
     try {
-      mode = CycleChain.newest.mode
+      mode = CycleChain.newest.mode || null
 
       const validationResponse = shardus.app.validateJoinRequest(joinRequest, mode)
       if (validationResponse.success !== true) {
