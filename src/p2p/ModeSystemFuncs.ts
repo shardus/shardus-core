@@ -4,6 +4,7 @@ import * as Self from './Self'
 import { enterRecovery, enterSafety, enterProcessing } from './Modes' 
 import { config } from './Context'
 import { targetCount } from './CycleAutoScale'
+import { nestedCountersInstance } from '../utils/nestedCounters'
 
 export function calculateToAcceptV2() {
   const prevRecord = CycleChain.newest
@@ -12,6 +13,8 @@ export function calculateToAcceptV2() {
   // For now, we are using the desired value from the previous cycle. In the future, we should look at using the next desired value
   const desired = prevRecord.desired
   const target = targetCount
+
+  nestedCountersInstance.countEvent('p2p', `desired: ${desired}, target: ${target}, active: ${active}, syncing: ${syncing}`)
 
   let add = 0
   let remove = 0
@@ -43,7 +46,7 @@ export function calculateToAcceptV2() {
             }
 
             add = 0
-            remove = ~~(addRem)
+            remove = addRem
             console.log("ModeSystemFuncs: 2 return")
             return { add, remove }
           } else {
@@ -138,6 +141,7 @@ export function calculateToAcceptV2() {
       }
     }
   }
+  return { add, remove }
 }
 
 

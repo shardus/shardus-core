@@ -584,8 +584,10 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
 
   // Compute how many join request to accept
   const toAccept = calculateToAccept()
+  nestedCountersInstance.countEvent('p2p', `results of calculateToAccept: toAccept: ${toAccept}`)
   console.log("results of calculateToAccept: ", toAccept)
   const { add, remove } = calculateToAcceptV2()
+  nestedCountersInstance.countEvent('p2p', `results of calculateToAcceptV2: add: ${add}, remove: ${remove}`)
   console.log(`results of calculateToAcceptV2: add: ${add}, remove: ${remove}`)
 
   // Check if we are better than the lowest selectionNum
