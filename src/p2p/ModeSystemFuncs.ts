@@ -1,13 +1,13 @@
-import * as CycleChain from './CycleChain'
+
 import * as NodeList from './NodeList'
 import * as Self from './Self'
 import { enterRecovery, enterSafety, enterProcessing } from './Modes' 
 import { config } from './Context'
 import { targetCount } from './CycleAutoScale'
 import { nestedCountersInstance } from '../utils/nestedCounters'
+import { P2P } from '@shardus/types'
 
-export function calculateToAcceptV2() {
-  const prevRecord = CycleChain.newest
+export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecord) {
   const active = NodeList.activeByIdOrder.length
   const syncing = NodeList.byJoinOrder.length - NodeList.activeByIdOrder.length
   // For now, we are using the desired value from the previous cycle. In the future, we should look at using the next desired value
