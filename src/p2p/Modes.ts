@@ -138,11 +138,11 @@ export function sendRequests() {}
 /* These functions make the code neater and easier to understand
 */
 
-function enterRecovery(activeCount: number): Boolean {
+export function enterRecovery(activeCount: number): Boolean {
   return activeCount < (0.5 * Context.config.p2p.minNodes)
 }
 
-function enterSafety(prevRecord: P2P.CycleCreatorTypes.CycleRecord): Boolean {
+export function enterSafety(prevRecord: P2P.CycleCreatorTypes.CycleRecord): Boolean {
   if (prevRecord.mode === 'recovery') {
     return prevRecord.active >= (0.6 * Context.config.p2p.minNodes) && prevRecord.active < (0.9 * Context.config.p2p.minNodes) 
   } else {
@@ -150,7 +150,7 @@ function enterSafety(prevRecord: P2P.CycleCreatorTypes.CycleRecord): Boolean {
   }
 }
 
-function enterProcessing(activeCount: number): Boolean {
+export function enterProcessing(activeCount: number): Boolean {
   /* 
   In the future the change from recovery to processing will need to be updated in the recovery project.
   per Andrew, we may want a sticky state that doesn't enter processing until something indicates the data is restored,

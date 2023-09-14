@@ -179,7 +179,7 @@ function moduleMigration() {
   // removing SafetyMode from submodules and adding Modes
   submodules = submodules.filter((submodule) => submodule !== SafetyMode)
   submodules.push(Modes)
-  Modes.init()
+  submodules[submodules.length - 1].init()
 }
 
 function updateScaleFactor() {
