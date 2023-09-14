@@ -9,7 +9,7 @@ import * as CycleCreator from './CycleCreator'
 import * as CycleChain from './CycleChain'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { currentCycle } from './CycleCreator'
-import { calculateToAcceptV2 } from './ModeSystemFuncs'
+import { getExpiredRemovedV2 } from './ModeSystemFuncs'
 
 /** STATE */
 
@@ -85,8 +85,14 @@ export function updateRecord(
     return
   }
 
+  {
+    const { expired, removed } = getExpiredRemoved(prev.start, prev.desired, txs)
+    nestedCountersInstance.countEvent('p2p', `results of getExpiredRemoved: expired: ${expired} removed: ${removed.length}`, 1)
+  }
+
   // Allow the autoscale module to set this value
-  const { expired, removed } = getExpiredRemoved(prev, txs)
+  const { expired, removed } = getExpiredRemovedV2(prev, lastLoggedCycle, txs, info)
+  nestedCountersInstance.countEvent('p2p', `results of getExpiredRemovedV2: expired: ${expired} removed: ${removed.length}`, 1)
 
   record.expired = expired
   record.removed = removed // already sorted
@@ -118,10 +124,10 @@ export function sendRequests(): void {
 
 /** Returns the number of expired nodes and the list of removed nodes */
 export function getExpiredRemoved(
-  prevRecord: P2P.CycleCreatorTypes.CycleRecord,
+  start: P2P.CycleCreatorTypes.CycleRecord['start'],
+  desired: P2P.CycleCreatorTypes.CycleRecord['desired'],
   txs: P2P.RotationTypes.Txs & P2P.ApoptosisTypes.Txs
 ): { expired: number; removed: string[] } {
-  const start = prevRecord.start
   let expired = 0
   const removed = []
   NodeList.potentiallyRemoved.clear()
@@ -137,12 +143,9 @@ export function getExpiredRemoved(
   // initialize the max amount to remove to our config value
   let maxRemove = config.p2p.maxRotatedPerCycle
 
-  // calculate the target number of nodes
-  const { add, remove } = calculateToAcceptV2(prevRecord)
-  console.log(`results of getExpiredRemoved - calculateToAcceptV2: add: ${add}, remove: ${remove}`)
   // initialize `scaleDownRemove` to at most any "excess" nodes more than
   // desired. it can't be less than zero.
-  let scaleDownRemove = remove
+  let scaleDownRemove = Math.max(active - desired, 0)
 
   //only let the scale factor impart a partial influence based on scaleInfluenceForShrink
   const scaledAmountToShrink = getScaledAmountToShrink()
@@ -167,7 +170,7 @@ export function getExpiredRemoved(
           scaleFactor: CycleCreator.scaleFactor,
           scaleDownRemove,
           maxActiveNodesToRemove,
-          desired: prevRecord.desired,
+          desired,
           active,
           scaledAmountToShrink,
           maxRemove,
@@ -175,8 +178,6 @@ export function getExpiredRemoved(
         })
     )
   }
-
-  //TODO not sure we still need the following block anymore
 
   // Allows the network to scale down even if node rotation is turned off
   if (maxRemove < 1) {
@@ -187,7 +188,7 @@ export function getExpiredRemoved(
   }
 
   // never remove more nodes than the difference between active and desired
-  // if (maxRemove > active - desired) maxRemove = active - desired // [TODO] - this is handled inside calculateToAcceptV2
+  if (maxRemove > active - desired) maxRemove = active - desired
 
   // final clamp of max remove, but only if it is more than amountToShrink
   // to avoid messing up the calculation above this next part can only make maxRemove smaller.
@@ -196,8 +197,6 @@ export function getExpiredRemoved(
     // yes, this max could be baked in earlier, but I like it here for clarity
     maxRemove = Math.max(config.p2p.amountToShrink, maxActiveNodesToRemove)
   }
-
-  //TODO end of block
 
   // get list of nodes that have been requested to be removed
   const apoptosizedNodesList = []
