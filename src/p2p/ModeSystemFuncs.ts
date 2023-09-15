@@ -179,7 +179,7 @@ export function getExpiredRemovedV2(
 
   // calculate the target number of nodes
   const { add, remove } = calculateToAcceptV2(prevRecord)
-  console.log(`results of getExpiredRemoved - calculateToAcceptV2: add: ${add}, remove: ${remove}`)
+  nestedCountersInstance.countEvent('p2p', `results of getExpiredRemovedV2.calculateToAcceptV2: add: ${add}, remove: ${remove}`)
   // initialize `scaleDownRemove` to at most any "excess" nodes more than
   // desired. it can't be less than zero.
   let scaleDownRemove = remove
@@ -239,6 +239,7 @@ export function getExpiredRemovedV2(
 
   //TODO end of block
 
+  nestedCountersInstance.countEvent('p2p', `results of getExpiredRemovedV2: scaleDownRemove: ${scaleDownRemove}, maxActiveNodesToRemove: ${maxActiveNodesToRemove}, maxRemove: ${maxRemove}`)
   // get list of nodes that have been requested to be removed
   const apoptosizedNodesList = []
   for (const request of txs.apoptosis) {
