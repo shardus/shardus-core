@@ -21,6 +21,7 @@ import { drainNewStandbyInfo, getStandbyNodesInfoMap, saveJoinRequest } from './
 import { err, ok, Result } from 'neverthrow'
 import { drainSelectedPublicKeys, forceSelectSelf } from './v2/select'
 import * as acceptance from './v2/acceptance'
+import { drainNewUnjoinRequests } from './v2/unjoin'
 
 /** STATE */
 
@@ -212,6 +213,7 @@ export function dropInvalidTxs(txs: P2P.JoinTypes.Txs): P2P.JoinTypes.Txs {
 export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTypes.CycleRecord): void {
   record.syncing = NodeList.byJoinOrder.length - NodeList.activeByIdOrder.length
   record.standbyAdd = [];
+  record.standbyRemove = [];
 
   if (config.p2p.useJoinProtocolV2) {
     // for join v2, add new standby nodes to the standbyAdd field ...
@@ -219,7 +221,12 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       record.standbyAdd.push(standbyNode)
     }
 
-    // ... and add any standby nodes that are now allowed to join
+    // ... and unjoining nodes to the standbyRemove field ...
+    for (const publicKey of drainNewUnjoinRequests()) {
+      record.standbyRemove.push(publicKey)
+    }
+
+    // ... then add any standby nodes that are now allowed to join
     const selectedPublicKeys = drainSelectedPublicKeys()
     console.log('selected public keys', selectedPublicKeys)
     record.joinedConsensors = []
