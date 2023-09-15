@@ -5,6 +5,7 @@ import * as Context from './Context'
 import * as Self from './Self'
 import { validateTypes } from '../utils'
 import { hasAlreadyEnteredProcessing } from './CycleCreator'
+import * as NodeList from './NodeList'
 
 
 /** STATE */
@@ -65,6 +66,8 @@ export function updateRecord(
   record: P2P.CycleCreatorTypes.CycleRecord,
   prev: P2P.CycleCreatorTypes.CycleRecord
 ) {
+  const active = NodeList.activeByIdOrder.length
+
   // If you're the first node
   if (Self.isFirst) {
     // Get safety mode field values from snapshot
@@ -76,11 +79,11 @@ export function updateRecord(
     if (prev.mode === undefined && prev.safetyMode !== undefined) {
       if(hasAlreadyEnteredProcessing === false) {
         record.mode = 'forming'
-      } else if (enterProcessing(prev.active)) {
+      } else if (enterProcessing(active)) {
         record.mode = 'processing'
-      } else if (enterSafety(prev)) {
+      } else if (enterSafety(active, prev)) {
         record.mode = 'safety'
-      } else if (enterRecovery(prev.active)) {
+      } else if (enterRecovery(active)) {
         record.mode = 'recovery'
       }
     // for all other cases
@@ -88,25 +91,25 @@ export function updateRecord(
       record.mode = prev.mode
 
       if (prev.mode === 'forming') {
-        if (enterProcessing(prev.active)) {
+        if (enterProcessing(active)) {
           record.mode = 'processing'
         }
       } else if (prev.mode === 'processing') {
-        if (enterRecovery(prev.active)) {
+        if (enterRecovery(active)) {
           record.mode = 'recovery'
-        } else if (enterSafety(prev)) {
+        } else if (enterSafety(active, prev)) {
           record.mode = 'safety'
         }
       } else if (prev.mode === 'safety') {
-        if (enterRecovery(prev.active)) {
+        if (enterRecovery(active)) {
           record.mode = 'recovery'
-        } else if (enterProcessing(prev.active)) {
+        } else if (enterProcessing(active)) {
           record.mode = 'processing'
         }
       } else if (prev.mode === 'recovery') {
-        if (enterSafety(prev)) {
+        if (enterSafety(active, prev)) {
           record.mode = 'safety'
-        } else if (enterProcessing(prev.active)) {
+        } else if (enterProcessing(active)) {
           record.mode = 'processing'
         }
       }
@@ -142,11 +145,11 @@ export function enterRecovery(activeCount: number): Boolean {
   return activeCount < (0.5 * Context.config.p2p.minNodes)
 }
 
-export function enterSafety(prevRecord: P2P.CycleCreatorTypes.CycleRecord): Boolean {
+export function enterSafety(activeCount: number, prevRecord: P2P.CycleCreatorTypes.CycleRecord): Boolean {
   if (prevRecord.mode === 'recovery') {
-    return prevRecord.active >= (0.6 * Context.config.p2p.minNodes) && prevRecord.active < (0.9 * Context.config.p2p.minNodes) 
+    return activeCount >= (0.6 * Context.config.p2p.minNodes) && activeCount < (0.9 * Context.config.p2p.minNodes) 
   } else {
-    return prevRecord.active >= (0.5 * Context.config.p2p.minNodes) && prevRecord.active < (0.9 * Context.config.p2p.minNodes) 
+    return activeCount >= (0.5 * Context.config.p2p.minNodes) && activeCount < (0.9 * Context.config.p2p.minNodes) 
   }
 }
 
