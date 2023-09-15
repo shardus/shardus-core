@@ -21,7 +21,6 @@ export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecor
   const target = targetCount
   const rotate = config.p2p.maxRotatedPerCycle
   const cycle = CycleChain.newest.counter
-  const standby = Join.getNodeRequestingJoin().length
 
   nestedCountersInstance.countEvent('p2p', `desired: ${desired}, target: ${target}, active: ${active}, syncing: ${syncing}`)
   console.log(`prevCounter: ${prevRecord.counter}, desired: ${desired}, target: ${target}, active: ${active}, syncing: ${syncing}`)
@@ -139,11 +138,7 @@ export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecor
                 }
               }
 
-              //make sure we have enough standby nodes to rotate
-              if (rnum > standby ) {
-                rnum = standby
-              }
-
+              //TODO make sure we have enough standby nodes to rotate, once we have joinv2 implemented
               add = 0
               remove = rnum
             }
