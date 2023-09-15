@@ -139,8 +139,8 @@ export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecor
               }
 
               //TODO make sure we have enough standby nodes to rotate, once we have joinv2 implemented
-              add = 0
-              remove = rnum
+              add = rnum
+              remove = 0
             }
           }
           return { add, remove }
