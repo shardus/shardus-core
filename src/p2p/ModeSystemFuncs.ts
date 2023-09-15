@@ -279,14 +279,3 @@ export function getExpiredRemovedV2(
 
   return { expired, removed }
 }
-
-
-/** Returns a linearly interpolated value between `amountToShrink` and the same
-* multiplied by a `scaleFactor`. The result depends on the
-* `scaleInfluenceForShrink` */
-function getScaledAmountToShrink(): number {
-  const nonScaledAmount = config.p2p.amountToShrink
-  const scaledAmount = config.p2p.amountToShrink * CycleCreator.scaleFactor
-  const scaleInfluence = config.p2p.scaleInfluenceForShrink
-  return Math.floor(lerp(nonScaledAmount, scaledAmount, scaleInfluence))
-}
