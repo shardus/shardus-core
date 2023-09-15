@@ -9,6 +9,9 @@ import { P2P } from '@shardus/types'
 import { insertSorted, lerp } from '../utils'
 import * as CycleCreator from './CycleCreator'
 import * as CycleChain from './CycleChain'
+import * as Join from './Join'
+
+
 
 export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecord) {
   const active = NodeList.activeByIdOrder.length
@@ -16,6 +19,9 @@ export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecor
   // For now, we are using the desired value from the previous cycle. In the future, we should look at using the next desired value
   const desired = prevRecord.desired
   const target = targetCount
+  const rotate = config.p2p.maxRotatedPerCycle
+  const cycle = CycleChain.newest.counter
+  const standby = Join.getNodeRequestingJoin().length
 
   nestedCountersInstance.countEvent('p2p', `desired: ${desired}, target: ${target}, active: ${active}, syncing: ${syncing}`)
   console.log(`prevCounter: ${prevRecord.counter}, desired: ${desired}, target: ${target}, active: ${active}, syncing: ${syncing}`)
@@ -110,6 +116,39 @@ export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecor
             console.log("ModeSystemFuncs: 8 return")
             return { add, remove }
           }
+        } else {
+          // do rotation only when the number of active nodes equals target
+          if (rotate !== 0) {
+            let rnum = rotate; // num to rotate per cycle; can be less than 1; like 0.5 for every other cycle; -1 for auto
+            if (rnum < 0) {
+              rnum = active * 0.001;
+            } // rotate all nodes in 1000 cycles
+            if (rnum < 1) {
+              if (cycle % (1 / rnum) === 0) {
+                rnum = 1;
+              } // rotate every few cycles if less than 1000 nodes
+              else {
+                rnum = 0;
+              }
+            }
+            if (rnum > 0) {
+              if (rnum > active * 0.001) {
+                rnum = ~~(active * 0.001);
+                if (rnum < 1) {
+                  rnum = 1;
+                }
+              }
+
+              //make sure we have enough standby nodes to rotate
+              if (rnum > standby ) {
+                rnum = standby
+              }
+
+              add = 0
+              remove = rnum
+            }
+          }
+          return { add, remove }
         }
       }
     } else if (prevRecord.mode === 'safety') {
