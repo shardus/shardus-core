@@ -5,11 +5,14 @@
 
 import { hexstring } from "@shardus/types";
 import { JoinRequest, StandbyInfo } from "@shardus/types/build/src/p2p/JoinTypes";
-import { config, crypto } from '../../Context'
+import { config, crypto, p2p } from '../../Context'
 import * as CycleChain from '../../CycleChain'
 import * as Self from '../../Self'
 import rfdc from 'rfdc'
 import { executeNodeSelection, notifyNewestJoinedConsensors } from "./select";
+import { attempt } from "../../Utils";
+import { submitUnjoin } from "./unjoin";
+import { ResultAsync } from "neverthrow";
 
 const clone = rfdc()
 
@@ -129,4 +132,24 @@ export function getLastHashedStandbyList(): StandbyInfo[] {
 export function getStandbyNodesInfoMap(): Map<publickey, StandbyInfo> {
   console.log('getting standby nodes info map')
   return standbyNodesInfo
+}
+
+export async function shutdown(): Promise<void> {
+  // handle unjoining
+  const activeNodes = p2p.state.getActiveNodes()
+
+  const unjoinResult =
+    await ResultAsync.fromPromise(
+      attempt(async () => submitUnjoin(activeNodes), {
+        delay: 1000,
+        maxRetries: 5,
+      }),
+      (err) => err as Error
+    ).andThen((result) => result)
+
+  if (unjoinResult.isErr()) {
+    this.mainLogger.error('Failed send unjoin request:', unjoinResult.error)
+  } else {
+    this.mainLogger.info('Unjoin request sent')
+  }
 }
