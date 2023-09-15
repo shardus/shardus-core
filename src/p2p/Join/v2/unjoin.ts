@@ -2,6 +2,9 @@ import { SignedObject } from "@shardus/types/build/src/p2p/P2PTypes";
 import { crypto } from '../../Context'
 import { err, ok, Result } from "neverthrow";
 import { hexstring, P2P } from "@shardus/types";
+import * as utils from '../../../utils'
+import * as http from '../../../http'
+import { getStandbyNodesInfoMap } from ".";
 
 /**
   * A request to leave the network's standby node list.
@@ -16,8 +19,37 @@ const newUnjoinRequests: Set<hexstring> = new Set()
 /**
   * Submits a request to leave the network's standby node list.
   */
-export async function submitUnjoin(activeNodes: P2P.P2PTypes.Node[]): Promise<Result<void, Error>> {
-  // TODO
+export async function submitUnjoin(activeNodes: P2P.NodeListTypes.Node[]): Promise<Result<void, Error>> {
+  const unjoinRequest = crypto.sign({
+    publicKey: crypto.keypair.publicKey
+  })
+
+  // send the unjoin request to a handful of the active node all at once
+  const selectedNodes = utils.getRandom(activeNodes, Math.min(activeNodes.length, 5))
+
+  // gather up the promises pertaining to sending the unjoin request
+  const promises = []
+  for (const node of selectedNodes) {
+    try {
+      promises.push(http.post(`${node.externalIp}:${node.externalPort}/unjoin`, unjoinRequest))
+    } catch (err) {
+      return err(new Error(
+        `Fatal: submitUnjoin: Error posting unjoin request to ${node.externalIp}:${node.externalPort}: ${err}`
+      ))
+    }
+  }
+
+  try {
+    const responses = await Promise.all(promises)
+
+    for (const res of responses) {
+      if (res.fatal) {
+        return err(new Error(`Fatal: Fatal unjoin request with reason: ${res.reason}`))
+      }
+    }
+  } catch (e) {
+    return err(new Error(`submitUnjoin: Error posting unjoin request: ${e}`))
+  }
 }
 
 /**
