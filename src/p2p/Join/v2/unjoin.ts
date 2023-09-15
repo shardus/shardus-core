@@ -42,3 +42,13 @@ export function validateUnjoinRequest(unjoinRequest: UnjoinRequest): Result<void
     return err(new Error('unjoin request signature is invalid'))
   }
 }
+
+export function drainNewUnjoinRequests(): hexstring[] {
+  const drained = [...newUnjoinRequests.values()]
+  newUnjoinRequests.clear()
+  return drained
+}
+
+export function deleteStandbyNode(publicKey: hexstring): void {
+  getStandbyNodesInfoMap().delete(publicKey)
+}
