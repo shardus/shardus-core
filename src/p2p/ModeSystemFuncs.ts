@@ -26,7 +26,7 @@ export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecor
   if (prevRecord) {
     console.log("ModeSystemFuncs: passed prevRecord check")
     if (prevRecord.mode === 'forming') {
-      if (Self.isFirst) {
+      if (Self.isFirst && active < 1) {
         console.log("ModeSystemFuncs: seed node reaches here")
         add = target
         remove = 0
@@ -54,13 +54,7 @@ export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecor
             remove = Math.ceil(addRem)
             console.log("ModeSystemFuncs: 2 return")
             return { add, remove }
-          } else {
-            console.log("ModeSystemFuncs: 3 return")
-            return { add, remove }
           }
-        } else {
-          console.log("ModeSystemFuncs: 4 return")
-          return { add, remove }
         }
       }
     } else if (prevRecord.mode === 'processing') {
@@ -102,14 +96,32 @@ export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecor
               remove = Math.ceil(addRem)
               console.log("ModeSystemFuncs: 6 return")
               return { add, remove }
-            } else {
-              console.log("ModeSystemFuncs: 7 return")
-              return { add, remove }
             }
-          } else {
-            console.log("ModeSystemFuncs: 8 return")
-            return { add, remove }
           }
+        } else if (config.p2p.maxRotatedPerCycle !== 0) {
+          let rnum = config.p2p.maxRotatedPerCycle // num to rotate per cycle; can be less than 1; like 0.5 for every other cycle; -1 for auto
+          if (rnum < 0) { // rotate all nodes in 1000 cycles
+            rnum = active * 0.001 
+          }  
+          if (rnum < 1) {
+            if (prevRecord.counter % (1/rnum) === 0) { // rotate every few cycles if less than 1000 nodes
+              rnum = 1 
+            }  
+            else { 
+              rnum = 0 
+            }
+          }
+          if (rnum > 0){
+            if (rnum > active * 0.001) { 
+              rnum = ~~(active * 0.001)
+              if (rnum < 1) { 
+                rnum = 1
+              }
+            }
+            add = Math.ceil(rnum)
+            remove = 0
+          }
+          return { add, remove }
         }
       }
     } else if (prevRecord.mode === 'safety') {
