@@ -16,7 +16,8 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { profilerInstance } from '../../utils/profiler'
 import * as acceptance from './v2/acceptance'
 import { attempt } from '../Utils'
-import { getStandbyNodesInfoMap, saveJoinRequest, UnjoinRequest } from './v2'
+import { getStandbyNodesInfoMap, saveJoinRequest } from './v2'
+import { processNewUnjoinRequest, UnjoinRequest } from './v2/unjoin'
 
 const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
@@ -113,7 +114,7 @@ const unjoinRoute: P2P.P2PTypes.Route<Handler> = {
   name: 'unjoin',
   handler: (req, res) => {
     const joinRequest = req.body
-    const processResult = processUnjoinRequest(joinRequest)
+    const processResult = processNewUnjoinRequest(joinRequest)
     if (processResult.isErr()) {
       return res.status(500).send(processResult.error)
     }
@@ -209,7 +210,7 @@ const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<UnjoinRequest, P2P.NodeLi
   sender: P2P.NodeListTypes.Node['id'],
   tracker: string,
 ) => {
-  const processResult = processUnjoinRequest(payload)
+  const processResult = processNewUnjoinRequest(payload)
   if (processResult.isErr()) {
     warn(`gossip-unjoin failed to process unjoin request: ${processResult.error}`)
     return
