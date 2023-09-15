@@ -15,6 +15,7 @@ export function calculateToAcceptV2() {
   const target = targetCount
 
   nestedCountersInstance.countEvent('p2p', `desired: ${desired}, target: ${target}, active: ${active}, syncing: ${syncing}`)
+  console.log(`prevCounter: ${prevRecord.counter}, desired: ${desired}, target: ${target}, active: ${active}, syncing: ${syncing}`)
 
   let add = 0
   let remove = 0
@@ -29,8 +30,9 @@ export function calculateToAcceptV2() {
         return { add, remove }
       } else if (active != desired) {
         let addRem = target - (active + syncing)
+        console.log(`under forming active != desired; addRem: ${addRem}`)
         if (addRem > 0) {
-          add = addRem
+          add = Math.ceil(addRem)
           remove = 0
           console.log("ModeSystemFuncs: 1 return")
           return { add, remove }
@@ -46,7 +48,7 @@ export function calculateToAcceptV2() {
             }
 
             add = 0
-            remove = addRem
+            remove = Math.ceil(addRem)
             console.log("ModeSystemFuncs: 2 return")
             return { add, remove }
           } else {
@@ -59,7 +61,7 @@ export function calculateToAcceptV2() {
         }
       }
     } else if (prevRecord.mode === 'processing') {
-      if (enterSafety(prevRecord) === false) {
+      if (enterSafety(active, prevRecord) === false && enterRecovery(active) === false) {
         if (active !== ~~target) {
           // calculate nodes to add or remove
           let addRem = target - (active + syncing)
@@ -71,13 +73,14 @@ export function calculateToAcceptV2() {
               }
             }
 
-            add = addRem
+            add = Math.ceil(addRem)
             remove = 0
             console.log("ModeSystemFuncs: 5 return")
             return { add, remove }
           }
           if (addRem < 0) {
             addRem = active - target   // only remove the active nodes more than target
+            console.log(`addRem in processing: ${addRem}`)
             if (addRem > active * 0.05) { // limit nodes removed to 5% of active; this should not happen
               console.log("unexpected addRem > 5% of active", addRem, active, target, desired)
               addRem = ~~(active * 0.05)
@@ -85,6 +88,7 @@ export function calculateToAcceptV2() {
                 addRem = 1 
               }
             } 
+            console.log(`next addRem in processing: ${addRem}`)
             if (addRem > 0) {
               if (addRem > active * 0.05) { // don't ever remove more than 10% of active per cycle
                 addRem = active * 0.05
@@ -93,7 +97,7 @@ export function calculateToAcceptV2() {
                 addRem = 1 
               }
               add = 0
-              remove = addRem
+              remove = Math.ceil(addRem)
               console.log("ModeSystemFuncs: 6 return")
               return { add, remove }
             } else {
@@ -107,7 +111,7 @@ export function calculateToAcceptV2() {
         }
       }
     } else if (prevRecord.mode === 'safety') {
-      if (enterProcessing(prevRecord.active) === false && enterRecovery(prevRecord.active) === false) {
+      if (enterProcessing(active) === false && enterRecovery(active) === false) {
         let addRem = 1.02 * config.p2p.minNodes - (active + syncing) // we try to overshoot min value by 2%; for slow syncing nodes
         if (addRem > active * 0.05) { 
           addRem = ~~(active * 0.05) 
@@ -117,14 +121,14 @@ export function calculateToAcceptV2() {
         }
         addRem += prevRecord.lost.length  // compensate for nodes that were lost; though this could add more burden on existing nodes
         if (addRem > 0) {
-          add = addRem
+          add = Math.ceil(addRem)
           remove = 0
           console.log("ModeSystemFuncs: 9 return")
           return { add, remove }
         }
       }
     } else if (prevRecord.mode === 'recovery') {
-      if (enterSafety(prevRecord) === false) {
+      if (enterSafety(active, prevRecord) === false) {
         let addRem = 0.62 * config.p2p.minNodes - (active + syncing) // we try to overshoot min value by 2%; for slow syncing nodes
         if (addRem > active * 0.1) { // we really should be looking at how many archivers are available to sync from
           addRem = ~~(active * 0.1) 
@@ -133,7 +137,7 @@ export function calculateToAcceptV2() {
           }
         }
         if (addRem > 0) {
-          add = addRem
+          add = Math.ceil(addRem)
           remove = 0
           console.log("ModeSystemFuncs: 10 return")
           return { add, remove }

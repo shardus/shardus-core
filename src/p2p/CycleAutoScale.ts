@@ -367,10 +367,15 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
         if (active < desired) {
           console.log("CycleAutoScale: entered active < desired")
           let add = ~~(0.5 * active)
-          if (add < 5) { 
-            add = 5
+          console.log(`counter is ${prevRecord.counter}`)
+          console.log(`1. add: ${add}`)
+          if (add < 3) { 
+            add = 3
           }
+          console.log(`2. add: ${add}`)
+          console.log(`1. tar: ${targetCount}`)
           targetCount = active + add
+          console.log(`2. tar: ${targetCount}`)
           if (targetCount > desired) { 
             targetCount = desired 
           }
@@ -389,12 +394,12 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
       }
     } else if (prevRecord.mode === 'processing') {
       console.log("CycleAutoScale: in processing")
-      if (enterSafety(prevRecord) === false) {
+      if (enterSafety(active, prevRecord) === false) {
         console.log("CycleAutoScale: not in safety")
         let addRem = (desired - prevRecord.target) * 0.1
         console.log(`addRem: ${addRem}, desired: ${desired}, prevTarget: ${prevRecord.target}`)
         if (addRem > active * 0.01) {
-          addRem = active * 0.01 
+          addRem = active * 0.01
         } 
         if (addRem < 0 - active * 0.005) { 
           addRem = 0 - active * 0.005 
