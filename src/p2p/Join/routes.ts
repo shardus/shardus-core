@@ -16,7 +16,7 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { profilerInstance } from '../../utils/profiler'
 import * as acceptance from './v2/acceptance'
 import { attempt } from '../Utils'
-import { saveJoinRequest } from './v2'
+import { getStandbyNodesInfoMap, saveJoinRequest } from './v2'
 
 const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
@@ -75,7 +75,8 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
 
       // gossip it to other nodes
       Comms.sendGossip('gossip-valid-join-requests', joinRequest, '', null, NodeList.byIdOrder, true)
-      return res.status(200).send()
+
+      return res.status(200).send({ numStandbyNodes: getStandbyNodesInfoMap().size })
     } else {
       //  Validate of joinReq is done in addJoinRequest
       const joinRequestResponse = addJoinRequest(joinRequest)
