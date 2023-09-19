@@ -776,8 +776,6 @@ function getSelectionKey<T extends P2P.JoinTypes.StandbyInfo>(joinRequest: T): R
       }
       if (typeof validationResponse.data === 'string') {
         return ok(validationResponse.data)
-      } else {
-        return ok(joinRequest.nodeInfo.publicKey)
       }
     } catch (e) {
       warn(`shardus.app.validateJoinRequest failed due to ${e}`)
@@ -788,9 +786,8 @@ function getSelectionKey<T extends P2P.JoinTypes.StandbyInfo>(joinRequest: T): R
         fatal: true,
       })
     }
-  } else {
-    return ok(joinRequest.nodeInfo.publicKey)
   }
+  return ok(joinRequest.nodeInfo.publicKey)
 }
 
 export function checkJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
