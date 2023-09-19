@@ -152,7 +152,7 @@ function syncArchiverList(
  * hash matches the one requested.
  *
  * @returns {ResultAsync<P2P.ArchiversTypes.JoinedArchiver[], Error>} - A ResultAsync object. On success, it will contain 
- * an array of StandbyAdditionInfo objects, and on error, it will contain an Error object. The function is asynchronous
+ * an array of StandbyInfo objects, and on error, it will contain an Error object. The function is asynchronous
  * and can be awaited.
  */
 function syncStandbyNodeList(
