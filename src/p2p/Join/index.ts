@@ -598,15 +598,8 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
   const errResult = verifyJoinRequestTypes(joinRequest);
   if (errResult) return errResult;
 
-  if (config.p2p.checkVersion && !isEqualOrNewerVersion(version, joinRequest.version)) {
-    /* prettier-ignore */ warn(`version number is old. Our node version is ${version}. Join request node version is ${joinRequest.version}`)
-    nestedCountersInstance.countEvent('p2p', `join-reject-version ${joinRequest.version}`)
-    return {
-      success: false,
-      reason: `Old shardus core version, please statisfy at least ${version}`,
-      fatal: true,
-    }
-  }
+  const validateVersionResult = validateVersion(joinRequest.version)
+  if (validateVersionResult) return validateVersionResult;
 
   //If the node that signed the request is not the same as the node that is joining
   if (joinRequest.sign.owner != joinRequest.nodeInfo.publicKey) {
@@ -783,6 +776,27 @@ function verifyNotIPv6(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestRespo
     }
   }
   return null
+}
+
+/**
+  * Makes sure that the given `joinRequestVersion` is not older than the
+  * current version of the node. If it is, it returns a `JoinRequestResponse`
+  * object with `success` set to `false` and `fatal` set to `true`. The `reason`
+  * field will contain a message describing the validation error.
+  *
+  * If the `joinRequestVersion` is not older than the current version of the
+  * node, it returns `null`.
+  */
+function validateVersion(joinRequestVersion: string): JoinRequestResponse | null {
+  if (config.p2p.checkVersion && !isEqualOrNewerVersion(version, joinRequestVersion)) {
+    /* prettier-ignore */ warn(`version number is old. Our node version is ${version}. Join request node version is ${joinRequestVersion}`)
+    nestedCountersInstance.countEvent('p2p', `join-reject-version ${joinRequestVersion}`)
+    return {
+      success: false,
+      reason: `Old shardus core version, please statisfy at least ${version}`,
+      fatal: true,
+    }
+  }
 }
 
 /**
