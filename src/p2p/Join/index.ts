@@ -619,15 +619,8 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
     }
   }
 
-  if (isIPv6(joinRequest.nodeInfo.externalIp)) {
-    warn('Got join request from IPv6')
-    nestedCountersInstance.countEvent('p2p', `join-reject-ipv6`)
-    return {
-      success: false,
-      reason: `Bad ip version, IPv6 are not accepted`,
-      fatal: true,
-    }
-  }
+  const verifyNotIPv6Result = verifyNotIPv6(joinRequest)
+  if (verifyNotIPv6Result) return verifyNotIPv6Result
 
   // lastly, validate the IP of the join request. if this passes, validation
   // passes
@@ -769,6 +762,27 @@ function validateNodeUnknown(nodeInfo: P2P.P2PTypes.P2PNode): JoinRequestRespons
   }
 
   return null;
+}
+
+/**
+  * Makes sure that the given `joinRequest` is not from an IPv6 address. If it
+  * is, it returns a `JoinRequestResponse` object with `success` set to `false`
+  * and `fatal` set to `true`. The `reason` field will contain a message
+  * describing the validation error.
+  *
+  * If the `joinRequest` is not from an IPv6 address, it returns `null`.
+  */
+function verifyNotIPv6(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
+  if (isIPv6(joinRequest.nodeInfo.externalIp)) {
+    warn('Got join request from IPv6')
+    nestedCountersInstance.countEvent('p2p', `join-reject-ipv6`)
+    return {
+      success: false,
+      reason: `Bad ip version, IPv6 are not accepted`,
+      fatal: true,
+    }
+  }
+  return null
 }
 
 /**
