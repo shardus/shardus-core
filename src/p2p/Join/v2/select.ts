@@ -9,7 +9,7 @@ import * as CycleChain from "../../CycleChain";
 import * as http from '../../../http'
 
 import { getStandbyNodesInfoMap } from ".";
-import { calculateToAccept, computeSelectionNum } from "..";
+import { calculateToAccept } from "..";
 
 const selectedPublicKeys: Set<string> = new Set();
 
@@ -45,13 +45,7 @@ export function selectNodes(maxAllowed: number): void {
   // inform the node later that it has been accepted
   const objs: { publicKey: string, selectionNum: string }[] = []
   for (const [publicKey, info] of standbyNodesInfo) {
-    console.log("computing selection number for", publicKey)
-    const selectionNumResult = computeSelectionNum(info)
-    if (selectionNumResult.isErr()) {
-      console.error(`failed to compute selection number for node ${publicKey}:`, JSON.stringify(selectionNumResult.error))
-      continue
-    }
-    objs.push({ publicKey, selectionNum: selectionNumResult.value })
+    objs.push({ publicKey, selectionNum: info.selectionNum })
   }
 
   // sort the objects by their selection numbers
