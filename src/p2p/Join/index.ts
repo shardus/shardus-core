@@ -2,7 +2,7 @@ import deepmerge from 'deepmerge'
 import { version } from '../../../package.json'
 import * as http from '../../http'
 import { logFlags } from '../../logger'
-import { P2P } from '@shardus/types'
+import { hexstring, P2P } from '@shardus/types'
 import * as utils from '../../utils'
 import { validateTypes, isEqualOrNewerVersion } from '../../utils'
 import * as Comms from '../Comms'
@@ -341,23 +341,6 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     return response
   }
 
-  const node = joinRequest.nodeInfo
-  if (logFlags.p2pNonFatal) info(`Got join request for ${node.externalIp}:${node.externalPort}`)
-
-  // Check if this node has already been seen this cycle
-  if (seen.has(node.publicKey)) {
-    if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-seen-pubkey`)
-    if (logFlags.p2pNonFatal) info('Node has already been seen this cycle. Unable to add join request.')
-    return {
-      success: false,
-      reason: 'Node has already been seen this cycle. Unable to add join request.',
-      fatal: false,
-    }
-  }
-
-  // Mark node as seen for this cycle
-  seen.add(node.publicKey)
-
   // Return if we already know about this node
   const validateUnknownError = validateNodeUnknown(node);
   if (validateUnknownError != null) {
@@ -595,11 +578,18 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
 
   // perform extra validation. if any of these functions return a non-null value,
   // validation fails and the join request is rejected
-  return verifyJoinRequestTypes(joinRequest)
+  const initialValidationError = verifyJoinRequestTypes(joinRequest)
     || validateVersion(joinRequest.version)
     || verifyJoinRequestSignature(joinRequest)
     || verifyNotIPv6(joinRequest)
-    || validateJoinRequestHost(joinRequest)
+    || validateJoinRequestHost(joinRequest);
+  if (initialValidationError) return initialValidationError;
+
+  // validation has passed so far
+  if (logFlags.p2pNonFatal) info(`Got join request for ${joinRequest.nodeInfo.externalIp}:${joinRequest.nodeInfo.externalPort}`)
+
+  // continue verification of join request
+  return verifyUnseen(joinRequest.nodeInfo.publicKey)
 }
 
 /**
@@ -801,6 +791,33 @@ function verifyJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest): Joi
       fatal: true,
     }
   }
+}
+
+/**
+  * Makes sure that the given `joinRequest`'s node  has not already been seen this
+  * cycle. If it has, it returns a `JoinRequestResponse` object with `success`
+  * set to `false` and `fatal` set to `false`. The `reason` field will contain a
+  * message describing the validation error.
+  *
+  * If the `joinRequest`'s node has not already been seen this cycle, it returns
+  * `null`.
+  */
+function verifyUnseen(publicKey: hexstring): JoinRequestResponse | null {
+  // Check if this node has already been seen this cycle
+  if (seen.has(publicKey)) {
+    if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-seen-pubkey`)
+    if (logFlags.p2pNonFatal) info('Node has already been seen this cycle. Unable to add join request.')
+    return {
+      success: false,
+      reason: 'Node has already been seen this cycle. Unable to add join request.',
+      fatal: false,
+    }
+  }
+
+  // Mark node as seen for this cycle
+  seen.add(publicKey)
+
+  return null
 }
 
 
