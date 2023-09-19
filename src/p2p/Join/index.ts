@@ -601,16 +601,8 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
   const validateVersionResult = validateVersion(joinRequest.version)
   if (validateVersionResult) return validateVersionResult;
 
-  //If the node that signed the request is not the same as the node that is joining
-  if (joinRequest.sign.owner != joinRequest.nodeInfo.publicKey) {
-    /* prettier-ignore */ warn(`join-reject owner != publicKey ${{ sign: joinRequest.sign.owner, info: joinRequest.nodeInfo.publicKey }}`)
-    nestedCountersInstance.countEvent('p2p', `join-reject owner != publicKey`)
-    return {
-      success: false,
-      reason: `Bad signature, sign owner and node attempted joining mismatched`,
-      fatal: true,
-    }
-  }
+  const verifySignatureResult = verifyJoinRequestSignature(joinRequest)
+  if (verifySignatureResult) return verifySignatureResult;
 
   const verifyNotIPv6Result = verifyNotIPv6(joinRequest)
   if (verifyNotIPv6Result) return verifyNotIPv6Result
@@ -798,6 +790,29 @@ function validateVersion(joinRequestVersion: string): JoinRequestResponse | null
     }
   }
 }
+
+/**
+  * Makes sure that the given `joinRequest` is signed by the node that is
+  * attempting to join. If it is not, it returns a `JoinRequestResponse` object
+  * with `success` set to `false` and `fatal` set to `true`. The `reason` field
+  * will contain a message describing the validation error.
+  *
+  * If the `joinRequest` is signed by the node that is attempting to join, it
+  * returns `null`.
+  */
+function verifyJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
+  //If the node that signed the request is not the same as the node that is joining
+  if (joinRequest.sign.owner != joinRequest.nodeInfo.publicKey) {
+    /* prettier-ignore */ warn(`join-reject owner != publicKey ${{ sign: joinRequest.sign.owner, info: joinRequest.nodeInfo.publicKey }}`)
+    nestedCountersInstance.countEvent('p2p', `join-reject owner != publicKey`)
+    return {
+      success: false,
+      reason: `Bad signature, sign owner and node attempted joining mismatched`,
+      fatal: true,
+    }
+  }
+}
+
 
 /**
   * Returns the selection key pertaining to the given `joinRequest`. If
