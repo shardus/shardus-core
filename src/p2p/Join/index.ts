@@ -593,23 +593,13 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
     }
   }
 
-  // validate `joinRequest`'s types. if there was an error in validation, `errResult`
-  // will be non-null.
-  const errResult = verifyJoinRequestTypes(joinRequest);
-  if (errResult) return errResult;
-
-  const validateVersionResult = validateVersion(joinRequest.version)
-  if (validateVersionResult) return validateVersionResult;
-
-  const verifySignatureResult = verifyJoinRequestSignature(joinRequest)
-  if (verifySignatureResult) return verifySignatureResult;
-
-  const verifyNotIPv6Result = verifyNotIPv6(joinRequest)
-  if (verifyNotIPv6Result) return verifyNotIPv6Result
-
-  // lastly, validate the IP of the join request. if this passes, validation
-  // passes
-  return validateJoinRequestHost(joinRequest)
+  // perform extra validation. if any of these functions return a non-null value,
+  // validation fails and the join request is rejected
+  return verifyJoinRequestTypes(joinRequest)
+    || validateVersion(joinRequest.version)
+    || verifyJoinRequestSignature(joinRequest)
+    || verifyNotIPv6(joinRequest)
+    || validateJoinRequestHost(joinRequest)
 }
 
 /**
