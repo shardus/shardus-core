@@ -786,7 +786,7 @@ function getSelectionKey<T extends P2P.JoinTypes.StandbyInfo>(joinRequest: T): R
   return ok(joinRequest.nodeInfo.publicKey)
 }
 
-export function checkJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
+function verifyJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
   if (!crypto.verify(joinRequest, joinRequest.nodeInfo.publicKey)) {
     warn('join bad sign ' + JSON.stringify(joinRequest))
     nestedCountersInstance.countEvent('p2p', `join-reject-bad-sign`)
@@ -878,7 +878,7 @@ function decideNodeSelection(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
   // ----- should create preconfigured hooks for adding POW, allowing join based on netadmin sig, etc.
 
   // Check the signature as late as possible since it is expensive
-  const validationErr = checkJoinRequestSignature(joinRequest);
+  const validationErr = verifyJoinRequestSignature(joinRequest);
   if (validationErr) return validationErr;
 
   // Insert sorted into best list if we made it this far
