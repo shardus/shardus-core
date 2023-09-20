@@ -536,7 +536,7 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
   // validation fails and the join request is rejected
   const error = verifyJoinRequestTypes(joinRequest)
     || validateVersion(joinRequest.version)
-    || verifyJoinRequestSignature(joinRequest)
+    || verifyJoinRequestSigner(joinRequest)
     || verifyNotIPv6(joinRequest)
     || validateJoinRequestHost(joinRequest)
   if (error) return error;
@@ -738,7 +738,7 @@ function validateVersion(joinRequestVersion: string): JoinRequestResponse | null
   * If the `joinRequest` is signed by the node that is attempting to join, it
   * returns `null`.
   */
-function verifyJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
+function verifyJoinRequestSigner(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
   //If the node that signed the request is not the same as the node that is joining
   if (joinRequest.sign.owner != joinRequest.nodeInfo.publicKey) {
     /* prettier-ignore */ warn(`join-reject owner != publicKey ${{ sign: joinRequest.sign.owner, info: joinRequest.nodeInfo.publicKey }}`)
