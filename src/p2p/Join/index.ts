@@ -341,6 +341,9 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     return response
   }
 
+  // validation has passed so far
+  if (logFlags.p2pNonFatal) info(`Got join request for ${joinRequest.nodeInfo.externalIp}:${joinRequest.nodeInfo.externalPort}`)
+
   if (!config.p2p.useJoinProtocolV2) {
     return decideNodeSelection(joinRequest)
   } else {
@@ -468,18 +471,12 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
 
   // perform validation. if any of these functions return a non-null value,
   // validation fails and the join request is rejected
-  const error = verifyJoinRequestTypes(joinRequest)
+  return verifyJoinRequestTypes(joinRequest)
     || validateVersion(joinRequest.version)
     || verifyJoinRequestSigner(joinRequest)
     || verifyNotIPv6(joinRequest)
     || validateJoinRequestHost(joinRequest)
-  if (error) return error;
-
-  // validation has passed so far
-  if (logFlags.p2pNonFatal) info(`Got join request for ${joinRequest.nodeInfo.externalIp}:${joinRequest.nodeInfo.externalPort}`)
-
-  // continue verification of join request
-  return verifyUnseen(joinRequest.nodeInfo.publicKey)
+    || verifyUnseen(joinRequest.nodeInfo.publicKey)
     || verifyNodeUnknown(joinRequest.nodeInfo)
     || validateJoinRequestTimestamp(joinRequest.nodeInfo.joinRequestTimestamp)
 }
