@@ -222,27 +222,31 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
     // ... and add any standby nodes that are now allowed to join
     const selectedPublicKeys = drainSelectedPublicKeys()
     console.log('selected public keys', selectedPublicKeys)
-    record.joinedConsensors =
-      selectedPublicKeys
-        .map((publicKey) => {
-          const standbyInfo = getStandbyNodesInfoMap().get(publicKey)
-          console.log('selected standby node', standbyInfo)
+    record.joinedConsensors = []
+    for (const publicKey of selectedPublicKeys) {
+      const standbyInfo = getStandbyNodesInfoMap().get(publicKey)
 
-          // TODO: does `cycleJoined` need to be updated? is it supposed
-          // to be the cycle that the node sent its join request, or the
-          // cycle that it became active? currently it is likely the cycle that
-          // the join request was sent
-          const { nodeInfo } = standbyInfo
-          const cycleJoined = CycleChain.getCurrentCycleMarker()
-          const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
-          const counterRefreshed = record.counter
+      // the standbyInfo *should* exist, but if it doesn't, continue without
+      // adding its node
+      if (!standbyInfo) continue;
 
-          // finally, remove the node from the standby list
-          getStandbyNodesInfoMap().delete(publicKey)
+      console.log('selected standby node', standbyInfo)
 
-          return { ...nodeInfo, cycleJoined, counterRefreshed, id }
-        })
-        .sort();
+      // TODO: does `cycleJoined` need to be updated? is it supposed
+      // to be the cycle that the node sent its join request, or the
+      // cycle that it became active? currently it is likely the cycle that
+      // the join request was sent
+      const { nodeInfo } = standbyInfo
+      const cycleJoined = CycleChain.getCurrentCycleMarker()
+      const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
+      const counterRefreshed = record.counter
+
+      // finally, remove the node from the standby list
+      getStandbyNodesInfoMap().delete(publicKey)
+
+      record.joinedConsensors.push({ ...nodeInfo, cycleJoined, counterRefreshed, id })
+    }
+    record.joinedConsensors.sort()
   } else {
     // old protocol handling
     record.joinedConsensors =
