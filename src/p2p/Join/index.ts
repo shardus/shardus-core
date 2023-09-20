@@ -341,43 +341,6 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     return response
   }
 
-  //TODO - figure out why joinRequest is send with previous cycle marker instead of current cycle marker
-  /*
-   CONTEXT: when node create join request the cycleMarker is (current - 1).
-   The reason join request didn't use current cycleMarker is most likely the the current cycle is potential not agreed upon yet.
-   but the joinRequestTimestamp is Date.now
-   so checking if the timestamp is within its cycleMarker is gurantee to fail
-   let request cycle marker be X, then X+1 is current cycle, then we check if the timestamp is in the current cycleMarker
-  */
-  // const cycleThisJoinRequestBelong = CycleChain.cyclesByMarker[joinRequest.cycleMarker]
-  // const cycleStartedAt = cycleThisJoinRequestBelong.start
-  // const cycleWillEndsAt = cycleStartedAt + cycleDuration
-  const joinRequestTimestamp = joinRequest.nodeInfo.joinRequestTimestamp
-  const cycleDuration = CycleChain.newest.duration
-  const cycleStarts = CycleChain.newest.start
-  const requestValidUpperBound = cycleStarts + cycleDuration
-  const requestValidLowerBound = cycleStarts - cycleDuration
-
-  if (joinRequestTimestamp < requestValidLowerBound) {
-    if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-not-meet-lowerbound`)
-    if (logFlags.p2pNonFatal) warn('Cannot add join request for this node, timestamp is earlier than allowed cycle range')
-    return {
-      success: false,
-      reason: 'Cannot add join request, timestamp is earlier than allowed cycle range',
-      fatal: false,
-    }
-  }
-
-  if (joinRequestTimestamp > requestValidUpperBound) {
-    if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-beyond-upperbound`)
-    if (logFlags.p2pNonFatal) warn('Cannot add join request for this node, its timestamp exceeds allowed cycle range')
-    return {
-      success: false,
-      reason: 'Cannot add join request, timestamp exceeds allowed cycle range',
-      fatal: false,
-    }
-  }
-
   if (!config.p2p.useJoinProtocolV2) {
     // Compute how many join request to accept
     let toAccept = calculateToAccept()
@@ -584,6 +547,7 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
   // continue verification of join request
   return verifyUnseen(joinRequest.nodeInfo.publicKey)
     || verifyNodeUnknown(joinRequest.nodeInfo)
+    || validateJoinRequestTimestamp(joinRequest.nodeInfo.joinRequestTimestamp)
 }
 
 /**
@@ -814,6 +778,43 @@ function verifyUnseen(publicKey: hexstring): JoinRequestResponse | null {
   return null
 }
 
+function validateJoinRequestTimestamp(joinRequestTimestamp: number): JoinRequestResponse | null {
+  //TODO - figure out why joinRequest is send with previous cycle marker instead of current cycle marker
+  /*
+   CONTEXT: when node create join request the cycleMarker is (current - 1).
+   The reason join request didn't use current cycleMarker is most likely the the current cycle is potential not agreed upon yet.
+   but the joinRequestTimestamp is Date.now
+   so checking if the timestamp is within its cycleMarker is gurantee to fail
+   let request cycle marker be X, then X+1 is current cycle, then we check if the timestamp is in the current cycleMarker
+  */
+  // const cycleThisJoinRequestBelong = CycleChain.cyclesByMarker[joinRequest.cycleMarker]
+  // const cycleStartedAt = cycleThisJoinRequestBelong.start
+  // const cycleWillEndsAt = cycleStartedAt + cycleDuration
+  const cycleDuration = CycleChain.newest.duration
+  const cycleStarts = CycleChain.newest.start
+  const requestValidUpperBound = cycleStarts + cycleDuration
+  const requestValidLowerBound = cycleStarts - cycleDuration
+
+  if (joinRequestTimestamp < requestValidLowerBound) {
+    if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-not-meet-lowerbound`)
+    if (logFlags.p2pNonFatal) warn('Cannot add join request for this node, timestamp is earlier than allowed cycle range')
+    return {
+      success: false,
+      reason: 'Cannot add join request, timestamp is earlier than allowed cycle range',
+      fatal: false,
+    }
+  }
+
+  if (joinRequestTimestamp > requestValidUpperBound) {
+    if (logFlags.p2pNonFatal) nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-beyond-upperbound`)
+    if (logFlags.p2pNonFatal) warn('Cannot add join request for this node, its timestamp exceeds allowed cycle range')
+    return {
+      success: false,
+      reason: 'Cannot add join request, timestamp exceeds allowed cycle range',
+      fatal: false,
+    }
+  }
+}
 
 /**
   * Returns the selection key pertaining to the given `joinRequest`. If
