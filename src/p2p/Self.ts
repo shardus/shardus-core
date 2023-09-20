@@ -204,7 +204,9 @@ async function joinNetwork(
   const latestCycle = await Sync.getNewestCycle(activeNodes)
   mode = latestCycle.mode || null
   const publicKey = Context.crypto.getPublicKey()
+  console.log("latest cycle before isReadyToJoin: ", latestCycle)
   const isReadyToJoin = await Context.shardus.app.isReadyToJoin(latestCycle, publicKey, activeNodes, mode)
+  console.log("result of isReadyToJoin: ", isReadyToJoin)
   if (!isReadyToJoin) {
     // Wait for Context.config.p2p.cycleDuration and try again
     throw new Error('Node not ready to join')
