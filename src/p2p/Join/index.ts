@@ -532,14 +532,14 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
     }
   }
 
-  // perform extra validation. if any of these functions return a non-null value,
+  // perform validation. if any of these functions return a non-null value,
   // validation fails and the join request is rejected
-  const initialValidationError = verifyJoinRequestTypes(joinRequest)
+  const error = verifyJoinRequestTypes(joinRequest)
     || validateVersion(joinRequest.version)
     || verifyJoinRequestSignature(joinRequest)
     || verifyNotIPv6(joinRequest)
-    || validateJoinRequestHost(joinRequest);
-  if (initialValidationError) return initialValidationError;
+    || validateJoinRequestHost(joinRequest)
+  if (error) return error;
 
   // validation has passed so far
   if (logFlags.p2pNonFatal) info(`Got join request for ${joinRequest.nodeInfo.externalIp}:${joinRequest.nodeInfo.externalPort}`)
