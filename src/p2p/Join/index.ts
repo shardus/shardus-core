@@ -341,12 +341,6 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     return response
   }
 
-  // Return if we already know about this node
-  const validateUnknownError = validateNodeUnknown(node);
-  if (validateUnknownError != null) {
-    return validateUnknownError
-  }
-
   //TODO - figure out why joinRequest is send with previous cycle marker instead of current cycle marker
   /*
    CONTEXT: when node create join request the cycleMarker is (current - 1).
@@ -590,6 +584,7 @@ function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinReques
 
   // continue verification of join request
   return verifyUnseen(joinRequest.nodeInfo.publicKey)
+    || verifyNodeUnknown(joinRequest.nodeInfo)
 }
 
 /**
@@ -704,7 +699,7 @@ function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): JoinReq
   *
   * If the `nodeInfo` is not already known to the network, it returns `null`.
   */
-function validateNodeUnknown(nodeInfo: P2P.P2PTypes.P2PNode): JoinRequestResponse | null {
+function verifyNodeUnknown(nodeInfo: P2P.P2PTypes.P2PNode): JoinRequestResponse | null {
   if (NodeList.byPubKey.has(nodeInfo.publicKey)) {
     const message = 'Cannot add join request for this node, already a known node (by public key).'
     if (logFlags.p2pNonFatal) warn(message)
