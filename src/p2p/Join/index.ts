@@ -378,16 +378,15 @@ export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequ
     }
   }
 
-  // Compute how many join request to accept
-  let toAccept = calculateToAccept()
-  nestedCountersInstance.countEvent('p2p', `results of calculateToAccept: toAccept: ${toAccept}`)
-  /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("results of calculateToAccept: ", toAccept)
-  const { add, remove } = calculateToAcceptV2(CycleChain.newest)
-  nestedCountersInstance.countEvent('p2p', `results of calculateToAcceptV2: add: ${add}, remove: ${remove}`)
-  /* prettier-ignore */ if (logFlags && logFlags.verbose) { console.log(`results of calculateToAcceptV2: add: ${add}, remove: ${remove}`) }
-  toAccept = add
-
   if (!config.p2p.useJoinProtocolV2) {
+    // Compute how many join request to accept
+    let toAccept = calculateToAccept()
+    nestedCountersInstance.countEvent('p2p', `results of calculateToAccept: toAccept: ${toAccept}`)
+    /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("results of calculateToAccept: ", toAccept)
+    const { add, remove } = calculateToAcceptV2(CycleChain.newest)
+    nestedCountersInstance.countEvent('p2p', `results of calculateToAcceptV2: add: ${add}, remove: ${remove}`)
+    /* prettier-ignore */ if (logFlags && logFlags.verbose) { console.log(`results of calculateToAcceptV2: add: ${add}, remove: ${remove}`) }
+    toAccept = add
 
     // Check if we are better than the lowest selectionNum
     const last = requests.length > 0 ? requests[requests.length - 1] : undefined
