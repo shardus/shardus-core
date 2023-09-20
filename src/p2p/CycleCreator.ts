@@ -418,7 +418,8 @@ function runQ2() {
   Self.emitter.emit('cycle_q2_start')
   if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`)
 
-  executeNodeSelection()
+  if (config.p2p.useJoinProtocolV2)
+    executeNodeSelection()
 }
 
 /**
