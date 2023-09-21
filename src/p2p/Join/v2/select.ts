@@ -6,12 +6,18 @@
 import { crypto } from "../../Context";
 import * as Self from "../../Self";
 import * as CycleChain from "../../CycleChain";
+import * as NodeList from "../../NodeList";
 import * as http from '../../../http'
 
 import { getStandbyNodesInfoMap } from ".";
 import { calculateToAccept } from "..";
+import { fastIsPicked } from "../../../utils";
+import { getOurNodeIndex } from "../../Utils";
 
 const selectedPublicKeys: Set<string> = new Set();
+
+/** The number of nodes that will try to contact a single joining node about its selection. */
+const NUM_NOTIFYING_NODES = 3
 
 /**
   * Decides how many nodes to accept into the network, then selects nodes that
@@ -62,23 +68,36 @@ export function selectNodes(maxAllowed: number): void {
   * calling their `accepted` endpoints.`
   */
 export async function notifyNewestJoinedConsensors(): Promise<void> {
-  const marker = CycleChain.getCurrentCycleMarker()
-  for (const joinedConsensor of CycleChain.newest.joinedConsensors) {
-    const publicKey = joinedConsensor.publicKey
+  // decide if we should be in charge of notifying joining nodes
+  const shouldNotify = fastIsPicked(
+    getOurNodeIndex(),
+    NodeList.activeByIdOrder.length,
+    NUM_NOTIFYING_NODES,
+    CycleChain.newest.counter
+  )
 
-    // no need to notify ourselves
-    if (publicKey === crypto.keypair.publicKey) continue
-    console.log('notifying node', publicKey, 'that it has been selected')
+  // if so, do so
+  if (shouldNotify) {
+    const marker = CycleChain.getCurrentCycleMarker()
 
-    // make the call, but don't await. it might take a while.
-    // sign an acceptance offer
-    const offer = crypto.sign({
-      cycleMarker: marker,
-      activeNodePublicKey: crypto.keypair.publicKey
-    })
-    http
-      .post(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted`, offer)
-      .catch(e => console.error(`failed to notify node ${publicKey} that it has been selected:`, e))
+    for (const joinedConsensor of CycleChain.newest.joinedConsensors) {
+      const publicKey = joinedConsensor.publicKey
+
+      // no need to notify ourselves
+      if (publicKey === crypto.keypair.publicKey) continue
+      console.log('notifying node', publicKey, 'that it has been selected')
+
+      // sign an acceptance offer
+      const offer = crypto.sign({
+        cycleMarker: marker,
+        activeNodePublicKey: crypto.keypair.publicKey
+      })
+
+      // make the call, but don't await. it might take a while.
+      http
+        .post(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted`, offer)
+        .catch(e => console.error(`failed to notify node ${publicKey} that it has been selected:`, e))
+    }
   }
 }
 
