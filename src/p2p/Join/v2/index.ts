@@ -7,6 +7,7 @@ import { hexstring } from "@shardus/types";
 import { JoinRequest, StandbyInfo } from "@shardus/types/build/src/p2p/JoinTypes";
 import { crypto } from '../../Context'
 import * as CycleChain from '../../CycleChain'
+import * as Self from '../../Self'
 import rfdc from 'rfdc'
 
 const clone = rfdc()
@@ -36,6 +37,12 @@ export function saveJoinRequest(joinRequest: JoinRequest): void {
     selectionNum: joinRequest.selectionNum,
   }
   console.log('saving join request:', joinRequest)
+
+  // if first node, add to standby list immediately
+  if (Self.isFirst) {
+    standbyNodesInfo.set(standbyAdditionInfo.publicKey, standbyAdditionInfo)
+    return
+  }
   newStandbyInfos.push(standbyAdditionInfo)
 }
 
