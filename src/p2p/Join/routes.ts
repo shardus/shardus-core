@@ -8,7 +8,7 @@ import * as Self from '../Self'
 import * as utils from '../../utils'
 import { Handler } from "express"
 import { P2P } from "@shardus/types"
-import { addJoinRequest, computeSelectionNum, getAllowBogon, setAllowBogon, warn } from "."
+import { addJoinRequest, computeSelectionNum, getAllowBogon, setAllowBogon, validateJoinRequest, warn } from "."
 import { config } from '../Context'
 import { isBogonIP } from '../../utils/functions/checkIP'
 import { isPortReachable } from '../../utils/isPortReachable'
@@ -65,11 +65,16 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
     }
 
     // if the port of the join request was reachable, this join request is free to be
-    // gossiped to all nodes according to Join Protocol v2. TODO: perform
-    // validation as well
+    // gossiped to all nodes according to Join Protocol v2.
     if (config.p2p.useJoinProtocolV2) {
-      // calculate the selection number for this join request. this performs
-      // some validation for using the connected shardus app as well.
+      // validate the join request first. if it's invalid for any reason, return
+      // that reason.
+      const validationError = validateJoinRequest(joinRequest)
+      if (validationError) {
+        return res.status(400).json(validationError)
+      }
+
+      // then, calculate the selection number for this join request.
       const selectionNumResult = computeSelectionNum(joinRequest)
       if (selectionNumResult.isErr()) {
         console.error(`failed to compute selection number for node ${joinRequest.nodeInfo.publicKey}:`, JSON.stringify(selectionNumResult.error))
@@ -79,10 +84,10 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
 
       // add the join request to the global list of join requests. this will also
       // add it to the list of new join requests that will be processed as part of
-      // cycle creation to create a standy node list
+      // cycle creation to create a standy node list.
       saveJoinRequest(joinRequest)
 
-      // gossip it to other nodes
+      // finally, gossip it to other nodes.
       Comms.sendGossip('gossip-valid-join-requests', joinRequest, '', null, NodeList.byIdOrder, true)
 
       return res.status(200).send({ numStandbyNodes: getStandbyNodesInfoMap().size })

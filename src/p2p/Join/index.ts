@@ -463,7 +463,7 @@ export async function fetchJoined(activeNodes: P2P.P2PTypes.Node[]): Promise<str
 /**
   * Returns a `JoinRequestResponse` object if the given `joinRequest` is invalid or rejected for any reason.
   */
-function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
+export function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
   if (Self.p2pIgnoreJoinRequests === true) {
     if (logFlags.p2pNonFatal) info(`Join request ignored. p2pIgnoreJoinRequests === true`)
     return {
