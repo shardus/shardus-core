@@ -401,12 +401,6 @@ function runQ1() {
   if (logFlags.p2pNonFatal) info('Triggering submodules to send requests...')
   for (const submodule of submodules) submodule.sendRequests()
 
-  if (config.p2p.useJoinProtocolV2) {
-    notifyNewestJoinedConsensors().catch((e) => {
-      console.error('failed to notify selected nodes:', e)
-    })
-  }
-
   profilerInstance.profileSectionEnd('CycleCreator-runQ1')
 }
 
@@ -417,9 +411,6 @@ function runQ2() {
   currentQuarter = 2
   Self.emitter.emit('cycle_q2_start')
   if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`)
-
-  if (config.p2p.useJoinProtocolV2)
-    executeNodeSelection()
 }
 
 /**

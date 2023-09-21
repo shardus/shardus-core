@@ -5,10 +5,11 @@
 
 import { hexstring } from "@shardus/types";
 import { JoinRequest, StandbyInfo } from "@shardus/types/build/src/p2p/JoinTypes";
-import { crypto } from '../../Context'
+import { config, crypto } from '../../Context'
 import * as CycleChain from '../../CycleChain'
 import * as Self from '../../Self'
 import rfdc from 'rfdc'
+import { executeNodeSelection, notifyNewestJoinedConsensors } from "./select";
 
 const clone = rfdc()
 
@@ -112,3 +113,16 @@ export function getStandbyNodesInfoMap(): Map<publickey, StandbyInfo> {
   console.log('getting standby nodes info map')
   return standbyNodesInfo
 }
+
+// set up event listeners for cycle quarters
+Self.emitter.on('cycle_q1_start', () => {
+  if (config.p2p.useJoinProtocolV2) {
+    notifyNewestJoinedConsensors().catch((e) => {
+      console.error('failed to notify selected nodes:', e)
+    })
+  }
+});
+Self.emitter.on('cycle_q2_start', () => {
+  if (config.p2p.useJoinProtocolV2)
+    executeNodeSelection()
+});
