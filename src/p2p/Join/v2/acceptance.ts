@@ -8,6 +8,7 @@ import { crypto } from "../../Context";
 import { JoinedConsensor } from "@shardus/types/build/src/p2p/JoinTypes";
 
 let activeNodes: P2P.P2PTypes.Node[] = []
+let alreadyCheckingAcceptance = false
 
 /**
   * Provide a list of active nodes that the join protocol can use to confirm
@@ -23,7 +24,14 @@ export function getEventEmitter(): EventEmitter {
 }
 
 export async function confirmAcceptance(onCycleMarker: hexstring): Promise<Result<boolean, Error>> {
+  if (alreadyCheckingAcceptance) {
+    return err(new Error('already checking acceptance'))
+  }
+  alreadyCheckingAcceptance = true
+
   if (activeNodes.length === 0) {
+    // disable this flag since we're returning
+    alreadyCheckingAcceptance = false
     return err(new Error('no active nodes provided'))
   }
 
@@ -35,11 +43,17 @@ export async function confirmAcceptance(onCycleMarker: hexstring): Promise<Resul
   try {
     cycle = await getCycleFromNode(randomNode, onCycleMarker)
   } catch (e) {
+    // disable this flag since we're returning
+    alreadyCheckingAcceptance = false
     return err(new Error(`error getting cycle from node ${randomNode.ip}:${randomNode.port}: ${e}`))
   }
 
   const ourPublicKey = crypto.getPublicKey()
   const included = cycle.joinedConsensors.some((joinedConsensor: JoinedConsensor) => joinedConsensor.publicKey === ourPublicKey)
+
+  // disable this flag since we're done
+  alreadyCheckingAcceptance = false
+
   return ok(included)
 }
 
