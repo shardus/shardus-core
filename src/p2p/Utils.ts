@@ -5,7 +5,8 @@ import * as utils from '../utils'
 import { sleep, stringifyReduce } from '../utils'
 import FastRandomIterator from '../utils/FastRandomIterator'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { config } from './Context'
+import { config, stateManager } from './Context'
+import * as Self from './Self'
 import { Logger } from 'log4js'
 
 export type QueryFunction<Node, Response> = (node: Node) => PromiseLike<Response>
@@ -498,4 +499,13 @@ export function generateUUID(): string {
     16,
     4
   )}-${uuid.substring(20)}`
+}
+
+export function getOurNodeIndex(): number | null {
+  let nodeInfo = stateManager.currentCycleShardData.nodeShardDataMap.get(Self.id)
+
+  // no such node in the list
+  if (!nodeInfo) return null
+
+  return nodeInfo.ourNodeIndex
 }
