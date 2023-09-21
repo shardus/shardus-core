@@ -129,18 +129,16 @@ const joinedRoute: P2P.P2PTypes.Route<Handler> = {
 }
 
 const acceptedRoute: P2P.P2PTypes.Route<Handler> = {
-  method: 'GET',
-  name: 'accepted/:cycleMarker',
+  method: 'POST',
+  name: 'accepted',
   handler: async (req, res) => {
-    const cycleMarker = req.params.cycleMarker
-
     try {
       await attempt(async () => {
-        const result = await acceptance.confirmAcceptance(req.params.cycleMarker)
+        const result = await acceptance.confirmAcceptance(req.body)
         if (result.isErr()) {
           throw result.error
         } else if (!result.value) {
-          throw new Error(`this node was not found in cycle ${cycleMarker}; assuming not accepted`)
+          throw new Error(`this node was not found in cycle ${req.body.cycleMarker}; assuming not accepted`)
         } else {
           acceptance.getEventEmitter().emit('accepted')
         }

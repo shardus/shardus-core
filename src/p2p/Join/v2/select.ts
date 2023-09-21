@@ -71,9 +71,14 @@ export async function notifyNewestJoinedConsensors(): Promise<void> {
     console.log('notifying node', publicKey, 'that it has been selected')
 
     // make the call, but don't await. it might take a while.
-    http.get(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted/${marker}`).catch(e => {
-      console.error(`failed to notify node ${publicKey} that it has been selected:`, e)
+    // sign an acceptance offer
+    const offer = crypto.sign({
+      cycleMarker: marker,
+      activeNodePublicKey: crypto.keypair.publicKey
     })
+    http
+      .post(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted`, offer)
+      .catch(e => console.error(`failed to notify node ${publicKey} that it has been selected:`, e))
   }
 }
 
