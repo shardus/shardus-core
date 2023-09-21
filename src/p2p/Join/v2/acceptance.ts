@@ -35,24 +35,27 @@ export function getEventEmitter(): EventEmitter {
 }
 
 export async function confirmAcceptance(offer: SignedObject<AcceptanceOffer>): Promise<Result<boolean, Error>> {
+  // ensure we're not already checking acceptance
   if (alreadyCheckingAcceptance) {
     return err(new Error('already checking acceptance'))
   }
   alreadyCheckingAcceptance = true
 
+  // ensure we even have nodes to check from
   if (activeNodes.length === 0) {
     // disable this flag since we're returning
     alreadyCheckingAcceptance = false
     return err(new Error('no active nodes provided'))
   }
 
+  // verify the signature of the offer
   if (!crypto.verify(offer, offer.activeNodePublicKey)) {
     // disable this flag since we're returning
     alreadyCheckingAcceptance = false
     return err(new Error('acceptance offer signature invalid'))
   }
 
-  // we need to query for the cycle record from a node to confirm that we were,
+  // now, we need to query for the cycle record from a node to confirm that we were,
   // in fact, accepted during the cycle
   const randomNode = getRandom(activeNodes, 1)[0]
 
@@ -65,6 +68,7 @@ export async function confirmAcceptance(offer: SignedObject<AcceptanceOffer>): P
     return err(new Error(`error getting cycle from node ${randomNode.ip}:${randomNode.port}: ${e}`))
   }
 
+  // check to see that we were included in the cycle
   const ourPublicKey = crypto.getPublicKey()
   const included = cycle.joinedConsensors.some((joinedConsensor: JoinedConsensor) => joinedConsensor.publicKey === ourPublicKey)
 
