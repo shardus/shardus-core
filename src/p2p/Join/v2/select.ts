@@ -68,6 +68,11 @@ export function selectNodes(maxAllowed: number): void {
   * calling their `accepted` endpoints.`
   */
 export async function notifyNewestJoinedConsensors(): Promise<void> {
+  if (!Self.isActive) {
+    console.warn('not notifying nodes because we are not active yet')
+    return
+  }
+
   // decide if we should be in charge of notifying joining nodes
   const shouldNotify = fastIsPicked(
     getOurNodeIndex(),
