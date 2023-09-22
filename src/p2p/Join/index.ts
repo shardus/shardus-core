@@ -340,6 +340,15 @@ export interface JoinRequestResponse {
  * @throws {Error} Throws an error if the validation of the join request fails.
  */
 export function addJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse {
+  if (Self.p2pIgnoreJoinRequests === true) {
+    if (logFlags.p2pNonFatal) info(`Join request ignored. p2pIgnoreJoinRequests === true`)
+    return {
+      success: false,
+      fatal: false,
+      reason: `Join request ignored. p2pIgnoreJoinRequests === true`,
+    }
+  }
+
   const response = validateJoinRequest(joinRequest)
   if (response) {
     return response
@@ -464,15 +473,6 @@ export async function fetchJoined(activeNodes: P2P.P2PTypes.Node[]): Promise<str
   * Returns a `JoinRequestResponse` object if the given `joinRequest` is invalid or rejected for any reason.
   */
 export function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
-  if (Self.p2pIgnoreJoinRequests === true) {
-    if (logFlags.p2pNonFatal) info(`Join request ignored. p2pIgnoreJoinRequests === true`)
-    return {
-      success: false,
-      fatal: false,
-      reason: `Join request ignored. p2pIgnoreJoinRequests === true`,
-    }
-  }
-
   // perform validation. if any of these functions return a non-null value,
   // validation fails and the join request is rejected
   return verifyJoinRequestTypes(joinRequest)
