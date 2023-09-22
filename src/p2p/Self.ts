@@ -17,6 +17,7 @@ import * as CycleCreator from './CycleCreator'
 import { calcIncomingTimes } from './CycleCreator'
 import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
+import * as JoinV2 from './Join/v2'
 import * as Acceptance from './Join/v2/acceptance'
 import * as NodeList from './NodeList'
 import * as Sync from './Sync'
@@ -71,6 +72,11 @@ export function init(): void {
   // initialize SyncV2 if enabled
   if (Context.config.p2p.useSyncProtocolV2) {
     SyncV2.init()
+  }
+
+  // initialize JoinV2 if enabled
+  if (Context.config.p2p.useJoinProtocolV2) {
+    JoinV2.init()
   }
 
   // Create a logger for yourself

@@ -26,6 +26,23 @@ const standbyNodesInfo: Map<publickey, StandbyInfo> = new Map()
   */
 let newStandbyInfos: StandbyInfo[] = []
 
+export function init(): void {
+  console.log('initializing join protocol v2')
+
+  // set up event listeners for cycle quarters
+  Self.emitter.on('cycle_q1_start', () => {
+    if (config.p2p.useJoinProtocolV2) {
+      notifyNewestJoinedConsensors().catch((e) => {
+        console.error('failed to notify selected nodes:', e)
+      })
+    }
+  });
+  Self.emitter.on('cycle_q2_start', () => {
+    if (config.p2p.useJoinProtocolV2)
+      executeNodeSelection()
+  });
+}
+
 /**
   * Pushes the join request onto the list of new join requests. Its node's info
   * will be added to the standby node list at the end of the cycle during cycle
@@ -113,16 +130,3 @@ export function getStandbyNodesInfoMap(): Map<publickey, StandbyInfo> {
   console.log('getting standby nodes info map')
   return standbyNodesInfo
 }
-
-// set up event listeners for cycle quarters
-Self.emitter.on('cycle_q1_start', () => {
-  if (config.p2p.useJoinProtocolV2) {
-    notifyNewestJoinedConsensors().catch((e) => {
-      console.error('failed to notify selected nodes:', e)
-    })
-  }
-});
-Self.emitter.on('cycle_q2_start', () => {
-  if (config.p2p.useJoinProtocolV2)
-    executeNodeSelection()
-});
