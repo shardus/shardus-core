@@ -44,6 +44,13 @@ export interface SequentialQueryResult<Node> {
   errors: Array<SequentialQueryError<Node>>
 }
 
+export type SeedNodesList = {
+  nodeList: P2P.P2PTypes.Node[]
+  joinRequest: P2P.ArchiversTypes.Request | undefined
+  dataRequestCycle: unknown
+  dataRequestStateMetaData: unknown
+}
+
 export async function compareQuery<Node = unknown, Response = unknown>(
   nodes: Node[],
   queryFn: QueryFunction<Node, Response>,

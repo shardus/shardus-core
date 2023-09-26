@@ -23,7 +23,7 @@ import * as NodeList from './NodeList'
 import * as Sync from './Sync'
 import { getNewestCycle } from './Sync'
 import * as SyncV2 from './SyncV2/'
-import { getRandomAvailableArchiver } from './Utils'
+import { getRandomAvailableArchiver, SeedNodesList } from './Utils'
 
 /** STATE */
 
@@ -317,7 +317,7 @@ async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
   let retry = maxRetries
   const failArchivers: string[] = []
   let archiver: P2P.SyncTypes.ActiveNode
-  let activeNodesSigned: SignedActiveNodesFromArchiver
+  let activeNodesSigned: P2P.P2PTypes.SignedObject<SeedNodesList>
 
   while (retry > 0) {
     try {
@@ -409,18 +409,12 @@ function checkIfFirstSeedNode(seedNodes: P2P.P2PTypes.Node[]): boolean {
   return false
 }
 
-type SignedActiveNodesFromArchiver = P2P.P2PTypes.SignedObject & {
-  nodeList: P2P.P2PTypes.Node[]
-}
-
 async function getActiveNodesFromArchiver(
   archiver: P2P.SyncTypes.ActiveNode
-): Promise<SignedActiveNodesFromArchiver> {
+): Promise<P2P.P2PTypes.SignedObject<SeedNodesList>> {
   const nodeListUrl = `http://${archiver.ip}:${archiver.port}/nodelist`
   const nodeInfo = getPublicNodeInfo()
-  let seedListSigned: P2P.P2PTypes.SignedObject & {
-    nodeList: P2P.P2PTypes.Node[]
-  }
+  let seedListSigned: P2P.P2PTypes.SignedObject<SeedNodesList>
   try {
     seedListSigned = await http.post(
       nodeListUrl,
