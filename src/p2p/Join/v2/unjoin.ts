@@ -62,6 +62,9 @@ export async function submitUnjoin(): Promise<Result<void, Error>> {
   * Returns with an error if the unjoin request is invalid.
   */
 export function processNewUnjoinRequest(unjoinRequest: UnjoinRequest): Result<void, Error> {
+  console.log("processing unjoin request for", unjoinRequest.publicKey)
+
+  // validate the unjoin request and then add it if it is valid
   return validateUnjoinRequest(unjoinRequest).map(() => {
     newUnjoinRequests.add(unjoinRequest.publicKey)
   })
@@ -71,11 +74,29 @@ export function processNewUnjoinRequest(unjoinRequest: UnjoinRequest): Result<vo
   * Validates an unjoin request by its signature.
   */
 export function validateUnjoinRequest(unjoinRequest: UnjoinRequest): Result<void, Error> {
-  if (crypto.verify(unjoinRequest, unjoinRequest.publicKey)) {
-    return ok(void 0)
-  } else {
+  // ignore if the unjoin request already exists
+  if (newUnjoinRequests.has(unjoinRequest.publicKey)) {
+    return err(new Error(`unjoin request from ${unjoinRequest.publicKey} already exists`))
+  }
+
+  // ignore if the unjoin request is from a node that is not in standby
+  const foundInStandbyNodes = getStandbyNodesInfoMap().has(unjoinRequest.publicKey)
+  if (!foundInStandbyNodes) {
+    return err(new Error(`unjoin request from ${unjoinRequest.publicKey} is from a node not in standby`))
+  }
+
+  // ignore if the unjoin request is from a node that is active
+  const foundInActiveNodes = NodeList.byPubKey.has(unjoinRequest.publicKey)
+  if (foundInActiveNodes) {
+    return err(new Error(`unjoin request from ${unjoinRequest.publicKey} is from an active node that can't unjoin`))
+  }
+
+  // lastly, verify the signature of the join request
+  if (!crypto.verify(unjoinRequest, unjoinRequest.publicKey)) {
     return err(new Error('unjoin request signature is invalid'))
   }
+
+  return ok(void 0)
 }
 
 export function drainNewUnjoinRequests(): hexstring[] {
