@@ -10,6 +10,10 @@ import * as Context from './Context'
 import * as Self from './Self'
 import { Logger } from 'log4js'
 import { P2P } from '@shardus/types'
+import { Result } from 'neverthrow'
+import { getPublicNodeInfo } from './Self'
+import * as http from '../http'
+import { ok, err } from 'neverthrow'
 
 export type QueryFunction<Node, Response> = (node: Node) => PromiseLike<Response>
 
@@ -524,3 +528,27 @@ export function getRandomAvailableArchiver(): P2P.SyncTypes.ActiveNode {
   return getRandom(availableArchivers, 1)[0]
 }
 
+export async function getActiveNodesFromArchiver(
+  archiver: P2P.SyncTypes.ActiveNode
+): Promise<Result<P2P.P2PTypes.SignedObject<SeedNodesList>, Error>> {
+  const nodeListUrl = `http://${archiver.ip}:${archiver.port}/nodelist`
+  const nodeInfo = getPublicNodeInfo()
+  let seedListSigned: P2P.P2PTypes.SignedObject<SeedNodesList>
+  try {
+    seedListSigned = await http.post(
+      nodeListUrl,
+      Context.crypto.sign({
+        nodeInfo,
+      }),
+      false,
+      10000
+    )
+  } catch (e) {
+    nestedCountersInstance.countRareEvent(
+      'archiver_nodelist',
+      'Could not get seed list from seed node server'
+    )
+    return err(Error(`Could not get seed list from seed node server ${nodeListUrl}: ` + e.message))
+  }
+  return ok(seedListSigned)
+}
