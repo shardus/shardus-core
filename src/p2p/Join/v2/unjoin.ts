@@ -1,10 +1,11 @@
 import { SignedObject } from "@shardus/types/build/src/p2p/P2PTypes";
 import { crypto } from '../../Context'
 import { err, ok, Result } from "neverthrow";
-import { hexstring, P2P } from "@shardus/types";
+import { hexstring } from "@shardus/types";
 import * as utils from '../../../utils'
 import * as http from '../../../http'
-import { getStandbyNodesInfoMap } from ".";
+import * as NodeList from '../../NodeList'
+import { getProvidedActiveNodes, getStandbyNodesInfoMap } from ".";
 
 /**
   * A request to leave the network's standby node list.
@@ -19,10 +20,12 @@ const newUnjoinRequests: Set<hexstring> = new Set()
 /**
   * Submits a request to leave the network's standby node list.
   */
-export async function submitUnjoin(activeNodes: P2P.NodeListTypes.Node[]): Promise<Result<void, Error>> {
+export async function submitUnjoin(): Promise<Result<void, Error>> {
   const unjoinRequest = crypto.sign({
     publicKey: crypto.keypair.publicKey
   })
+
+  const activeNodes = getProvidedActiveNodes()
 
   // send the unjoin request to a handful of the active node all at once
   const selectedNodes = utils.getRandom(activeNodes, Math.min(activeNodes.length, 5))

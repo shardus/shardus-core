@@ -7,8 +7,8 @@ import { getRandom } from "../../../utils";
 import { crypto } from "../../Context";
 import { JoinedConsensor } from "@shardus/types/build/src/p2p/JoinTypes";
 import { SignedObject } from "@shardus/types/build/src/p2p/P2PTypes";
+import { getProvidedActiveNodes } from ".";
 
-let activeNodes: P2P.P2PTypes.Node[] = []
 let alreadyCheckingAcceptance = false
 
 /**
@@ -19,14 +19,6 @@ let alreadyCheckingAcceptance = false
 export interface AcceptanceOffer {
   cycleMarker: hexstring
   activeNodePublicKey: hexstring
-}
-
-/**
-  * Provide a list of active nodes that the join protocol can use to confirm
-  * whether or not this node was accepted into the cycle.
-  */
-export function provideActiveNodes(nodes: P2P.P2PTypes.Node[]): void {
-  activeNodes = nodes
 }
 
 const eventEmitter = new EventEmitter()
@@ -42,6 +34,7 @@ export async function confirmAcceptance(offer: SignedObject<AcceptanceOffer>): P
   alreadyCheckingAcceptance = true
 
   // ensure we even have nodes to check from
+  const activeNodes = getProvidedActiveNodes()
   if (activeNodes.length === 0) {
     // disable this flag since we're returning
     alreadyCheckingAcceptance = false

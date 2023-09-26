@@ -3,7 +3,7 @@
   * TODO: Rename this module later?
   */
 
-import { hexstring } from "@shardus/types";
+import { hexstring, P2P } from "@shardus/types";
 import { JoinRequest, StandbyInfo } from "@shardus/types/build/src/p2p/JoinTypes";
 import { config, crypto, p2p } from '../../Context'
 import * as CycleChain from '../../CycleChain'
@@ -28,6 +28,28 @@ const standbyNodesInfo: Map<publickey, StandbyInfo> = new Map()
   * digestion. appetizing!
   */
 let newStandbyInfos: StandbyInfo[] = []
+
+/**
+  * A temporary list of active nodes that can be used to confirm acceptance into
+  * the network or send unjoin requests.
+  */
+let activeNodes: P2P.P2PTypes.Node[] = []
+
+/**
+  * Provide a list of active nodes that the join protocol can use to confirm
+  * whether or not this node was accepted into the cycle.
+  */
+export function provideActiveNodes(nodes: P2P.P2PTypes.Node[]): void {
+  activeNodes = nodes
+}
+
+/**
+  * Returns the list of active nodes that the join protocol can use to confirm
+  * acceptance into the network or send unjoin requests.
+  */
+export function getProvidedActiveNodes(): P2P.P2PTypes.Node[] {
+  return activeNodes
+}
 
 export function init(): void {
   console.log('initializing join protocol v2')
