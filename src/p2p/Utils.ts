@@ -2,12 +2,14 @@ import * as crypto from 'crypto'
 import util from 'util'
 import { logFlags } from '../logger'
 import * as utils from '../utils'
-import { sleep, stringifyReduce } from '../utils'
+import { getRandom, sleep, stringifyReduce } from '../utils'
 import FastRandomIterator from '../utils/FastRandomIterator'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { config, stateManager } from './Context'
+import * as Context from './Context'
 import * as Self from './Self'
 import { Logger } from 'log4js'
+import { P2P } from '@shardus/types'
 
 export type QueryFunction<Node, Response> = (node: Node) => PromiseLike<Response>
 
@@ -509,3 +511,9 @@ export function getOurNodeIndex(): number | null {
 
   return nodeInfo.ourNodeIndex
 }
+
+export function getRandomAvailableArchiver(): P2P.SyncTypes.ActiveNode {
+  const availableArchivers = Context.config.p2p.existingArchivers
+  return getRandom(availableArchivers, 1)[0]
+}
+

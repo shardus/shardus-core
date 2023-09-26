@@ -23,6 +23,7 @@ import * as NodeList from './NodeList'
 import * as Sync from './Sync'
 import { getNewestCycle } from './Sync'
 import * as SyncV2 from './SyncV2/'
+import { getRandomAvailableArchiver } from './Utils'
 
 /** STATE */
 
@@ -312,7 +313,6 @@ async function syncCycleChain(): Promise<void> {
 }
 
 async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
-  const availableArchivers = Context.config.p2p.existingArchivers
   const maxRetries = 3
   let retry = maxRetries
   const failArchivers: string[] = []
@@ -321,7 +321,7 @@ async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
 
   while (retry > 0) {
     try {
-      archiver = getRandom(availableArchivers, 1)[0]
+      archiver = getRandomAvailableArchiver()
       if (!failArchivers.includes(archiver.ip)) failArchivers.push(archiver.ip)
       activeNodesSigned = await getActiveNodesFromArchiver(archiver)
       break // To stop this loop if it gets the response without failing
