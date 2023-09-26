@@ -5,7 +5,8 @@ import { hexstring } from "@shardus/types";
 import * as utils from '../../../utils'
 import * as http from '../../../http'
 import * as NodeList from '../../NodeList'
-import { getProvidedActiveNodes, getStandbyNodesInfoMap } from ".";
+import { getStandbyNodesInfoMap } from ".";
+import { getActiveNodesFromArchiver, getRandomAvailableArchiver } from "../../Utils";
 
 /**
   * A request to leave the network's standby node list.
@@ -25,7 +26,11 @@ export async function submitUnjoin(): Promise<Result<void, Error>> {
     publicKey: crypto.keypair.publicKey
   })
 
-  const activeNodes = getProvidedActiveNodes()
+  const archiver = getRandomAvailableArchiver()
+  const activeNodesResult = await getActiveNodesFromArchiver(archiver)
+  if (activeNodesResult.isErr()) {
+    return err(new Error(`couldn't get active nodes: ${activeNodesResult.error}`))
+  const activeNodes = activeNodesResult.value
 
   // send the unjoin request to a handful of the active node all at once
   const selectedNodes = utils.getRandom(activeNodes, Math.min(activeNodes.length, 5))

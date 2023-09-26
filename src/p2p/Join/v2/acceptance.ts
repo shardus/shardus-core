@@ -7,7 +7,7 @@ import { getRandom } from "../../../utils";
 import { crypto } from "../../Context";
 import { JoinedConsensor } from "@shardus/types/build/src/p2p/JoinTypes";
 import { SignedObject } from "@shardus/types/build/src/p2p/P2PTypes";
-import { getProvidedActiveNodes } from ".";
+import { getActiveNodesFromArchiver, getRandomAvailableArchiver } from "../../Utils";
 
 let alreadyCheckingAcceptance = false
 
@@ -34,7 +34,12 @@ export async function confirmAcceptance(offer: SignedObject<AcceptanceOffer>): P
   alreadyCheckingAcceptance = true
 
   // ensure we even have nodes to check from
-  const activeNodes = getProvidedActiveNodes()
+  const archiver = getRandomAvailableArchiver()
+  const activeNodesResult = await getActiveNodesFromArchiver(archiver)
+  if (activeNodesResult.isErr()) {
+    return err(new Error(`couldn't get active nodes: ${activeNodesResult.error}`))
+  }
+  const activeNodes = activeNodesResult.value.nodeList
   if (activeNodes.length === 0) {
     // disable this flag since we're returning
     alreadyCheckingAcceptance = false

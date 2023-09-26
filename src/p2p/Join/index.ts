@@ -20,7 +20,6 @@ import { routes } from './routes'
 import { drainNewStandbyInfo, getStandbyNodesInfoMap, saveJoinRequest } from './v2'
 import { err, ok, Result } from 'neverthrow'
 import { drainSelectedPublicKeys, forceSelectSelf } from './v2/select'
-import * as v2 from './v2'
 import { drainNewUnjoinRequests } from './v2/unjoin'
 
 /** STATE */
@@ -423,7 +422,6 @@ export async function submitJoin(
     }
   }
 
-  v2.provideActiveNodes(selectedNodes)
   for (const node of selectedNodes) {
     try {
       promises.push(http.post(`${node.ip}:${node.port}/join`, joinRequest))
