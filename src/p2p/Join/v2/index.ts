@@ -152,8 +152,8 @@ export async function shutdown(): Promise<void> {
     ).andThen((result) => result)
 
   if (unjoinResult.isErr()) {
-    this.mainLogger.error('Failed send unjoin request:', unjoinResult.error)
+    console.error('Failed send unjoin request:', unjoinResult.error)
   } else {
-    this.mainLogger.info('Unjoin request sent')
+    console.log('Unjoin request sent')
   }
 }
