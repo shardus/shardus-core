@@ -27,34 +27,15 @@ export async function submitUnjoin(): Promise<Result<void, Error>> {
   })
 
   const archiver = getRandomAvailableArchiver()
-  const activeNodesResult = await getActiveNodesFromArchiver(archiver)
-  if (activeNodesResult.isErr()) {
-    return err(new Error(`couldn't get active nodes: ${activeNodesResult.error}`))
-  const activeNodes = activeNodesResult.value
-
-  // send the unjoin request to a handful of the active node all at once
-  const selectedNodes = utils.getRandom(activeNodes, Math.min(activeNodes.length, 5))
-
-  // gather up the promises pertaining to sending the unjoin request
-  const promises = []
-  for (const node of selectedNodes) {
-    try {
-      promises.push(http.post(`${node.externalIp}:${node.externalPort}/unjoin`, unjoinRequest))
-    } catch (err) {
-      return err(new Error(
-        `Fatal: submitUnjoin: Error posting unjoin request to ${node.externalIp}:${node.externalPort}: ${err}`
-      ))
-    }
-  }
-
   try {
-    const responses = await Promise.all(promises)
-
-    for (const res of responses) {
-      if (res.fatal) {
-        return err(new Error(`Fatal: Fatal unjoin request with reason: ${res.reason}`))
-      }
+    const activeNodesResult = await getActiveNodesFromArchiver(archiver)
+    if (activeNodesResult.isErr()) {
+      return err(new Error(`couldn't get active nodes: ${activeNodesResult.error}`))
     }
+    const activeNodes = activeNodesResult.value
+    const node = utils.getRandom(activeNodes.nodeList, 1)[0]
+    await http.post(`${node.ip}:${node.port}/unjoin`, unjoinRequest)
+    return ok(void 0)
   } catch (e) {
     return err(new Error(`submitUnjoin: Error posting unjoin request: ${e}`))
   }
