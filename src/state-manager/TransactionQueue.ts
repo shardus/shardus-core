@@ -10,7 +10,7 @@ import { potentiallyRemoved } from '../p2p/NodeList'
 import * as Shardus from '../shardus/shardus-types'
 import Storage from '../storage'
 import * as utils from '../utils'
-import { errorToStringFull, inRangeOfCurrentTime, withTimeout } from '../utils'
+import { errorToStringFull, inRangeOfCurrentTime, stringify, withTimeout, XOR } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import Profiler, { cUninitializedSize, profilerInstance } from '../utils/profiler'
 import ShardFunctions from './shardFunctions'
@@ -19,19 +19,19 @@ import {
   AccountFilter,
   CommitConsensedTransactionResult,
   PreApplyAcceptedTransactionResult,
+  ProcessQueueStats,
+  QueueCountsResult,
   QueueEntry,
-  TxDebug,
   RequestReceiptForTxResp,
+  RequestReceiptForTxResp_old,
   RequestStateForTxReq,
   RequestStateForTxResp,
   SeenAccounts,
+  SimpleNumberStats,
   StringBoolObjectMap,
   StringNodeObjectMap,
+  TxDebug,
   WrappedResponses,
-  RequestReceiptForTxResp_old,
-  ProcessQueueStats,
-  SimpleNumberStats,
-  QueueCountsResult,
 } from './state-manager-types'
 
 import { stringify } from '../utils'
@@ -96,6 +96,7 @@ class TransactionQueue {
   transactionQueueHasRemainingWork: boolean
 
   executeInOneShard: boolean
+  useNewPOQ: boolean
 
   txCoverageMap: { [key: symbol]: unknown }
 
@@ -185,6 +186,7 @@ class TransactionQueue {
     this.transactionQueueHasRemainingWork = false
 
     this.executeInOneShard = false
+    this.useNewPOQ = true
 
     if (this.config.sharding.executeInOneShard === true) {
       this.executeInOneShard = true
@@ -1269,6 +1271,7 @@ class TransactionQueue {
         txSieveTime: 0,
         debug: {},
         voteCastAge: 0,
+        lastVoteReceivedTimestamp: 0,
         accountDataSet: false,
       } // age comes from timestamp
 
@@ -1363,6 +1366,13 @@ class TransactionQueue {
           //set the nodes that are in the executionGroup.
           //This is needed so that consensus will expect less nodes to be voting
           txQueueEntry.executionGroup = homeShardData.homeNodes[0].consensusNodeForOurNodeFull.slice()
+          txQueueEntry.executionGroup = this.orderNodesByRank(txQueueEntry.executionGroup, txQueueEntry)
+
+          const minNodesToVote = 3;
+          const voterPercentage = 0.1;
+          const numberOfVoters = Math.max(minNodesToVote, Math.floor(txQueueEntry.executionGroup.length * voterPercentage));
+          txQueueEntry.eligibleNodesToVote = txQueueEntry.executionGroup.slice(0, numberOfVoters);
+
           const ourID = this.stateManager.currentCycleShardData.ourNode.id
           for (let idx = 0; idx < txQueueEntry.executionGroup.length; idx++) {
             // eslint-disable-next-line security/detect-object-injection
@@ -2202,6 +2212,25 @@ class TransactionQueue {
     if (gotReceipt === false) {
       queueEntry.requestingReceiptFailed = true
     }
+  }
+
+  // compute the rand of the node where rank = node_id XOR hash(tx_id + tx_ts)
+  computeNodeRank(nodeId: string, txId: string, txTimestamp: number): number {
+    if (nodeId == null || txId == null || txTimestamp == null) return 0
+    const hash = this.crypto.hash([txId, txTimestamp])
+    return XOR(nodeId, hash)
+  }
+
+  // sort the nodeList by rank, in descending order
+  orderNodesByRank(nodeList: Shardus.Node[], queueEntry: QueueEntry): Shardus.Node[] {
+    const nodeListWithRankData: Shardus.NodeWithRank[] = nodeList.map((node: Shardus.Node) => {
+      let rank = this.computeNodeRank(node.id, queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp)
+      let nodeWithRank: Shardus.NodeWithRank = {...node, rank}
+      return nodeWithRank
+    })
+    return nodeListWithRankData.sort((a: Shardus.NodeWithRank, b: Shardus.NodeWithRank) => {
+      return b.rank - a.rank
+    })
   }
 
   /**
