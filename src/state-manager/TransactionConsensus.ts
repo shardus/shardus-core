@@ -730,6 +730,22 @@ class TransactionConsenus {
 
     // TODO STATESHARDING4 CHECK VOTES PER CONSENSUS GROUP
 
+    if (this.stateManager.transactionQueue.useNewPOQ) {
+      const eligibleNodeIds = queueEntry.eligibleNodesToVote.map(node => node.id)
+      const ourNodeId = this.stateManager.currentCycleShardData.ourNode.id
+      const isEligibleToVote = eligibleNodeIds.includes(ourNodeId)
+
+      if (isEligibleToVote === false) {
+        console.log('We are not eligible to vote');
+        return
+      }
+
+      const ourRankIndex = eligibleNodeIds.indexOf(ourNodeId)
+      const delayBeforeVote = ourRankIndex * 100 // 100ms
+
+      await utils.sleep(delayBeforeVote)
+    }
+
     // create our applied vote
     const ourVote: AppliedVote = {
       txid: queueEntry.acceptedTx.txId,
@@ -815,6 +831,7 @@ class TransactionConsenus {
     let appliedVoteHash: AppliedVoteHash
     //let temp = ourVote.node_id
     ourVote.node_id = '' //exclue this from hash
+    this.crypto.sign(ourVote)
     const voteHash = this.crypto.hash(ourVote)
     //ourVote.node_id = temp
     appliedVoteHash = {
@@ -837,7 +854,7 @@ class TransactionConsenus {
     // share the vote via gossip?
 
     let consensusGroup = []
-    if (this.stateManager.transactionQueue.executeInOneShard === true) {
+    if (this.stateManager.transactionQueue.executeInOneShard === true && this.stateManager.transactionQueue.useNewPOQ === false) {
       //only share with the exection group
       consensusGroup = queueEntry.executionGroup
     } else {
@@ -870,7 +887,8 @@ class TransactionConsenus {
       const filteredConsensusGroup = filteredNodes
 
       this.profiler.profileSectionStart('createAndShareVote-tell')
-      this.p2p.tell(filteredConsensusGroup, 'spread_appliedVoteHash', appliedVoteHash)
+      if (this.stateManager.transactionQueue.useNewPOQ === false) this.p2p.tell(filteredConsensusGroup, 'spread_appliedVoteHash', appliedVoteHash)
+      else this.p2p.tell(filteredConsensusGroup, 'spread_appliedVote', ourVote)
       this.profiler.profileSectionEnd('createAndShareVote-tell')
     } else {
       nestedCountersInstance.countEvent('transactionQueue', 'createAndShareVote fail, no consensus group')
@@ -886,33 +904,59 @@ class TransactionConsenus {
    * @param vote
    */
   tryAppendVote(queueEntry: QueueEntry, vote: AppliedVote): boolean {
-    const numVotes = queueEntry.collectedVotes.length
+    if (this.stateManager.transactionQueue.useNewPOQ === false) {
+      const numVotes = queueEntry.collectedVotes.length
 
-    /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('tryAppendVote', `${queueEntry.logID}`, `collectedVotes: ${queueEntry.collectedVotes.length}`)
-    /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `)
+      /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('tryAppendVote', `${queueEntry.logID}`, `collectedVotes: ${queueEntry.collectedVotes.length}`)
+      /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `)
 
-    // just add the vote if we dont have any yet
-    if (numVotes === 0) {
+      // just add the vote if we dont have any yet
+      if (numVotes === 0) {
+        queueEntry.collectedVotes.push(vote)
+        queueEntry.newVotes = true
+        return true
+      }
+
+      //compare to existing votes.  keep going until we find that this vote is already in the list or our id is at the right spot to insert sorted
+      for (let i = 0; i < numVotes; i++) {
+        // eslint-disable-next-line security/detect-object-injection
+        const currentVote = queueEntry.collectedVotes[i]
+
+        if (currentVote.sign.owner === vote.sign.owner) {
+          // already in our list so do nothing and return
+          return false
+        }
+      }
+
       queueEntry.collectedVotes.push(vote)
       queueEntry.newVotes = true
+
+      return true
+    } else {
+      /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('tryAppendVote', `${queueEntry.logID}`, `collectedVotes: ${queueEntry.collectedVotes.length}`)
+      /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `)
+
+      // todo: podA: check if the vote is cast by one of the eligible nodes, check its signature
+      // eligible nodes are stored under queueEntry.eligibleNodesToVote
+      const isVoteValid = true
+      if (!isVoteValid) return
+
+      // todo: podA: compare with existing vote. Skip we already have it or node rank is lower than ours
+      const isBetterThanCurrentVote = true
+
+      if (!isBetterThanCurrentVote) {
+        console.log('tryAppendVote: vote is not better than current vote', vote, queueEntry.collectedVotes[0])
+        return
+      }
+
+      queueEntry.collectedVotes[0] = vote
+      queueEntry.newVotes = true
+      queueEntry.lastVoteReceivedTimestamp = Date.now()
+
+      // todo: podA: gossip the vote to the transaction group
+
       return true
     }
-
-    //compare to existing votes.  keep going until we find that this vote is already in the list or our id is at the right spot to insert sorted
-    for (let i = 0; i < numVotes; i++) {
-      // eslint-disable-next-line security/detect-object-injection
-      const currentVote = queueEntry.collectedVotes[i]
-
-      if (currentVote.sign.owner === vote.sign.owner) {
-        // already in our list so do nothing and return
-        return false
-      }
-    }
-
-    queueEntry.collectedVotes.push(vote)
-    queueEntry.newVotes = true
-
-    return true
   }
 
   tryAppendVoteHash(queueEntry: QueueEntry, voteHash: AppliedVoteHash): boolean {

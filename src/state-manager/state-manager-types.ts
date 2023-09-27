@@ -11,6 +11,7 @@ export type TxDebug = {
 }
 
 export type QueueEntry = {
+  eligibleNodesToVote: Shardus.Node[];
   acceptedTx: Shardus.AcceptedTx
   txKeys: Shardus.TransactionKeys
   /** This is data that is collected or loaded locally before it attemps to call apply() */
@@ -82,6 +83,7 @@ export type QueueEntry = {
   collectedVoteHashes: AppliedVoteHash[]
   newVotes: boolean
   voteCastAge: number
+  lastVoteReceivedTimestamp: number
 
   gossipedReceipt: boolean
 
