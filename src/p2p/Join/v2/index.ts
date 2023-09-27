@@ -138,6 +138,10 @@ export function getStandbyNodesInfoMap(): Map<publickey, StandbyInfo> {
   * Handles unjoining from the network.
   */
 export async function shutdown(): Promise<void> {
+  // if not using join protocol v2, unjoining isn't needed
+  if (!config.p2p.useJoinProtocolV2)
+    return
+
   const unjoinResult =
     await ResultAsync.fromPromise(
       attempt(async () => submitUnjoin(), {
