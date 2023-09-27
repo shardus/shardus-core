@@ -84,16 +84,16 @@ export function validateUnjoinRequest(unjoinRequest: UnjoinRequest): Result<void
     return err(new Error(`unjoin request from ${unjoinRequest.publicKey} already exists`))
   }
 
-  // ignore if the unjoin request is from a node that is not in standby
-  const foundInStandbyNodes = getStandbyNodesInfoMap().has(unjoinRequest.publicKey)
-  if (!foundInStandbyNodes) {
-    return err(new Error(`unjoin request from ${unjoinRequest.publicKey} is from a node not in standby`))
-  }
-
   // ignore if the unjoin request is from a node that is active
   const foundInActiveNodes = NodeList.byPubKey.has(unjoinRequest.publicKey)
   if (foundInActiveNodes) {
     return err(new Error(`unjoin request from ${unjoinRequest.publicKey} is from an active node that can't unjoin`))
+  }
+
+  // ignore if the unjoin request is from a node that is not in standby
+  const foundInStandbyNodes = getStandbyNodesInfoMap().has(unjoinRequest.publicKey)
+  if (!foundInStandbyNodes) {
+    return err(new Error(`unjoin request from ${unjoinRequest.publicKey} is from a node not in standby (doesn't exist?)`))
   }
 
   // lastly, verify the signature of the join request
