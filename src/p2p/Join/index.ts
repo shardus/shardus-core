@@ -228,7 +228,7 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
     // ... then add any standby nodes that are now allowed to join
     const selectedPublicKeys = drainSelectedPublicKeys()
     console.log('selected public keys', selectedPublicKeys)
-    record.joinedConsensors = []
+    record.joinedConsensors = record.joinedConsensors || []
     for (const publicKey of selectedPublicKeys) {
       const standbyInfo = getStandbyNodesInfoMap().get(publicKey)
 
@@ -822,12 +822,6 @@ export function computeSelectionNum<T extends P2P.JoinTypes.StandbyInfo>(joinReq
     selectionKey,
   }
   const selectionNum = crypto.hash(obj)
-
-  // save the selection num to the join request for join v2 so we don't have to
-  // calculate it again later
-  if (config.p2p.useJoinProtocolV2) {
-    joinRequest.selectionNum = selectionNum
-  }
 
   return ok(selectionNum)
 }

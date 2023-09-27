@@ -25,7 +25,6 @@ import { errorToStringFull, formatErrorMessage } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { randomBytes } from '@shardus/crypto-utils'
 import { digestCycle, syncNewCycles } from './Sync'
-import { executeNodeSelection, notifyNewestJoinedConsensors } from './Join/v2/select'
 
 /** CONSTANTS */
 
