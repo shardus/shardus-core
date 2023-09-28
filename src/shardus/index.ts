@@ -2142,6 +2142,8 @@ class Shardus extends EventEmitter {
   async updateConfigChangeQueue(account: ShardusTypes.WrappedData, lastCycle: ShardusTypes.Cycle) {
     if (account == null || lastCycle == null) return
 
+    /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug('updateConfigChangeQueue: Start processing configuration changes')
+
     // @ts-ignore // TODO where is listOfChanges coming from here? I don't think it should exist on data
     let changes = account.data.listOfChanges as {
       cycle: number
@@ -2171,6 +2173,8 @@ class Shardus extends EventEmitter {
       let changeObj = change.change
       let appData = change.appData
 
+      /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`updateConfigChangeQueue: Applying configuration change: ${JSON.stringify(changeObj)}`)
+
       this.patchObject(this.config, changeObj, appData)
 
       const prunedData: WrappedData[] = await this.app.pruneNetworkChangeQueue(account, lastCycle.counter)
@@ -2183,6 +2187,8 @@ class Shardus extends EventEmitter {
 
       this.p2p.configUpdated()
       this.loadDetection.configUpdated()
+
+      /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug('updateConfigChangeQueue: Configuration change applied successfully')
     }
   }
 
