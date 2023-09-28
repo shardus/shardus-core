@@ -32,6 +32,7 @@ import { isDebugMode } from '../debug'
 import { profilerInstance } from '../utils/profiler'
 import getCallstack from '../utils/getCallstack'
 import { nestedCountersInstance } from '../utils/nestedCounters'
+import { addSchema, getVerifyFunction, initializeSerialization } from '../utils/serialization/SchemaVerification'
 
 /** STATE */
 
@@ -82,8 +83,8 @@ const apoptosisInternalRoute: P2P.P2PTypes.Route<
     profilerInstance.scopedProfileSectionStart('apoptosize')
     try {
       info(`Got Apoptosis proposal: ${JSON.stringify(payload)}`)
-      let err = ''
-
+      let validate
+      let valid: boolean
       //special control case used to get an 'ack' from the isDownCheck function on a potentially lost node
       //this must be before the validation of the payload as it is not a valid payload
       if (payload?.id === 'isDownCheck') {
@@ -97,14 +98,16 @@ const apoptosisInternalRoute: P2P.P2PTypes.Route<
         response({ s: 'node is not down', r: 2 })
       }
 
-      err = validateTypes(payload, { when: 'n', id: 's', sign: 'o' })
-      if (err) {
-        warn('bad input ' + err)
+      validate = getVerifyFunction("payloadFields")
+      valid = validate(payload)
+      if (!valid) {
+        warn('payloadFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
         return
       }
-      err = validateTypes(payload.sign, { owner: 's', sig: 's' })
-      if (err) {
-        warn('bad input sign ' + err)
+      validate = getVerifyFunction("signFields")
+      valid = validate(payload)
+      if (!valid) {
+        warn('signFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
         return
       }
       // The when must be set to current cycle +-1 because it is being
@@ -152,15 +155,18 @@ const apoptosisGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ApoptosisTypes.Signed
   profilerInstance.scopedProfileSectionStart('apoptosis')
   try {
     info(`Got Apoptosis gossip: ${JSON.stringify(payload)}`)
-    let err = ''
-    err = validateTypes(payload, { when: 'n', id: 's', sign: 'o' })
-    if (err) {
-      warn('apoptosisGossipRoute bad payload: ' + err)
+    let validate
+    let valid: boolean
+    validate = getVerifyFunction("payloadFields")
+    valid = validate(payload)
+    if (!valid) {
+      warn('payloadFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
       return
     }
-    err = validateTypes(payload.sign, { owner: 's', sig: 's' })
-    if (err) {
-      warn('apoptosisGossipRoute bad payload.sign: ' + err)
+    validate = getVerifyFunction("signFields")
+    valid = validate(payload)
+    if (!valid) {
+      warn('signFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
       return
     }
     if ([1, 2].includes(currentQuarter)) {
@@ -189,6 +195,9 @@ export function init() {
 
   // Init state
   reset()
+
+  //Registering Validators through Ajv
+  registerValidators()
 
   // Register routes
   for (const route of routes.external) {
@@ -221,8 +230,14 @@ export function getTxs(): P2P.ApoptosisTypes.Txs {
 }
 
 export function validateRecordTypes(rec: P2P.ApoptosisTypes.Record): string {
-  let err = validateTypes(rec, { apoptosized: 'a' })
-  if (err) return err
+    let validate
+    let valid: boolean
+    validate = getVerifyFunction("recordFields")
+    valid = validate(rec)
+    if (!valid) {
+      warn('recordFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
+      return
+    }
   for (const item of rec.apoptosized) {
     if (typeof item !== 'string') return 'items of apoptosized array must be strings'
   }
@@ -389,6 +404,44 @@ function error(...msg) {
   const entry = `Apoptosis: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
+
+function registerValidators() {
+  let payloadFields = {
+    type: "object",
+    properties: {
+      when: { type: "number" },
+      id: { type: "string" },
+      sign: { type: "object" },
+    },
+    required: ["when", "id", "sign"],
+    additionalProperties: true
+  };
+  addSchema("payloadFields", payloadFields);
+
+  let signFields = {
+    type: "object",
+    properties: {
+      owner: { type: "string" },
+      sig: { type: "string" },
+    },
+    required: ["owner", "sig"],
+    additionalProperties: true
+  };
+  addSchema("signFields", signFields);
+
+  let recordFields = {
+    type: "object",
+    properties: {
+      apoptosized: { type: "array" },
+    },
+    required: ["apoptosized"],
+    additionalProperties: true
+  }
+  addSchema("recordFields", recordFields);
+
+  initializeSerialization()
+}
+
 
 /** STORAGE DATA */
 
