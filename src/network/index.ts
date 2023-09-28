@@ -10,7 +10,7 @@ import { promisify } from 'util'
 import { isDebugMode } from '../debug'
 import * as httpModule from '../http'
 import Logger, { logFlags } from '../logger'
-import { config, defaultConfigs, logger } from '../p2p/Context'
+import { config, crypto, defaultConfigs, logger } from '../p2p/Context'
 import { generateUUID } from '../p2p/Utils'
 import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
@@ -148,6 +148,7 @@ export class NetworkClass extends EventEmitter {
         sendHeaderVersion: 1,
         enableDataCompression: true,
       },
+      signingSecretKeyHex: crypto.keypair.secretKey,
       customStringifier: this.customStringifier,
     })
     this.intServer = await this.sn.listen(async (data, remote, respond) => {
