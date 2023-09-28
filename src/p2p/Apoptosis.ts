@@ -101,13 +101,13 @@ const apoptosisInternalRoute: P2P.P2PTypes.Route<
       validate = getVerifyFunction("payloadFields")
       valid = validate(payload)
       if (!valid) {
-        warn('payloadFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
+        warn('Apoptosis proposal payloadFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
         return
       }
       validate = getVerifyFunction("signFields")
       valid = validate(payload)
       if (!valid) {
-        warn('signFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
+        warn('Apoptosis proposal signFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
         return
       }
       // The when must be set to current cycle +-1 because it is being
@@ -160,13 +160,13 @@ const apoptosisGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ApoptosisTypes.Signed
     validate = getVerifyFunction("payloadFields")
     valid = validate(payload)
     if (!valid) {
-      warn('payloadFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
+      warn('apoptosisGossipRoute payloadFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
       return
     }
     validate = getVerifyFunction("signFields")
     valid = validate(payload)
     if (!valid) {
-      warn('signFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
+      warn('apoptosisGossipRoute signFields -> Bad input: ' + JSON.stringify(validate.errors, null, 2));
       return
     }
     if ([1, 2].includes(currentQuarter)) {
@@ -441,8 +441,6 @@ function registerValidators() {
 
   initializeSerialization()
 }
-
-
 /** STORAGE DATA */
 
 /* Don't need this any more since we are not storing cycles in the database
