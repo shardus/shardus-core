@@ -52,12 +52,13 @@ export function init(): void {
   * digestion.
   *
   * @param joinRequest The join request to save.
+  * @param persistImmediately If true, the node will be added to the standby node list immediately. This can be used for the first node in the network.
   */
-export function saveJoinRequest(joinRequest: JoinRequest): void {
+export function saveJoinRequest(joinRequest: JoinRequest, persistImmediately = false): void {
   console.log('saving join request:', joinRequest)
 
   // if first node, add to standby list immediately
-  if (Self.isFirst) {
+  if (persistImmediately) {
     standbyNodesInfo.set(joinRequest.nodeInfo.publicKey, joinRequest)
     return
   }
