@@ -242,9 +242,8 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       // to be the cycle that the node sent its join request, or the
       // cycle that it became active? currently it is likely the cycle that
       // the join request was sent
-      const { nodeInfo } = standbyInfo
-      const cycleJoined = CycleChain.getCurrentCycleMarker()
-      const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
+      const { nodeInfo, cycleMarker: cycleJoined } = standbyInfo
+      const id = computeNodeId(nodeInfo.publicKey, standbyInfo.cycleMarker)
       const counterRefreshed = record.counter
 
       // finally, remove the node from the standby list

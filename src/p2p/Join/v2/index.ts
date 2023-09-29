@@ -127,7 +127,7 @@ export function getLastHashedStandbyList(): StandbyInfo[] {
 }
 
 /** Returns the map of standby information. */
-export function getStandbyNodesInfoMap(): Map<publickey, StandbyInfo> {
+export function getStandbyNodesInfoMap(): Map<publickey, JoinRequest> {
   console.log('getting standby nodes info map')
   return standbyNodesInfo
 }
