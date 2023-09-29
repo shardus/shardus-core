@@ -20,14 +20,14 @@ const clone = rfdc()
 type publickey = StandbyInfo['nodeInfo']['publicKey']
 
 /** The list of nodes that are currently on standby. */
-const standbyNodesInfo: Map<publickey, StandbyInfo> = new Map()
+const standbyNodesInfo: Map<publickey, JoinRequest> = new Map()
 
 /**
   * New join requests received during the node's current cycle. This list is
   * "drained" when the cycle is digested. Its entries are added to `standbyNodeList` as part of cycle...
   * digestion. appetizing!
   */
-let newStandbyInfos: StandbyInfo[] = []
+let newStandbyInfos: JoinRequest[] = []
 
 export function init(): void {
   console.log('initializing join protocol v2')
@@ -50,27 +50,24 @@ export function init(): void {
   * Pushes the join request onto the list of new join requests. Its node's info
   * will be added to the standby node list at the end of the cycle during cycle
   * digestion.
+  *
+  * @param joinRequest The join request to save.
   */
 export function saveJoinRequest(joinRequest: JoinRequest): void {
-  const standbyAdditionInfo = {
-    nodeInfo: joinRequest.nodeInfo,
-    publicKey: joinRequest.nodeInfo.publicKey,
-    selectionNum: joinRequest.selectionNum,
-  }
   console.log('saving join request:', joinRequest)
 
   // if first node, add to standby list immediately
   if (Self.isFirst) {
-    standbyNodesInfo.set(standbyAdditionInfo.publicKey, standbyAdditionInfo)
+    standbyNodesInfo.set(joinRequest.nodeInfo.publicKey, joinRequest)
     return
   }
-  newStandbyInfos.push(standbyAdditionInfo)
+  newStandbyInfos.push(joinRequest)
 }
 
 /**
   * Returns the list of new standby info and empties the list.
   */
-export function drainNewStandbyInfo(): StandbyInfo[] {
+export function drainNewStandbyInfo(): JoinRequest[] {
   console.log('draining new standby info:', newStandbyInfos)
   const tmp = newStandbyInfos
   newStandbyInfos = []
@@ -80,7 +77,7 @@ export function drainNewStandbyInfo(): StandbyInfo[] {
 /**
   * Adds nodes to the standby node list.
   */
-export function addStandbyNodes(...nodes: StandbyInfo[]): void {
+export function addStandbyNodes(...nodes: JoinRequest[]): void {
   console.log('adding standby nodes:', nodes)
   for (const node of nodes) {
     standbyNodesInfo.set(node.nodeInfo.publicKey, node)

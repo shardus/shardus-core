@@ -381,7 +381,7 @@ export async function firstJoin(): Promise<string> {
   // Add own join request
   utils.insertSorted(requests, request)
   if (config.p2p.useJoinProtocolV2) {
-    saveJoinRequest(request)
+    saveJoinRequest(request, true)
     forceSelectSelf()
   }
   // Return node ID
