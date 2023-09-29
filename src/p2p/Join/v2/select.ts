@@ -25,7 +25,7 @@ const NUM_NOTIFYING_NODES = 3
   * skipped.
   */
 export function executeNodeSelection(): void {
-  if (!Self.isActive) {
+  if (!Self.isActive && !Self.getIsFirst()) {
     console.warn('not selecting nodes because we are not active yet')
     return
   }
