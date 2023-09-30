@@ -2062,7 +2062,7 @@ class Shardus extends EventEmitter {
         previousCycleMarker: CycleChain.getNewest()?.previous,
         getStandbyListHash: JoinV2.getStandbyListHash(),
         getLastHashedStandbyList: JoinV2.getLastHashedStandbyList(),
-        getSortedStandbyNodeList: JoinV2.getSortedStandbyNodeList(),
+        getSortedStandbyNodeList: JoinV2.getSortedStandbyJoinRequests(),
       }
       res.json(deepReplace(result, undefined, '__undefined__'))
     })

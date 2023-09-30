@@ -15,7 +15,7 @@ import { robustQuery } from './Utils'
 import { profilerInstance } from '../utils/profiler'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { byJoinOrder } from './NodeList'
-import { addStandbyNodes } from './Join/v2'
+import { addStandbyJoinRequests } from './Join/v2'
 import * as JoinV2 from './Join/v2'
 import { deleteStandbyNode } from './Join/v2/unjoin'
 
@@ -325,7 +325,7 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
   // and remove any standby nodes that have unjoined.
   if (config.p2p.useJoinProtocolV2) {
     if (cycle.standbyAdd) {
-    addStandbyNodes(...cycle.standbyAdd)
+    addStandbyJoinRequests(...cycle.standbyAdd)
   }
     if (cycle.standbyRemove) {
       for (const publicKey of cycle.standbyRemove) {

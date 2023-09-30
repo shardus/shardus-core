@@ -4,7 +4,7 @@
   */
 
 import { hexstring } from "@shardus/types";
-import { JoinRequest, StandbyInfo } from "@shardus/types/build/src/p2p/JoinTypes";
+import { JoinRequest } from "@shardus/types/build/src/p2p/JoinTypes";
 import { config, crypto } from '../../Context'
 import * as CycleChain from '../../CycleChain'
 import * as Self from '../../Self'
@@ -17,7 +17,7 @@ import { ResultAsync } from "neverthrow";
 const clone = rfdc()
 
 /** Just a local convenience type. */
-type publickey = StandbyInfo['nodeInfo']['publicKey']
+type publickey = JoinRequest['nodeInfo']['publicKey']
 
 /** The list of nodes that are currently on standby. */
 const standbyNodesInfo: Map<publickey, JoinRequest> = new Map()
@@ -27,7 +27,7 @@ const standbyNodesInfo: Map<publickey, JoinRequest> = new Map()
   * "drained" when the cycle is digested. Its entries are added to `standbyNodeList` as part of cycle...
   * digestion. appetizing!
   */
-let newStandbyInfos: JoinRequest[] = []
+let newJoinRequests: JoinRequest[] = []
 
 export function init(): void {
   console.log('initializing join protocol v2')
@@ -62,35 +62,35 @@ export function saveJoinRequest(joinRequest: JoinRequest, persistImmediately = f
     standbyNodesInfo.set(joinRequest.nodeInfo.publicKey, joinRequest)
     return
   }
-  newStandbyInfos.push(joinRequest)
+  newJoinRequests.push(joinRequest)
 }
 
 /**
-  * Returns the list of new standby info and empties the list.
+  * Returns the list of new standby join requests and empties the list.
   */
-export function drainNewStandbyInfo(): JoinRequest[] {
-  console.log('draining new standby info:', newStandbyInfos)
-  const tmp = newStandbyInfos
-  newStandbyInfos = []
+export function drainNewJoinRequests(): JoinRequest[] {
+  console.log('draining new standby info:', newJoinRequests)
+  const tmp = newJoinRequests
+  newJoinRequests = []
   return tmp
 }
 
 /**
   * Adds nodes to the standby node list.
   */
-export function addStandbyNodes(...nodes: JoinRequest[]): void {
+export function addStandbyJoinRequests(...nodes: JoinRequest[]): void {
   console.log('adding standby nodes:', nodes)
   for (const node of nodes) {
     standbyNodesInfo.set(node.nodeInfo.publicKey, node)
   }
 }
 
-let lastHashedList: StandbyInfo[] = []
+let lastHashedList: JoinRequest[] = []
 
 /**
   * Returns the list of standby nodes, sorted by their public keys.
   */
-export function getSortedStandbyNodeList(): StandbyInfo[] {
+export function getSortedStandbyJoinRequests(): JoinRequest[] {
   console.log('getting sorted standby node list')
   return [...standbyNodesInfo.values()].sort((a, b) =>
     // using mathematical comparison in case localeCompare is inconsistent.
@@ -106,7 +106,7 @@ export function computeNewStandbyListHash(): hexstring {
   // set the lastHashedList to the current list by pubkey, then hash.
   // deep cloning is necessary as standby node information may be mutated by
   // reference.
-  lastHashedList = clone(getSortedStandbyNodeList())
+  lastHashedList = clone(getSortedStandbyJoinRequests())
   const hash = crypto.hash(lastHashedList)
   return hash
 }
@@ -121,7 +121,7 @@ export function getStandbyListHash(): hexstring | undefined {
 }
 
 /** Returns the last list of standby information that had its hash computed. */
-export function getLastHashedStandbyList(): StandbyInfo[] {
+export function getLastHashedStandbyList(): JoinRequest[] {
   console.log('getting last hashed standby list')
   return lastHashedList
 }

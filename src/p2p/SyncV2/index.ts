@@ -22,8 +22,8 @@ import * as NodeList from '../NodeList'
 import * as CycleChain from '../CycleChain'
 import { initRoutes } from './routes'
 import { digestCycle } from '../Sync'
-import { JoinRequest, StandbyInfo } from '@shardus/types/build/src/p2p/JoinTypes'
-import { addStandbyNodes } from '../Join/v2'
+import { JoinRequest, JoinRequest } from '@shardus/types/build/src/p2p/JoinTypes'
+import { addStandbyJoinRequests } from '../Join/v2'
 
 /** Initializes logging and endpoints for Sync V2. */
 export function init(): void {
@@ -71,7 +71,7 @@ export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<voi
           }
 
           // add standby nodes
-          addStandbyNodes(...standbyNodeList)
+          addStandbyJoinRequests(...standbyNodeList)
 
           // add latest cycle
           CycleChain.reset()
@@ -152,7 +152,7 @@ function syncArchiverList(
  * hash matches the one requested.
  *
  * @returns {ResultAsync<P2P.ArchiversTypes.JoinedArchiver[], Error>} - A ResultAsync object. On success, it will contain 
- * an array of StandbyInfo objects, and on error, it will contain an Error object. The function is asynchronous
+ * an array of JoinRequest objects, and on error, it will contain an Error object. The function is asynchronous
  * and can be awaited.
  */
 function syncStandbyNodeList(

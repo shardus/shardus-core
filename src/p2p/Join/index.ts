@@ -17,10 +17,11 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { Logger } from 'log4js'
 import { calculateToAcceptV2 } from '../ModeSystemFuncs'
 import { routes } from './routes'
-import { drainNewStandbyInfo, getStandbyNodesInfoMap, saveJoinRequest } from './v2'
+import { drainNewJoinRequests, getStandbyNodesInfoMap, saveJoinRequest } from './v2'
 import { err, ok, Result } from 'neverthrow'
 import { drainSelectedPublicKeys, forceSelectSelf } from './v2/select'
 import { drainNewUnjoinRequests } from './v2/unjoin'
+import { JoinRequest } from '@shardus/types/build/src/p2p/JoinTypes'
 
 /** STATE */
 
@@ -216,7 +217,7 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
 
   if (config.p2p.useJoinProtocolV2) {
     // for join v2, add new standby nodes to the standbyAdd field ...
-    for (const standbyNode of drainNewStandbyInfo()) {
+    for (const standbyNode of drainNewJoinRequests()) {
       record.standbyAdd.push(standbyNode)
     }
 
@@ -760,7 +761,7 @@ function validateJoinRequestTimestamp(joinRequestTimestamp: number): JoinRequest
   * `shardus.app.validateJoinRequest` is not a function, then the selection key
   * is the public key of the node that sent the join request.
   */
-function getSelectionKey<T extends P2P.JoinTypes.StandbyInfo>(joinRequest: T): Result<string, JoinRequestResponse> {
+function getSelectionKey(joinRequest: JoinRequest): Result<string, JoinRequestResponse> {
   if (typeof shardus.app.validateJoinRequest === 'function') {
     try {
       mode = CycleChain.newest.mode || null
@@ -807,7 +808,7 @@ function verifyJoinRequestSignature(joinRequest: P2P.JoinTypes.JoinRequest): Joi
 /**
   * Computes a selection number given a join request.
   */
-export function computeSelectionNum<T extends P2P.JoinTypes.StandbyInfo>(joinRequest: T): Result<string, JoinRequestResponse> {
+export function computeSelectionNum(joinRequest: JoinRequest): Result<string, JoinRequestResponse> {
   // get the selection key
   const selectionKeyResult = getSelectionKey(joinRequest);
   if (selectionKeyResult.isErr()) {
