@@ -203,6 +203,12 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequ
   sender: P2P.NodeListTypes.Node['id'],
   tracker: string,
 ) => {
+  // ensure this join request doesn't already exist in standby nodes
+  if (getStandbyNodesInfoMap().has(payload.nodeInfo.publicKey)) {
+    console.error(`join request for pubkey ${payload.nodeInfo.publicKey} already exists as a standby node`)
+    return
+  }
+
   // validate the join request first
   const validationError = validateJoinRequest(payload)
   if (validationError) {
