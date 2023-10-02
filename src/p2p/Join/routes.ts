@@ -173,6 +173,9 @@ const acceptedRoute: P2P.P2PTypes.Route<Handler> = {
         } else {
           acceptance.getEventEmitter().emit('accepted')
         }
+      }, {
+        maxRetries: 5,
+        delay: 2000,
       })
     } catch (err) {
       res.status(400).send(err)
