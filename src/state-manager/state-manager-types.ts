@@ -12,6 +12,7 @@ export type TxDebug = {
 
 export type QueueEntry = {
   eligibleNodesToVote: Shardus.Node[];
+  eligibleNodesToConfirm: Shardus.Node[];
   acceptedTx: Shardus.AcceptedTx
   txKeys: Shardus.TransactionKeys
   /** This is data that is collected or loaded locally before it attemps to call apply() */
@@ -66,7 +67,7 @@ export type QueueEntry = {
   ourExGroupIndex: number //our index in the execution group
   conensusGroup?: Shardus.Node[]
   transactionGroup?: Shardus.Node[]
-  executionGroup?: Shardus.Node[] //List of nodes that are in the execution group
+  executionGroup?: Shardus.NodeWithRank[] //List of nodes that are in the execution group
   executionIdSet?: Set<string> //set of node accountIDs for nodes that are in the execution group
   txGroupCycle: number
   updatedTransactionGroup?: Shardus.Node[]
@@ -81,9 +82,18 @@ export type QueueEntry = {
   ourVoteHash?: string
   collectedVotes: AppliedVote[]
   collectedVoteHashes: AppliedVoteHash[]
+  receivedBestVote?: AppliedVote
+  receivedBestVoter?: Shardus.NodeWithRank
+  receivedBestConfirmation?: ConfirmOrChallengeMessage
+  receivedBestConfirmedNode?: Shardus.NodeWithRank
+  receivedBestChallenge?: ConfirmOrChallengeMessage
+  receivedBestChallenger?: Shardus.NodeWithRank
   newVotes: boolean
   voteCastAge: number
   lastVoteReceivedTimestamp: number
+  lastConfirmOrChallengeTimestamp: number
+  acceptVoteMessage: boolean
+  acceptConfirmOrChallenge: boolean
 
   gossipedReceipt: boolean
 
@@ -616,6 +626,13 @@ export type AppliedReceipt = {
   appliedVotes: AppliedVote[]
   // hash of app data
   app_data_hash: string
+}
+
+export type ConfirmOrChallengeMessage = {
+  message: string
+  nodeId: string,
+  appliedVote: AppliedVote
+  sign?: Shardus.Sign
 }
 
 /**
