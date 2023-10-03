@@ -11,8 +11,8 @@ export type TxDebug = {
 }
 
 export type QueueEntry = {
-  eligibleNodesToVote: Shardus.Node[];
-  eligibleNodesToConfirm: Shardus.Node[];
+  eligibleNodesToVote: Shardus.Node[]
+  eligibleNodesToConfirm: Shardus.Node[]
   acceptedTx: Shardus.AcceptedTx
   txKeys: Shardus.TransactionKeys
   /** This is data that is collected or loaded locally before it attemps to call apply() */
@@ -96,6 +96,8 @@ export type QueueEntry = {
   acceptConfirmOrChallenge: boolean
 
   gossipedReceipt: boolean
+  gossipedVote: boolean
+  gossipedConfirmOrChallenge: boolean
 
   // receipt that we created
   appliedReceipt?: AppliedReceipt
