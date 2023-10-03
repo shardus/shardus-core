@@ -34,14 +34,6 @@ let seen: Set<P2P.P2PTypes.Node['publicKey']>
 
 let lastLoggedCycle = 0
 
-let allowBogon = false
-export function setAllowBogon(value: boolean): void {
-  allowBogon = value
-}
-export function getAllowBogon(): boolean {
-  return allowBogon
-}
-
 let mode = null
 
 let hasSubmittedJoinRequest = false
@@ -399,27 +391,17 @@ export async function submitJoin(
   const promises = []
   if (logFlags.p2pNonFatal) info(`Sending join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`)
 
-  // Check if network allows bogon IPs, set our own flag accordingly
-  if (config.p2p.dynamicBogonFiltering && config.p2p.forceBogonFilteringOn === false) {
-    if (nodes.some((node) => isBogonIP(node.ip))) {
-      allowBogon = true
-    }
-  }
-  nestedCountersInstance.countEvent('p2p', `join-allow-bogon-submit:${allowBogon}`)
-
   //Check for bad IPs before a join request is sent out
-  if (config.p2p.rejectBogonOutboundJoin || config.p2p.forceBogonFilteringOn) {
-    if (allowBogon === false) {
-      if (isBogonIP(joinRequest.nodeInfo.externalIp)) {
-        throw new Error(`Fatal: Node cannot join with bogon external IP: ${joinRequest.nodeInfo.externalIp}`)
-      }
-    } else {
-      //even if not checking bogon still reject other invalid IPs that would be unusable
-      if (isInvalidIP(joinRequest.nodeInfo.externalIp)) {
-        throw new Error(
-          `Fatal: Node cannot join with invalid external IP: ${joinRequest.nodeInfo.externalIp}`
-        )
-      }
+  if (isInvalidIP(joinRequest.nodeInfo.externalIp)) {
+    throw new Error(
+      `Fatal: Node cannot join with invalid external IP: ${joinRequest.nodeInfo.externalIp}`
+    )
+  }
+
+  // Check for bogon IPs before a join request is sent out
+  if (config.p2p.forceBogonFilteringOn) {
+    if (isBogonIP(joinRequest.nodeInfo.externalIp)) {
+      throw new Error(`Fatal: Node cannot join with bogon external IP: ${joinRequest.nodeInfo.externalIp}`)
     }
   }
 
@@ -500,25 +482,25 @@ export function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): Joi
   */
 function validateJoinRequestHost(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
   try {
-    //test or bogon IPs and reject the join request if they appear
-    if (allowBogon === false) {
+    // Reject requests from invalid IPs  
+    if (isInvalidIP(joinRequest.nodeInfo.externalIp)) {
+      warn('Got join request from invalid reserved IP')
+      nestedCountersInstance.countEvent('p2p', `join-reject-reserved`)
+      return {
+        success: false,
+        reason: `Bad ip, reserved ip not accepted`,
+        fatal: true,
+      }
+    }
+
+    // Test for bogon IPs and reject the join request if they appear
+    if (config.p2p.forceBogonFilteringOn) {
       if (isBogonIP(joinRequest.nodeInfo.externalIp)) {
         warn('Got join request from Bogon IP')
         nestedCountersInstance.countEvent('p2p', `join-reject-bogon`)
         return {
           success: false,
           reason: `Bad ip, bogon ip not accepted`,
-          fatal: true,
-        }
-      }
-    } else {
-      //even if not checking bogon still reject other invalid IPs that would be unusable
-      if (isInvalidIP(joinRequest.nodeInfo.externalIp)) {
-        warn('Got join request from invalid reserved IP')
-        nestedCountersInstance.countEvent('p2p', `join-reject-reserved`)
-        return {
-          success: false,
-          reason: `Bad ip, reserved ip not accepted`,
           fatal: true,
         }
       }

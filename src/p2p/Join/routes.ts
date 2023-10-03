@@ -39,16 +39,6 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
       return
     }
 
-    if (
-      NodeList.activeByIdOrder.length === 1 &&
-      Self.isFirst &&
-      isBogonIP(joinRequest.nodeInfo.externalIp) &&
-      config.p2p.forceBogonFilteringOn === false
-    ) {
-      setAllowBogon(true)
-    }
-    nestedCountersInstance.countEvent('p2p', `join-allow-bogon-firstnode:${getAllowBogon()}`)
-
     const externalIp = joinRequest.nodeInfo.externalIp
     const externalPort = joinRequest.nodeInfo.externalPort
     const internalIp = joinRequest.nodeInfo.internalIp

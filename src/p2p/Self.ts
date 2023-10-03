@@ -103,6 +103,16 @@ export async function startup(): Promise<boolean> {
       // Get active nodes from Archiver
       const activeNodes = await contactArchiver()
 
+      // Shutdown if invalid IPs recieved from archiver
+      if (activeNodes.some((node) => isInvalidIP(node.ip))) {
+        throw new Error('Fatal: Invalid IPs recieved from archiver')
+      }
+
+      // Shutdown if bogon IPs recieved from archiver
+      if (Context.config.p2p.forceBogonFilteringOn && activeNodes.some((node) => isInvalidIP(node.ip))) {
+        throw new Error('Fatal: Bogon IPs recieved from archiver')
+      }
+
       // Start in witness mode if conditions are met
       if (await witnessConditionsMet(activeNodes)) {
         if (logFlags.p2pNonFatal) info('Emitting `witnessing` event.')
@@ -223,12 +233,9 @@ async function joinNetwork(
   // Create join request from latest cycle
   const request = await Join.createJoinRequest(latestCycle.previous)
 
-  //we can't use allowBogon lag yet because its value is detected later.
   //it is possible to throw out any invalid IPs at this point
-  if (Context.config.p2p.rejectBogonOutboundJoin || Context.config.p2p.forceBogonFilteringOn) {
-    if (isInvalidIP(request.nodeInfo.externalIp)) {
-      throw new Error(`Fatal: Node cannot join with invalid external IP: ${request.nodeInfo.externalIp}`)
-    }
+  if (isInvalidIP(request.nodeInfo.externalIp)) {
+    throw new Error(`Fatal: Node cannot join with invalid external IP: ${request.nodeInfo.externalIp}`)
   }
 
   // Figure out when Q1 is from the latestCycle
