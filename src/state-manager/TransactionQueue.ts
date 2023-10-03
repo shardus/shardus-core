@@ -1202,6 +1202,8 @@ class TransactionQueue {
 
       this.queueEntryCounter++
       const txQueueEntry: QueueEntry = {
+        eligibleNodesToConfirm: [],
+        eligibleNodesToVote: [],
         acceptedTx: acceptedTx,
         txKeys: keysResponse,
         executionShardKey: null,
@@ -1275,7 +1277,7 @@ class TransactionQueue {
         lastConfirmOrChallengeTimestamp: 0,
         acceptVoteMessage: true,
         acceptConfirmOrChallenge: true,
-        accountDataSet: false,
+        accountDataSet: false
       } // age comes from timestamp
 
       // todo faster hash lookup for this maybe?

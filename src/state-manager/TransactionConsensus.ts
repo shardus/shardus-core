@@ -678,9 +678,9 @@ class TransactionConsenus {
           result: undefined,
           appliedVote: undefined,
           signatures: [],
-          app_data_hash: '""          //transaction_result: false //this was missing before..
+          app_data_hash: '',
+          // transaction_result: false //this was missing before..
         }
-;
         for (let i = 0; i < numVotes; i++) {
           // eslint-disable-next-line security/detect-object-injection
           const currentVote = queueEntry.collectedVoteHashes[i]
@@ -692,17 +692,17 @@ class TransactionConsenus {
         //we may not have this yet
 
         if (queueEntry.ourVote != null && queueEntry.ourVoteHash === winningVoteHash) {
-          appliedReceipt2.result = queueEntry.ourVote.transaction_result;
-          appliedReceipt2.appliedVote = queueEntry.ourVote;
+          appliedReceipt2.result = queueEntry.ourVote.transaction_result
+          appliedReceipt2.appliedVote = queueEntry.ourVote
           // now send it !!!
 
-          queueEntry.appliedReceipt2 = appliedReceipt2;
+          queueEntry.appliedReceipt2 = appliedReceipt2
 
           for (let i = 0; i < queueEntry.ourVote.account_id.length; i++) {
             /* eslint-disable security/detect-object-injection */
-            if (queueEntry.ourVote.account_id[i] === "app_data_hash") {
-              appliedReceipt2.app_data_hash = queueEntry.ourVote.account_state_hash_after[i];
-              break;
+            if (queueEntry.ourVote.account_id[i] === 'app_data_hash') {
+              appliedReceipt2.app_data_hash = queueEntry.ourVote.account_state_hash_after[i]
+              break
             }
             /* eslint-enable security/detect-object-injection */
           }
@@ -712,76 +712,115 @@ class TransactionConsenus {
             txid: queueEntry.acceptedTx.txId,
             result: queueEntry.ourVote.transaction_result,
             appliedVotes: [queueEntry.ourVote],
-            app_data_hash: appliedReceipt2.app_data_hash
-          };
-          queueEntry.appliedReceipt = appliedReceipt;
+            app_data_hash: appliedReceipt2.app_data_hash,
+          }
+          queueEntry.appliedReceipt = appliedReceipt
 
-          return appliedReceipt;
+          return appliedReceipt
         }
       }
     } else {
-      const now = Date.now();
+      const now = Date.now()
       const timeSinceLastConfirmOrChallenge =
-        queueEntry.lastConfirmOrChallengeTimestamp > 0 ? now - queueEntry.lastConfirmOrChallengeTimestamp : 0;
+        queueEntry.lastConfirmOrChallengeTimestamp > 0 ? now - queueEntry.lastConfirmOrChallengeTimestamp : 0
       // check if last vote confirm/challenge received is 1s ago
       if (timeSinceLastConfirmOrChallenge >= this.waitTimeBeforeReceipt) {
         // stop accepting the vote messages, confirm or challenge for this tx
-        queueEntry.acceptVoteMessage = false;
-        queueEntry.acceptConfirmOrChallenge = false;
+        queueEntry.acceptVoteMessage = false
+        queueEntry.acceptConfirmOrChallenge = false
 
-        //  todo: podA: create receipt
+        // we have received challenge message, produce failed receipt
+        if (queueEntry.receivedBestChallenge && queueEntry.receivedBestChallenger) {
+          const appliedReceipt: AppliedReceipt = {
+            txid: queueEntry.receivedBestChallenge.appliedVote.txid,
+            result: false,
+            appliedVotes: [],
+            app_data_hash: '',
+          }
+          queueEntry.appliedReceipt = appliedReceipt
+          console.log(`LPOQ: producing a fail receipt based on received challenge message`, appliedReceipt);
+          return appliedReceipt
+        }
+
+        // create receipt
         // The receipt for the transactions is the lowest ranked challenge message or if there is no challenge the lowest ranked confirm message
         // loop through "confirm" messages and "challenge" messages to decide the final receipt
+        if (queueEntry.receivedBestConfirmation && queueEntry.receivedBestConfirmedNode) {
+          const winningVote = queueEntry.receivedBestConfirmation.appliedVote
+          if (winningVote !== null) {
+            const appliedReceipt: AppliedReceipt = {
+              txid: winningVote.txid,
+              result: winningVote.transaction_result,
+              appliedVotes: [winningVote],
+              app_data_hash: '',
+            }
+            for (let i = 0; i < winningVote.account_id.length; i++) {
+              /* eslint-disable security/detect-object-injection */
+              if (winningVote.account_id[i] === 'app_data_hash') {
+                appliedReceipt.app_data_hash = winningVote.account_state_hash_after[i]
+                break
+              }
+              /* eslint-enable security/detect-object-injection */
+            }
+            queueEntry.appliedReceipt = appliedReceipt
+            console.log(`LPOQ: producing a confirm receipt based on received confirm message`, appliedReceipt);
+          }
+        }
 
         //  todo: podA: do a robust query to confirm that we have the best receipt (lower the rank of confirm
         //   message, the better the
         // receipt is)
+        return queueEntry.appliedReceipt
       }
     }
-    return null;
+    return null
   }
 
   tryConfirmOrChallenge(queueEntry: QueueEntry): Promise<void> {
-    const now = Date.now();
+    if (queueEntry.gossipedConfirmOrChallenge === true) {
+      console.log(`LPOQ: already gossiped confirm or challenge for ${queueEntry.acceptedTx.txId}`);
+      return
+    }
+    const now = Date.now()
     const timeSinceLastVoteMessage =
-      queueEntry.lastVoteReceivedTimestamp > 0 ? now - queueEntry.lastVoteReceivedTimestamp : 0;
+      queueEntry.lastVoteReceivedTimestamp > 0 ? now - queueEntry.lastVoteReceivedTimestamp : 0
     // check if last confirm/challenge received is 1s ago
     if (timeSinceLastVoteMessage >= this.waitTimeBeforeConfirm) {
       // stop accepting the vote messages for this tx
-      queueEntry.acceptVoteMessage = false;
+      queueEntry.acceptVoteMessage = false
 
       // confirm that current vote is the winning highest ranked vote using robustQuery
-      const voteFromRobustQuery = queueEntry.receivedBestVote;
-      const voteHashFromRobustQuery = this.crypto.hash(voteFromRobustQuery);
-      let bestVoterFromRobustQuery: Shardus.NodeWithRank;
+      const voteFromRobustQuery = queueEntry.receivedBestVote
+      const voteHashFromRobustQuery = this.crypto.hash(voteFromRobustQuery)
+      let bestVoterFromRobustQuery: Shardus.NodeWithRank
       for (let node of queueEntry.executionGroup) {
         if (node.id === voteFromRobustQuery.node_id) {
-          bestVoterFromRobustQuery = node;
+          bestVoterFromRobustQuery = node
         }
       }
 
       // todo: podA: handle if we can't figure out the best voter from robust query result
 
       // if vote from robust is better than our received vote, use it as final vote
-      let isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank;
-      let finalVote = queueEntry.receivedBestVote;
+      let isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
+      let finalVote = queueEntry.receivedBestVote
       if (isRobustQueryVoteBetter) {
-        finalVote = voteFromRobustQuery;
+        finalVote = voteFromRobustQuery
       }
-      let finalVoteHash = this.calculateVoteHash(finalVote);
+      let finalVoteHash = this.calculateVoteHash(finalVote)
 
       // if we are in execution group and disagree with the highest ranked vote, send out a "challenge" message
-      const isInExecutionSet = queueEntry.executionIdSet.has(Self.id);
+      const isInExecutionSet = queueEntry.executionIdSet.has(Self.id)
       if (isInExecutionSet && queueEntry.ourVoteHash !== finalVoteHash) {
-        this.challengeVoteAndShare(queueEntry);
-        return;
+        this.challengeVoteAndShare(queueEntry)
+        return
       }
 
-      //  todo: podA: if we are in lowest 10% of execution group and agrees with the highest ranked vote, send out a
-      //   "confirm" message
-      const shouldConfirm = queueEntry.eligibleNodesToConfirm.map(node => node.id).includes(Self.id)
+      //  if we are in lowest 10% of execution group and agrees with the highest ranked vote, send out a confirm msg
+      const shouldConfirm = queueEntry.eligibleNodesToConfirm.map((node) => node.id).includes(Self.id)
       if (shouldConfirm && queueEntry.ourVoteHash === finalVoteHash) {
         this.confirmVoteAndShare(queueEntry)
+        queueEntry.gossipedConfirmOrChallenge = true
         return
       }
     }
@@ -793,25 +832,27 @@ class TransactionConsenus {
   }
 
   async confirmVoteAndShare(queueEntry: QueueEntry): Promise<unknown> {
-    this.profiler.profileSectionStart("confirmOrChallengeVote");
+    this.profiler.profileSectionStart('confirmOrChallengeVote')
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
     // todo: podA: create confirm message and share to tx group
+    queueEntry.gossipedConfirmOrChallenge = true
 
-    this.profiler.profileSectionEnd("confirmOrChallengeVote");
-    return null;
+    this.profiler.profileSectionEnd('confirmOrChallengeVote')
+    return null
   }
 
   async challengeVoteAndShare(queueEntry: QueueEntry): Promise<unknown> {
-    this.profiler.profileSectionStart("confirmOrChallengeVote");
+    this.profiler.profileSectionStart('confirmOrChallengeVote')
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
     // todo: podA: create challenge message and share to tx group
+    queueEntry.gossipedConfirmOrChallenge = true
 
-    this.profiler.profileSectionEnd("confirmOrChallengeVote");
-    return null;
+    this.profiler.profileSectionEnd('confirmOrChallengeVote')
+    return null
   }
   /**
    * createAndShareVote
@@ -826,12 +867,12 @@ class TransactionConsenus {
     // TODO STATESHARDING4 CHECK VOTES PER CONSENSUS GROUP
 
     if (this.stateManager.transactionQueue.useNewPOQ) {
-      const eligibleNodeIds = queueEntry.eligibleNodesToVote.map((node) => node.id);
+      const eligibleNodeIds = queueEntry.eligibleNodesToVote.map((node) => node.id)
       const ourNodeId = this.stateManager.currentCycleShardData.ourNode.id
       const isEligibleToVote = eligibleNodeIds.includes(ourNodeId)
 
       if (isEligibleToVote === false) {
-        console.log("We are not eligible to vote");
+        console.log('We are not eligible to vote')
         return
       }
 
@@ -927,7 +968,7 @@ class TransactionConsenus {
     //let temp = ourVote.node_id
     ourVote.node_id = '' //exclue this from hash
     this.crypto.sign(ourVote)
-    const voteHash = this.calculateVoteHash(ourVote);
+    const voteHash = this.calculateVoteHash(ourVote)
     //ourVote.node_id = temp
     appliedVoteHash = {
       txid: ourVote.txid,
@@ -986,7 +1027,7 @@ class TransactionConsenus {
 
       this.profiler.profileSectionStart('createAndShareVote-tell')
       if (this.stateManager.transactionQueue.useNewPOQ === false)
-        this.p2p.tell(filteredConsensusGroup, "spread_appliedVoteHash", appliedVoteHash);
+        this.p2p.tell(filteredConsensusGroup, 'spread_appliedVoteHash', appliedVoteHash)
       else this.p2p.tell(filteredConsensusGroup, 'spread_appliedVote', ourVote)
       this.profiler.profileSectionEnd('createAndShareVote-tell')
     } else {
@@ -996,10 +1037,10 @@ class TransactionConsenus {
   }
 
   calculateVoteHash(vote: AppliedVote, removeSign = true): string {
-    const voteToHash = Object.assign({}, vote);
-    if (voteToHash.node_id && voteToHash.node_id.length > 0) voteToHash.node_id = "";
-    if (removeSign && voteToHash.sign != null) delete voteToHash.sign;
-    return this.crypto.hash(voteToHash);
+    const voteToHash = Object.assign({}, vote)
+    if (voteToHash.node_id && voteToHash.node_id.length > 0) voteToHash.node_id = ''
+    if (removeSign && voteToHash.sign != null) delete voteToHash.sign
+    return this.crypto.hash(voteToHash)
   }
 
   /**
@@ -1017,61 +1058,66 @@ class TransactionConsenus {
 
     // todo: podA: check if the message is cast by one of the eligible nodes, check its signature
     // eligible nodes are stored under queueEntry.eligibleNodesToVote
-    const isVoteValid = true;
-    if (!isVoteValid) return;
+    const isVoteValid = true
+    if (!isVoteValid) return
 
-    // todo: podA: verify that the vote part of the message is for the same vote that was finalized in the previous phase
+    // todo: podA: check if the previous phase is finalized and we have received best vote
 
+    // verify that the vote part of the message is for the same vote that was finalized in the previous phase
+    if (this.calculateVoteHash(confirmOrChallenge.appliedVote) !== this.calculateVoteHash(queueEntry.receivedBestVote)) {
+      console.log('tryAppendMessage: confirmOrChallenge is not for the same vote that was finalized in the previous phase')
+      return
+    }
 
     if (confirmOrChallenge.message === 'confirm') {
       // todo: podA: compare with existing message. Skip we already have it or node rank is higher than ours
-      const isBetterThanCurrentConfirmation = true;
+      const isBetterThanCurrentConfirmation = true
 
       if (!isBetterThanCurrentConfirmation) {
         console.log(
-          "tryAppendMessage: confirmation is not better than current confirmation",
+          'tryAppendMessage: confirmation is not better than current confirmation',
           confirmOrChallenge,
           queueEntry.receivedBestConfirmation
-        );
-        return;
+        )
+        return
       }
 
-      queueEntry.receivedBestConfirmation = confirmOrChallenge;
-      queueEntry.lastConfirmOrChallengeTimestamp = Date.now();
+      queueEntry.receivedBestConfirmation = confirmOrChallenge
+      queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
       for (let node of queueEntry.executionGroup) {
         if (node.id === confirmOrChallenge.nodeId) {
-          queueEntry.receivedBestConfirmedNode = node;
-          return;
+          queueEntry.receivedBestConfirmedNode = node
+          return
         }
       }
 
       // todo: podA: gossip the confirm message to the transaction group
     } else if (confirmOrChallenge.message === 'challenge') {
       // todo: podA: compare with existing message. Skip we already have it or node rank is higher than ours
-      const isBetterThanCurrentChallenge = true;
+      const isBetterThanCurrentChallenge = true
 
       if (!isBetterThanCurrentChallenge) {
         console.log(
-          "tryAppendMessage: challenge is not better than current challenge",
+          'tryAppendMessage: challenge is not better than current challenge',
           confirmOrChallenge,
           queueEntry.receivedBestChallenge
-        );
-        return;
+        )
+        return
       }
 
-      queueEntry.receivedBestChallenge = confirmOrChallenge;
-      queueEntry.lastConfirmOrChallengeTimestamp = Date.now();
+      queueEntry.receivedBestChallenge = confirmOrChallenge
+      queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
       for (let node of queueEntry.executionGroup) {
         if (node.id === confirmOrChallenge.nodeId) {
-          queueEntry.receivedBestChallenger = node;
-          return;
+          queueEntry.receivedBestChallenger = node
+          return
         }
       }
 
       // todo: podA: gossip the challenge message to the transaction group
     }
 
-    return true;
+    return true
   }
 
   /**
@@ -1128,13 +1174,13 @@ class TransactionConsenus {
       }
 
       queueEntry.collectedVotes[0] = vote
-      queueEntry.receivedBestVote = vote;
+      queueEntry.receivedBestVote = vote
       queueEntry.newVotes = true
       queueEntry.lastVoteReceivedTimestamp = Date.now()
       for (let node of queueEntry.executionGroup) {
         if (node.id === vote.node_id) {
-          queueEntry.receivedBestVoter = node;
-          return;
+          queueEntry.receivedBestVoter = node
+          return
         }
       }
 
