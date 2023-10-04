@@ -4262,7 +4262,7 @@ class TransactionQueue {
 
               // try to produce a receipt
               /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`processAcceptedTxQueue2 consensing : ${queueEntry.logID} receiptRcv:${hasReceivedApplyReceipt}`)
-              const result = this.stateManager.transactionConsensus.tryProduceReceipt(queueEntry)
+              const result = await this.stateManager.transactionConsensus.tryProduceReceipt(queueEntry)
 
               //todo this is false.. and prevents some important stuff.
               //need to look at appliedReceipt2
@@ -4451,7 +4451,7 @@ class TransactionQueue {
 
               //temp hack ... hopefully this hack can go away
               if (queueEntry.recievedAppliedReceipt == null) {
-                const result = this.stateManager.transactionConsensus.tryProduceReceipt(queueEntry)
+                const result = await this.stateManager.transactionConsensus.tryProduceReceipt(queueEntry)
                 if (result != null) {
                   queueEntry.recievedAppliedReceipt = result
                   /* prettier-ignore */ if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote('shrd_awaitFinalData_hackReceipt', `${shortID}`, `qId: ${queueEntry.entryID} result:${utils.stringifyReduce(result)}`)
