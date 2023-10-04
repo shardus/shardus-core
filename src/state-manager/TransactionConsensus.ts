@@ -26,6 +26,8 @@ import {
   AppliedVoteQueryResponse,
   ConfirmOrChallengeMessage,
   QueueEntry,
+  RequestReceiptForTxReq,
+  RequestReceiptForTxResp,
   WrappedResponses,
 } from './state-manager-types'
 import { shardusGetTime } from '../network'
@@ -621,7 +623,7 @@ class TransactionConsenus {
    *
    * @param queueEntry
    */
-  tryProduceReceipt(queueEntry: QueueEntry): AppliedReceipt | null {
+  async tryProduceReceipt(queueEntry: QueueEntry): Promise<AppliedReceipt> {
     const receipt2 = queueEntry.recievedAppliedReceipt2 ?? queueEntry.appliedReceipt2
     if (receipt2 != null) {
       //we have a receipt2, so we can make a receipt
@@ -795,13 +797,107 @@ class TransactionConsenus {
           }
         }
 
-        //  todo: podA: POQ1 do a robust query to confirm that we have the best receipt (lower the rank of confirm
-        //   message, the better the
-        // receipt is)
-        return queueEntry.appliedReceipt
+        // do a robust query to confirm that we have the best receipt 
+        // (lower the rank of confirm message, the better the receipt is)
+        const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
+        let bestNodeFromRobustQuery: Shardus.NodeWithRank
+        for (const node of queueEntry.executionGroup) {
+          if (node.id === receiptFromRobustQuery.appliedVote.node_id) {
+            bestNodeFromRobustQuery = node
+          }
+        }
+
+        const isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
+        let finalReceipt
+        if (isRobustQueryNodeBetter) {
+          finalReceipt = {
+            txid: receiptFromRobustQuery.txid,
+            result: receiptFromRobustQuery.result,
+            appliedVotes: [receiptFromRobustQuery.appliedVote],
+            app_data_hash: receiptFromRobustQuery.app_data_hash,
+          }
+        } else {
+          finalReceipt = queueEntry.appliedReceipt
+        }
+        return finalReceipt
       }
     }
     return null
+  }
+
+  async robustQueryBestReceipt(queueEntry: QueueEntry): Promise<AppliedReceipt2> {
+    const queryFn = async (node: Shardus.Node): Promise<RequestReceiptForTxResp> => {
+      const ip = node.externalIp
+      const port = node.externalPort
+      // the queryFunction must return null if the given node is our own
+      if (ip === Self.ip && port === Self.port) return null
+      const message: RequestReceiptForTxReq = { txid: queueEntry.acceptedTx.txId, timestamp: queueEntry.acceptedTx.timestamp }
+      return await Comms.ask(node, 'request_receipt_for_tx', message)
+    }
+    const eqFn = (item1: RequestReceiptForTxResp, item2: RequestReceiptForTxResp): boolean => {
+      console.log(`robustQueryBestReceipt eqFn item is: ${JSON.stringify(item1)}`)
+      const deepCompare = (obj1: any, obj2: any): boolean => {
+        // If both are null or undefined or exactly the same value
+        if (obj1 === obj2) {
+          return true;
+        }
+      
+        // If only one is null or undefined
+        if (obj1 === null || obj2 === null || typeof obj1 !== 'object' || typeof obj2 !== 'object') {
+          return false;
+        }
+      
+        // Compare arrays
+        if (Array.isArray(obj1) && Array.isArray(obj2)) {
+          if (obj1.length !== obj2.length) {
+            return false;
+          }
+          for (let i = 0; i < obj1.length; i++) {
+            if (!deepCompare(obj1[i], obj2[i])) {
+              return false;
+            }
+          }
+          return true;
+        }
+      
+        // Compare objects
+        const keys1 = Object.keys(obj1);
+        const keys2 = Object.keys(obj2);
+      
+        if (keys1.length !== keys2.length) {
+          return false;
+        }
+      
+        for (const key of keys1) {
+          if (!keys2.includes(key)) {
+            return false;
+          }
+          if (!deepCompare(obj1[key], obj2[key])) {
+            return false;
+          }
+        }
+      
+        return true;
+      }
+      try {
+        // Deep compare item.receipt
+        return deepCompare(item1.receipt, item2.receipt)
+      } catch (err) {
+        return false
+      }
+    }
+    const redundancy = 3
+    const { topResult: response } = await robustQuery(
+      queueEntry.conensusGroup,
+      queryFn,
+      eqFn,
+      redundancy,
+      true
+    )
+    console.log(`robustQueryBestReceipt top response is: ${JSON.stringify(response)}`)
+    if (response && response.receipt) {
+      return response.receipt
+    }
   }
 
   async robustQueryBestVote(queueEntry: QueueEntry): Promise<AppliedVote> {
