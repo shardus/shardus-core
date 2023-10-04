@@ -649,11 +649,13 @@ class TransactionConsenus {
     }
 
     // Design TODO:  should this be the full transaction group or just the consensus group?
-    let votingGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
+    let votingGroup
 
     if (this.stateManager.transactionQueue.executeInOneShard) {
       //use execuiton group instead of full transaciton group, since only the execution group will run the transaction
       votingGroup = queueEntry.executionGroup
+    } else {
+      votingGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
     }
 
     if (this.stateManager.transactionQueue.useNewPOQ === false) {
