@@ -354,6 +354,10 @@ class TransactionConsenus {
         }
       }
     )
+
+    Comms.registerGossipHandler('spread_confirmOrChallenge', () => {
+      throw new Error('Not implemented')
+    })
   }
 
   generateTimestampReceipt(
@@ -1030,6 +1034,16 @@ class TransactionConsenus {
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
     // todo: podA: POQ3 create confirm message and share to tx group
+    const confirmMessage: ConfirmOrChallengeMessage = {
+      message: 'confirm',
+      nodeId: queueEntry.ourVote.node_id,
+      appliedVote: queueEntry.ourVote,
+    }
+    const signedConfirmMessage = this.crypto.sign(confirmMessage)
+
+    //Share message to tx group
+    const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
+    Comms.sendGossip('spread_confirmOrChallenge', signedConfirmMessage, '', null, gossipGroup, true, 10)
     queueEntry.gossipedConfirmOrChallenge = true
 
     this.profiler.profileSectionEnd('confirmOrChallengeVote')
