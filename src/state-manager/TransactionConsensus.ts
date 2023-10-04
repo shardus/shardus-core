@@ -356,9 +356,39 @@ class TransactionConsenus {
       }
     )
 
-    Comms.registerGossipHandler('spread_confirmOrChallenge', () => {
-      throw new Error('Not implemented')
-    })
+    Comms.registerGossipHandler(
+      'spread_confirmOrChallenge',
+      (payload: ConfirmOrChallengeMessage, msgSize: number) => {
+        profilerInstance.scopedProfileSectionStart('spread_confirmOrChallenge', false, msgSize)
+        try {
+          const queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(payload.appliedVote?.txid) // , payload.timestamp)
+          if (queueEntry == null) {
+            if (logFlags.error) {
+              this.mainLogger.error(
+                `spread_confirmOrChallenge no queue entry for ${payload.appliedVote?.txid} dbg:${
+                  this.stateManager.debugTXHistory[utils.stringifyReduce(payload.appliedVote?.txid)]
+                }`
+              )
+            }
+            return
+          }
+          if (queueEntry.acceptConfirmOrChallenge === false) {
+            return
+          }
+
+          const appendSuccessful = this.tryAppendMessage(queueEntry, payload)
+
+          if (appendSuccessful) {
+            // Gossip further
+            const sender = null
+            const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
+            Comms.sendGossip('spread_confirmOrChallenge', payload, '', sender, gossipGroup, true, 10)
+          }
+        } finally {
+          profilerInstance.scopedProfileSectionEnd('spread_confirmOrChallenge', msgSize)
+        }
+      }
+    )
   }
 
   generateTimestampReceipt(
