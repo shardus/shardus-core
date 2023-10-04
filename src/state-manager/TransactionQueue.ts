@@ -1258,6 +1258,8 @@ class TransactionQueue {
         newVotes: false,
         fromClient: sendGossip,
         gossipedReceipt: false,
+        gossipedVote: false,
+        gossipedConfirmOrChallenge: false,
         archived: false,
         ourTXGroupIndex: -1,
         ourExGroupIndex: -1,

@@ -83,6 +83,7 @@ export type QueueEntry = {
   collectedVotes: AppliedVote[]
   collectedVoteHashes: AppliedVoteHash[]
   receivedBestVote?: AppliedVote
+  receivedBestVoteHash?: string
   receivedBestVoter?: Shardus.NodeWithRank
   receivedBestConfirmation?: ConfirmOrChallengeMessage
   receivedBestConfirmedNode?: Shardus.NodeWithRank
@@ -659,6 +660,16 @@ export type AppliedVoteHash = {
   txid: string
   voteHash: string
   sign?: Shardus.Sign
+}
+
+export type AppliedVoteQuery = {
+  txId: string
+}
+
+export type AppliedVoteQueryResponse = {
+  txId: string
+  appliedVote: AppliedVote
+  appliedVoteHash: string
 }
 
 // export type AppliedReceiptGossip2 = {
