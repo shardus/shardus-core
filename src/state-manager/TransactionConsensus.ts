@@ -901,7 +901,7 @@ class TransactionConsenus {
   }
 
   async robustQueryBestVote(queueEntry: QueueEntry): Promise<AppliedVote> {
-    const queryFn = async (node: Shardus.Node) => {
+    const queryFn = async (node: Shardus.Node): Promise<AppliedVoteQueryResponse> => {
       const ip = node.externalIp
       const port = node.externalPort
       // the queryFunction must return null if the given node is our own
@@ -909,7 +909,7 @@ class TransactionConsenus {
       const queryData: AppliedVoteQuery = { txId: queueEntry.acceptedTx.txId }
       return await Comms.ask(node, 'get_applied_vote', queryData)
     }
-    const eqFn = (item1: AppliedVoteQueryResponse, item2: AppliedVoteQueryResponse) => {
+    const eqFn = (item1: AppliedVoteQueryResponse, item2: AppliedVoteQueryResponse): boolean => {
       console.log(`robustQueryBestVote eqFn item is: ${JSON.stringify(item1)}`)
       try {
         if (item1.appliedVoteHash === item2.appliedVoteHash) return true
@@ -918,8 +918,8 @@ class TransactionConsenus {
         return false
       }
     }
-    let redundancy = 3
-    const { topResult: response, winningNodes: _responders } = await robustQuery(
+    const redundancy = 3
+    const { topResult: response } = await robustQuery(
       queueEntry.conensusGroup,
       queryFn,
       eqFn,
@@ -948,7 +948,7 @@ class TransactionConsenus {
       // confirm that current vote is the winning highest ranked vote using robustQuery
       const voteFromRobustQuery = await this.robustQueryBestVote(queueEntry)
       let bestVoterFromRobustQuery: Shardus.NodeWithRank
-      for (let node of queueEntry.executionGroup) {
+      for (const node of queueEntry.executionGroup) {
         if (node.id === voteFromRobustQuery.node_id) {
           bestVoterFromRobustQuery = node
         }
@@ -957,12 +957,12 @@ class TransactionConsenus {
       // todo: podA: POQ2 handle if we can't figure out the best voter from robust query result (low priority)
 
       // if vote from robust is better than our received vote, use it as final vote
-      let isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
+      const isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
       let finalVote = queueEntry.receivedBestVote
       if (isRobustQueryVoteBetter) {
         finalVote = voteFromRobustQuery
       }
-      let finalVoteHash = this.calculateVoteHash(finalVote)
+      const finalVoteHash = this.calculateVoteHash(finalVote)
 
       // if we are in execution group and disagree with the highest ranked vote, send out a "challenge" message
       const isInExecutionSet = queueEntry.executionIdSet.has(Self.id)
@@ -1244,7 +1244,7 @@ class TransactionConsenus {
 
       queueEntry.receivedBestConfirmation = confirmOrChallenge
       queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
-      for (let node of queueEntry.executionGroup) {
+      for (const node of queueEntry.executionGroup) {
         if (node.id === confirmOrChallenge.nodeId) {
           queueEntry.receivedBestConfirmedNode = node
           return
@@ -1268,7 +1268,7 @@ class TransactionConsenus {
 
       queueEntry.receivedBestChallenge = confirmOrChallenge
       queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
-      for (let node of queueEntry.executionGroup) {
+      for (const node of queueEntry.executionGroup) {
         if (node.id === confirmOrChallenge.nodeId) {
           queueEntry.receivedBestChallenger = node
           return
@@ -1339,7 +1339,7 @@ class TransactionConsenus {
       queueEntry.receivedBestVoteHash = this.calculateVoteHash(vote)
       queueEntry.newVotes = true
       queueEntry.lastVoteReceivedTimestamp = Date.now()
-      for (let node of queueEntry.executionGroup) {
+      for (const node of queueEntry.executionGroup) {
         if (node.id === vote.node_id) {
           queueEntry.receivedBestVoter = node
           return
