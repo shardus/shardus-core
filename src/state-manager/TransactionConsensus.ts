@@ -6,6 +6,7 @@ import Logger, { logFlags } from '../logger'
 import * as Comms from '../p2p/Comms'
 import * as Context from '../p2p/Context'
 import { P2PModuleContext as P2P } from '../p2p/Context'
+import * as http from '../http'
 import * as CycleChain from '../p2p/CycleChain'
 import * as Self from '../p2p/Self'
 import * as Shardus from '../shardus/shardus-types'
@@ -21,11 +22,14 @@ import {
   AppliedReceipt2,
   AppliedVote,
   AppliedVoteHash,
+  AppliedVoteQuery,
+  AppliedVoteQueryResponse,
   ConfirmOrChallengeMessage,
   QueueEntry,
   WrappedResponses,
 } from './state-manager-types'
 import { shardusGetTime } from '../network'
+import { robustQuery } from '../p2p/Utils'
 
 class TransactionConsenus {
   app: Shardus.App
@@ -110,6 +114,30 @@ class TransactionConsenus {
           await respond(tsReceipt)
         }
         /* eslint-enable security/detect-object-injection */
+      }
+    )
+
+    this.p2p.registerInternal(
+      'get_applied_vote',
+      async (payload: AppliedVoteQuery, respond: (arg0: AppliedVoteQueryResponse) => unknown) => {
+        const { txId } = payload
+        let queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(txId)
+        if (queueEntry == null) {
+          // It is ok to search the archive for this.  Not checking this was possibly breaking the gossip chain before
+          queueEntry = this.stateManager.transactionQueue.getQueueEntryArchived(txId, 'get_applied_vote')
+          if (queueEntry != null && queueEntry.receivedBestVote != null) {
+            const data: AppliedVoteQueryResponse = {
+              txId,
+              appliedVote: queueEntry.receivedBestVote,
+              appliedVoteHash: queueEntry.receivedBestVoteHash ? queueEntry.receivedBestVoteHash : this.calculateVoteHash(queueEntry.receivedBestVote)
+            }
+            await respond(data)
+          }
+        }
+        if (queueEntry == null) {
+          /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`get_applied_vote no queue entry for ${payload.txId} dbg:${this.stateManager.debugTXHistory[utils.stringifyReduce(payload.txId)]}`)
+          return
+        }
       }
     )
 
@@ -738,7 +766,7 @@ class TransactionConsenus {
             app_data_hash: '',
           }
           queueEntry.appliedReceipt = appliedReceipt
-          console.log(`LPOQ: producing a fail receipt based on received challenge message`, appliedReceipt);
+          console.log(`LPOQ: producing a fail receipt based on received challenge message`, appliedReceipt)
           return appliedReceipt
         }
 
@@ -763,7 +791,7 @@ class TransactionConsenus {
               /* eslint-enable security/detect-object-injection */
             }
             queueEntry.appliedReceipt = appliedReceipt
-            console.log(`LPOQ: producing a confirm receipt based on received confirm message`, appliedReceipt);
+            console.log(`LPOQ: producing a confirm receipt based on received confirm message`, appliedReceipt)
           }
         }
 
@@ -776,9 +804,41 @@ class TransactionConsenus {
     return null
   }
 
-  tryConfirmOrChallenge(queueEntry: QueueEntry): Promise<void> {
+  async robustQueryBestVote(queueEntry: QueueEntry): Promise<AppliedVote> {
+    const queryFn = async (node: Shardus.Node) => {
+      const ip = node.externalIp
+      const port = node.externalPort
+      // the queryFunction must return null if the given node is our own
+      if (ip === Self.ip && port === Self.port) return null
+      const queryData: AppliedVoteQuery = { txId: queueEntry.acceptedTx.txId }
+      return await Comms.ask(node, 'get_applied_vote', queryData)
+    }
+    const eqFn = (item1: AppliedVoteQueryResponse, item2: AppliedVoteQueryResponse) => {
+      console.log(`item is: ${JSON.stringify(item1)}`)
+      try {
+        if (item1.appliedVoteHash === item2.appliedVoteHash) return true
+        return false
+      } catch (err) {
+        return false
+      }
+    }
+    let redundancy = 3
+    const { topResult: response, winningNodes: _responders } = await robustQuery(
+      queueEntry.conensusGroup,
+      queryFn,
+      eqFn,
+      redundancy,
+      true
+    )
+    console.log(`top response is: ${JSON.stringify(response)}`)
+    if (response && response.appliedVote) {
+      return response.appliedVote
+    }
+  }
+
+  async tryConfirmOrChallenge(queueEntry: QueueEntry): Promise<void> {
     if (queueEntry.gossipedConfirmOrChallenge === true) {
-      console.log(`LPOQ: already gossiped confirm or challenge for ${queueEntry.acceptedTx.txId}`);
+      console.log(`LPOQ: already gossiped confirm or challenge for ${queueEntry.acceptedTx.txId}`)
       return
     }
     const now = Date.now()
@@ -790,8 +850,7 @@ class TransactionConsenus {
       queueEntry.acceptVoteMessage = false
 
       // confirm that current vote is the winning highest ranked vote using robustQuery
-      const voteFromRobustQuery = queueEntry.receivedBestVote
-      const voteHashFromRobustQuery = this.crypto.hash(voteFromRobustQuery)
+      const voteFromRobustQuery = await this.robustQueryBestVote(queueEntry)
       let bestVoterFromRobustQuery: Shardus.NodeWithRank
       for (let node of queueEntry.executionGroup) {
         if (node.id === voteFromRobustQuery.node_id) {
@@ -799,7 +858,7 @@ class TransactionConsenus {
         }
       }
 
-      // todo: podA: handle if we can't figure out the best voter from robust query result
+      // todo: podA: handle if we can't figure out the best voter from robust query result (low priority)
 
       // if vote from robust is better than our received vote, use it as final vote
       let isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
@@ -1064,8 +1123,13 @@ class TransactionConsenus {
     // todo: podA: check if the previous phase is finalized and we have received best vote
 
     // verify that the vote part of the message is for the same vote that was finalized in the previous phase
-    if (this.calculateVoteHash(confirmOrChallenge.appliedVote) !== this.calculateVoteHash(queueEntry.receivedBestVote)) {
-      console.log('tryAppendMessage: confirmOrChallenge is not for the same vote that was finalized in the previous phase')
+    if (
+      this.calculateVoteHash(confirmOrChallenge.appliedVote) !==
+      this.calculateVoteHash(queueEntry.receivedBestVote)
+    ) {
+      console.log(
+        'tryAppendMessage: confirmOrChallenge is not for the same vote that was finalized in the previous phase'
+      )
       return
     }
 
@@ -1175,6 +1239,7 @@ class TransactionConsenus {
 
       queueEntry.collectedVotes[0] = vote
       queueEntry.receivedBestVote = vote
+      queueEntry.receivedBestVoteHash = this.calculateVoteHash(vote)
       queueEntry.newVotes = true
       queueEntry.lastVoteReceivedTimestamp = Date.now()
       for (let node of queueEntry.executionGroup) {
