@@ -130,7 +130,9 @@ class TransactionConsenus {
             const data: AppliedVoteQueryResponse = {
               txId,
               appliedVote: queueEntry.receivedBestVote,
-              appliedVoteHash: queueEntry.receivedBestVoteHash ? queueEntry.receivedBestVoteHash : this.calculateVoteHash(queueEntry.receivedBestVote)
+              appliedVoteHash: queueEntry.receivedBestVoteHash
+                ? queueEntry.receivedBestVoteHash
+                : this.calculateVoteHash(queueEntry.receivedBestVote),
             }
             await respond(data)
           }
@@ -769,7 +771,30 @@ class TransactionConsenus {
           }
           queueEntry.appliedReceipt = appliedReceipt
           console.log(`LPOQ: producing a fail receipt based on received challenge message`, appliedReceipt)
-          return appliedReceipt
+          const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
+
+          // Received a confrim receipt. We have a challenge receipt which is better.
+          if (receiptFromRobustQuery.result !== false) return appliedReceipt
+
+          // Received another challenge receipt. Compare ranks
+          let bestNodeFromRobustQuery: Shardus.NodeWithRank
+          for (const node of queueEntry.executionGroup) {
+            if (node.id === receiptFromRobustQuery.appliedVote.node_id) {
+              bestNodeFromRobustQuery = node
+            }
+          }
+          const isRobustQueryNodeBetter =
+            bestNodeFromRobustQuery.rank > queueEntry.receivedBestChallenger.rank
+          if (isRobustQueryNodeBetter) {
+            return {
+              txid: receiptFromRobustQuery.txid,
+              result: receiptFromRobustQuery.result,
+              appliedVotes: [receiptFromRobustQuery.appliedVote],
+              app_data_hash: receiptFromRobustQuery.app_data_hash,
+            }
+          } else {
+            return appliedReceipt
+          }
         }
 
         // create receipt
@@ -797,9 +822,21 @@ class TransactionConsenus {
           }
         }
 
-        // do a robust query to confirm that we have the best receipt 
+        // do a robust query to confirm that we have the best receipt
         // (lower the rank of confirm message, the better the receipt is)
         const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
+
+        // Received challenge receipt, we have confirm receipt which is not better
+        if (receiptFromRobustQuery.result === false) {
+          return {
+            txid: receiptFromRobustQuery.txid,
+            result: receiptFromRobustQuery.result,
+            appliedVotes: [receiptFromRobustQuery.appliedVote],
+            app_data_hash: receiptFromRobustQuery.app_data_hash,
+          }
+        }
+
+        // Received another confirm receipt. Compare ranks
         let bestNodeFromRobustQuery: Shardus.NodeWithRank
         for (const node of queueEntry.executionGroup) {
           if (node.id === receiptFromRobustQuery.appliedVote.node_id) {
@@ -808,18 +845,16 @@ class TransactionConsenus {
         }
 
         const isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
-        let finalReceipt
         if (isRobustQueryNodeBetter) {
-          finalReceipt = {
+          return {
             txid: receiptFromRobustQuery.txid,
             result: receiptFromRobustQuery.result,
             appliedVotes: [receiptFromRobustQuery.appliedVote],
             app_data_hash: receiptFromRobustQuery.app_data_hash,
           }
         } else {
-          finalReceipt = queueEntry.appliedReceipt
+          return queueEntry.appliedReceipt
         }
-        return finalReceipt
       }
     }
     return null
@@ -831,7 +866,10 @@ class TransactionConsenus {
       const port = node.externalPort
       // the queryFunction must return null if the given node is our own
       if (ip === Self.ip && port === Self.port) return null
-      const message: RequestReceiptForTxReq = { txid: queueEntry.acceptedTx.txId, timestamp: queueEntry.acceptedTx.timestamp }
+      const message: RequestReceiptForTxReq = {
+        txid: queueEntry.acceptedTx.txId,
+        timestamp: queueEntry.acceptedTx.timestamp,
+      }
       return await Comms.ask(node, 'request_receipt_for_tx', message)
     }
     const eqFn = (item1: RequestReceiptForTxResp, item2: RequestReceiptForTxResp): boolean => {
@@ -839,45 +877,45 @@ class TransactionConsenus {
       const deepCompare = (obj1: any, obj2: any): boolean => {
         // If both are null or undefined or exactly the same value
         if (obj1 === obj2) {
-          return true;
+          return true
         }
-      
+
         // If only one is null or undefined
         if (obj1 === null || obj2 === null || typeof obj1 !== 'object' || typeof obj2 !== 'object') {
-          return false;
+          return false
         }
-      
+
         // Compare arrays
         if (Array.isArray(obj1) && Array.isArray(obj2)) {
           if (obj1.length !== obj2.length) {
-            return false;
+            return false
           }
           for (let i = 0; i < obj1.length; i++) {
             if (!deepCompare(obj1[i], obj2[i])) {
-              return false;
+              return false
             }
           }
-          return true;
+          return true
         }
-      
+
         // Compare objects
-        const keys1 = Object.keys(obj1);
-        const keys2 = Object.keys(obj2);
-      
+        const keys1 = Object.keys(obj1)
+        const keys2 = Object.keys(obj2)
+
         if (keys1.length !== keys2.length) {
-          return false;
+          return false
         }
-      
+
         for (const key of keys1) {
           if (!keys2.includes(key)) {
-            return false;
+            return false
           }
           if (!deepCompare(obj1[key], obj2[key])) {
-            return false;
+            return false
           }
         }
-      
-        return true;
+
+        return true
       }
       try {
         // Deep compare item.receipt
