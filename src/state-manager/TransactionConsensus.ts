@@ -795,7 +795,7 @@ class TransactionConsenus {
           }
         }
 
-        //  todo: podA: do a robust query to confirm that we have the best receipt (lower the rank of confirm
+        //  todo: podA: POQ1 do a robust query to confirm that we have the best receipt (lower the rank of confirm
         //   message, the better the
         // receipt is)
         return queueEntry.appliedReceipt
@@ -814,7 +814,7 @@ class TransactionConsenus {
       return await Comms.ask(node, 'get_applied_vote', queryData)
     }
     const eqFn = (item1: AppliedVoteQueryResponse, item2: AppliedVoteQueryResponse) => {
-      console.log(`item is: ${JSON.stringify(item1)}`)
+      console.log(`robustQueryBestVote eqFn item is: ${JSON.stringify(item1)}`)
       try {
         if (item1.appliedVoteHash === item2.appliedVoteHash) return true
         return false
@@ -830,7 +830,7 @@ class TransactionConsenus {
       redundancy,
       true
     )
-    console.log(`top response is: ${JSON.stringify(response)}`)
+    console.log(`robustQueryBestVote top response is: ${JSON.stringify(response)}`)
     if (response && response.appliedVote) {
       return response.appliedVote
     }
@@ -858,7 +858,7 @@ class TransactionConsenus {
         }
       }
 
-      // todo: podA: handle if we can't figure out the best voter from robust query result (low priority)
+      // todo: podA: POQ2 handle if we can't figure out the best voter from robust query result (low priority)
 
       // if vote from robust is better than our received vote, use it as final vote
       let isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
@@ -895,7 +895,7 @@ class TransactionConsenus {
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
-    // todo: podA: create confirm message and share to tx group
+    // todo: podA: POQ3 create confirm message and share to tx group
     queueEntry.gossipedConfirmOrChallenge = true
 
     this.profiler.profileSectionEnd('confirmOrChallengeVote')
@@ -907,7 +907,7 @@ class TransactionConsenus {
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
-    // todo: podA: create challenge message and share to tx group
+    // todo: podA: POQ4 create challenge message and share to tx group
     queueEntry.gossipedConfirmOrChallenge = true
 
     this.profiler.profileSectionEnd('confirmOrChallengeVote')
@@ -1115,12 +1115,12 @@ class TransactionConsenus {
     /* prettier-ignore */
     if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `);
 
-    // todo: podA: check if the message is cast by one of the eligible nodes, check its signature
+    // todo: podA: POQ5 check if the message is cast by one of the eligible nodes, check its signature
     // eligible nodes are stored under queueEntry.eligibleNodesToVote
     const isVoteValid = true
     if (!isVoteValid) return
 
-    // todo: podA: check if the previous phase is finalized and we have received best vote
+    // todo: podA: POQ6 check if the previous phase is finalized and we have received best vote
 
     // verify that the vote part of the message is for the same vote that was finalized in the previous phase
     if (
@@ -1134,7 +1134,7 @@ class TransactionConsenus {
     }
 
     if (confirmOrChallenge.message === 'confirm') {
-      // todo: podA: compare with existing message. Skip we already have it or node rank is higher than ours
+      // todo: podA: POQ7 compare with existing message. Skip we already have it or node rank is higher than ours
       const isBetterThanCurrentConfirmation = true
 
       if (!isBetterThanCurrentConfirmation) {
@@ -1155,9 +1155,10 @@ class TransactionConsenus {
         }
       }
 
-      // todo: podA: gossip the confirm message to the transaction group
+      // todo: podA: POQ8: gossip the confirm message to the transaction group
     } else if (confirmOrChallenge.message === 'challenge') {
-      // todo: podA: compare with existing message. Skip we already have it or node rank is higher than ours
+      // todo: podA: POQ9: compare with existing challenge message. Skip we already have it or node rank is higher than
+      //  ours
       const isBetterThanCurrentChallenge = true
 
       if (!isBetterThanCurrentChallenge) {
@@ -1178,7 +1179,7 @@ class TransactionConsenus {
         }
       }
 
-      // todo: podA: gossip the challenge message to the transaction group
+      // todo: podA: POQ10 gossip the challenge message to the transaction group
     }
 
     return true
@@ -1224,12 +1225,12 @@ class TransactionConsenus {
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('tryAppendVote', `${queueEntry.logID}`, `collectedVotes: ${queueEntry.collectedVotes.length}`)
       /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `)
 
-      // todo: podA: check if the vote is cast by one of the eligible nodes, check its signature
+      // todo: podA: POQ11 check if the vote is cast by one of the eligible nodes, check its signature
       // eligible nodes are stored under queueEntry.eligibleNodesToVote
       const isVoteValid = true
       if (!isVoteValid) return
 
-      // todo: podA: compare with existing vote. Skip we already have it or node rank is lower than ours
+      // todo: podA: POQ12 compare with existing vote. Skip we already have it or node rank is lower than ours
       const isBetterThanCurrentVote = true
 
       if (!isBetterThanCurrentVote) {
@@ -1249,7 +1250,7 @@ class TransactionConsenus {
         }
       }
 
-      // todo: podA: gossip the vote to the transaction group
+      // todo: podA: POQ13 gossip the vote to the transaction group
 
       return true
     }
