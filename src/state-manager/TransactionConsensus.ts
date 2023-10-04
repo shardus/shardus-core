@@ -1047,7 +1047,6 @@ class TransactionConsenus {
       const shouldConfirm = queueEntry.eligibleNodesToConfirm.map((node) => node.id).includes(Self.id)
       if (shouldConfirm && queueEntry.ourVoteHash === finalVoteHash) {
         this.confirmVoteAndShare(queueEntry)
-        queueEntry.gossipedConfirmOrChallenge = true
         return
       }
     }
@@ -1063,7 +1062,7 @@ class TransactionConsenus {
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
-    // todo: podA: POQ3 create confirm message and share to tx group
+    // podA: POQ3 create confirm message and share to tx group
     const confirmMessage: ConfirmOrChallengeMessage = {
       message: 'confirm',
       nodeId: queueEntry.ourVote.node_id,
