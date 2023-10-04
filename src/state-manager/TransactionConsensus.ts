@@ -1086,7 +1086,17 @@ class TransactionConsenus {
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
-    // todo: podA: POQ4 create challenge message and share to tx group
+    //podA: POQ4 create challenge message and share to tx group
+    const confirmMessage: ConfirmOrChallengeMessage = {
+      message: 'challenge',
+      nodeId: queueEntry.ourVote.node_id,
+      appliedVote: queueEntry.ourVote,
+    }
+    const signedConfirmMessage = this.crypto.sign(confirmMessage)
+
+    //Share message to tx group
+    const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
+    Comms.sendGossip('spread_confirmOrChallenge', signedConfirmMessage, '', null, gossipGroup, true, 10)
     queueEntry.gossipedConfirmOrChallenge = true
 
     this.profiler.profileSectionEnd('confirmOrChallengeVote')
