@@ -1341,8 +1341,6 @@ class TransactionConsenus {
           return
         }
       }
-
-      // todo: podA: POQ8: gossip the confirm message to the transaction group
     } else if (confirmOrChallenge.message === 'challenge') {
       // todo: podA: POQ9: compare with existing challenge message. Skip we already have it or node rank is higher than
       //  ours
@@ -1365,8 +1363,6 @@ class TransactionConsenus {
           return
         }
       }
-
-      // todo: podA: POQ10 gossip the challenge message to the transaction group
     }
 
     return true
