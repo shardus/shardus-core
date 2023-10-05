@@ -31,6 +31,7 @@ import {
   WrappedResponses,
 } from './state-manager-types'
 import { robustQuery } from '../p2p/Utils'
+import { SignedObject } from '@shardus/crypto-utils'
 
 class TransactionConsenus {
   app: Shardus.App
@@ -1484,8 +1485,15 @@ class TransactionConsenus {
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('tryAppendVote', `${queueEntry.logID}`, `collectedVotes: ${queueEntry.collectedVotes.length}`)
       /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `)
 
-      // todo: podA: POQ11 check if the vote is cast by one of the eligible nodes, check its signature
-      // eligible nodes are stored under queueEntry.eligibleNodesToVote
+      const foundNode = queueEntry.eligibleNodesToVote.find((node) =>
+        this.crypto.verify(vote as SignedObject, node.publicKey)
+      )
+
+      if (!foundNode) {
+        console.log('Message signature does not match with any eligible nodes.')
+        return
+      }
+
       const isVoteValid = true
       if (!isVoteValid) return
 
