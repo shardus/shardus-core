@@ -382,7 +382,7 @@ class TransactionConsenus {
             // Gossip further
             const sender = null
             const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
-            Comms.sendGossip('spread_confirmOrChallenge', payload, '', sender, gossipGroup, true, 10)
+            Comms.sendGossip('spread_confirmOrChallenge', payload, '', sender, gossipGroup, false, 10)
           }
         } finally {
           profilerInstance.scopedProfileSectionEnd('spread_confirmOrChallenge', msgSize)
