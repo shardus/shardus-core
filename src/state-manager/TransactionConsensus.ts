@@ -128,7 +128,9 @@ class TransactionConsenus {
             const data: AppliedVoteQueryResponse = {
               txId,
               appliedVote: queueEntry.receivedBestVote,
-              appliedVoteHash: queueEntry.receivedBestVoteHash ? queueEntry.receivedBestVoteHash : this.calculateVoteHash(queueEntry.receivedBestVote)
+              appliedVoteHash: queueEntry.receivedBestVoteHash
+                ? queueEntry.receivedBestVoteHash
+                : this.calculateVoteHash(queueEntry.receivedBestVote),
             }
             await respond(data)
           }
@@ -856,7 +858,16 @@ class TransactionConsenus {
         }
       }
 
-      // todo: podA: POQ2 handle if we can't figure out the best voter from robust query result (low priority)
+      // Handle if we can't figure out the best voter from robust query result (low priority)
+      if (!bestVoterFromRobustQuery) {
+        // Calculate rank of robust query
+        const txId = queueEntry.acceptedTx.txId
+        const txTimestamp = queueEntry.acceptedTx.timestamp
+        const hash = this.crypto.hash([txId, txTimestamp])
+        const nodeIdNum = parseInt(voteFromRobustQuery.node_id.substring(0, 8), 16)
+        const hashNum = parseInt(hash.substring(0, 8), 16)
+        bestVoterFromRobustQuery.rank = (nodeIdNum ^ hashNum) >>> 0
+      }
 
       // if vote from robust is better than our received vote, use it as final vote
       let isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
