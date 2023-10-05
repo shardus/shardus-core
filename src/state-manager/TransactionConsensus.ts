@@ -1431,29 +1431,44 @@ class TransactionConsenus {
       const isVoteValid = true
       if (!isVoteValid) return
 
-      // todo: podA: POQ12 compare with existing vote. Skip we already have it or node rank is lower than ours
-      const isBetterThanCurrentVote = true
+      // Compare with existing vote. Skip we already have it or node rank is lower than ours
+      let isBetterThanCurrentVote
+      let recievedVoter: Shardus.NodeWithRank
+      if (!queueEntry.receivedBestVote) isBetterThanCurrentVote = true
+      else if (queueEntry.receivedBestVoteHash === this.calculateVoteHash(vote))
+        isBetterThanCurrentVote = false
+      else {
+        // Compare ranks
+        for (const node of queueEntry.executionGroup) {
+          if (node.id === vote.node_id) {
+            recievedVoter = node
+            break
+          }
+        }
+        isBetterThanCurrentVote = recievedVoter.rank > queueEntry.receivedBestVoter.rank
+      }
 
       if (!isBetterThanCurrentVote) {
         console.log('tryAppendVote: vote is not better than current vote', vote, queueEntry.collectedVotes[0])
-        return
+        return false
       }
 
-      queueEntry.collectedVotes[0] = vote
       queueEntry.receivedBestVote = vote
       queueEntry.receivedBestVoteHash = this.calculateVoteHash(vote)
       queueEntry.newVotes = true
       queueEntry.lastVoteReceivedTimestamp = Date.now()
-      for (const node of queueEntry.executionGroup) {
-        if (node.id === vote.node_id) {
-          queueEntry.receivedBestVoter = node
-          return
+      if (recievedVoter) {
+        queueEntry.receivedBestVoter = recievedVoter
+        return true
+      } else {
+        for (const node of queueEntry.executionGroup) {
+          if (node.id === vote.node_id) {
+            queueEntry.receivedBestVoter = node
+            return true
+          }
         }
       }
-
-      // todo: podA: POQ13 gossip the vote to the transaction group
-
-      return true
+      // No need to forward the gossip here as it's being done in the gossip handler
     }
   }
 
