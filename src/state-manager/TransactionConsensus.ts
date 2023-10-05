@@ -1336,8 +1336,15 @@ class TransactionConsenus {
     /* prettier-ignore */
     if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `);
 
-    // todo: podA: POQ5 check if the message is cast by one of the eligible nodes, check its signature
-    // eligible nodes are stored under queueEntry.eligibleNodesToVote
+    const foundNode = queueEntry.eligibleNodesToVote.find((node) =>
+      this.crypto.verify(confirmOrChallenge as SignedObject, node.publicKey)
+    )
+
+    if (!foundNode) {
+      console.log('Message signature does not match with any eligible nodes.')
+      return
+    }
+
     const isVoteValid = true
     if (!isVoteValid) return false
 
