@@ -1492,7 +1492,7 @@ class TransactionConsenus {
       )
 
       if (!foundNode) {
-        console.log('Message signature does not match with any eligible nodes.')
+        console.log('tryAppendVote: Message signature does not match with any eligible nodes.')
         return
       }
 
