@@ -1307,7 +1307,11 @@ class TransactionConsenus {
     const isVoteValid = true
     if (!isVoteValid) return false
 
-    // todo: podA: POQ6 check if the previous phase is finalized and we have received best vote
+    // Check if the previous phase is finalized and we have received best vote
+    if (queueEntry.acceptVoteMessage === true || !queueEntry.receivedBestVote) {
+      console.log('tryAppendMessage: best vote is not received as previous phase is not finalized')
+      return
+    }
 
     // verify that the vote part of the message is for the same vote that was finalized in the previous phase
     if (
