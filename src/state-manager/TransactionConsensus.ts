@@ -1344,9 +1344,22 @@ class TransactionConsenus {
         }
       }
     } else if (confirmOrChallenge.message === 'challenge') {
-      // todo: podA: POQ9: compare with existing challenge message. Skip we already have it or node rank is higher than
-      //  ours
-      const isBetterThanCurrentChallenge = true
+      let isBetterThanCurrentChallenge
+      let receivedChallenger: Shardus.NodeWithRank
+
+      if (!queueEntry.receivedBestChallenge) isBetterThanCurrentChallenge = true
+      else if (queueEntry.receivedBestChallenge.nodeId === confirmOrChallenge.nodeId)
+        isBetterThanCurrentChallenge = false
+      else {
+        // Compare ranks
+        for (const node of queueEntry.executionGroup) {
+          if (node.id === confirmOrChallenge.nodeId) {
+            receivedChallenger = node
+            break
+          }
+        }
+        isBetterThanCurrentChallenge = receivedChallenger.rank < queueEntry.receivedBestChallenger.rank
+      }
 
       if (!isBetterThanCurrentChallenge) {
         console.log(
@@ -1359,10 +1372,15 @@ class TransactionConsenus {
 
       queueEntry.receivedBestChallenge = confirmOrChallenge
       queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
-      for (const node of queueEntry.executionGroup) {
-        if (node.id === confirmOrChallenge.nodeId) {
-          queueEntry.receivedBestChallenger = node
-          return
+      if (receivedChallenger) {
+        queueEntry.receivedBestChallenger = receivedChallenger
+        return
+      } else {
+        for (const node of queueEntry.executionGroup) {
+          if (node.id === confirmOrChallenge.nodeId) {
+            queueEntry.receivedBestChallenger = node
+            return
+          }
         }
       }
     }
