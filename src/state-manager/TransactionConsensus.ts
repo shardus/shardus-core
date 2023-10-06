@@ -145,10 +145,10 @@ class TransactionConsenus {
       }
     )
 
-    this.p2p.registerGossipHandler(
+    Comms.registerGossipHandler(
       'gossip-applied-vote',
-      async (payload: AppliedVote, tracker: string, msgSize: number) => {
-        profilerInstance.scopedProfileSectionStart('gossip-applied-vote', false, msgSize)
+      async (payload: AppliedVote, sender: string, tracker: string) => {
+        profilerInstance.scopedProfileSectionStart('gossip-applied-vote', true)
         try {
           const queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(payload.txid) // , payload.timestamp)
           if (queueEntry == null) {
