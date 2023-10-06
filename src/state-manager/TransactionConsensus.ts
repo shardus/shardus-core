@@ -1486,7 +1486,8 @@ class TransactionConsenus {
       /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `)
 
       const foundNode = queueEntry.eligibleNodesToVote.find((node) =>
-        this.crypto.verify(vote as SignedObject, node.publicKey)
+        vote.node_id === node.id
+        && this.crypto.verify(vote as SignedObject, node.publicKey)
       )
 
       if (!foundNode) {
