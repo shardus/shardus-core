@@ -1307,7 +1307,7 @@ class TransactionConsenus {
     // todo: podA: POQ5 check if the message is cast by one of the eligible nodes, check its signature
     // eligible nodes are stored under queueEntry.eligibleNodesToVote
     const isVoteValid = true
-    if (!isVoteValid) return
+    if (!isVoteValid) return false
 
     // todo: podA: POQ6 check if the previous phase is finalized and we have received best vote
 
@@ -1319,7 +1319,7 @@ class TransactionConsenus {
       console.log(
         'tryAppendMessage: confirmOrChallenge is not for the same vote that was finalized in the previous phase'
       )
-      return
+      return false
     }
 
     if (confirmOrChallenge.message === 'confirm') {
@@ -1332,7 +1332,7 @@ class TransactionConsenus {
           confirmOrChallenge,
           queueEntry.receivedBestConfirmation
         )
-        return
+        return false
       }
 
       queueEntry.receivedBestConfirmation = confirmOrChallenge
@@ -1340,7 +1340,7 @@ class TransactionConsenus {
       for (const node of queueEntry.executionGroup) {
         if (node.id === confirmOrChallenge.nodeId) {
           queueEntry.receivedBestConfirmedNode = node
-          return
+          return true
         }
       }
     } else if (confirmOrChallenge.message === 'challenge') {
@@ -1367,25 +1367,23 @@ class TransactionConsenus {
           confirmOrChallenge,
           queueEntry.receivedBestChallenge
         )
-        return
+        return false
       }
 
       queueEntry.receivedBestChallenge = confirmOrChallenge
       queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
       if (receivedChallenger) {
         queueEntry.receivedBestChallenger = receivedChallenger
-        return
+        return true
       } else {
         for (const node of queueEntry.executionGroup) {
           if (node.id === confirmOrChallenge.nodeId) {
             queueEntry.receivedBestChallenger = node
-            return
+            return true
           }
         }
       }
     }
-
-    return true
   }
 
   /**
