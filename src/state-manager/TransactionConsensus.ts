@@ -784,7 +784,7 @@ class TransactionConsenus {
             }
           }
           const isRobustQueryNodeBetter =
-            bestNodeFromRobustQuery.rank > queueEntry.receivedBestChallenger.rank
+            bestNodeFromRobustQuery.rank < queueEntry.receivedBestChallenger.rank
           if (isRobustQueryNodeBetter) {
             return {
               txid: receiptFromRobustQuery.txid,
@@ -844,7 +844,7 @@ class TransactionConsenus {
           }
         }
 
-        const isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
+        const isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank < queueEntry.receivedBestVoter.rank
         if (isRobustQueryNodeBetter) {
           return {
             txid: receiptFromRobustQuery.txid,
