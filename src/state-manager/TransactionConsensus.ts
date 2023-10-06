@@ -1358,8 +1358,26 @@ class TransactionConsenus {
     }
 
     if (confirmOrChallenge.message === 'confirm') {
-      // todo: podA: POQ7 compare with existing message. Skip we already have it or node rank is higher than ours
-      const isBetterThanCurrentConfirmation = true
+      let isBetterThanCurrentConfirmation
+      let receivedConfirmedNode: Shardus.NodeWithRank
+
+      if (!queueEntry.receivedBestConfirmation) isBetterThanCurrentConfirmation = true
+      else if (queueEntry.receivedBestConfirmation.nodeId === confirmOrChallenge.nodeId)
+        isBetterThanCurrentConfirmation = false
+      else {
+        // Compare ranks
+        receivedConfirmedNode = queueEntry.executionGroup.find(
+          (node) => node.id === confirmOrChallenge.nodeId
+        )
+
+        if (receivedConfirmedNode.rank === queueEntry.receivedBestConfirmedNode.rank) {
+          // Compare ids if ranks are equal (rare edge case)
+          isBetterThanCurrentConfirmation = receivedConfirmedNode.id > queueEntry.receivedBestConfirmedNode.id
+        } else {
+          isBetterThanCurrentConfirmation =
+            receivedConfirmedNode.rank > queueEntry.receivedBestConfirmedNode.rank
+        }
+      }
 
       if (!isBetterThanCurrentConfirmation) {
         console.log(
@@ -1372,10 +1390,15 @@ class TransactionConsenus {
 
       queueEntry.receivedBestConfirmation = confirmOrChallenge
       queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
-      for (const node of queueEntry.executionGroup) {
-        if (node.id === confirmOrChallenge.nodeId) {
-          queueEntry.receivedBestConfirmedNode = node
-          return true
+      if (receivedConfirmedNode) {
+        queueEntry.receivedBestConfirmedNode = receivedConfirmedNode
+        return true
+      } else {
+        for (const node of queueEntry.executionGroup) {
+          if (node.id === confirmOrChallenge.nodeId) {
+            queueEntry.receivedBestConfirmedNode = node
+            return true
+          }
         }
       }
     } else if (confirmOrChallenge.message === 'challenge') {
