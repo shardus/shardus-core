@@ -928,7 +928,7 @@ class TransactionConsenus {
     }
     const redundancy = 3
     const { topResult: response } = await robustQuery(
-      queueEntry.conensusGroup,
+      this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry),
       queryFn,
       eqFn,
       redundancy,
@@ -960,7 +960,7 @@ class TransactionConsenus {
     }
     const redundancy = 3
     const { topResult: response } = await robustQuery(
-      queueEntry.conensusGroup,
+      this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry),
       queryFn,
       eqFn,
       redundancy,
