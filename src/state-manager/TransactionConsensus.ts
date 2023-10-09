@@ -6,7 +6,6 @@ import Logger, { logFlags } from '../logger'
 import * as Comms from '../p2p/Comms'
 import * as Context from '../p2p/Context'
 import { P2PModuleContext as P2P } from '../p2p/Context'
-import * as http from '../http'
 import * as CycleChain from '../p2p/CycleChain'
 import * as Self from '../p2p/Self'
 import * as Shardus from '../shardus/shardus-types'
@@ -128,21 +127,24 @@ class TransactionConsenus {
         if (queueEntry == null) {
           // It is ok to search the archive for this.  Not checking this was possibly breaking the gossip chain before
           queueEntry = this.stateManager.transactionQueue.getQueueEntryArchived(txId, 'get_applied_vote')
-          if (queueEntry != null && queueEntry.receivedBestVote != null) {
-            const data: AppliedVoteQueryResponse = {
-              txId,
-              appliedVote: queueEntry.receivedBestVote,
-              appliedVoteHash: queueEntry.receivedBestVoteHash
-                ? queueEntry.receivedBestVoteHash
-                : this.calculateVoteHash(queueEntry.receivedBestVote),
-            }
-            await respond(data)
-          }
         }
+
         if (queueEntry == null) {
           /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`get_applied_vote no queue entry for ${payload.txId} dbg:${this.stateManager.debugTXHistory[utils.stringifyReduce(payload.txId)]}`)
           return
         }
+        if (queueEntry.receivedBestVote == null) {
+          /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`get_applied_vote no receivedBestVote for ${payload.txId} dbg:${this.stateManager.debugTXHistory[utils.stringifyReduce(payload.txId)]}`)
+          return
+        }
+        const appliedVote: AppliedVoteQueryResponse = {
+          txId,
+          appliedVote: queueEntry.receivedBestVote,
+          appliedVoteHash: queueEntry.receivedBestVoteHash
+            ? queueEntry.receivedBestVoteHash
+            : this.calculateVoteHash(queueEntry.receivedBestVote),
+        }
+        await respond(appliedVote)
       }
     )
 
@@ -423,6 +425,8 @@ class TransactionConsenus {
             const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
             Comms.sendGossip('spread_confirmOrChallenge', payload, '', sender, gossipGroup, false, 10)
           }
+        } catch (e) {
+          this.mainLogger.error(`Error in spread_confirmOrChallenge handler: ${e.message}`)
         } finally {
           profilerInstance.scopedProfileSectionEnd('spread_confirmOrChallenge', msgSize)
         }
@@ -576,7 +580,7 @@ class TransactionConsenus {
     if (queueEntry.ourVote) {
       const reciept = queueEntry.appliedReceipt2 ?? queueEntry.recievedAppliedReceipt2
       if (reciept != null && queueEntry.ourVoteHash != null) {
-        if (this.crypto.hash(reciept.appliedVote) === queueEntry.ourVoteHash) {
+        if (this.calculateVoteHash(reciept.appliedVote) === queueEntry.ourVoteHash) {
           return true
         } else {
           /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`hasAppliedReceiptMatchingPreApply  ${queueEntry.logID} state does not match missing id:${utils.stringifyReduce(reciept.txid)} `)
@@ -884,16 +888,24 @@ class TransactionConsenus {
               appliedVotes: [winningVote],
               app_data_hash: '',
             }
+            const appliedReceipt2: AppliedReceipt2 = {
+              txid: winningVote.txid,
+              result: winningVote.transaction_result,
+              appliedVote: winningVote,
+              app_data_hash: '',
+              signatures: [winningVote.sign]
+            }
             for (let i = 0; i < winningVote.account_id.length; i++) {
               /* eslint-disable security/detect-object-injection */
               if (winningVote.account_id[i] === 'app_data_hash') {
                 appliedReceipt.app_data_hash = winningVote.account_state_hash_after[i]
+                appliedReceipt2.app_data_hash = winningVote.account_state_hash_after[i]
                 break
               }
               /* eslint-enable security/detect-object-injection */
             }
             queueEntry.appliedReceipt = appliedReceipt
-            console.log(`LPOQ: producing a confirm receipt based on received confirm message`, appliedReceipt)
+            queueEntry.appliedReceipt2 = appliedReceipt2
           }
         }
 
@@ -1047,7 +1059,6 @@ class TransactionConsenus {
 
   async tryConfirmOrChallenge(queueEntry: QueueEntry): Promise<void> {
     if (queueEntry.gossipedConfirmOrChallenge === true) {
-      console.log(`LPOQ: already gossiped confirm or challenge for ${queueEntry.acceptedTx.txId}`)
       return
     }
     const now = Date.now()
@@ -1060,11 +1071,21 @@ class TransactionConsenus {
 
       // confirm that current vote is the winning highest ranked vote using robustQuery
       const voteFromRobustQuery = await this.robustQueryBestVote(queueEntry)
+      if (voteFromRobustQuery == null) {
+        // we cannot confirm the best vote from network
+        this.mainLogger.error(`We cannot get voteFromRobustQuery for tx ${queueEntry.acceptedTx.txId}`)
+        return
+      }
       let bestVoterFromRobustQuery: Shardus.NodeWithRank
       for (const node of queueEntry.executionGroup) {
         if (node.id === voteFromRobustQuery.node_id) {
           bestVoterFromRobustQuery = node
         }
+      }
+      if (bestVoterFromRobustQuery == null) {
+        // we cannot confirm the best voter from network
+        this.mainLogger.error(`We cannot get bestVoter from robustQuery for tx ${queueEntry.acceptedTx.txId}`)
+        return
       }
 
       // todo: podA: POQ2 handle if we can't figure out the best voter from robust query result (low priority)
@@ -1126,12 +1147,12 @@ class TransactionConsenus {
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
     //podA: POQ4 create challenge message and share to tx group
-    const confirmMessage: ConfirmOrChallengeMessage = {
+    const challengeMessage: ConfirmOrChallengeMessage = {
       message: 'challenge',
       nodeId: queueEntry.ourVote.node_id,
       appliedVote: queueEntry.ourVote,
     }
-    const signedConfirmMessage = this.crypto.sign(confirmMessage)
+    const signedConfirmMessage = this.crypto.sign(challengeMessage)
 
     //Share message to tx group
     const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
@@ -1153,24 +1174,24 @@ class TransactionConsenus {
 
     // TODO STATESHARDING4 CHECK VOTES PER CONSENSUS GROUP
 
+    if (queueEntry.isInExecutionHome === false) {
+      //we are not in the execution home, so we can't create or share a vote
+      return
+    }
+    const ourNodeId = this.stateManager.currentCycleShardData.ourNode.id
+    const eligibleNodeIds = queueEntry.eligibleNodesToVote.map((node) => node.id)
+
     if (this.stateManager.transactionQueue.useNewPOQ) {
-      const eligibleNodeIds = queueEntry.eligibleNodesToVote.map((node) => node.id)
-      const ourNodeId = this.stateManager.currentCycleShardData.ourNode.id
-      const isEligibleToVote = eligibleNodeIds.includes(ourNodeId)
-
-      if (isEligibleToVote === false) {
-        console.log('We are not eligible to vote')
-        return
-      }
-
       const ourRankIndex = eligibleNodeIds.indexOf(ourNodeId)
       const delayBeforeVote = ourRankIndex * 100 // 100ms
 
       await utils.sleep(delayBeforeVote)
+
+      // todo: POQ14 check if we have already received better ranked vote for this tx
     }
 
     // create our applied vote
-    const ourVote: AppliedVote = {
+    let ourVote: AppliedVote = {
       txid: queueEntry.acceptedTx.txId,
       transaction_result: queueEntry.preApplyTXResult.passed,
       account_id: [],
@@ -1241,8 +1262,8 @@ class TransactionConsenus {
 
     let appliedVoteHash: AppliedVoteHash
     //let temp = ourVote.node_id
-    ourVote.node_id = '' //exclue this from hash
-    this.crypto.sign(ourVote)
+    // ourVote.node_id = '' //exclue this from hash
+    ourVote = this.crypto.sign(ourVote)
     const voteHash = this.calculateVoteHash(ourVote)
     //ourVote.node_id = temp
     appliedVoteHash = {
@@ -1251,6 +1272,8 @@ class TransactionConsenus {
     }
     appliedVoteHash = this.crypto.sign(appliedVoteHash)
     queueEntry.ourVoteHash = voteHash
+
+    if (logFlags.verbose) this.mainLogger.debug(`createAndShareVote ourVote: ${utils.stringifyReduce(ourVote)}`)
 
     //append our vote
     this.tryAppendVoteHash(queueEntry, appliedVoteHash)
@@ -1263,6 +1286,10 @@ class TransactionConsenus {
       nestedCountersInstance.countEvent('transactionQueue', 'createAndShareVote appendFailed')
     }
     // share the vote via gossip?
+    const isEligibleToShareVote = eligibleNodeIds.includes(ourNodeId)
+    if (isEligibleToShareVote === false) {
+      return
+    }
 
     let consensusGroup = []
     if (
@@ -1338,7 +1365,7 @@ class TransactionConsenus {
     /* prettier-ignore */
     if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   ${queueEntry.collectedVotes.length} `);
 
-    const foundNode = queueEntry.eligibleNodesToVote.find((node) =>
+    const foundNode = queueEntry.eligibleNodesToConfirm.find((node) =>
       confirmOrChallenge.nodeId === node.id
       && this.crypto.verify(confirmOrChallenge as SignedObject, node.publicKey)
     )
@@ -1526,7 +1553,7 @@ class TransactionConsenus {
       }
 
       if (!isBetterThanCurrentVote) {
-        console.log('tryAppendVote: vote is not better than current vote', vote, queueEntry.collectedVotes[0])
+        console.log('tryAppendVote: vote is not better than current vote', vote, queueEntry.receivedBestVote)
         return false
       }
 
