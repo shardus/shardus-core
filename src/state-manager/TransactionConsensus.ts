@@ -905,40 +905,43 @@ class TransactionConsenus {
             queueEntry.appliedReceipt = appliedReceipt
             queueEntry.appliedReceipt2 = appliedReceipt2
           }
-        }
+          // do a robust query to confirm that we have the best receipt
+          // (lower the rank of confirm message, the better the receipt is)
+          const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
 
-        // do a robust query to confirm that we have the best receipt
-        // (lower the rank of confirm message, the better the receipt is)
-        const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
-
-        // Received challenge receipt, we have confirm receipt which is not better
-        if (receiptFromRobustQuery.result === false) {
-          return {
-            txid: receiptFromRobustQuery.txid,
-            result: receiptFromRobustQuery.result,
-            appliedVotes: [receiptFromRobustQuery.appliedVote],
-            app_data_hash: receiptFromRobustQuery.app_data_hash,
+          if (receiptFromRobustQuery == null) {
+            return
           }
-        }
 
-        // Received another confirm receipt. Compare ranks
-        let bestNodeFromRobustQuery: Shardus.NodeWithRank
-        for (const node of queueEntry.executionGroup) {
-          if (node.id === receiptFromRobustQuery.appliedVote.node_id) {
-            bestNodeFromRobustQuery = node
+          // Received challenge receipt, we have confirm receipt which is not better
+          if (receiptFromRobustQuery.result === false) {
+            return {
+              txid: receiptFromRobustQuery.txid,
+              result: receiptFromRobustQuery.result,
+              appliedVotes: [receiptFromRobustQuery.appliedVote],
+              app_data_hash: receiptFromRobustQuery.app_data_hash,
+            }
           }
-        }
 
-        const isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank < queueEntry.receivedBestVoter.rank
-        if (isRobustQueryNodeBetter) {
-          return {
-            txid: receiptFromRobustQuery.txid,
-            result: receiptFromRobustQuery.result,
-            appliedVotes: [receiptFromRobustQuery.appliedVote],
-            app_data_hash: receiptFromRobustQuery.app_data_hash,
+          // Received another confirm receipt. Compare ranks
+          let bestNodeFromRobustQuery: Shardus.NodeWithRank
+          for (const node of queueEntry.executionGroup) {
+            if (node.id === receiptFromRobustQuery.appliedVote.node_id) {
+              bestNodeFromRobustQuery = node
+            }
           }
-        } else {
-          return queueEntry.appliedReceipt
+
+          const isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank < queueEntry.receivedBestVoter.rank
+          if (isRobustQueryNodeBetter) {
+            return {
+              txid: receiptFromRobustQuery.txid,
+              result: receiptFromRobustQuery.result,
+              appliedVotes: [receiptFromRobustQuery.appliedVote],
+              app_data_hash: receiptFromRobustQuery.app_data_hash,
+            }
+          } else {
+            return queueEntry.appliedReceipt
+          }
         }
       }
     }
@@ -1059,7 +1062,13 @@ class TransactionConsenus {
     if (queueEntry.gossipedConfirmOrChallenge === true) {
       return
     }
+    if (queueEntry.isInExecutionHome === false) {
+      return
+    }
+
     const now = Date.now()
+    //  if we are in lowest 10% of execution group and agrees with the highest ranked vote, send out a confirm msg
+    const eligibleToConfirm = queueEntry.eligibleNodesToConfirm.map((node) => node.id).includes(Self.id)
     const timeSinceLastVoteMessage =
       queueEntry.lastVoteReceivedTimestamp > 0 ? now - queueEntry.lastVoteReceivedTimestamp : 0
     // check if last confirm/challenge received is 1s ago
@@ -1095,29 +1104,26 @@ class TransactionConsenus {
         finalVote = voteFromRobustQuery
       }
       const finalVoteHash = this.calculateVoteHash(finalVote)
+      const shouldChallenge = queueEntry.ourVoteHash !== finalVoteHash
 
       // if we are in execution group and disagree with the highest ranked vote, send out a "challenge" message
       const isInExecutionSet = queueEntry.executionIdSet.has(Self.id)
       if (isInExecutionSet && queueEntry.ourVoteHash !== finalVoteHash) {
         this.challengeVoteAndShare(queueEntry)
-        return
       }
 
-      //  if we are in lowest 10% of execution group and agrees with the highest ranked vote, send out a confirm msg
-      const shouldConfirm = queueEntry.eligibleNodesToConfirm.map((node) => node.id).includes(Self.id)
-      if (shouldConfirm && queueEntry.ourVoteHash === finalVoteHash) {
+      if (eligibleToConfirm && queueEntry.ourVoteHash === finalVoteHash) {
         this.confirmVoteAndShare(queueEntry)
-        return
       }
+      queueEntry.gossipedConfirmOrChallenge = true
     }
-    return null
   }
 
   sortByAccountId(first: Shardus.WrappedResponse, second: Shardus.WrappedResponse): Ordering {
     return utils.sortAscProp(first, second, 'accountId')
   }
 
-  async confirmVoteAndShare(queueEntry: QueueEntry): Promise<unknown> {
+  confirmVoteAndShare(queueEntry: QueueEntry): void {
     this.profiler.profileSectionStart('confirmOrChallengeVote')
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
@@ -1136,10 +1142,9 @@ class TransactionConsenus {
     queueEntry.gossipedConfirmOrChallenge = true
 
     this.profiler.profileSectionEnd('confirmOrChallengeVote')
-    return null
   }
 
-  async challengeVoteAndShare(queueEntry: QueueEntry): Promise<unknown> {
+  challengeVoteAndShare(queueEntry: QueueEntry): void {
     this.profiler.profileSectionStart('confirmOrChallengeVote')
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
