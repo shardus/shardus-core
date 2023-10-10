@@ -6,9 +6,17 @@ import * as CycleCreator from '../CycleCreator'
 import * as NodeList from '../NodeList'
 import * as Self from '../Self'
 import * as utils from '../../utils'
-import { Handler } from "express"
-import { P2P } from "@shardus/types"
-import { addJoinRequest, computeSelectionNum, getAllowBogon, setAllowBogon, validateJoinRequest, verifyJoinRequestSignature, warn } from "."
+import { Handler } from 'express'
+import { P2P } from '@shardus/types'
+import {
+  addJoinRequest,
+  computeSelectionNum,
+  getAllowBogon,
+  setAllowBogon,
+  validateJoinRequest,
+  verifyJoinRequestSignature,
+  warn,
+} from '.'
 import { config } from '../Context'
 import { isBogonIP } from '../../utils/functions/checkIP'
 import { isPortReachable } from '../../utils/isPortReachable'
@@ -93,13 +101,16 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
       // then, verify the signature of the join request. this has to be done
       // before selectionNum is calculated because we will mutate the original
       // join request.
-      const signatureError = verifyJoinRequestSignature(joinRequest);
-      if (signatureError) return res.status(400).json(signatureError);
+      const signatureError = verifyJoinRequestSignature(joinRequest)
+      if (signatureError) return res.status(400).json(signatureError)
 
       // then, calculate the selection number for this join request.
       const selectionNumResult = computeSelectionNum(joinRequest)
       if (selectionNumResult.isErr()) {
-        console.error(`failed to compute selection number for node ${joinRequest.nodeInfo.publicKey}:`, JSON.stringify(selectionNumResult.error))
+        console.error(
+          `failed to compute selection number for node ${joinRequest.nodeInfo.publicKey}:`,
+          JSON.stringify(selectionNumResult.error)
+        )
         return res.status(500).json(selectionNumResult.error)
       }
       joinRequest.selectionNum = selectionNumResult.value
@@ -141,13 +152,14 @@ const unjoinRoute: P2P.P2PTypes.Route<Handler> = {
     }
 
     Comms.sendGossip('gossip-unjoin', joinRequest, '', null, NodeList.byIdOrder, true)
-  }
+  },
 }
 
 const joinedV2Route: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'joinedV2/:publicKey',
   handler: (req, res) => {
+    warn(`joinedV2 handler enter`)
     // Respond with id if node's join request was accepted, otherwise undefined
     let err = utils.validateTypes(req, { params: 'o' })
     if (err) {
@@ -160,7 +172,8 @@ const joinedV2Route: P2P.P2PTypes.Route<Handler> = {
       res.json()
     }
     const publicKey = req.params.publicKey
-    const id = NodeList.byPubKey.get(publicKey)?.id
+    const id = NodeList.byPubKey.get(publicKey)?.id || null
+    warn(`joinedV2 handler all good ${JSON.stringify({ id, isOnStandbyList: isOnStandbyList(publicKey) })}`)
     res.json({ id, isOnStandbyList: isOnStandbyList(publicKey) })
   },
 }
@@ -254,13 +267,12 @@ const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P
 }
 
 /**
-  * Part of Join Protocol v2. Gossips all valid join requests.
-  */
-const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P.NodeListTypes.Node['id']> = (
-  payload: P2P.JoinTypes.JoinRequest,
-  sender: P2P.NodeListTypes.Node['id'],
-  tracker: string,
-) => {
+ * Part of Join Protocol v2. Gossips all valid join requests.
+ */
+const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<
+  P2P.JoinTypes.JoinRequest,
+  P2P.NodeListTypes.Node['id']
+> = (payload: P2P.JoinTypes.JoinRequest, sender: P2P.NodeListTypes.Node['id'], tracker: string) => {
   // ensure this join request doesn't already exist in standby nodes
   if (getStandbyNodesInfoMap().has(payload.nodeInfo.publicKey)) {
     console.error(`join request for pubkey ${payload.nodeInfo.publicKey} already exists as a standby node`)
@@ -277,7 +289,10 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequ
   // then, calculate the selection number for this join request
   const selectionNumResult = computeSelectionNum(payload)
   if (selectionNumResult.isErr()) {
-    console.error(`failed to compute selection number for node ${payload.nodeInfo.publicKey}:`, JSON.stringify(selectionNumResult.error))
+    console.error(
+      `failed to compute selection number for node ${payload.nodeInfo.publicKey}:`,
+      JSON.stringify(selectionNumResult.error)
+    )
     return
   }
   payload.selectionNum = selectionNumResult.value
@@ -295,7 +310,7 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequ
 const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<UnjoinRequest, P2P.NodeListTypes.Node['id']> = (
   payload: UnjoinRequest,
   sender: P2P.NodeListTypes.Node['id'],
-  tracker: string,
+  tracker: string
 ) => {
   const processResult = processNewUnjoinRequest(payload)
   if (processResult.isErr()) {
@@ -307,11 +322,10 @@ const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<UnjoinRequest, P2P.NodeLi
 }
 
 export const routes = {
-  external: [cycleMarkerRoute, joinRoute, joinedRoute, acceptedRoute, unjoinRoute],
+  external: [cycleMarkerRoute, joinRoute, joinedRoute, joinedV2Route, acceptedRoute, unjoinRoute],
   gossip: {
     'gossip-join': gossipJoinRoute,
     'gossip-valid-join-requests': gossipValidJoinRequests,
     'gossip-unjoin': gossipUnjoinRequests,
   },
 }
-

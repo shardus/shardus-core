@@ -91,10 +91,15 @@ export function init(): void {
   updateNodeState(P2P.P2PTypes.NodeStatus.INITIALIZING) // requires p2pLogger through warn()
 }
 
-export function startupV2(): Promise<boolean> {
+export async function startupV2(): Promise<boolean> {
   const promise = new Promise<boolean>((resolve, reject) => {
     const publicKey = Context.crypto.getPublicKey()
     let schedulerTimer = null
+
+    if (logFlags.p2pNonFatal) info('startupV2-enter')
+    info('startupV2-enter2 logFlags.p2pNonFatal:' + logFlags.p2pNonFatal)
+
+    info('startupV2-enter2 logFlags:' + JSON.stringify(logFlags))
 
     // If startInWitness config is set to true, start witness mode and end
     if (Context.config.p2p.startInWitnessMode) {
@@ -109,15 +114,20 @@ export function startupV2(): Promise<boolean> {
 
     // register listener for acceptance
     Acceptance.getEventEmitter().on('accepted', () => {
+      if (logFlags.p2pNonFatal) info(`startupV2-accepted ${state}`)
       if (state === P2P.P2PTypes.NodeStatus.SYNCING || state === P2P.P2PTypes.NodeStatus.ACTIVE) {
+        if (logFlags.p2pNonFatal) info(`startupV2-accepted-early out ${state}`)
         return
       }
+
       scheduler()
     })
 
     // function to set node's status to SYNCING, perform sync functions, and finish startup
     const enterSyncingState = async (): Promise<void> => {
       // set status SYNCING
+      if (logFlags.p2pNonFatal) info(`startupV2-SYNCING`)
+
       updateNodeState(P2P.P2PTypes.NodeStatus.SYNCING)
 
       p2pSyncStart = Date.now()
@@ -151,8 +161,11 @@ export function startupV2(): Promise<boolean> {
     const scheduler = async (): Promise<void> => {
       let cycleDuration = Context.config.p2p.cycleDuration
       try {
+        if (logFlags.p2pNonFatal) info(`startupV2-scheduler enter`)
+
         // Clear existing scheduler timer
         if (schedulerTimer) {
+          if (logFlags.p2pNonFatal) info(`startupV2-scheduler clearTimeout`)
           clearTimeout(schedulerTimer)
         }
 
@@ -169,12 +182,16 @@ export function startupV2(): Promise<boolean> {
             return await enterSyncingState()
           }
         }
+        if (logFlags.p2pNonFatal)
+          info(`startupV2-scheduler isFirst:${isFirst} activeNodes.length:${activeNodes.length}`)
 
         // Remove yourself from activeNodes if you are present in them
         const ourIdx = activeNodes.findIndex(
           (node) => node.ip === network.ipInfo.externalIp && node.port === network.ipInfo.externalPort
         )
         if (ourIdx > -1) {
+          if (logFlags.p2pNonFatal) info(`startupV2-scheduler splice: ourIdx:${ourIdx} `)
+
           activeNodes.splice(ourIdx, 1)
         }
 
@@ -183,22 +200,32 @@ export function startupV2(): Promise<boolean> {
         cycleDuration = latestCycle.duration
         mode = latestCycle.mode || null
 
+        if (logFlags.p2pNonFatal) info(`startupV2-scheduler latestCycle:${JSON.stringify(latestCycle)}`)
+
         // Query network for node status
         const resp = await Join.fetchJoinedV2(activeNodes)
 
+        if (logFlags.p2pNonFatal) info(`startupV2-scheduler fetchJoinedV2 resp:${JSON.stringify(resp)}`)
+
         if (resp?.id) {
+          if (logFlags.p2pNonFatal) info(`startupV2-scheduler joined with node id, goto syncing`)
           return await enterSyncingState()
         }
 
         if (resp?.isOnStandbyList === true) {
+          if (logFlags.p2pNonFatal) info(`startupV2-scheduler isOnStandbyList:true run scheduler in 5cycles `)
           // Call scheduler after 5 cycles
           schedulerTimer = setTimeout(() => {
             scheduler()
           }, 5 * cycleDuration * 1000)
           return
+        } else {
+          if (logFlags.p2pNonFatal) info(`startupV2-scheduler not on standby `)
         }
 
+        info(`startupV2-scheduler resp?.isOnStandbyList:${resp?.isOnStandbyList} `)
         if (resp?.isOnStandbyList === false) {
+          if (logFlags.p2pNonFatal) info(`startupV2-scheduler isOnStandbyList:false, joinNetworkV2 `)
           await joinNetworkV2(activeNodes)
         }
       } catch (err) {
@@ -209,8 +236,7 @@ export function startupV2(): Promise<boolean> {
         warn('Error while joining network:')
         warn(err)
         warn(err.stack)
-        if (logFlags.p2pNonFatal)
-          info(`Trying to join again in ${cycleDuration} seconds...`)
+        if (logFlags.p2pNonFatal) info(`Trying to join again in ${cycleDuration} seconds...`)
       } finally {
         // schedule yourself to run at the start of the next cycle
         schedulerTimer = setTimeout(() => {
@@ -256,9 +282,9 @@ export async function startup(): Promise<boolean> {
       }
       // Otherwise, try to join the network
       ;({ isFirst, id } = await joinNetwork(activeNodes, firstTime))
-      console.log("isFirst:", isFirst, "id:", id)
+      console.log('isFirst:', isFirst, 'id:', id)
     } catch (err) {
-      console.log("error in Join network: ", err)
+      console.log('error in Join network: ', err)
       if (!Context.config.p2p.useJoinProtocolV2) {
         updateNodeState(P2P.P2PTypes.NodeStatus.STANDBY)
       }
@@ -354,7 +380,12 @@ export function updateNodeState(updatedState: NodeStatus, because: string = ''):
   const pubKey = (Context.crypto && Context.crypto.getPublicKey()) || null
   const entry: StatusHistoryEntry = {
     moduleStatus: state,
-    nodeListStatus: (pubKey && NodeList.byPubKey && NodeList.byPubKey.get(pubKey) && NodeList.byPubKey.get(pubKey).status) || null,
+    nodeListStatus:
+      (pubKey &&
+        NodeList.byPubKey &&
+        NodeList.byPubKey.get(pubKey) &&
+        NodeList.byPubKey.get(pubKey).status) ||
+      null,
     timestamp: Date.now(),
     isoDateTime: new Date().toISOString(),
     uptime: utils.readableDuration(startTimestamp),
@@ -368,6 +399,7 @@ export function updateNodeState(updatedState: NodeStatus, because: string = ''):
 }
 
 async function joinNetworkV2(activeNodes): Promise<void> {
+  if (logFlags.p2pNonFatal) info(`joinNetworkV2 enter `)
   // Get latest cycle record from active nodes
   const latestCycle = await Sync.getNewestCycle(activeNodes)
   mode = latestCycle.mode || null
@@ -463,7 +495,7 @@ async function joinNetwork(
 
   // create the Promise that we will `await` to wait for the 'accepted' event,
   // in case of Join v2. this registers the listener ahead of time
-  const trigger = acceptedTrigger();
+  const trigger = acceptedTrigger()
 
   // only submit join requests if we are using the old protocol or if we have not yet successfully submitted a join request
   if (!Context.config.p2p.useJoinProtocolV2 || !Join.getHasSubmittedJoinRequest()) {
@@ -481,7 +513,7 @@ async function joinNetwork(
 
   if (Context.config.p2p.useJoinProtocolV2) {
     // if using join protocol v2, simply wait for the 'accepted' event to fire
-    await trigger;
+    await trigger
 
     // then, we can fetch the id from the network and return
     const id = await Join.fetchJoined(activeNodes)
@@ -551,10 +583,13 @@ async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
   let archiver: P2P.SyncTypes.ActiveNode
   let activeNodesSigned: P2P.P2PTypes.SignedObject<SeedNodesList>
 
+  if (logFlags.p2pNonFatal) info(`contactArchiver enter`)
+
   while (retry > 0) {
     try {
       archiver = getRandomAvailableArchiver()
       if (!failArchivers.includes(archiver.ip)) failArchivers.push(archiver.ip)
+      if (logFlags.p2pNonFatal) info(`contactArchiver getActiveNodesFromArchiver`)
       activeNodesSigned = await getActiveNodesFromArchiver(archiver)
       break // To stop this loop if it gets the response without failing
     } catch (e) {
@@ -565,14 +600,20 @@ async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
     retry--
   }
 
+  if (logFlags.p2pNonFatal) info(`contactArchiver enter`)
+
   // This probably cant happen but adding it for completeness
   if (activeNodesSigned == null || activeNodesSigned.nodeList == null) {
+    if (logFlags.p2pNonFatal)
+      info(`contactArchiver Fatal: activeNodesSigned == null || activeNodesSigned.nodeList == null Archiver`)
     throw Error(
       `Fatal: activeNodesSigned == null || activeNodesSigned.nodeList == null Archiver: ${archiver.ip}`
     )
   }
 
   if (activeNodesSigned.nodeList.length === 0) {
+    if (logFlags.p2pNonFatal)
+      info(`contactArchiver Fatal: getActiveNodesFromArchiver returned an empty list after`)
     throw new Error(
       `Fatal: getActiveNodesFromArchiver returned an empty list after ${
         maxRetries - retry
@@ -589,6 +630,9 @@ async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
   const joinRequest: P2P.ArchiversTypes.Request | undefined = activeNodesSigned.joinRequest as
     | P2P.ArchiversTypes.Request
     | undefined
+
+  if (logFlags.p2pNonFatal) info(`contactArchiver joinRequest: ${JSON.stringify(joinRequest)}}`)
+
   if (joinRequest) {
     const accepted = Archivers.addArchiverJoinRequest(joinRequest)
     if (accepted.success === false) {
@@ -601,6 +645,7 @@ async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
       Archivers.addDataRecipient(joinRequest.nodeInfo, firstNodeDataRequest)
       // Using this flag due to isFirst check is not working as expected yet in the first consensor-archiver connection establishment
       allowConnectionToFirstNode = true
+      if (logFlags.p2pNonFatal) info(`contactArchiver got results1`)
       return activeNodesSigned.nodeList
     }
   }
@@ -617,6 +662,7 @@ async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
   if (joinRequest && dataRequest.length > 0) {
     Archivers.addDataRecipient(joinRequest.nodeInfo, dataRequest)
   }
+  if (logFlags.p2pNonFatal) info(`contactArchiver got results2`)
   return activeNodesSigned.nodeList
 }
 
