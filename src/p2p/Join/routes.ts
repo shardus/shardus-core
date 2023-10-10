@@ -203,7 +203,18 @@ const acceptedRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'POST',
   name: 'accepted',
   handler: async (req, res) => {
-    const counter = CycleChain.getNewest().counter
+    let counter = -1
+    let cycle = CycleChain.getNewest()
+    if (cycle == null) {
+      if (CycleChain.cycles.length > 0) {
+        cycle = CycleChain.cycles[CycleChain.cycles.length - 1]
+        counter = cycle.counter
+      }
+    } else {
+      counter = cycle.counter
+    }
+
+    //let counter = cycle.counter
     nestedCountersInstance.countEvent('joinV2', `C${counter}: acceptedRoute: start`)
 
     // check if we even need to check acceptance

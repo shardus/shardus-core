@@ -208,7 +208,8 @@ export async function startupV2(): Promise<boolean> {
         if (logFlags.p2pNonFatal) info(`startupV2-scheduler fetchJoinedV2 resp:${JSON.stringify(resp)}`)
 
         if (resp?.id) {
-          if (logFlags.p2pNonFatal) info(`startupV2-scheduler joined with node id, goto syncing`)
+          id = resp.id
+          if (logFlags.p2pNonFatal) info(`startupV2-scheduler joined with node id, goto syncing ${id}`)
           return await enterSyncingState()
         }
 
