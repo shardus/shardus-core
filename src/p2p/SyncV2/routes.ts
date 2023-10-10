@@ -11,6 +11,7 @@ import * as NodeList from '../NodeList'
 import * as Archivers from '../Archivers'
 import * as CycleCreator from '../CycleCreator'
 import * as JoinV2 from '../Join/v2'
+import { nestedCountersInstance } from '../../utils/nestedCounters'
 
 /** An endpoint that returns the latest node list hash. */
 const validatorListHashRoute: P2P.P2PTypes.Route<Handler> = {
@@ -50,7 +51,7 @@ const newestCycleHashRoute: P2P.P2PTypes.Route<Handler> = {
 }
 
 /** An endpoint that returns the last hashed validator list if the expected (requested)
-  * hash matches. */
+ * hash matches. */
 const validatorListRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'validator-list',
@@ -61,14 +62,16 @@ const validatorListRoute: P2P.P2PTypes.Route<Handler> = {
     if (expectedHash && expectedHash === NodeList.getNodeListHash()) {
       res.json(NodeList.getLastHashedNodeList())
     } else {
-      console.error(`rejecting validator list request: expected '${expectedHash}' != '${NodeList.getNodeListHash()}'`)
+      console.error(
+        `rejecting validator list request: expected '${expectedHash}' != '${NodeList.getNodeListHash()}'`
+      )
       res.status(404).send(`validator list with hash '${expectedHash}' not found`)
     }
   },
 }
 
 /** An endpoint that returns the last hashed archiver list if the expected (requested)
-  * hash matches. */
+ * hash matches. */
 const archiverListRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'archiver-list',
@@ -79,14 +82,16 @@ const archiverListRoute: P2P.P2PTypes.Route<Handler> = {
     if (expectedHash && expectedHash === Archivers.getArchiverListHash()) {
       res.json(Archivers.getLastHashedArchiverList())
     } else {
-      console.error(`rejecting archiver list request: expected '${expectedHash}' != '${Archivers.getArchiverListHash()}'`)
+      console.error(
+        `rejecting archiver list request: expected '${expectedHash}' != '${Archivers.getArchiverListHash()}'`
+      )
       res.status(404).send(`archiver list with hash '${expectedHash}' not found`)
     }
   },
 }
 
 /** An endpoint that returns the last hashed standby list if the expected (requested)
-  * hash matches. */
+ * hash matches. */
 const standbyListRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'standby-list',
@@ -97,7 +102,11 @@ const standbyListRoute: P2P.P2PTypes.Route<Handler> = {
     if (expectedHash && expectedHash === JoinV2.getStandbyListHash()) {
       res.json(JoinV2.getLastHashedStandbyList())
     } else {
-      console.error(`rejecting standby list request: expected '${expectedHash}' != '${JoinV2.getStandbyListHash()}'`)
+      nestedCountersInstance.countEvent('p2p', 'standby_list_hash_mismatch')
+
+      console.error(
+        `rejecting standby list request: expected '${expectedHash}' != '${JoinV2.getStandbyListHash()}'`
+      )
       res.status(404).send(`standby list with hash '${expectedHash}' not found`)
     }
   },
@@ -120,11 +129,11 @@ const cycleByMarkerRoute: P2P.P2PTypes.Route<Handler> = {
 }
 
 const newestCycleRecordRoute: P2P.P2PTypes.Route<Handler> = {
-    method: 'GET',
-    name: 'newest-cycle-record',
-    handler: (_req, res) => {
-        res.json(CycleChain.newest)
-    }
+  method: 'GET',
+  name: 'newest-cycle-record',
+  handler: (_req, res) => {
+    res.json(CycleChain.newest)
+  },
 }
 
 /** Registers all routes as external routes. */
@@ -138,7 +147,7 @@ export function initRoutes(): void {
     archiverListRoute,
     standbyListRoute,
     cycleByMarkerRoute,
-    newestCycleRecordRoute
+    newestCycleRecordRoute,
   ]
 
   for (const route of routes) {
