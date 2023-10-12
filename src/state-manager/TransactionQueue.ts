@@ -4257,8 +4257,10 @@ class TransactionQueue {
 
               let finishedConsensing = false
 
-              // if we are in execution group, try to "confirm" or "challenge" the highest ranked vote
-              await this.stateManager.transactionConsensus.tryConfirmOrChallenge(queueEntry)
+              if (this.useNewPOQ) {
+                // if we are in execution group, try to "confirm" or "challenge" the highest ranked vote
+                await this.stateManager.transactionConsensus.tryConfirmOrChallenge(queueEntry)
+              }
 
               // try to produce a receipt
               /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`processAcceptedTxQueue2 consensing : ${queueEntry.logID} receiptRcv:${hasReceivedApplyReceipt}`)
