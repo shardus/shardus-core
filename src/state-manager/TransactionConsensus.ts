@@ -1277,13 +1277,13 @@ class TransactionConsenus {
       txid: ourVote.txid,
       voteHash,
     }
-    appliedVoteHash = this.crypto.sign(appliedVoteHash)
     queueEntry.ourVoteHash = voteHash
 
     if (logFlags.verbose)
       this.mainLogger.debug(`createAndShareVote ourVote: ${utils.stringifyReduce(ourVote)}`)
 
     //append our vote
+    appliedVoteHash = this.crypto.sign(appliedVoteHash)
     this.tryAppendVoteHash(queueEntry, appliedVoteHash)
 
     // save our vote to our queueEntry
@@ -1294,9 +1294,11 @@ class TransactionConsenus {
       nestedCountersInstance.countEvent('transactionQueue', 'createAndShareVote appendFailed')
     }
     // share the vote via gossip?
-    const isEligibleToShareVote = eligibleNodeIds.includes(ourNodeId)
-    if (isEligibleToShareVote === false) {
-      return
+    if (this.stateManager.transactionQueue.useNewPOQ) {
+      const isEligibleToShareVote = eligibleNodeIds.includes(ourNodeId)
+      if (isEligibleToShareVote === false) {
+        return
+      }
     }
 
     let consensusGroup = []
@@ -1335,17 +1337,13 @@ class TransactionConsenus {
       }
       const filteredConsensusGroup = filteredNodes
 
-      if (this.stateManager.transactionQueue.useNewPOQ === false) {
-        this.profiler.profileSectionStart('createAndShareVote-tell')
-        if (this.stateManager.transactionQueue.useNewPOQ === false) {
-          this.p2p.tell(filteredConsensusGroup, 'spread_appliedVoteHash', appliedVoteHash)
-        } else {
-          this.p2p.tell(filteredConsensusGroup, 'spread_appliedVote', ourVote)
-        }
-        this.profiler.profileSectionEnd('createAndShareVote-tell')
-      } else {
-        // todo: PodA POQ13 Gossip the vote to the entire consensus group
+      if (this.stateManager.transactionQueue.useNewPOQ) {
+        // Gossip the vote to the entire consensus group
         Comms.sendGossip('gossip-applied-vote', ourVote, '', null, filteredConsensusGroup, true, 4)
+      } else {
+        this.profiler.profileSectionStart('createAndShareVote-tell')
+        this.p2p.tell(filteredConsensusGroup, 'spread_appliedVoteHash', appliedVoteHash)
+        this.profiler.profileSectionEnd('createAndShareVote-tell')
       }
     } else {
       nestedCountersInstance.countEvent('transactionQueue', 'createAndShareVote fail, no consensus group')
@@ -1354,10 +1352,16 @@ class TransactionConsenus {
   }
 
   calculateVoteHash(vote: AppliedVote, removeSign = true): string {
-    const voteToHash = Object.assign({}, vote)
-    if (voteToHash.node_id && voteToHash.node_id.length > 0) voteToHash.node_id = ''
-    if (removeSign && voteToHash.sign != null) delete voteToHash.sign
-    return this.crypto.hash(voteToHash)
+    let voteToHash = Object.assign({}, vote)
+    if (this.stateManager.transactionQueue.useNewPOQ) {
+      if (voteToHash.node_id && voteToHash.node_id.length > 0) voteToHash.node_id = ''
+      if (removeSign && voteToHash.sign != null) delete voteToHash.sign
+      return this.crypto.hash(voteToHash)
+    } else {
+      voteToHash.node_id = ''
+      if (voteToHash.sign != null) delete voteToHash.sign
+      return this.crypto.hash(voteToHash)
+    }
   }
 
   /**
