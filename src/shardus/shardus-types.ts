@@ -300,7 +300,12 @@ export interface App {
   dataSummaryInit?: (blob: any, accountData: any) => void
   dataSummaryUpdate?: (blob: any, accountDataBefore: any, accountDataAfter: any) => void
   txSummaryUpdate?: (blob: any, tx: any, wrappedStates: any) => void
-  validateJoinRequest?: (data: any, mode: P2P.ModesTypes.Record['mode'] | null, latestCycle: Cycle, minNodes: number) => ValidateJoinRequestResponse
+  validateJoinRequest?: (
+    data: any,
+    mode: P2P.ModesTypes.Record['mode'] | null,
+    latestCycle: Cycle,
+    minNodes: number
+  ) => ValidateJoinRequestResponse
   validateArchiverJoinRequest?: (data: any) => any
   getJoinData?: () => any
   eventNotify?: (event: ShardusEvent) => void
@@ -308,7 +313,7 @@ export interface App {
     latestCycle: Cycle,
     nodePublicKey: string,
     activeNodes: P2P.P2PTypes.Node[],
-    mode: P2P.ModesTypes.Record['mode'] | null,
+    mode: P2P.ModesTypes.Record['mode'] | null
   ) => Promise<boolean>
 
   getNodeInfoAppData?: () => any
@@ -833,6 +838,10 @@ export interface ServerConfiguration {
     ignoreTimeCheck: boolean
     /** Flag to toggle Shardus address format verification, checks if an address is 32-bytes in size & 64 chars long */
     checkAddressFormat: boolean
+    /** Flag to simulate bad vote creation in PoQLS */
+    produceBadVote: boolean
+    /** Flag to simulate a bad challenge response */
+    produceBadChallenge: boolean
   }
   /** Options for the statistics module */
   statistics?: {

@@ -147,6 +147,8 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     checkTxGroupChanges: true,
     ignoreTimeCheck: false,
     checkAddressFormat: false,
+    produceBadVote: false,
+    produceBadChallenge: false,
   },
   statistics: { save: true, interval: 1 },
   loadDetection: {
