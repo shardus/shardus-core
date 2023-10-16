@@ -1154,8 +1154,21 @@ class TransactionConsenus {
           return
         }
 
+      // if vote from robust is better than our received vote, use it as final vote
+      const isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
+      let finalVote = queueEntry.receivedBestVote
+      if (isRobustQueryVoteBetter) {
+        finalVote = voteFromRobustQuery
+      }
+      const finalVoteHash = this.calculateVoteHash(finalVote)
+      const shouldChallenge = queueEntry.ourVoteHash !== finalVoteHash
         // todo: podA: POQ2 handle if we can't figure out the best voter from robust query result (low priority)
 
+      // if we are in execution group and disagree with the highest ranked vote, send out a "challenge" message
+      const isInExecutionSet = queueEntry.executionIdSet.has(Self.id)
+      if (isInExecutionSet && queueEntry.ourVoteHash !== finalVoteHash) {
+        this.challengeVoteAndShare(queueEntry)
+      }
         // if vote from robust is better than our received vote, use it as final vote
         const isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
         let finalVote = queueEntry.receivedBestVote
@@ -1175,6 +1188,12 @@ class TransactionConsenus {
           this.challengeVoteAndShare(queueEntry)
         }
 
+      if (eligibleToConfirm && queueEntry.ourVoteHash === finalVoteHash) {
+        // queueEntry.eligibleNodesToConfirm is sorted highest to lowest rank
+        const eligibleNodeIds = queueEntry.eligibleNodesToConfirm.map((node) => node.id).reverse()
+        const ourRankIndex = eligibleNodeIds.indexOf(Self.id)
+        const delayBeforeConfirm = ourRankIndex * 100 // 100ms
+        let isReceivedBetterConfirmation = false
         if (eligibleToConfirm && queueEntry.ourVoteHash === finalVoteHash) {
           // queueEntry.eligibleNodesToConfirm is sorted highest to lowest rank
           const eligibleNodeIds = queueEntry.eligibleNodesToConfirm.map((node) => node.id).reverse()
@@ -1182,8 +1201,22 @@ class TransactionConsenus {
           const delayBeforeConfirm = ourRankIndex * 100 // 100ms
           let isReceivedBetterConfirmation = false
 
+        await utils.sleep(delayBeforeConfirm)
           await utils.sleep(delayBeforeConfirm)
 
+        // Compare our rank with received rank
+        if (
+          queueEntry.receivedBestConfirmedNode &&
+          queueEntry.receivedBestConfirmedNode.rank < queueEntry.ourNodeRank
+        ) {
+          isReceivedBetterConfirmation = true
+        }
+        if (isReceivedBetterConfirmation) {
+          nestedCountersInstance.countEvent(
+            'transactionConsensus',
+            'tryConfirmOrChallenge isReceivedBetterConfirmation: true'
+          )
+          return
           // Compare our rank with received rank
           if (
             queueEntry.receivedBestConfirmedNode &&
@@ -1308,7 +1341,12 @@ class TransactionConsenus {
         ourVote.transaction_result = !ourVote.transaction_result
       }
 
-      ourVote.app_data_hash = queueEntry?.preApplyTXResult?.applyResponse.appReceiptDataHash
+    // BAD NODE SIMULATION
+    if (this.config.debug.produceBadVote) {
+      ourVote.transaction_result = !ourVote.transaction_result
+    }
+
+    ourVote.app_data_hash = queueEntry?.preApplyTXResult?.applyResponse.appReceiptDataHash
 
       if (queueEntry.debugFail_voteFlip === true) {
         /* prettier-ignore */ if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote('shrd_createAndShareVote_voteFlip', `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `)
