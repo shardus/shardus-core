@@ -121,6 +121,7 @@ class TransactionConsenus {
     this.p2p.registerInternal(
       'get_applied_vote',
       async (payload: AppliedVoteQuery, respond: (arg0: AppliedVoteQueryResponse) => unknown) => {
+        nestedCountersInstance.countEvent('consensus', 'get_applied_vote')
         const { txId } = payload
         let queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(txId)
         if (queueEntry == null) {
@@ -150,6 +151,7 @@ class TransactionConsenus {
     Comms.registerGossipHandler(
       'gossip-applied-vote',
       async (payload: AppliedVote, sender: string, tracker: string) => {
+        nestedCountersInstance.countEvent('consensus', 'gossip-applied-vote')
         profilerInstance.scopedProfileSectionStart('gossip-applied-vote', true)
         try {
           const queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(payload.txid) // , payload.timestamp)
@@ -197,6 +199,7 @@ class TransactionConsenus {
         tracker: string,
         msgSize: number
       ) => {
+        nestedCountersInstance.countEvent('consensus', 'spread_appliedReceipt')
         profilerInstance.scopedProfileSectionStart('spread_appliedReceipt', false, msgSize)
         let respondSize = cUninitializedSize
         try {
@@ -293,6 +296,7 @@ class TransactionConsenus {
         tracker: string,
         msgSize: number
       ) => {
+        nestedCountersInstance.countEvent('consensus', 'spread_appliedReceipt2')
         profilerInstance.scopedProfileSectionStart('spread_appliedReceipt2', false, msgSize)
         let respondSize = cUninitializedSize
         try {
@@ -399,6 +403,7 @@ class TransactionConsenus {
     Comms.registerGossipHandler(
       'spread_confirmOrChallenge',
       (payload: ConfirmOrChallengeMessage, msgSize: number) => {
+        nestedCountersInstance.countEvent('consensus', 'spread_confirmOrChallenge')
         profilerInstance.scopedProfileSectionStart('spread_confirmOrChallenge', false, msgSize)
         try {
           const queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(payload.appliedVote?.txid) // , payload.timestamp)
