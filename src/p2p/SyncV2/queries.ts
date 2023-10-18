@@ -162,7 +162,7 @@ export function getArchiverListFromNode(node: ActiveNode, expectedHash: hexstrin
   })
 }
 
-/** Gets the full standby list from the specified standby. */
+/** Gets the full standby list from the specified node. */
 export function getStandbyNodeListFromNode(node: ActiveNode, expectedHash: hexstring): ResultAsync<JoinRequest[], Error> {
   return attemptSimpleFetch(node, 'standby-list', {
     hash: expectedHash,
