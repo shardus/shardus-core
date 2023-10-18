@@ -32,6 +32,7 @@ import {
 import { shardusGetTime } from '../network'
 import { robustQuery } from '../p2p/Utils'
 import { SignedObject } from '@shardus/crypto-utils'
+import { isDebugModeMiddleware } from '../network/debugMiddleware'
 
 class TransactionConsenus {
   app: Shardus.App
@@ -54,6 +55,9 @@ class TransactionConsenus {
 
   waitTimeBeforeConfirm: number
   waitTimeBeforeReceipt: number
+
+  produceBadVote: boolean
+  produceBadChallenge: boolean
 
   constructor(
     stateManager: StateManager,
@@ -84,6 +88,9 @@ class TransactionConsenus {
     // todo: put these values in server config
     this.waitTimeBeforeConfirm = 1000
     this.waitTimeBeforeReceipt = 1000
+
+    this.produceBadVote = this.config.debug.produceBadVote
+    this.produceBadChallenge = this.config.debug.produceBadChallenge
   }
 
   /***
@@ -97,6 +104,16 @@ class TransactionConsenus {
    */
 
   setupHandlers(): void {
+    Context.network.registerExternalGet('debug-produceBadVote', isDebugModeMiddleware, (req, res) => {
+      this.produceBadVote = true
+      res.json({ status: 'ok' })
+    })
+
+    Context.network.registerExternalGet('debug-produceBadChallenge', isDebugModeMiddleware, (req, res) => {
+      this.produceBadChallenge = true
+      res.json({ status: 'ok' })
+    })
+
     this.p2p.registerInternal(
       'get_tx_timestamp',
       async (
@@ -1344,7 +1361,7 @@ class TransactionConsenus {
       }
 
     // BAD NODE SIMULATION
-    if (this.config.debug.produceBadVote) {
+    if (this.produceBadVote) {
       ourVote.transaction_result = !ourVote.transaction_result
     }
 
