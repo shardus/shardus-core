@@ -4288,6 +4288,14 @@ class TransactionQueue {
               if (result != null || queueEntry.appliedReceipt2 != null) {
                 //TODO share receipt with corresponding index
 
+                if (logFlags.debug) {
+                  this.mainLogger.debug(
+                    `processAcceptedTxQueue2 tryProduceReceipt final result : ${
+                      queueEntry.logID
+                    } ${utils.stringifyReduce(result)}`
+                  )
+                }
+
                 if (
                   this.stateManager.transactionConsensus.hasAppliedReceiptMatchingPreApply(queueEntry, result)
                 ) {
