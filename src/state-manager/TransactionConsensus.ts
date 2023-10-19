@@ -104,12 +104,12 @@ class TransactionConsenus {
 
   setupHandlers(): void {
     Context.network.registerExternalGet('debug-produceBadVote', isDebugModeMiddleware, (req, res) => {
-      this.produceBadVote = true
+      this.produceBadVote = !this.produceBadVote
       res.json({ status: 'ok' })
     })
 
     Context.network.registerExternalGet('debug-produceBadChallenge', isDebugModeMiddleware, (req, res) => {
-      this.produceBadChallenge = true
+      this.produceBadChallenge = !this.produceBadChallenge
       res.json({ status: 'ok' })
     })
 
