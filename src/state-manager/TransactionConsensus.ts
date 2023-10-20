@@ -103,6 +103,16 @@ class TransactionConsenus {
    */
 
   setupHandlers(): void {
+    Context.network.registerExternalGet('debug-poq-switch', isDebugModeMiddleware, (_req, res) => {
+      try {
+        this.stateManager.transactionQueue.useNewPOQ = !this.stateManager.transactionQueue.useNewPOQ
+        res.write(`this.useNewPOQ: ${this.stateManager.transactionQueue.useNewPOQ}\n`)
+      } catch (e) {
+        res.write(`${e}\n`)
+      }
+      res.end()
+    })
+
     Context.network.registerExternalGet('debug-produceBadVote', isDebugModeMiddleware, (req, res) => {
       this.produceBadVote = !this.produceBadVote
       res.json({ status: 'ok' })
