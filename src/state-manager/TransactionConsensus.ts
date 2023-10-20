@@ -440,9 +440,10 @@ class TransactionConsenus {
 
           const appendSuccessful = this.tryAppendMessage(queueEntry, payload)
 
-          this.mainLogger.debug(
-            `spread_confirmOrChallenge ${queueEntry.logID} appendSuccessful:${appendSuccessful}`
-          )
+          if (logFlags.debug)
+            this.mainLogger.debug(
+              `spread_confirmOrChallenge ${queueEntry.logID} appendSuccessful:${appendSuccessful}`
+            )
 
           if (appendSuccessful) {
             // Gossip further
@@ -1612,10 +1613,6 @@ class TransactionConsenus {
     if (logFlags.playback) this.logger.playbackLogNote("tryAppendMessage", `${queueEntry.logID}`, `collectedVotes: ${queueEntry.collectedVotes.length}`);
     /* prettier-ignore */
     if (logFlags.debug) this.mainLogger.debug(`tryAppendMessage: ${queueEntry.logID}   ${JSON.stringify(confirmOrChallenge)} `);
-
-    console.log(
-      `tryAppendMessage confirmOrChallenge: ${queueEntry.logID}   ${JSON.stringify(confirmOrChallenge)} `
-    )
     // check if the node is in the execution group
     const isMessageFromExecutionNode = queueEntry.executionIdSet.has(confirmOrChallenge.nodeId)
 
@@ -1632,7 +1629,7 @@ class TransactionConsenus {
 
       if (!foundNode) {
         this.mainLogger.error(
-          'tryAppendMessage: Message signature does not match with any eligible nodes that can confirm.'
+          'tryAppendMessage: ${queueEntry.logID} Message signature does not match with any eligible nodes that can confirm.'
         )
         return
       }
@@ -1643,7 +1640,9 @@ class TransactionConsenus {
 
     // Check if the previous phase is finalized and we have received best vote
     if (queueEntry.acceptVoteMessage === true || !queueEntry.receivedBestVote) {
-      this.mainLogger.error('tryAppendMessage: best vote is not received as previous phase is not finalized')
+      this.mainLogger.error(
+        `tryAppendMessage: ${queueEntry.logID} confirm/challenge is too early. Not finalized best vote yet`
+      )
       return
     }
 
@@ -1731,23 +1730,23 @@ class TransactionConsenus {
       }
 
       if (!isBetterThanCurrentChallenge) {
-        console.log(
-          'tryAppendMessage: challenge is not better than current challenge',
-          confirmOrChallenge,
-          queueEntry.receivedBestChallenge
-        )
+        if (logFlags.debug)
+          this.mainLogger.debug(
+            `tryAppendMessage: ${queueEntry.logID} challenge is not better than current challenge`
+          )
         return false
       }
 
       queueEntry.receivedBestChallenge = confirmOrChallenge
       queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
-      this.mainLogger.debug(
-        `tryAppendMessage: ${
-          queueEntry.logID
-        } challenge received and processed. queueEntry.receivedBestChallenge: ${JSON.stringify(
-          queueEntry.receivedBestChallenge
-        )}`
-      )
+      if (logFlags.debug)
+        this.mainLogger.debug(
+          `tryAppendMessage: ${
+            queueEntry.logID
+          } challenge received and processed. queueEntry.receivedBestChallenge: ${JSON.stringify(
+            queueEntry.receivedBestChallenge
+          )}`
+        )
       if (receivedChallenger) {
         queueEntry.receivedBestChallenger = receivedChallenger
         return true
