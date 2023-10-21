@@ -192,6 +192,7 @@ class Logger {
       console.log('startInErrorLogMode=true!')
       this.setErrorFlags()
     }
+    console.log(`logFlags: ` + stringify(logFlags))
 
     this._seenAddresses = {}
     this._shortStrings = {}
@@ -388,7 +389,12 @@ class Logger {
       }
       res.end()
     })
-
+    Context.network.registerExternalGet('log-getflags', isDebugModeMiddleware, (req, res) => {
+      for (const [key, value] of Object.entries(logFlags)) {
+        res.write(`${key}: ${value}\n`)
+      }
+      res.end()
+    })
     // DO NOT USE IN LIVE NETWORK
     Context.network.registerExternalGet('log-default-all', isDebugModeMiddleware, (req, res) => {
       if (isDebugMode() == false) {
@@ -566,7 +572,7 @@ class Logger {
 
     this.backupLogFlags = utils.deepCopy(logFlags)
 
-    console.log(`logFlags: ` + stringify(logFlags))
+    console.log(`base logFlags: ` + stringify(logFlags))
   }
 }
 
