@@ -87,8 +87,12 @@ export type LogFlags = {
   // main_debug:boolean;
   // main_trace:boolean;
 
-  important_as_error: false //if a log is as important as fatal (you want it in the mode, but is not fatal use this flag)
-  important_as_fatal: false //if a logg is as important as an error (you want it in the mode, but is not an error use this flag)
+  important_as_error: boolean //if a log is as important as fatal (you want it in the mode, but is not fatal use this flag)
+  important_as_fatal: boolean //if a logg is as important as an error (you want it in the mode, but is not an error use this flag)
+
+  net_verbose: boolean //the shardus net library will read this flag and log more info if true
+  net_stats: boolean //the shardus net library will read this flag and log stats info if true
+  dapp_verbose: boolean //the dapp using this library will read this flag and log more info if true
 }
 
 export let logFlags: LogFlags = {
@@ -113,6 +117,10 @@ export let logFlags: LogFlags = {
 
   important_as_error: false,
   important_as_fatal: false,
+
+  net_verbose: false,
+  net_stats: false,
+  dapp_verbose: false,
 }
 
 class Logger {
@@ -299,7 +307,7 @@ class Logger {
       logFlags[key] = false
     }
     logFlags.fatal = true
-
+    logFlags.important_as_fatal = true
     logFlags.playback = false
   }
 
@@ -315,6 +323,8 @@ class Logger {
     }
     logFlags.fatal = true
     logFlags.error = true
+    logFlags.important_as_fatal = true
+    logFlags.important_as_error = true
 
     logFlags.playback = false
   }

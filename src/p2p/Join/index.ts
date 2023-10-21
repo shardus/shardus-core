@@ -232,7 +232,7 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
 
     // ... then add any standby nodes that are now allowed to join
     const selectedPublicKeys = drainSelectedPublicKeys()
-    console.log('selected public keys', selectedPublicKeys)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log('selected public keys', selectedPublicKeys)
     record.joinedConsensors = record.joinedConsensors || []
     for (const publicKey of selectedPublicKeys) {
       const standbyInfo = getStandbyNodesInfoMap().get(publicKey)
@@ -241,7 +241,7 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       // adding its node
       if (!standbyInfo) continue
 
-      console.log('selected standby node', standbyInfo)
+      /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log('selected standby node', standbyInfo)
 
       // prepare information for the joinedConsensors list
       const { nodeInfo, cycleMarker: cycleJoined } = standbyInfo
