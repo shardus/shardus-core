@@ -11,16 +11,16 @@ const log4jsExtend = require('log4js-extend')
 import got from 'got'
 import { parse as parseUrl } from 'url'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
+import { isDebugMode } from '../debug'
 
 interface Logger {
   baseDir: string
   config: Shardus.StrictLogsConfiguration
   logDir: string
   log4Conf: any
-  // playbackLogEnabled: boolean
+
   _playbackLogger: any
-  // _playbackTrace: boolean
-  // _playbackDebug: boolean
+
   _seenAddresses: any
   _shortStrings: any
   _playbackOwner_host: any
@@ -50,12 +50,21 @@ interface Logger {
 
 /**
  * The point of LogFlags it to gain max performance when we need to reduce logging, and be able to ajust this in a simple
- * way when inside of a test.
+ * way when inside of a test.  Almost all logging should be behind a flag.
  *
- * This does not not need to have a super amount of detail or permutations, because if logging is enabled to a medium amount
- * for debugging there will not be much gains or performance to fine grained details.
+ * Some intial flags are set using log4js level
+ * However setting such as start in fatal mode or start in error mode change this
+ * see: config.debug.startInFatalsLogMode / config.debug.startInErrorLogMode
+ *
+ * The default setting is config.debug.startInErrorLogMode = true, and then the log4js setting
+ * set to log most things. The flag if checks will then make so that generally thigns at the flags
+ * or errors level log.  There are a few expecptions.  A new convetion is to use the flags
+ * important_as_error and important_as_fatal.  These are for things that are not errors or fatals
+ * but we want to see at these levels
  *
  * verbose flag is still usefull for heavy logs, and playback seems to beneift from levels, so we could expand as needed
+ *
+ *
  */
 export type LogFlags = {
   verbose: boolean
@@ -69,21 +78,17 @@ export type LogFlags = {
   playback: boolean
   playback_trace: boolean
   playback_debug: boolean
+  net_trace: boolean //enabled when the net logger is set to trace
+  p2pNonFatal: boolean //enabled when the p2p logger is not set to fatal
 
-  net_trace: boolean
+  newFilter: boolean //use this for new logs that you have not decided on a category for, but try to pick a category
   // main:boolean;
   // main_error:boolean;
   // main_debug:boolean;
   // main_trace:boolean;
 
-  // playback:boolean;
-  // playback_verbose:boolean
-
-  p2pNonFatal: boolean
-  // //p2p_info:boolean;
-
-  // snapshot:boolean;
-  newFilter: boolean
+  important_as_error: false //if a log is as important as fatal (you want it in the mode, but is not fatal use this flag)
+  important_as_fatal: false //if a logg is as important as an error (you want it in the mode, but is not an error use this flag)
 }
 
 export let logFlags: LogFlags = {
@@ -102,14 +107,12 @@ export let logFlags: LogFlags = {
   // main_error:true,
   // main_debug:true,
   // main_trace:true,
-  newFilter: false,
-
-  // playback:true,
-  // playback_verbose:true,
-
   p2pNonFatal: true,
 
-  // snapshot:true,
+  newFilter: false,
+
+  important_as_error: false,
+  important_as_fatal: false,
 }
 
 class Logger {
@@ -300,6 +303,12 @@ class Logger {
     logFlags.playback = false
   }
 
+  setDisableAllFlags() {
+    for (const [key, value] of Object.entries(logFlags)) {
+      logFlags[key] = false
+    }
+  }
+
   setErrorFlags() {
     for (const [key, value] of Object.entries(logFlags)) {
       logFlags[key] = false
@@ -322,9 +331,20 @@ class Logger {
     }
   }
 
+  setFlagByName(name: string, value: boolean) {
+    logFlags[name] = value
+  }
+
   registerEndpoints(Context) {
     Context.network.registerExternalGet('log-fatal', isDebugModeMiddleware, (req, res) => {
       this.setFatalFlags()
+      for (const [key, value] of Object.entries(logFlags)) {
+        res.write(`${key}: ${value}\n`)
+      }
+      res.end()
+    })
+    Context.network.registerExternalGet('log-disable', isDebugModeMiddleware, (req, res) => {
+      this.setDisableAllFlags()
       for (const [key, value] of Object.entries(logFlags)) {
         res.write(`${key}: ${value}\n`)
       }
@@ -344,9 +364,29 @@ class Logger {
       }
       res.end()
     })
+    Context.network.registerExternalGet('log-flag', isDebugModeMiddleware, (req, res) => {
+      //example of this endpont: http://localhost:9001/log-flag?name=verbose&value=true
+
+      //check a query param for the flag name and value then call setFlagByName
+      let flagName = req.query.name
+      let flagValue = req.query.value
+      if (flagName && flagValue) {
+        this.setFlagByName(flagName, flagValue)
+      }
+      for (const [key, value] of Object.entries(logFlags)) {
+        res.write(`${key}: ${value}\n`)
+      }
+      res.end()
+    })
 
     // DO NOT USE IN LIVE NETWORK
     Context.network.registerExternalGet('log-default-all', isDebugModeMiddleware, (req, res) => {
+      if (isDebugMode() == false) {
+        res.write(`only available in debug mode\n`)
+        res.end()
+        return
+      }
+
       this.setDefaultFlags()
 
       try {
@@ -376,6 +416,12 @@ class Logger {
 
     // DO NOT USE IN LIVE NETWORK
     Context.network.registerExternalGet('log-fatal-all', isDebugModeMiddleware, (req, res) => {
+      if (isDebugMode() == false) {
+        res.write(`only available in debug mode\n`)
+        res.end()
+        return
+      }
+
       this.setFatalFlags()
       try {
         let activeNodes = Context.p2p.state.getNodes()
