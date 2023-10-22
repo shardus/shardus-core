@@ -529,9 +529,8 @@ export async function submitJoinV2(
 
   //it is important to check that we go one good response.  this was the past cause of nodes giving up
   if (goodCount === 0) {
-    throw new Error(
-      `Fatal: submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`
-    )
+    nestedCountersInstance.countEvent('p2p', `submitJoin: no join success repsonses`)
+    throw new Error(`submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`)
   }
 
   //does not seem to chekc the join response. assumes fatal
