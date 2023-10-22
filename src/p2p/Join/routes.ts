@@ -45,15 +45,20 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
 
     if (!isActive) {
       // if we are not active yet, we cannot accept join requests
-      res.end()
-      return
+      return res.status(400).json({
+        success: false,
+        fatal: false,
+        reason: `this node is not active yet`,
+      })
     }
 
     if (CycleCreator.currentQuarter < 1) {
       // if currentQuarter <= 0 then we are not ready
-      res.end()
-      return
-      //todo improve response
+      return res.status(400).json({
+        success: false,
+        fatal: false,
+        reason: `Can't join before quarter 1`,
+      })
     }
 
     if (
