@@ -213,7 +213,7 @@ export function startupV2(): Promise<boolean> {
         }
       } catch (err) {
         // Log joining error
-        console.log(`error in startupV2 > attemptJoining:`, utils.formatErrorMessage(err))
+        /* prettier-ignore */ if (logFlags.important_as_fatal) console.log(`error in startupV2 > attemptJoining:`, utils.formatErrorMessage(err))
         /* prettier-ignore */ if (logFlags.important_as_fatal) warn(`Error while joining network:`)
         /* prettier-ignore */ if (logFlags.important_as_fatal) warn(utils.formatErrorMessage(err))
         //warn(err.stack)
@@ -225,9 +225,8 @@ export function startupV2(): Promise<boolean> {
         }
 
         // Schedule another attempt to join
-        if (logFlags.p2pNonFatal) {
-          info(`Trying to join again in ${cycleDuration} seconds...`)
-        }
+        /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Trying to join again in ${cycleDuration} seconds...`)
+
         attemptJoiningTimer = setTimeout(() => {
           attemptJoining()
         }, cycleDuration * 1000)
@@ -420,6 +419,7 @@ async function joinNetworkV2(activeNodes): Promise<void> {
   const publicKey = Context.crypto.getPublicKey()
   const isReadyToJoin = await Context.shardus.app.isReadyToJoin(latestCycle, publicKey, activeNodes, mode)
   if (!isReadyToJoin) {
+    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `joinNetworkV2:isReadyToJoin:false` )
     // Wait for Context.config.p2p.cycleDuration and try again
     throw new Error('Node not ready to join')
   }
@@ -437,16 +437,21 @@ async function joinNetworkV2(activeNodes): Promise<void> {
 
   // Figure out when Q1 is from the latestCycle
   const { startQ1 } = calcIncomingTimes(latestCycle)
-  if (logFlags.p2pNonFatal) info(`Next cycles Q1 start ${startQ1}; Currently ${Date.now()}`)
+  /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Next cycles Q1 start ${startQ1}; Currently ${Date.now()}`)
 
   // Wait until a Q1 then send join request to active nodes
   let untilQ1 = startQ1 - Date.now()
+  //make untilQ1 in the future if needed
   while (untilQ1 < 0) {
     untilQ1 += latestCycle.duration * 1000
   }
+  let offsetTime = 500
 
-  if (logFlags.p2pNonFatal) info(`Waiting ${untilQ1 + 500} ms for Q1 before sending join...`)
-  await utils.sleep(untilQ1 + 500) // Not too early
+  //random in between 0 and 2000.  trying to debug why we are rejected from dapps
+  offsetTime = Math.floor(Math.random() * 2000)
+
+  /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Waiting ${untilQ1} + ${offsetTime} ms for Q1 before sending join...`)
+  await utils.sleep(untilQ1 + offsetTime) // Not too early
 
   // send join request
   await Join.submitJoinV2(activeNodes, request)

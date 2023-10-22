@@ -322,7 +322,7 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
   // and remove any standby nodes that have unjoined.
   if (config.p2p.useJoinProtocolV2) {
     if (cycle.standbyAdd) {
-      addStandbyJoinRequests(...cycle.standbyAdd)
+      addStandbyJoinRequests(cycle.standbyAdd)
     }
     if (cycle.standbyRemove) {
       for (const publicKey of cycle.standbyRemove) {

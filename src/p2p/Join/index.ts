@@ -469,7 +469,7 @@ export async function submitJoinV2(
   const selectedNodes = utils.getRandom(nodes, Math.min(nodes.length, 5))
 
   const promises = []
-  if (logFlags.p2pNonFatal) info(`Sending join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`)
+  /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Sending join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`)
 
   // Check if network allows bogon IPs, set our own flag accordingly
   if (config.p2p.dynamicBogonFiltering && config.p2p.forceBogonFilteringOn === false) {
@@ -497,27 +497,44 @@ export async function submitJoinV2(
 
   for (const node of selectedNodes) {
     try {
-      promises.push(http.post(`${node.ip}:${node.port}/join`, joinRequest))
+      const postPromise = http.post(`${node.ip}:${node.port}/join`, joinRequest)
+      promises.push(postPromise)
     } catch (err) {
-      throw new Error(
-        `Fatal: submitJoin: Error posting join request to ${node.ip}:${node.port}: Error: ${err}`
-      )
+      //seems like this is eleveated too high... can it throw a wrench in the join process..
+      // throw new Error(
+      //   `Fatal: submitJoin: Error posting join request to ${node.ip}:${node.port}: Error: ${err}`
+      // )
+      /* prettier-ignore */ if (logFlags.important_as_fatal) error(`submitJoin: Error posting join request to ${node.ip}:${node.port}: Error: ${utils.formatErrorMessage(err)}`)
     }
   }
 
   const responses = await Promise.all(promises)
   const errs = []
 
+  let goodCount = 0
+
   for (const res of responses) {
-    mainLogger.info(`Join Request Response: ${JSON.stringify(res)}`)
-    if (res.fatal) {
+    /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Join Request Response: ${JSON.stringify(res)}`)
+    if (res && res.fatal) {
       errs.push(res)
+    }
+    if (res && res.fatal === false && res.success === true) {
+      goodCount++
     }
   }
 
   if (errs.length >= responses.length) {
     throw new Error(`Fatal: submitJoin: All join requests failed: ${errs.map((e) => e.reason).join(', ')}`)
   }
+
+  //it is important to check that we go one good response.  this was the past cause of nodes giving up
+  if (goodCount === 0) {
+    throw new Error(
+      `Fatal: submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`
+    )
+  }
+
+  //does not seem to chekc the join response. assumes fatal
 }
 
 export async function fetchJoined(activeNodes: P2P.P2PTypes.Node[]): Promise<string> {

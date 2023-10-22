@@ -16,6 +16,7 @@ import { ResultAsync } from 'neverthrow'
 import { reset as resetAcceptance } from './acceptance'
 import { stringifyReduce } from '../../../utils/functions/stringifyReduce'
 import { logFlags } from '../../../logger'
+import { Json } from 'sequelize/dist/lib/utils'
 
 const clone = rfdc()
 
@@ -82,9 +83,17 @@ export function drainNewJoinRequests(): JoinRequest[] {
 /**
  * Adds nodes to the standby node list.
  */
-export function addStandbyJoinRequests(...nodes: JoinRequest[]): void {
+export function addStandbyJoinRequests(nodes: JoinRequest[], logErrors = false): void {
   if (logFlags.verbose) console.log('adding standby nodes:', nodes)
   for (const node of nodes) {
+    if (node == null) {
+      /* prettier-ignore */ if (logErrors && logFlags.important_as_fatal) console.error('null node in standby list')
+      continue
+    }
+    if (node.nodeInfo == null) {
+      /* prettier-ignore */ if (logErrors && logFlags.important_as_fatal) console.error('null node.nodeInfo in standby list: ' + JSON.stringify(node))
+      continue
+    }
     standbyNodesInfo.set(node.nodeInfo.publicKey, node)
   }
 }
