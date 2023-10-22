@@ -2074,7 +2074,7 @@ class Shardus extends EventEmitter {
       res.json(deepReplace(result, undefined, '__undefined__'))
     })
 
-    this.network.registerExternalGet('standby-list', isDebugModeMiddleware, async (req, res) => {
+    this.network.registerExternalGet('standby-list-debug', isDebugModeMiddleware, async (req, res) => {
       let getSortedStandbyNodeList = JoinV2.getSortedStandbyJoinRequests()
       let result = getSortedStandbyNodeList.map((node) => ({
         pubKey: node.nodeInfo.publicKey,

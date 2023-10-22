@@ -518,7 +518,7 @@ export async function submitJoinV2(
     if (res && res.fatal) {
       errs.push(res)
     }
-    if (res && res.fatal === false && res.success === true) {
+    if (res && res.success === true) {
       goodCount++
     }
   }
