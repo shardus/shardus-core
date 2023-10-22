@@ -139,7 +139,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
       Comms.sendGossip('gossip-valid-join-requests', joinRequest, '', null, NodeList.byIdOrder, true)
 
       // respond with the number of standby nodes for the user's information
-      return res.status(200).send({ numStandbyNodes: getStandbyNodesInfoMap().size })
+      return res.status(200).send({ success: true, numStandbyNodes: getStandbyNodesInfoMap().size })
     } else {
       //  Validate of joinReq is done in addJoinRequest
       const joinRequestResponse = addJoinRequest(joinRequest)

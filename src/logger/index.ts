@@ -115,8 +115,8 @@ export let logFlags: LogFlags = {
 
   newFilter: false,
 
-  important_as_error: false,
-  important_as_fatal: false,
+  important_as_error: true,
+  important_as_fatal: true,
 
   net_verbose: false,
   net_stats: false,
