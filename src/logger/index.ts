@@ -340,6 +340,9 @@ class Logger {
     } else {
       logFlags.playback = false
     }
+
+    logFlags.important_as_fatal = true
+    logFlags.important_as_error = true
   }
 
   setFlagByName(name: string, value: boolean) {

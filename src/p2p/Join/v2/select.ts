@@ -71,59 +71,61 @@ export function selectNodes(maxAllowed: number): void {
  * calling their `accepted` endpoints.`
  */
 export async function notifyNewestJoinedConsensors(): Promise<void> {
-  const counter = CycleChain.getNewest().counter
+  return //accepted endpoint seem deprecated and always fails!
 
-  if (!Self.isActive) {
-    /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.warn(`C${counter} not notifying nodes because we are not active yet`)
-    return
-  }
+  // const counter = CycleChain.getNewest().counter
 
-  // decide if we should be in charge of notifying joining nodes
-  const params = {
-    getOurNodeIndex: getOurNodeIndex(),
-    activeByIdOrderLength: NodeList.activeByIdOrder.length,
-    NUM_NOTIFYING_NODES,
-    CycleChainNewestCounter: CycleChain.newest.counter,
-  }
-  /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log(`C${counter} fastIsPicked params: ${JSON.stringify(params)}`)
-  const shouldNotify = fastIsPicked(
-    getOurNodeIndex(),
-    NodeList.activeByIdOrder.length,
-    NUM_NOTIFYING_NODES,
-    CycleChain.newest.counter
-  )
+  // if (!Self.isActive) {
+  //   /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.warn(`C${counter} not notifying nodes because we are not active yet`)
+  //   return
+  // }
 
-  // if so, do so
-  if (shouldNotify) {
-    nestedCountersInstance.countEvent('joinV2', `C${counter}: notifyNewestJoinedConsensors: shouldNotify`)
+  // // decide if we should be in charge of notifying joining nodes
+  // const params = {
+  //   getOurNodeIndex: getOurNodeIndex(),
+  //   activeByIdOrderLength: NodeList.activeByIdOrder.length,
+  //   NUM_NOTIFYING_NODES,
+  //   CycleChainNewestCounter: CycleChain.newest.counter,
+  // }
+  // /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log(`C${counter} fastIsPicked params: ${JSON.stringify(params)}`)
+  // const shouldNotify = fastIsPicked(
+  //   getOurNodeIndex(),
+  //   NodeList.activeByIdOrder.length,
+  //   NUM_NOTIFYING_NODES,
+  //   CycleChain.newest.counter
+  // )
 
-    const marker = CycleChain.getCurrentCycleMarker()
+  // // if so, do so
+  // if (shouldNotify) {
+  //   nestedCountersInstance.countEvent('joinV2', `C${counter}: notifyNewestJoinedConsensors: shouldNotify`)
 
-    for (const joinedConsensor of CycleChain.newest.joinedConsensors) {
-      const publicKey = joinedConsensor.publicKey
+  //   const marker = CycleChain.getCurrentCycleMarker()
 
-      // no need to notify ourselves
-      if (publicKey === crypto.keypair.publicKey) continue
-      /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log(`C${counter} notifying node`, publicKey, 'that it has been selected')
+  //   for (const joinedConsensor of CycleChain.newest.joinedConsensors) {
+  //     const publicKey = joinedConsensor.publicKey
 
-      // sign an acceptance offer
-      const offer = crypto.sign({
-        cycleMarker: marker,
-        activeNodePublicKey: crypto.keypair.publicKey,
-      })
+  //     // no need to notify ourselves
+  //     if (publicKey === crypto.keypair.publicKey) continue
+  //     /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log(`C${counter} notifying node`, publicKey, 'that it has been selected')
 
-      // make the call, but don't await. it might take a while.
-      http
-        .post(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted`, offer)
-        .catch((e) => {
-          nestedCountersInstance.countEvent(
-            'joinV2',
-            `C${counter}: notifyNewestJoinedConsensors: http post failed`
-          )
-          /* prettier-ignore */ if (logFlags.error) console.error(`C${counter} failed to notify node ${publicKey} that it has been selected:`, e)
-        })
-    }
-  }
+  //     // sign an acceptance offer
+  //     const offer = crypto.sign({
+  //       cycleMarker: marker,
+  //       activeNodePublicKey: crypto.keypair.publicKey,
+  //     })
+
+  //     // make the call, but don't await. it might take a while.
+  //     http
+  //       .post(`http://${joinedConsensor.externalIp}:${joinedConsensor.externalPort}/accepted`, offer)
+  //       .catch((e) => {
+  //         nestedCountersInstance.countEvent(
+  //           'joinV2',
+  //           `C${counter}: notifyNewestJoinedConsensors: http post failed`
+  //         )
+  //         /* prettier-ignore */ if (logFlags.error) console.error(`C${counter} failed to notify node ${publicKey} that it has been selected:`, e)
+  //       })
+  //   }
+  // }
 }
 
 /**

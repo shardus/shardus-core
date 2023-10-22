@@ -132,10 +132,10 @@ export function startupV2(): Promise<boolean> {
         return resolve(true)
       } catch (err) {
         // Log syncing error and abort startup
-        console.log('error in startupV2 > enterSyncingState: ', err)
-        warn('Error while syncing to network:')
-        warn(err)
-        warn(err.stack)
+        /* prettier-ignore */ if (logFlags.important_as_fatal) console.log('error in startupV2 > enterSyncingState: ', utils.formatErrorMessage(err))
+        /* prettier-ignore */ if (logFlags.important_as_fatal) warn('Error while syncing to network:')
+        /* prettier-ignore */ if (logFlags.important_as_fatal) warn(utils.formatErrorMessage(err))
+        //warn(err.stack)
         throw new Error('Fatal: Error while syncing to network:' + err.message)
       }
     }
@@ -213,10 +213,10 @@ export function startupV2(): Promise<boolean> {
         }
       } catch (err) {
         // Log joining error
-        console.log(`error in startupV2 > attemptJoining:`, err)
-        warn(`Error while joining network:`)
-        warn(err)
-        warn(err.stack)
+        console.log(`error in startupV2 > attemptJoining:`, utils.formatErrorMessage(err))
+        /* prettier-ignore */ if (logFlags.important_as_fatal) warn(`Error while joining network:`)
+        /* prettier-ignore */ if (logFlags.important_as_fatal) warn(utils.formatErrorMessage(err))
+        //warn(err.stack)
 
         // Abort startup if error is fatal
         if (err.message.startsWith('Fatal:')) {
@@ -301,10 +301,10 @@ export async function startup(): Promise<boolean> {
       if (err.message.startsWith('Fatal:')) {
         throw err
       }
-      warn('Error while joining network:')
-      warn(err)
-      warn(err.stack)
-      if (logFlags.p2pNonFatal) info(`Trying to join again in ${Context.config.p2p.cycleDuration} seconds...`)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) warn('Error while joining network:')
+      /* prettier-ignore */ if (logFlags.important_as_fatal) warn(utils.formatErrorMessage(err))
+      //warn(err.stack)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Trying to join again in ${Context.config.p2p.cycleDuration} seconds...`)
       await utils.sleep(Context.config.p2p.cycleDuration * 1000)
     }
     firstTime = false
@@ -312,7 +312,7 @@ export async function startup(): Promise<boolean> {
 
   p2pSyncStart = Date.now()
 
-  if (logFlags.p2pNonFatal) info('Emitting `joined` event.')
+  /* prettier-ignore */ if (logFlags.important_as_fatal) info('Emitting `joined` event.')
   emitter.emit('joined', id, publicKey)
   updateNodeState(P2P.P2PTypes.NodeStatus.SYNCING)
 
@@ -330,12 +330,17 @@ export async function startup(): Promise<boolean> {
 
   nestedCountersInstance.countEvent('p2p', `sync time ${p2pJoinTime} seconds`)
 
-  if (logFlags.p2pNonFatal) info('Emitting `initialized` event.' + p2pJoinTime)
+  /* prettier-ignore */ if (logFlags.important_as_fatal) info('Emitting `initialized` event.' + p2pJoinTime)
   emitter.emit('initialized')
 
   return true
 }
 
+/**
+ * should deprecate this!
+ * @param activeNodes
+ * @returns
+ */
 async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]): Promise<boolean> {
   try {
     // 1. node has old data
@@ -350,7 +355,7 @@ async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]): Promise<b
       }
     }
   } catch (e) {
-    warn(e)
+    /* prettier-ignore */ if (logFlags.important_as_fatal) warn('witnessConditionsMet', utils.formatErrorMessage(e))
   }
   return false
 }
@@ -404,7 +409,7 @@ export function updateNodeState(updatedState: NodeStatus, because = ''): void {
     because: because,
   }
   // changing status is infrequent, so log it always
-  warn(`Node status changed to ${updatedState}:\n${JSON.stringify(entry, null, 2)}`)
+  /* prettier-ignore */ if (logFlags.important_as_fatal) warn(`Node status changed to ${updatedState}:\n${JSON.stringify(entry, null, 2)}`)
   statusHistory.push(entry)
 }
 
@@ -578,7 +583,7 @@ async function syncCycleChain(): Promise<void> {
       }
     } catch (err) {
       synced = false
-      warn(err)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) warn('syncCycleChain:', utils.formatErrorMessage(err))
       if (logFlags.p2pNonFatal) info('Trying again in 2 sec...')
       await utils.sleep(2000)
     }
@@ -698,11 +703,8 @@ async function getActiveNodesFromArchiver(
       10000
     )
   } catch (e) {
-    nestedCountersInstance.countRareEvent(
-      'archiver_nodelist',
-      'Could not get seed list from seed node server'
-    )
-    warn(`Could not get seed list from seed node server ${nodeListUrl}: ` + e.message)
+    /* prettier-ignore */ nestedCountersInstance.countRareEvent( 'archiver_nodelist', 'Could not get seed list from seed node server' )
+    /* prettier-ignore */ if (logFlags.important_as_fatal) warn(`Could not get seed list from seed node server ${nodeListUrl}: ` + e.message)
     throw Error(e.message)
   }
   if (logFlags.p2pNonFatal) info(`Got signed seed list: ${JSON.stringify(seedListSigned)}`)

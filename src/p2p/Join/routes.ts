@@ -53,6 +53,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
       // if currentQuarter <= 0 then we are not ready
       res.end()
       return
+      //todo improve response
     }
 
     if (
@@ -206,6 +207,9 @@ const joinedRoute: P2P.P2PTypes.Route<Handler> = {
   },
 }
 
+/**
+ * todo deprecate this or, finish it
+ */
 const acceptedRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'POST',
   name: 'accepted',

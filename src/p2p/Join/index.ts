@@ -317,7 +317,7 @@ export async function createJoinRequest(
         joinReq['appJoinData'] = appJoinData
       }
     } catch (e) {
-      warn(`shardus.app.getJoinData failed due to ${e}`)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) warn(`shardus.app.getJoinData failed due to ${utils.formatErrorMessage(e)}`)
       return
     }
   }
@@ -537,17 +537,17 @@ export async function fetchJoined(activeNodes: P2P.P2PTypes.Node[]): Promise<str
     if (!response.node) return
     let err = utils.validateTypes(response, { node: 'o' })
     if (err) {
-      warn('fetchJoined invalid response response.node' + err)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) warn('fetchJoined invalid response response.node' + err)
       return
     }
     err = validateTypes(response.node, { id: 's' })
     if (err) {
-      warn('fetchJoined invalid response response.node.id' + err)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) warn('fetchJoined invalid response response.node.id' + err)
       return
     }
     return response.node.id
   } catch (err) {
-    warn('Self: fetchNodeId: robustQuery failed: ', err)
+    /* prettier-ignore */ if (logFlags.important_as_fatal) warn('Self: fetchNodeId: robustQuery failed: ', err)
   }
 }
 
@@ -574,18 +574,18 @@ export async function fetchJoinedV2(
     }
     let err = utils.validateTypes(response, { id: 's' })
     if (err) {
-      warn('fetchJoined invalid response response.id' + err)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) warn('fetchJoined invalid response response.id' + err)
       return
     }
     err = validateTypes(response, { isOnStandbyList: 'b' })
     if (err) {
-      warn('fetchJoined invalid response response.isOnStandbyList' + err)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) warn('fetchJoined invalid response response.isOnStandbyList' + err)
       return
     }
 
     return { id: response.id, isOnStandbyList: response.isOnStandbyList }
   } catch (err) {
-    warn('Self: fetchNodeId: robustQuery failed: ', err)
+    /* prettier-ignore */ if (logFlags.important_as_fatal) warn('Self: fetchNodeId: robustQuery failed: ', utils.formatErrorMessage(err))
   }
 }
 
@@ -616,7 +616,7 @@ function validateJoinRequestHost(joinRequest: P2P.JoinTypes.JoinRequest): JoinRe
     //test or bogon IPs and reject the join request if they appear
     if (allowBogon === false) {
       if (isBogonIP(joinRequest.nodeInfo.externalIp)) {
-        warn('Got join request from Bogon IP')
+        /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('Got join request from Bogon IP')
         nestedCountersInstance.countEvent('p2p', `join-reject-bogon`)
         return {
           success: false,
@@ -627,7 +627,7 @@ function validateJoinRequestHost(joinRequest: P2P.JoinTypes.JoinRequest): JoinRe
     } else {
       //even if not checking bogon still reject other invalid IPs that would be unusable
       if (isInvalidIP(joinRequest.nodeInfo.externalIp)) {
-        warn('Got join request from invalid reserved IP')
+        /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('Got join request from invalid reserved IP')
         nestedCountersInstance.countEvent('p2p', `join-reject-reserved`)
         return {
           success: false,
@@ -673,7 +673,7 @@ function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): JoinReq
     version: 's',
   })
   if (err) {
-    warn('join bad joinRequest ' + err)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('join bad joinRequest ' + err)
     return {
       success: false,
       reason: `Bad join request object structure`,
@@ -691,7 +691,7 @@ function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): JoinReq
     publicKey: 's',
   })
   if (err) {
-    warn('join bad joinRequest.nodeInfo ' + err)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('join bad joinRequest.nodeInfo ' + err)
     return {
       success: false,
       reason: 'Bad nodeInfo object structure within join request',
@@ -700,7 +700,7 @@ function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): JoinReq
   }
   err = utils.validateTypes(joinRequest.sign, { owner: 's', sig: 's' })
   if (err) {
-    warn('join bad joinRequest.sign ' + err)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('join bad joinRequest.sign ' + err)
     return {
       success: false,
       reason: 'Bad signature object structure within join request',
@@ -722,7 +722,7 @@ function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): JoinReq
 function verifyNodeUnknown(nodeInfo: P2P.P2PTypes.P2PNode): JoinRequestResponse | null {
   if (NodeList.byPubKey.has(nodeInfo.publicKey)) {
     const message = 'Cannot add join request for this node, already a known node (by public key).'
-    if (logFlags.p2pNonFatal) warn(message)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn(message)
     return {
       success: false,
       reason: message,
@@ -754,7 +754,7 @@ function verifyNodeUnknown(nodeInfo: P2P.P2PTypes.P2PNode): JoinRequestResponse 
  */
 function verifyNotIPv6(joinRequest: P2P.JoinTypes.JoinRequest): JoinRequestResponse | null {
   if (isIPv6(joinRequest.nodeInfo.externalIp)) {
-    warn('Got join request from IPv6')
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('Got join request from IPv6')
     nestedCountersInstance.countEvent('p2p', `join-reject-ipv6`)
     return {
       success: false,
@@ -853,10 +853,8 @@ function validateJoinRequestTimestamp(joinRequestTimestamp: number): JoinRequest
   const requestValidLowerBound = cycleStarts - cycleDuration
 
   if (joinRequestTimestamp < requestValidLowerBound) {
-    if (logFlags.p2pNonFatal)
-      nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-not-meet-lowerbound`)
-    if (logFlags.p2pNonFatal)
-      warn('Cannot add join request for this node, timestamp is earlier than allowed cycle range')
+    nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-not-meet-lowerbound`)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('Cannot add join request for this node, timestamp is earlier than allowed cycle range')
     return {
       success: false,
       reason: 'Cannot add join request, timestamp is earlier than allowed cycle range',
@@ -865,10 +863,8 @@ function validateJoinRequestTimestamp(joinRequestTimestamp: number): JoinRequest
   }
 
   if (joinRequestTimestamp > requestValidUpperBound) {
-    if (logFlags.p2pNonFatal)
-      nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-beyond-upperbound`)
-    if (logFlags.p2pNonFatal)
-      warn('Cannot add join request for this node, its timestamp exceeds allowed cycle range')
+    nestedCountersInstance.countEvent('p2p', `join-skip-timestamp-beyond-upperbound`)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('Cannot add join request for this node, its timestamp exceeds allowed cycle range')
     return {
       success: false,
       reason: 'Cannot add join request, timestamp exceeds allowed cycle range',
@@ -894,9 +890,7 @@ function getSelectionKey(joinRequest: JoinRequest): Result<string, JoinRequestRe
       )
 
       if (validationResponse.success !== true) {
-        error(
-          `Validation of join request data is failed due to ${validationResponse.reason || 'unknown reason'}`
-        )
+        /* prettier-ignore */ if (logFlags.p2pNonFatal) error( `Validation of join request data is failed due to ${validationResponse.reason || 'unknown reason'}` )
         nestedCountersInstance.countEvent('p2p', `join-reject-dapp`)
         return err({
           success: validationResponse.success,
@@ -908,8 +902,8 @@ function getSelectionKey(joinRequest: JoinRequest): Result<string, JoinRequestRe
         return ok(validationResponse.data)
       }
     } catch (e) {
-      warn(`shardus.app.validateJoinRequest failed due to ${e}`)
-      nestedCountersInstance.countEvent('p2p', `join-reject-ex ${e}`)
+      /* prettier-ignore */ if (logFlags.p2pNonFatal) warn(`shardus.app.validateJoinRequest failed due to ${utils.formatErrorMessage(e)}`)
+      nestedCountersInstance.countEvent('p2p', `join-reject-ex ${e.message}`)
       return err({
         success: false,
         reason: `Could not validate join request due to Error`,
@@ -924,7 +918,7 @@ export function verifyJoinRequestSignature(
   joinRequest: P2P.JoinTypes.JoinRequest
 ): JoinRequestResponse | null {
   if (!crypto.verify(joinRequest, joinRequest.nodeInfo.publicKey)) {
-    warn('join bad sign ' + JSON.stringify(joinRequest))
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('join bad sign ' + JSON.stringify(joinRequest))
     nestedCountersInstance.countEvent('p2p', `join-reject-bad-sign`)
     return {
       success: false,

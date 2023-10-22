@@ -38,6 +38,8 @@ export function init(): void {
   // set up event listeners for cycle quarters
   Self.emitter.on('cycle_q1_start', () => {
     if (config.p2p.useJoinProtocolV2) {
+      //TODO clean out the accepted route or is it still useful?
+      //accepted endpoint does not return any more
       notifyNewestJoinedConsensors().catch((e) => {
         console.error('failed to notify selected nodes:', e)
       })
