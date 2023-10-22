@@ -77,7 +77,7 @@ export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<voi
           }
 
           // add standby nodes
-          addStandbyJoinRequests(standbyNodeList)
+          addStandbyJoinRequests(standbyNodeList, true)
 
           // add latest cycle
           CycleChain.reset()
