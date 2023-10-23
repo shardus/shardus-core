@@ -211,6 +211,12 @@ export function startupV2(): Promise<boolean> {
           attemptJoiningRunning = false
           return
         }
+
+        //this should help us feel safer that attemptJoining will not finish until we are ready for it to do so
+        nestedCountersInstance.countEvent('p2p', 'attemptJoining: error got too far without an action')
+        throw new Error(
+          'Should not reach this point. Throwing non-fatal error which will restart attemptJoining'
+        )
       } catch (err) {
         // Log joining error
         /* prettier-ignore */ if (logFlags.important_as_fatal) console.log(`error in startupV2 > attemptJoining:`, utils.formatErrorMessage(err))
@@ -221,6 +227,7 @@ export function startupV2(): Promise<boolean> {
         // Abort startup if error is fatal
         if (err.message.startsWith('Fatal:')) {
           attemptJoiningRunning = false
+          /* prettier-ignore */ if (logFlags.fatal) warn(`Fatal error while joining network. re-throw to cause shutdown`)
           throw err
         }
 

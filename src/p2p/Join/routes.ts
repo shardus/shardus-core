@@ -306,30 +306,30 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<
 > = (payload: P2P.JoinTypes.JoinRequest, sender: P2P.NodeListTypes.Node['id'], tracker: string) => {
   // do not forward gossip after quarter 2
   if (CycleCreator.currentQuarter > 2) {
-    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `rejected-late-join-gossip-request ${CycleCreator.currentQuarter}` )
+    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip-reject: late-request > Q2:  ${CycleCreator.currentQuarter}` )
     return
   }
 
   // ensure this join request doesn't already exist in standby nodes
   if (getStandbyNodesInfoMap().has(payload.nodeInfo.publicKey)) {
-    console.error(`join request for pubkey ${payload.nodeInfo.publicKey} already exists as a standby node`)
+    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip-reject: node already standby` )
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`join request for pubkey ${payload.nodeInfo.publicKey} already exists as a standby node`)
     return
   }
 
   // validate the join request first
   const validationError = validateJoinRequest(payload)
   if (validationError) {
-    console.error(`failed to validate join request when gossiping: ${validationError}`)
+    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip-reject: failed to validate join request` )
+    /* prettier-ignore */ if (logFlags.p2pNonFatal)console.error(`failed to validate join request when gossiping: ${validationError}`)
     return
   }
 
   // then, calculate the selection number for this join request
   const selectionNumResult = computeSelectionNum(payload)
   if (selectionNumResult.isErr()) {
-    console.error(
-      `failed to compute selection number for node ${payload.nodeInfo.publicKey}:`,
-      JSON.stringify(selectionNumResult.error)
-    )
+    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip-reject:  node already standby` )
+    /* prettier-ignore */ if (logFlags.p2pNonFatal)console.error( `failed to compute selection number for node ${payload.nodeInfo.publicKey}:`, JSON.stringify(selectionNumResult.error) )
     return
   }
   payload.selectionNum = selectionNumResult.value
@@ -339,6 +339,7 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<
   // cycle creation to create a standy node list.
   saveJoinRequest(payload)
 
+  /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip: request saved and gossiped` )
   Comms.sendGossip('gossip-valid-join-requests', payload, tracker, sender, NodeList.byIdOrder, false)
 }
 

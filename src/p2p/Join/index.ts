@@ -394,72 +394,72 @@ export async function firstJoin(): Promise<string> {
   return computeNodeId(crypto.keypair.publicKey, zeroMarker)
 }
 
-export async function submitJoin(
-  nodes: P2P.P2PTypes.Node[],
-  joinRequest: P2P.JoinTypes.JoinRequest & P2P.P2PTypes.SignedObject
-): Promise<void> {
-  // Send the join request to a handful of the active node all at once
-  const selectedNodes = utils.getRandom(nodes, Math.min(nodes.length, 5))
+// export async function submitJoin(
+//   nodes: P2P.P2PTypes.Node[],
+//   joinRequest: P2P.JoinTypes.JoinRequest & P2P.P2PTypes.SignedObject
+// ): Promise<void> {
+//   // Send the join request to a handful of the active node all at once
+//   const selectedNodes = utils.getRandom(nodes, Math.min(nodes.length, 5))
 
-  const promises = []
-  if (logFlags.p2pNonFatal) info(`Sending join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`)
+//   const promises = []
+//   if (logFlags.p2pNonFatal) info(`Sending join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`)
 
-  // Check if network allows bogon IPs, set our own flag accordingly
-  if (config.p2p.dynamicBogonFiltering && config.p2p.forceBogonFilteringOn === false) {
-    if (nodes.some((node) => isBogonIP(node.ip))) {
-      allowBogon = true
-    }
-  }
-  nestedCountersInstance.countEvent('p2p', `join-allow-bogon-submit:${allowBogon}`)
+//   // Check if network allows bogon IPs, set our own flag accordingly
+//   if (config.p2p.dynamicBogonFiltering && config.p2p.forceBogonFilteringOn === false) {
+//     if (nodes.some((node) => isBogonIP(node.ip))) {
+//       allowBogon = true
+//     }
+//   }
+//   nestedCountersInstance.countEvent('p2p', `join-allow-bogon-submit:${allowBogon}`)
 
-  //Check for bad IPs before a join request is sent out
-  if (config.p2p.rejectBogonOutboundJoin || config.p2p.forceBogonFilteringOn) {
-    if (allowBogon === false) {
-      if (isBogonIP(joinRequest.nodeInfo.externalIp)) {
-        throw new Error(`Fatal: Node cannot join with bogon external IP: ${joinRequest.nodeInfo.externalIp}`)
-      }
-    } else {
-      //even if not checking bogon still reject other invalid IPs that would be unusable
-      if (isInvalidIP(joinRequest.nodeInfo.externalIp)) {
-        throw new Error(
-          `Fatal: Node cannot join with invalid external IP: ${joinRequest.nodeInfo.externalIp}`
-        )
-      }
-    }
-  }
+//   //Check for bad IPs before a join request is sent out
+//   if (config.p2p.rejectBogonOutboundJoin || config.p2p.forceBogonFilteringOn) {
+//     if (allowBogon === false) {
+//       if (isBogonIP(joinRequest.nodeInfo.externalIp)) {
+//         throw new Error(`Fatal: Node cannot join with bogon external IP: ${joinRequest.nodeInfo.externalIp}`)
+//       }
+//     } else {
+//       //even if not checking bogon still reject other invalid IPs that would be unusable
+//       if (isInvalidIP(joinRequest.nodeInfo.externalIp)) {
+//         throw new Error(
+//           `Fatal: Node cannot join with invalid external IP: ${joinRequest.nodeInfo.externalIp}`
+//         )
+//       }
+//     }
+//   }
 
-  for (const node of selectedNodes) {
-    try {
-      promises.push(http.post(`${node.ip}:${node.port}/join`, joinRequest))
-    } catch (err) {
-      throw new Error(
-        `Fatal: submitJoin: Error posting join request to ${node.ip}:${node.port}: Error: ${err}`
-      )
-    }
-  }
+//   for (const node of selectedNodes) {
+//     try {
+//       promises.push(http.post(`${node.ip}:${node.port}/join`, joinRequest))
+//     } catch (err) {
+//       throw new Error(
+//         `Fatal: submitJoin: Error posting join request to ${node.ip}:${node.port}: Error: ${err}`
+//       )
+//     }
+//   }
 
-  try {
-    const responses = await Promise.all(promises)
+//   try {
+//     const responses = await Promise.all(promises)
 
-    for (const res of responses) {
-      mainLogger.info(`Join Request Response: ${JSON.stringify(res)}`)
-      if (res.fatal) {
-        throw new Error(`Fatal: Join request Reason: ${res.reason}`)
-      }
-    }
-  } catch (e) {
-    if (e instanceof HTTPError) {
-      throw new Error(`submitJoin: Error posting join request: ${JSON.stringify(e.response)}`)
-    } else {
-      throw new Error(`submitJoin: Error posting join request: ${e}`)
-    }
-  }
+//     for (const res of responses) {
+//       mainLogger.info(`Join Request Response: ${JSON.stringify(res)}`)
+//       if (res.fatal) {
+//         throw new Error(`Fatal: Join request Reason: ${res.reason}`)
+//       }
+//     }
+//   } catch (e) {
+//     if (e instanceof HTTPError) {
+//       throw new Error(`submitJoin: Error posting join request: ${JSON.stringify(e.response)}`)
+//     } else {
+//       throw new Error(`submitJoin: Error posting join request: ${e}`)
+//     }
+//   }
 
-  hasSubmittedJoinRequest = true
-  if (config.p2p.useJoinProtocolV2) {
-    updateNodeState(P2P.P2PTypes.NodeStatus.STANDBY)
-  }
-}
+//   hasSubmittedJoinRequest = true
+//   if (config.p2p.useJoinProtocolV2) {
+//     updateNodeState(P2P.P2PTypes.NodeStatus.STANDBY)
+//   }
+// }
 
 export async function submitJoinV2(
   nodes: P2P.P2PTypes.Node[],
