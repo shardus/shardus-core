@@ -261,7 +261,8 @@ class Logger {
 
   processDesc(desc) {
     if (utils.isObject(desc)) {
-      desc = utils.stringifyReduce(desc)
+      //desc = utils.stringifyReduce(desc)
+      desc = utils.stringifyReduceLimit(desc, 1000)
     }
 
     return desc

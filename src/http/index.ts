@@ -2,6 +2,7 @@ import { parse as parseUrl } from 'url'
 import got from 'got'
 import { Json } from 'sequelize/dist/lib/utils'
 import { logFlags } from '../logger'
+import { stringifyReduceLimit } from '../utils'
 
 let _logger = null
 let getIndex = 1
@@ -51,7 +52,7 @@ async function get<T>(url: string, getResponseObj = false, timeout = 1000): Prom
   let res = await _get(host, getIndex, timeout)
 
   if (_logger) {
-    /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, getIndex, res )
+    /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, getIndex, stringifyReduceLimit(res, 1000) )
   }
 
   if (getResponseObj) {
@@ -98,7 +99,7 @@ async function post(givenHost, body, getResponseObj = false, timeout = 1000) {
   let res = await _post(host, body, postIndex, timeout)
 
   if (_logger) {
-    /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, postIndex, res )
+    /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, postIndex, stringifyReduceLimit(res, 1000) )
   }
 
   if (getResponseObj) return res
@@ -126,6 +127,27 @@ function logError(method: string, error: any, host: any, logIndex: any) {
     }
     throw error
   }
+}
+
+function buildGotErrorDescription(error) {
+  let description = 'Got error: '
+
+  // Check if the error has a code and include it in the description
+  if (error.code) {
+    description += `[Code: ${error.code}] `
+  }
+
+  // Check if the error has a response and statusCode
+  if (error.response && error.response.statusCode) {
+    description += `[Status Code: ${error.response.statusCode}] `
+  }
+
+  // Check if the error has a message and include it
+  if (error.message) {
+    description += error.message
+  }
+
+  return description
 }
 
 function setLogger(logger) {
