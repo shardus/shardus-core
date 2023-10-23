@@ -497,7 +497,8 @@ export async function submitJoinV2(
 
   for (const node of selectedNodes) {
     try {
-      const postPromise = http.post(`${node.ip}:${node.port}/join`, joinRequest)
+      //set timeout to 5000 for debugging
+      const postPromise = http.post(`${node.ip}:${node.port}/join`, joinRequest, false, 5000)
       promises.push(postPromise)
     } catch (err) {
       //seems like this is eleveated too high... can it throw a wrench in the join process..

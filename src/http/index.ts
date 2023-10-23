@@ -7,6 +7,7 @@ import { stringifyReduceLimit } from '../utils'
 let _logger = null
 let getIndex = 1
 let postIndex = -1
+const httpResLogLength = 5000
 
 function _containsProtocol(url: string) {
   if (!url.match('https?://*')) return false
@@ -52,7 +53,7 @@ async function get<T>(url: string, getResponseObj = false, timeout = 1000): Prom
   let res = await _get(host, getIndex, timeout)
 
   if (_logger) {
-    /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, getIndex, stringifyReduceLimit(res.body, 1000) + '  res:: ' + stringifyReduceLimit(res, 1000) )
+    /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, getIndex, stringifyReduceLimit(res.body, 1000) + '  res:: ' + stringifyReduceLimit(res, httpResLogLength) )
   }
 
   if (getResponseObj) {
@@ -99,7 +100,7 @@ async function post(givenHost, body, getResponseObj = false, timeout = 1000) {
   let res = await _post(host, body, postIndex, timeout)
 
   if (_logger) {
-    /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, postIndex, stringifyReduceLimit(res.body, 1000) + '  res:: ' + stringifyReduceLimit(res, 1000) )
+    /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, postIndex, stringifyReduceLimit(res.body, 1000) + '  res:: ' + stringifyReduceLimit(res, httpResLogLength) )
   }
 
   if (getResponseObj) return res

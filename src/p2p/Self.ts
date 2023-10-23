@@ -348,24 +348,24 @@ export function startupV2(): Promise<boolean> {
  * @param activeNodes
  * @returns
  */
-async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]): Promise<boolean> {
-  try {
-    // 1. node has old data
-    if (snapshot.oldDataPath) {
-      const latestCycle = await getNewestCycle(activeNodes)
-      // 2. network is in safety mode
-      if (latestCycle.safetyMode === true) {
-        // 3. active nodes >= max nodes
-        if (latestCycle.active >= Context.config.p2p.maxNodes) {
-          return true
-        }
-      }
-    }
-  } catch (e) {
-    /* prettier-ignore */ if (logFlags.important_as_fatal) warn('witnessConditionsMet', utils.formatErrorMessage(e))
-  }
-  return false
-}
+// async function witnessConditionsMet(activeNodes: P2P.P2PTypes.Node[]): Promise<boolean> {
+//   try {
+//     // 1. node has old data
+//     if (snapshot.oldDataPath) {
+//       const latestCycle = await getNewestCycle(activeNodes)
+//       // 2. network is in safety mode
+//       if (latestCycle.safetyMode === true) {
+//         // 3. active nodes >= max nodes
+//         if (latestCycle.active >= Context.config.p2p.maxNodes) {
+//           return true
+//         }
+//       }
+//     }
+//   } catch (e) {
+//     /* prettier-ignore */ if (logFlags.important_as_fatal) warn('witnessConditionsMet', utils.formatErrorMessage(e))
+//   }
+//   return false
+// }
 
 export interface StatusHistoryEntry {
   /**
