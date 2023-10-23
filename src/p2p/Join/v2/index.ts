@@ -41,9 +41,10 @@ export function init(): void {
     if (config.p2p.useJoinProtocolV2) {
       //TODO clean out the accepted route or is it still useful?
       //accepted endpoint does not return any more
-      notifyNewestJoinedConsensors().catch((e) => {
-        console.error('failed to notify selected nodes:', e)
-      })
+      // The accepted flow is deprecated
+      // notifyNewestJoinedConsensors().catch((e) => {
+      //   console.error('failed to notify selected nodes:', e)
+      // })
     }
   })
   Self.emitter.on('cycle_q2_start', () => {
@@ -85,6 +86,7 @@ export function drainNewJoinRequests(): JoinRequest[] {
  */
 export function addStandbyJoinRequests(nodes: JoinRequest[], logErrors = false): void {
   if (logFlags.verbose) console.log('adding standby nodes:', nodes)
+  //TODO proper input validation
   for (const node of nodes) {
     if (node == null) {
       /* prettier-ignore */ if (logErrors && logFlags.important_as_fatal) console.error('null node in standby list')
