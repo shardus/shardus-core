@@ -18,15 +18,14 @@ function _normalizeUrl(url: string) {
   return normalized
 }
 
-async function _get(host, logIndex, getResponseObj = false, timeout = 1000) {
+async function _get(host, logIndex, timeout = 1000) {
   try {
     const res = await got.get(host, {
       timeout: timeout, //  Omar - setting this to 1 sec
       retry: 0, // Omar - setting this to 0.
       json: true,
     })
-    if (getResponseObj) return res
-    return res.body
+    return res
   } catch (error) {
     if (logFlags.playback === false && logFlags.verbose === false) {
       throw error
@@ -49,16 +48,20 @@ async function get<T>(url: string, getResponseObj = false, timeout = 1000): Prom
     /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog('self', host.hostname + ':' + host.port, 'HttpRequest', host.pathname, getIndex, '')
   }
 
-  let res = await _get(host, getIndex, getResponseObj, timeout)
+  let res = await _get(host, getIndex, timeout)
 
   if (_logger) {
     /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, getIndex, res )
   }
 
-  return res
+  if (getResponseObj) {
+    //@ts-ignore
+    return res
+  }
+  return res.body
 }
 
-async function _post(host, payload, logIndex, getResponseObj = false, timeout = 1000) {
+async function _post(host, payload, logIndex, timeout = 1000) {
   try {
     const res = await got.post(host, {
       timeout: timeout, // Omar - set this to 1 sec
@@ -67,8 +70,9 @@ async function _post(host, payload, logIndex, getResponseObj = false, timeout = 
       body: payload,
     })
 
-    if (getResponseObj) return res
-    return res.body
+    //if (getResponseObj) return res
+    //return res.body
+    return res
   } catch (error) {
     if (logFlags.playback === false && logFlags.verbose === false) {
       throw error
@@ -91,13 +95,14 @@ async function post(givenHost, body, getResponseObj = false, timeout = 1000) {
     /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( 'self', host.hostname + ':' + host.port, 'HttpRequest', host.pathname, postIndex, body )
   }
 
-  let res = await _post(host, body, postIndex, getResponseObj, timeout)
+  let res = await _post(host, body, postIndex, timeout)
 
   if (_logger) {
     /* prettier-ignore */ if (logFlags.playback) _logger.playbackLog( host.hostname + ':' + host.port, 'self', 'HttpResponseRecv', host.pathname, postIndex, res )
   }
 
-  return res
+  if (getResponseObj) return res
+  return res.body
 }
 
 function logError(method: string, error: any, host: any, logIndex: any) {
