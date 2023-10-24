@@ -521,7 +521,7 @@ export async function submitJoinV2(
       errs.push(res)
 
       //special case for unreachable because the very nature of it means some timeouts could prevent us from hearing back
-      if (res.message && res.message.startsWith('IP or Port is not reachable')) {
+      if (res.reason && res.reason.startsWith('IP or Port is not reachable')) {
         unreachable++
       }
     }
