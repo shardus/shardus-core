@@ -28,6 +28,8 @@ import {
   RequestReceiptForTxReq,
   RequestReceiptForTxResp,
   WrappedResponses,
+  GetAccountData3Req,
+  GetAccountData3Resp,
 } from './state-manager-types'
 import { shardusGetTime } from '../network'
 import { robustQuery } from '../p2p/Utils'
@@ -1162,7 +1164,6 @@ class TransactionConsenus {
       redundancy,
       true
     )
-    console.log(`robustQueryBestReceipt top response is: ${JSON.stringify(response)}`)
     if (response && response.receipt) {
       return response.receipt
     }
@@ -1178,7 +1179,6 @@ class TransactionConsenus {
       return await Comms.ask(node, 'get_applied_vote', queryData)
     }
     const eqFn = (item1: AppliedVoteQueryResponse, item2: AppliedVoteQueryResponse): boolean => {
-      console.log(`robustQueryBestVote eqFn item is: ${JSON.stringify(item1)}`)
       try {
         if (item1.appliedVoteHash === item2.appliedVoteHash) return true
         return false
@@ -1194,9 +1194,47 @@ class TransactionConsenus {
       redundancy,
       true
     )
-    console.log(`robustQueryBestVote top response is: ${JSON.stringify(response)}`)
     if (response && response.appliedVote) {
       return response.appliedVote
+    }
+  }
+
+  async robustQueryAccountData(
+    consensNodes: Shardus.Node[],
+    accountId: string
+  ): Promise<Shardus.WrappedData> {
+    const queryFn = async (node: Shardus.Node): Promise<GetAccountData3Resp> => {
+      const ip = node.externalIp
+      const port = node.externalPort
+      // the queryFunction must return null if the given node is our own
+      if (ip === Self.ip && port === Self.port) return null
+
+      const message: GetAccountData3Req = {
+        accountStart: accountId,
+        accountEnd: accountId,
+        tsStart: 0,
+        maxRecords: this.config.stateManager.accountBucketSize,
+        offset: 0,
+        accountOffset: '',
+      }
+      const result = await Comms.ask(node, 'get_account_data3', message)
+      return result
+    }
+    const eqFn = (item1: GetAccountData3Resp, item2: GetAccountData3Resp): boolean => {
+      try {
+        const account1 = item1.data.wrappedAccounts[0]
+        const account2 = item1.data.wrappedAccounts[0]
+        if (account1.stateId === account2.stateId) return true
+        return false
+      } catch (err) {
+        return false
+      }
+    }
+    const redundancy = 3
+    const { topResult: response } = await robustQuery(consensNodes, queryFn, eqFn, redundancy, false)
+    if (response && response.data) {
+      const accountData = response.data.wrappedAccounts[0]
+      return accountData
     }
   }
 
@@ -1329,7 +1367,7 @@ class TransactionConsenus {
     return utils.sortAscProp(first, second, 'accountId')
   }
 
-  confirmVoteAndShare(queueEntry: QueueEntry): void {
+  async confirmVoteAndShare(queueEntry: QueueEntry): Promise<void> {
     this.profiler.profileSectionStart('confirmOrChallengeVote')
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
@@ -1351,10 +1389,19 @@ class TransactionConsenus {
     this.profiler.profileSectionEnd('confirmOrChallengeVote')
   }
 
-  challengeVoteAndShare(queueEntry: QueueEntry): void {
+  async challengeVoteAndShare(queueEntry: QueueEntry): Promise<void> {
     this.profiler.profileSectionStart('confirmOrChallengeVote')
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
+
+    // todo: should check account integrity only when before states are different from best vote
+
+    const isAccountIntegrityOk = await this.checkAccountIntegrity(queueEntry)
+    if (!isAccountIntegrityOk) {
+      if (logFlags.verbose)
+        this.mainLogger.debug(`challengeVoteAndShare: ${queueEntry.logID} account integrity is not ok`)
+      return
+    }
 
     //podA: POQ4 create challenge message and share to tx group
     const challengeMessage: ConfirmOrChallengeMessage = {
@@ -1375,6 +1422,48 @@ class TransactionConsenus {
 
     this.profiler.profileSectionEnd('confirmOrChallengeVote')
     return null
+  }
+
+  async checkAccountIntegrity(queueEntry: QueueEntry): Promise<boolean> {
+    this.profiler.profileSectionStart('checkAccountIntegrity')
+    const success = true
+    // check account integrity before sending challenge
+    if (
+      queueEntry.robustAccountDataPromises &&
+      Object.keys(queueEntry.robustAccountDataPromises).length > 0
+    ) {
+      const keys = Object.keys(queueEntry.robustAccountDataPromises)
+      const promises = Object.values(queueEntry.robustAccountDataPromises)
+      const results: Shardus.WrappedData[] = await Promise.all(promises)
+      for (let i = 0; i < results.length; i++) {
+        const key = keys[i]
+        const collectedAccountData = queueEntry.collectedData[key]
+        const robustQueryAccountData = results[i]
+        if (
+          robustQueryAccountData.stateId === collectedAccountData.stateId &&
+          robustQueryAccountData.timestamp === collectedAccountData.timestamp
+        ) {
+          nestedCountersInstance.countEvent('checkAccountIntegrity', 'collected data and robust data match')
+          if (logFlags.debug)
+            this.mainLogger.debug(`checkAccountIntegrity: ${queueEntry.logID} key: ${key} ok`)
+        } else {
+          nestedCountersInstance.countEvent('checkAccountIntegrity', 'collected data and robust data match')
+          if (logFlags.debug) {
+            this.mainLogger.debug(
+              `checkAccountIntegrity: ${
+                queueEntry.logID
+              } key: ${key} failed. collectedAccountData: ${utils.stringify(
+                collectedAccountData
+              )} robustAccountData: ${utils.stringify(robustQueryAccountData)}`
+            )
+          }
+        }
+      }
+    } else {
+      nestedCountersInstance.countEvent('checkAccountIntegrity', 'robustAccountDataPromises empty')
+    }
+    this.profiler.profileSectionEnd('checkAccountIntegrity')
+    return success
   }
   /**
    * createAndShareVote
