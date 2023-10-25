@@ -1393,20 +1393,20 @@ class TransactionConsenus {
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
     // Should check account integrity only when before states are different from best vote
-    let needToCheckAccountIntegrity = false
+    let doStatesMatch = true
     const voteBeforeStates = queueEntry.receivedBestVote.account_state_hash_before
     const ourBeforeStates = Object.values(queueEntry.collectedData)
     if (voteBeforeStates.length !== ourBeforeStates.length) {
-      needToCheckAccountIntegrity = true
+      doStatesMatch = false
     }
     for (let i = 0; i < voteBeforeStates.length; i++) {
       if (voteBeforeStates[i] !== ourBeforeStates[i].stateId) {
-        needToCheckAccountIntegrity = true
+        doStatesMatch = false
         break
       }
     }
 
-    const isAccountIntegrityOk = needToCheckAccountIntegrity && (await this.checkAccountIntegrity(queueEntry))
+    const isAccountIntegrityOk = doStatesMatch || (await this.checkAccountIntegrity(queueEntry))
     if (!isAccountIntegrityOk) {
       if (logFlags.verbose)
         this.mainLogger.debug(`challengeVoteAndShare: ${queueEntry.logID} account integrity is not ok`)
