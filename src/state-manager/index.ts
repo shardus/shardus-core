@@ -9,7 +9,7 @@ import ShardFunctions from './shardFunctions'
 import EventEmitter from 'events'
 import * as utils from '../utils'
 
-import {stringify} from '../utils'
+import { stringify } from '../utils'
 
 // not sure about this.
 import Profiler, { cUninitializedSize, profilerInstance } from '../utils/profiler'
@@ -70,7 +70,7 @@ import {
   RequestAccountQueueCounts,
   QueueCountsResponse,
   QueueCountsResult,
-  ConfirmOrChallengeMessage
+  ConfirmOrChallengeMessage,
 } from './state-manager-types'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { ReceiptMapResult } from '@shardus/types/build/src/state-manager/StateManagerTypes'
@@ -1544,36 +1544,6 @@ class StateManager {
           }
         } finally {
           profilerInstance.scopedProfileSectionEnd('spread_appliedVoteHash')
-        }
-      }
-    )
-
-    this.p2p.registerInternal(
-      'spread_confirmOrChallenge',
-      async (
-        payload: ConfirmOrChallengeMessage,
-        _respond: unknown,
-        _sender: unknown,
-        _tracker: string,
-        msgSize: number
-      ) => {
-        profilerInstance.scopedProfileSectionStart('spread_confirmOrChallenge', false, msgSize)
-        try {
-          const queueEntry = this.transactionQueue.getQueueEntrySafe(payload.appliedVote?.txid) // , payload.timestamp)
-          if (queueEntry == null) {
-            return
-          }
-          if (queueEntry.acceptConfirmOrChallenge === false) {
-            return
-          }
-          const collectedConfirmOrChallengeMessage = payload as ConfirmOrChallengeMessage
-          const appendSuccessful = this.transactionConsensus.tryAppendMessage(queueEntry, collectedConfirmOrChallengeMessage)
-
-          if (appendSuccessful) {
-            // Note this was sending out gossip, but since this needs to be converted to a tell function i deleted the gossip send
-          }
-        } finally {
-          profilerInstance.scopedProfileSectionEnd('spread_confirmOrChallenge')
         }
       }
     )

@@ -92,8 +92,11 @@ export type QueueEntry = {
   receivedBestChallenger?: Shardus.NodeWithRank
   newVotes: boolean
   voteCastAge: number
+  firstVoteReceivedTimestamp: number
+  firstConfirmOrChallengeTimestamp: number
   lastVoteReceivedTimestamp: number
   lastConfirmOrChallengeTimestamp: number
+  completedConfirmedOrChallenge: boolean
   acceptVoteMessage: boolean
   acceptConfirmOrChallenge: boolean
   robustAccountDataPromises?: { [key: string]: Promise<Shardus.WrappedData> }

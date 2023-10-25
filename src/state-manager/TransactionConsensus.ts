@@ -54,9 +54,6 @@ class TransactionConsenus {
 
   txTimestampCache: { [key: string | number]: { [key: string]: TimestampReceipt } }
 
-  waitTimeBeforeConfirm: number
-  waitTimeBeforeReceipt: number
-
   produceBadVote: boolean
   produceBadChallenge: boolean
 
@@ -86,10 +83,6 @@ class TransactionConsenus {
     this.statemanager_fatal = stateManager.statemanager_fatal
     this.txTimestampCache = {}
 
-    // todo: put these values in server config
-    this.waitTimeBeforeConfirm = 1000
-    this.waitTimeBeforeReceipt = 1000
-
     this.produceBadVote = this.config.debug.produceBadVote
     this.produceBadChallenge = this.config.debug.produceBadChallenge
   }
@@ -114,6 +107,74 @@ class TransactionConsenus {
       }
       res.end()
     })
+
+    Context.network.registerExternalGet(
+      'debug-poq-wait-before-confirm',
+      isDebugModeMiddleware,
+      (_req, res) => {
+        try {
+          const waitTimeBeforeConfirm = _req.query.waitTimeBeforeConfirm as string
+          if (waitTimeBeforeConfirm && !isNaN(parseInt(waitTimeBeforeConfirm)))
+            this.config.stateManager.waitTimeBeforeConfirm = parseInt(waitTimeBeforeConfirm)
+          res.write(`stateManager.waitTimeBeforeConfirm: ${this.config.stateManager.waitTimeBeforeConfirm}\n`)
+        } catch (e) {
+          res.write(`${e}\n`)
+        }
+        res.end()
+      }
+    )
+
+    Context.network.registerExternalGet(
+      'debug-poq-wait-limit-confirm',
+      isDebugModeMiddleware,
+      (_req, res) => {
+        try {
+          const waitLimitAfterFirstVote = _req.query.waitLimitAfterFirstVote as string
+          if (waitLimitAfterFirstVote && !isNaN(parseInt(waitLimitAfterFirstVote)))
+            this.config.stateManager.waitLimitAfterFirstVote = parseInt(waitLimitAfterFirstVote)
+          res.write(
+            `stateManager.waitLimitAfterFirstVote: ${this.config.stateManager.waitLimitAfterFirstVote}\n`
+          )
+        } catch (e) {
+          res.write(`${e}\n`)
+        }
+        res.end()
+      }
+    )
+
+    Context.network.registerExternalGet(
+      'debug-poq-wait-before-receipt',
+      isDebugModeMiddleware,
+      (_req, res) => {
+        try {
+          const waitTimeBeforeReceipt = _req.query.waitTimeBeforeReceipt as string
+          if (waitTimeBeforeReceipt && !isNaN(parseInt(waitTimeBeforeReceipt)))
+            this.config.stateManager.waitTimeBeforeReceipt = parseInt(waitTimeBeforeReceipt)
+          res.write(`stateManager.waitTimeBeforeReceipt: ${this.config.stateManager.waitTimeBeforeReceipt}\n`)
+        } catch (e) {
+          res.write(`${e}\n`)
+        }
+        res.end()
+      }
+    )
+
+    Context.network.registerExternalGet(
+      'debug-poq-wait-limit-receipt',
+      isDebugModeMiddleware,
+      (_req, res) => {
+        try {
+          const waitLimitAfterFirstMessage = _req.query.waitLimitAfterFirstMessage as string
+          if (waitLimitAfterFirstMessage && !isNaN(parseInt(waitLimitAfterFirstMessage)))
+            this.config.stateManager.waitLimitAfterFirstMessage = parseInt(waitLimitAfterFirstMessage)
+          res.write(
+            `stateManager.waitLimitAfterFirstVote: ${this.config.stateManager.waitLimitAfterFirstMessage}\n`
+          )
+        } catch (e) {
+          res.write(`${e}\n`)
+        }
+        res.end()
+      }
+    )
 
     Context.network.registerExternalGet('debug-produceBadVote', isDebugModeMiddleware, (req, res) => {
       this.produceBadVote = !this.produceBadVote
@@ -461,7 +522,8 @@ class TransactionConsenus {
             // Gossip further
             const sender = null
             const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
-            Comms.sendGossip('spread_confirmOrChallenge', payload, '', sender, gossipGroup, false, 10)
+            Comms.sendGossip('spread_confirmOrChallenge', payload, '', sender, gossipGroup, false, 4)
+            queueEntry.gossipedConfirmOrChallenge = true
           }
         } catch (e) {
           this.mainLogger.error(`Error in spread_confirmOrChallenge handler: ${e.message}`)
@@ -871,11 +933,26 @@ class TransactionConsenus {
         }
       }
     } else {
+      if (queueEntry.completedConfirmedOrChallenge === false) {
+        return
+      }
       const now = Date.now()
       const timeSinceLastConfirmOrChallenge =
         queueEntry.lastConfirmOrChallengeTimestamp > 0 ? now - queueEntry.lastConfirmOrChallengeTimestamp : 0
+      const timeSinceFirstMessage =
+        queueEntry.firstConfirmOrChallengeTimestamp > 0
+          ? now - queueEntry.firstConfirmOrChallengeTimestamp
+          : 0
+      // check if last confirm/challenge received is 1s ago
+      const hasWaitedLongEnough =
+        timeSinceLastConfirmOrChallenge >= this.config.stateManager.waitTimeBeforeReceipt
+      const hasWaitLimitReached = timeSinceFirstMessage >= this.config.stateManager.waitLimitAfterFirstMessage
+      if (logFlags.debug)
+        this.mainLogger.debug(
+          `tryProduceReceipt: ${queueEntry.logID} hasWaitedLongEnough: ${hasWaitedLongEnough}, hasWaitLimitReached: ${hasWaitLimitReached}, timeSinceLastConfirmOrChallenge: ${timeSinceLastConfirmOrChallenge} ms, timeSinceFirstMessage: ${timeSinceFirstMessage} ms`
+        )
       // check if last vote confirm/challenge received is 1s ago
-      if (timeSinceLastConfirmOrChallenge >= this.waitTimeBeforeReceipt) {
+      if (timeSinceLastConfirmOrChallenge >= this.config.stateManager.waitTimeBeforeReceipt) {
         // stop accepting the vote messages, confirm or challenge for this tx
         queueEntry.acceptVoteMessage = false
         queueEntry.acceptConfirmOrChallenge = false
@@ -888,7 +965,7 @@ class TransactionConsenus {
               queueEntry.receivedBestChallenge
             )}, bestReceivedConfirmation: ${utils.stringifyReduce(
               queueEntry.receivedBestConfirmation
-            )}, bestReceivedChallenger: ${utils.stringifyReduce(queueEntry.receivedBestChallenger)}`
+            )}, receivedBestConfirmedNode: ${utils.stringifyReduce(queueEntry.receivedBestConfirmedNode)}`
           )
         }
 
@@ -1020,7 +1097,15 @@ class TransactionConsenus {
           const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
 
           if (receiptFromRobustQuery == null) {
-            return
+            if (logFlags.debug)
+              this.mainLogger.debug(
+                `tryProduceReceipt: ${
+                  queueEntry.logID
+                } failed to query best receipt from robust query. Optimistic receipt: ${utils.stringifyReduce(
+                  queueEntry.appliedReceipt
+                )}`
+              )
+            return queueEntry.appliedReceipt
           }
 
           // Received challenge receipt, we have confirm receipt which is not as strong as challenge receipt
@@ -1236,7 +1321,7 @@ class TransactionConsenus {
     }
   }
 
-  async tryConfirmOrChallenge(queueEntry: QueueEntry): Promise<void> {
+  async confirmOrChallenge(queueEntry: QueueEntry): Promise<void> {
     if (queueEntry.gossipedConfirmOrChallenge === true) {
       return
     }
@@ -1246,7 +1331,11 @@ class TransactionConsenus {
     if (queueEntry.ourVote == null) {
       return
     }
-    this.profiler.profileSectionStart('tryConfirmOrChallenge')
+    if (queueEntry.completedConfirmedOrChallenge) {
+      return
+    }
+    this.profiler.profileSectionStart('confirmOrChallenge')
+    this.profiler.scopedProfileSectionStart('confirmOrChallenge')
     try {
       if (logFlags.debug)
         this.mainLogger.debug(
@@ -1257,13 +1346,21 @@ class TransactionConsenus {
 
       const now = Date.now()
       //  if we are in lowest 10% of execution group and agrees with the highest ranked vote, send out a confirm msg
-      const eligibleToConfirm = queueEntry.eligibleNodesToConfirm.map((node) => node.id).includes(Self.id)
       const timeSinceLastVoteMessage =
         queueEntry.lastVoteReceivedTimestamp > 0 ? now - queueEntry.lastVoteReceivedTimestamp : 0
+      const timeSinceFirstVote =
+        queueEntry.firstVoteReceivedTimestamp > 0 ? now - queueEntry.firstVoteReceivedTimestamp : 0
       // check if last confirm/challenge received is 1s ago
-      if (timeSinceLastVoteMessage >= this.waitTimeBeforeConfirm) {
+      const hasWaitedLongEnough = timeSinceLastVoteMessage >= this.config.stateManager.waitTimeBeforeConfirm
+      const hasWaitLimitReached = timeSinceFirstVote >= this.config.stateManager.waitLimitAfterFirstVote
+      if (logFlags.debug)
+        this.mainLogger.debug(
+          `tryConfirmOrChallenge: ${queueEntry.logID} hasWaitedLongEnough: ${hasWaitedLongEnough}, hasWaitLimitReached: ${hasWaitLimitReached}, timeSinceLastVoteMessage: ${timeSinceLastVoteMessage} ms, timeSinceFirstVote: ${timeSinceFirstVote} ms`
+        )
+      if (hasWaitedLongEnough || hasWaitLimitReached) {
         // stop accepting the vote messages for this tx
         queueEntry.acceptVoteMessage = false
+        const eligibleToConfirm = queueEntry.eligibleNodesToConfirm.map((node) => node.id).includes(Self.id)
 
         // confirm that current vote is the winning highest ranked vote using robustQuery
         const voteFromRobustQuery = await this.robustQueryBestVote(queueEntry)
@@ -1280,9 +1377,7 @@ class TransactionConsenus {
         }
         if (bestVoterFromRobustQuery == null) {
           // we cannot confirm the best voter from network
-          this.mainLogger.error(
-            `We cannot get bestVoter from robustQuery for tx ${queueEntry.acceptedTx.txId}`
-          )
+          this.mainLogger.error(`We cannot get bestVoter from robustQuery for tx ${queueEntry.logID}`)
           return
         }
 
@@ -1307,6 +1402,7 @@ class TransactionConsenus {
           )
         if (isInExecutionSet && shouldChallenge) {
           this.challengeVoteAndShare(queueEntry)
+          queueEntry.completedConfirmedOrChallenge = true
           return
         }
 
@@ -1337,8 +1433,9 @@ class TransactionConsenus {
               )
             nestedCountersInstance.countEvent(
               'transactionConsensus',
-              'tryConfirmOrChallenge isReceivedBetterConfirmation: true'
+              'confirmOrChallenge isReceivedBetterConfirmation: true'
             )
+            queueEntry.completedConfirmedOrChallenge = true
             return
           }
           // BAD NODE SIMULATION
@@ -1348,6 +1445,7 @@ class TransactionConsenus {
             this.confirmVoteAndShare(queueEntry)
           }
         }
+        queueEntry.completedConfirmedOrChallenge = true
       } else {
         if (logFlags.debug)
           this.mainLogger.debug(
@@ -1357,7 +1455,8 @@ class TransactionConsenus {
     } catch (e) {
       this.mainLogger.error(`tryConfirmOrChallenge: ${queueEntry.logID} ${e.message}, ${e.stack}`)
     } finally {
-      this.profiler.profileSectionEnd('tryConfirmOrChallenge')
+      this.profiler.profileSectionEnd('confirmOrChallenge')
+      this.profiler.scopedProfileSectionEnd('confirmOrChallenge')
     }
   }
 
@@ -1366,7 +1465,7 @@ class TransactionConsenus {
   }
 
   async confirmVoteAndShare(queueEntry: QueueEntry): Promise<void> {
-    this.profiler.profileSectionStart('confirmOrChallengeVote')
+    this.profiler.profileSectionStart('confirmVoteAndShare')
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
@@ -1384,11 +1483,11 @@ class TransactionConsenus {
     Comms.sendGossip('spread_confirmOrChallenge', signedConfirmMessage, '', null, gossipGroup, true, 10)
     queueEntry.gossipedConfirmOrChallenge = true
 
-    this.profiler.profileSectionEnd('confirmOrChallengeVote')
+    this.profiler.profileSectionEnd('confirmVoteAndShare')
   }
 
   async challengeVoteAndShare(queueEntry: QueueEntry): Promise<void> {
-    this.profiler.profileSectionStart('confirmOrChallengeVote')
+    this.profiler.profileSectionStart('challengeVoteAndShare')
     /* prettier-ignore */
     if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
@@ -1430,7 +1529,7 @@ class TransactionConsenus {
     Comms.sendGossip('spread_confirmOrChallenge', signedChallengeMessage, '', null, gossipGroup, true, 10)
     queueEntry.gossipedConfirmOrChallenge = true
 
-    this.profiler.profileSectionEnd('confirmOrChallengeVote')
+    this.profiler.profileSectionEnd('challengeVoteAndShare')
     return null
   }
 
@@ -1753,11 +1852,12 @@ class TransactionConsenus {
       }
     }
 
-    const isVoteValid = true
-    if (!isVoteValid) return false
+    // todo: podA check if the message is valid
+    const isMessageValid = true
+    if (!isMessageValid) return false
 
     // Check if the previous phase is finalized and we have received best vote
-    if (queueEntry.acceptVoteMessage === true || !queueEntry.receivedBestVote) {
+    if (queueEntry.receivedBestVote == null) {
       this.mainLogger.error(
         `tryAppendMessage: ${queueEntry.logID} confirm/challenge is too early. Not finalized best vote yet`
       )
@@ -1778,6 +1878,11 @@ class TransactionConsenus {
       )
       return false
     }
+
+    // record the timestamps
+    const now = Date.now()
+    queueEntry.lastConfirmOrChallengeTimestamp = now
+    if (queueEntry.firstConfirmOrChallengeTimestamp === 0) queueEntry.firstConfirmOrChallengeTimestamp = now
 
     if (confirmOrChallenge.message === 'confirm') {
       let isBetterThanCurrentConfirmation
@@ -1810,7 +1915,7 @@ class TransactionConsenus {
       }
 
       queueEntry.receivedBestConfirmation = confirmOrChallenge
-      queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
+
       if (receivedConfirmedNode) {
         queueEntry.receivedBestConfirmedNode = receivedConfirmedNode
         return true
@@ -1857,25 +1962,26 @@ class TransactionConsenus {
 
       queueEntry.receivedBestChallenge = confirmOrChallenge
       queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
+
+      if (receivedChallenger) {
+        queueEntry.receivedBestChallenger = receivedChallenger
+      } else {
+        for (const node of queueEntry.executionGroup) {
+          if (node.id === confirmOrChallenge.nodeId) {
+            queueEntry.receivedBestChallenger = node
+            break
+          }
+        }
+      }
       if (logFlags.debug)
         this.mainLogger.debug(
           `tryAppendMessage: ${
             queueEntry.logID
           } challenge received and processed. queueEntry.receivedBestChallenge: ${JSON.stringify(
             queueEntry.receivedBestChallenge
-          )}`
+          )}, receivedBestChallenger: ${queueEntry.receivedBestChallenger}`
         )
-      if (receivedChallenger) {
-        queueEntry.receivedBestChallenger = receivedChallenger
-        return true
-      } else {
-        for (const node of queueEntry.executionGroup) {
-          if (node.id === confirmOrChallenge.nodeId) {
-            queueEntry.receivedBestChallenger = node
-            return true
-          }
-        }
-      }
+      return true
     }
   }
 
@@ -1936,11 +2042,14 @@ class TransactionConsenus {
         return
       }
 
+      // todo: podA check if the vote is valid
       const isVoteValid = true
       if (!isVoteValid) return
 
       // we will mark the last received vote timestamp
-      queueEntry.lastVoteReceivedTimestamp = Date.now()
+      const now = Date.now()
+      queueEntry.lastVoteReceivedTimestamp = now
+      if (queueEntry.firstVoteReceivedTimestamp === 0) queueEntry.firstVoteReceivedTimestamp = now
 
       // Compare with existing vote. Skip we already have it or node rank is lower than ours
       let isBetterThanCurrentVote
@@ -1962,7 +2071,7 @@ class TransactionConsenus {
       if (!isBetterThanCurrentVote) {
         if (logFlags.debug) {
           this.mainLogger.debug(
-            `tryAppendVote: logId:${queueEntry.logID} received vote is not better than current vote`
+            `tryAppendVote: logId:${queueEntry.logID} received vote is not better than current vote. lastReceivedVoteTimestamp: ${queueEntry.lastVoteReceivedTimestamp}`
           )
         }
         return false
@@ -1973,7 +2082,7 @@ class TransactionConsenus {
       queueEntry.newVotes = true
       if (logFlags.debug) {
         this.mainLogger.debug(
-          `tryAppendVote: logId:${queueEntry.logID} received vote is better than current vote`
+          `tryAppendVote: logId:${queueEntry.logID} received vote is better than current vote. lastReceivedVoteTimestamp: ${queueEntry.lastVoteReceivedTimestamp}`
         )
       }
       if (recievedVoter) {
