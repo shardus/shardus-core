@@ -1262,6 +1262,7 @@ class TransactionQueue {
         gossipedReceipt: false,
         gossipedVote: false,
         gossipedConfirmOrChallenge: false,
+        completedConfirmedOrChallenge: false,
         archived: false,
         ourTXGroupIndex: -1,
         ourExGroupIndex: -1,
@@ -1275,6 +1276,8 @@ class TransactionQueue {
         txSieveTime: 0,
         debug: {},
         voteCastAge: 0,
+        firstVoteReceivedTimestamp: 0,
+        firstConfirmOrChallengeTimestamp: 0,
         lastVoteReceivedTimestamp: 0,
         lastConfirmOrChallengeTimestamp: 0,
         acceptVoteMessage: true,
@@ -4369,7 +4372,7 @@ class TransactionQueue {
 
               if (this.useNewPOQ) {
                 // if we are in execution group, try to "confirm" or "challenge" the highest ranked vote
-                await this.stateManager.transactionConsensus.tryConfirmOrChallenge(queueEntry)
+                await this.stateManager.transactionConsensus.confirmOrChallenge(queueEntry)
               }
 
               // try to produce a receipt
