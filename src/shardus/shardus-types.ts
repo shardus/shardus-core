@@ -735,6 +735,8 @@ export interface ServerConfiguration {
      * for example the nodes trying to join do not have the same cycle time as the network
      */
     randomJoinRequestWait: number
+    /** timeout for the join request http post.  for invalid ip detection need 5000ms+ but reverting to 1000 for testing reasons */
+    joinRequestTimeout: number
   }
   /** Server IP configuration */
   ip?: {
