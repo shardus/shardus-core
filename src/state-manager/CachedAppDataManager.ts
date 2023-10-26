@@ -76,7 +76,7 @@ class CachedAppDataManager {
         const cachedAppData = payload.cachedAppData
         const existingCachedAppData = this.getCachedItem(payload.topic, cachedAppData.dataID)
         if (existingCachedAppData) {
-          console.log(`We have already processed this cached data`, cachedAppData)
+          /* prettier-ignore */ if (logFlags.verbose && logFlags.console) console.log(`We have already processed this cached data`, cachedAppData)
           return
         }
         // insert cachedAppData
@@ -88,23 +88,26 @@ class CachedAppDataManager {
       }
     })
 
-    this.p2p.registerInternal('get_cached_app_data', async (payload: CacheAppDataRequest, respond: (arg0: CachedAppData) => Promise<void>) => {
-      profilerInstance.scopedProfileSectionStart('get_cached_app_data')
-      try {
-        const { topic, dataId } = payload
-        const foundCachedAppData = this.getCachedItem(topic, dataId)
-        if (foundCachedAppData == null) {
-          this.mainLogger.error(`Cannot find cached data for topic: ${topic}, dataId: ${dataId}`)
+    this.p2p.registerInternal(
+      'get_cached_app_data',
+      async (payload: CacheAppDataRequest, respond: (arg0: CachedAppData) => Promise<void>) => {
+        profilerInstance.scopedProfileSectionStart('get_cached_app_data')
+        try {
+          const { topic, dataId } = payload
+          const foundCachedAppData = this.getCachedItem(topic, dataId)
+          if (foundCachedAppData == null) {
+            this.mainLogger.error(`Cannot find cached data for topic: ${topic}, dataId: ${dataId}`)
+          }
+          await respond(foundCachedAppData)
+          profilerInstance.scopedProfileSectionEnd('get_cached_app_data')
+          return
+        } catch (e) {
+          this.mainLogger.error(`Error while processing get_cachedAppData`, e)
+        } finally {
+          profilerInstance.scopedProfileSectionEnd('get_cached_app_data')
         }
-        await respond(foundCachedAppData)
-        profilerInstance.scopedProfileSectionEnd('get_cached_app_data')
-        return
-      } catch (e) {
-        this.mainLogger.error(`Error while processing get_cachedAppData`, e)
-      } finally {
-        profilerInstance.scopedProfileSectionEnd('get_cached_app_data')
       }
-    })
+    )
   }
 
   registerTopic(topic: string, maxCycleAge: number, maxCacheElements: number): boolean {
@@ -455,7 +458,6 @@ class CachedAppDataManager {
       // we are local!
       cachedAppData = this.getCachedItem(topic, dataId)
       if (cachedAppData != null) {
-
         return cachedAppData
       }
     }

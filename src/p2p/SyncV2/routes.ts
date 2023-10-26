@@ -58,22 +58,22 @@ const validatorListRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'validator-list',
   handler: (req, res) => {
-    let respondSize = 0
+    // let respondSize = 0
     profilerInstance.scopedProfileSectionStart('validator-list', false)
     try {
       const expectedHash = req.query.hash
 
       // return the validator list if the hash from the requester matches
       if (expectedHash && expectedHash === NodeList.getNodeListHash()) {
-        //res.json(NodeList.getLastHashedNodeList())
-        const getLastHashedNodeList = NodeList.getLastHashedNodeList()
-        respondSize = jsonHttpResWithSize(res, getLastHashedNodeList)
+        res.json(NodeList.getLastHashedNodeList())
+        // const getLastHashedNodeList = NodeList.getLastHashedNodeList()
+        // respondSize = jsonHttpResWithSize(res, getLastHashedNodeList)
       } else {
         /* prettier-ignore */ if (logFlags.debug) console.error( `rejecting validator list request: expected '${expectedHash}' != '${NodeList.getNodeListHash()}'` )
         res.status(404).send(`validator list with hash '${expectedHash}' not found`)
       }
     } finally {
-      profilerInstance.scopedProfileSectionEnd('validator-list', respondSize)
+      profilerInstance.scopedProfileSectionEnd('validator-list') //, respondSize)
     }
   },
 }
@@ -104,7 +104,7 @@ const standbyListRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
   name: 'standby-list',
   handler: (req, res) => {
-    let respondSize = 0
+    // let respondSize = 0
     profilerInstance.scopedProfileSectionStart('standby-list', false)
 
     try {
@@ -113,19 +113,14 @@ const standbyListRoute: P2P.P2PTypes.Route<Handler> = {
       // return the standby list if the hash from the requester matches
       if (expectedHash && expectedHash === JoinV2.getStandbyListHash()) {
         const standbyList = JoinV2.getLastHashedStandbyList()
-        //todo could make a helper that does response but gets size to
-        // const standbyListStr = JSON.stringify(standbyList)
-        // respondSize = standbyListStr.length
-        // res.write(standbyListStr)
-        // res.end()
-        respondSize = jsonHttpResWithSize(res, standbyList)
-        //res.json(standbyList)
+        res.json(standbyList)
+        // respondSize = jsonHttpResWithSize(res, standbyList)
       } else {
         /* prettier-ignore */ if (logFlags.debug) console.error( `rejecting standby list request: expected '${expectedHash}' != '${JoinV2.getStandbyListHash()}'` )
         res.status(404).send(`standby list with hash '${expectedHash}' not found`)
       }
     } finally {
-      profilerInstance.scopedProfileSectionEnd('standby-list', respondSize)
+      profilerInstance.scopedProfileSectionEnd('standby-list') //, respondSize)
     }
   },
 }
