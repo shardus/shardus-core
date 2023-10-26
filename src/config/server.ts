@@ -98,6 +98,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     useNetworkModes: true,
     useJoinProtocolV2: true,
     randomJoinRequestWait: 2000, //todo set this to 1000 before release
+    joinRequestTimeout: 1000,
   },
   ip: {
     externalIp: '0.0.0.0',
