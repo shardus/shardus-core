@@ -4369,7 +4369,7 @@ class TransactionQueue {
 
               if (this.useNewPOQ) {
                 // if we are in execution group, try to "confirm" or "challenge" the highest ranked vote
-                await this.stateManager.transactionConsensus.confirmOrChallenge(queueEntry)
+                this.stateManager.transactionConsensus.confirmOrChallenge(queueEntry)
               }
 
               // try to produce a receipt
