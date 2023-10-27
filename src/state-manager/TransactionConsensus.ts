@@ -804,378 +804,392 @@ class TransactionConsenus {
    * @param queueEntry
    */
   async tryProduceReceipt(queueEntry: QueueEntry): Promise<AppliedReceipt> {
-    const receipt2 = queueEntry.recievedAppliedReceipt2 ?? queueEntry.appliedReceipt2
-    if (receipt2 != null) {
-      //we have a receipt2, so we can make a receipt
-      return {
-        result: receipt2.result,
-        appliedVotes: [receipt2.appliedVote], // everything is the same but the applied vote is an array
-        txid: receipt2.txid,
-        app_data_hash: receipt2.app_data_hash,
-      }
-    }
-
-    if (queueEntry.waitForReceiptOnly === true) {
-      return null
-    }
-
-    // TEMP hack.. allow any node to try and make a receipt
-    // if (this.stateManager.transactionQueue.executeInOneShard && queueEntry.isInExecutionHome === false) {
-    //   return null
-    // }
-
-    if (queueEntry.appliedReceipt != null) {
-      return queueEntry.appliedReceipt
-    }
-
-    // Design TODO:  should this be the full transaction group or just the consensus group?
-    let votingGroup
-
-    if (
-      this.stateManager.transactionQueue.executeInOneShard &&
-      this.stateManager.transactionQueue.useNewPOQ === false
-    ) {
-      //use execuiton group instead of full transaciton group, since only the execution group will run the transaction
-      votingGroup = queueEntry.executionGroup
-    } else {
-      votingGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
-    }
-
-    if (this.stateManager.transactionQueue.useNewPOQ === false) {
-      const requiredVotes = Math.round(votingGroup.length * (2 / 3.0)) //hacky for now.  debug code:
-
-      if (queueEntry.debug.loggedStats1 == null) {
-        queueEntry.debug.loggedStats1 = true
-        nestedCountersInstance.countEvent('transactionStats', ` votingGroup:${votingGroup.length}`)
-      }
-
-      const numVotes = queueEntry.collectedVoteHashes.length
-
-      if (numVotes < requiredVotes) {
-        // we need more votes
-        return null
-      }
-
-      // be smart an only recalculate votes when we see a new vote show up.
-      if (queueEntry.newVotes === false) {
-        return null
-      }
-      queueEntry.newVotes = false
-      let mostVotes = 0
-      let winningVoteHash: string
-      const hashCounts: Map<string, number> = new Map()
-
-      for (let i = 0; i < numVotes; i++) {
-        // eslint-disable-next-line security/detect-object-injection
-        const currentVote = queueEntry.collectedVoteHashes[i]
-        const voteCount = hashCounts.get(currentVote.voteHash)
-        let updatedVoteCount: number
-        if (voteCount === undefined) {
-          updatedVoteCount = 1
-        } else {
-          updatedVoteCount = voteCount + 1
-        }
-        hashCounts.set(currentVote.voteHash, updatedVoteCount)
-        if (updatedVoteCount > mostVotes) {
-          mostVotes = updatedVoteCount
-          winningVoteHash = currentVote.voteHash
+    this.profiler.profileSectionStart('tryProduceReceipt')
+    this.profiler.scopedProfileSectionStart('tryProduceReceipt')
+    try {
+      const receipt2 = queueEntry.recievedAppliedReceipt2 ?? queueEntry.appliedReceipt2
+      if (receipt2 != null) {
+        //we have a receipt2, so we can make a receipt
+        return {
+          result: receipt2.result,
+          appliedVotes: [receipt2.appliedVote], // everything is the same but the applied vote is an array
+          txid: receipt2.txid,
+          app_data_hash: receipt2.app_data_hash,
         }
       }
 
-      if (mostVotes < requiredVotes) {
+      if (queueEntry.waitForReceiptOnly === true) {
         return null
       }
 
-      if (winningVoteHash != undefined) {
-        //make the new receipt.
-        const appliedReceipt2: AppliedReceipt2 = {
-          txid: queueEntry.acceptedTx.txId,
-          result: undefined,
-          appliedVote: undefined,
-          signatures: [],
-          app_data_hash: '',
-          // transaction_result: false //this was missing before..
+      // TEMP hack.. allow any node to try and make a receipt
+      // if (this.stateManager.transactionQueue.executeInOneShard && queueEntry.isInExecutionHome === false) {
+      //   return null
+      // }
+
+      if (queueEntry.appliedReceipt != null) {
+        return queueEntry.appliedReceipt
+      }
+
+      // Design TODO:  should this be the full transaction group or just the consensus group?
+      let votingGroup
+
+      if (
+        this.stateManager.transactionQueue.executeInOneShard &&
+        this.stateManager.transactionQueue.useNewPOQ === false
+      ) {
+        //use execuiton group instead of full transaciton group, since only the execution group will run the transaction
+        votingGroup = queueEntry.executionGroup
+      } else {
+        votingGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
+      }
+
+      if (this.stateManager.transactionQueue.useNewPOQ === false) {
+        const requiredVotes = Math.round(votingGroup.length * (2 / 3.0)) //hacky for now.  debug code:
+
+        if (queueEntry.debug.loggedStats1 == null) {
+          queueEntry.debug.loggedStats1 = true
+          nestedCountersInstance.countEvent('transactionStats', ` votingGroup:${votingGroup.length}`)
         }
+
+        const numVotes = queueEntry.collectedVoteHashes.length
+
+        if (numVotes < requiredVotes) {
+          // we need more votes
+          return null
+        }
+
+        // be smart an only recalculate votes when we see a new vote show up.
+        if (queueEntry.newVotes === false) {
+          return null
+        }
+        queueEntry.newVotes = false
+        let mostVotes = 0
+        let winningVoteHash: string
+        const hashCounts: Map<string, number> = new Map()
+
         for (let i = 0; i < numVotes; i++) {
           // eslint-disable-next-line security/detect-object-injection
           const currentVote = queueEntry.collectedVoteHashes[i]
-          if (currentVote.voteHash === winningVoteHash) {
-            appliedReceipt2.signatures.push(currentVote.sign)
-          }
-        }
-        //result and appliedVote must be set using a winning vote..
-        //we may not have this yet
-
-        if (queueEntry.ourVote != null && queueEntry.ourVoteHash === winningVoteHash) {
-          appliedReceipt2.result = queueEntry.ourVote.transaction_result
-          appliedReceipt2.appliedVote = queueEntry.ourVote
-          // now send it !!!
-
-          queueEntry.appliedReceipt2 = appliedReceipt2
-
-          for (let i = 0; i < queueEntry.ourVote.account_id.length; i++) {
-            /* eslint-disable security/detect-object-injection */
-            if (queueEntry.ourVote.account_id[i] === 'app_data_hash') {
-              appliedReceipt2.app_data_hash = queueEntry.ourVote.account_state_hash_after[i]
-              break
-            }
-            /* eslint-enable security/detect-object-injection */
-          }
-
-          //this is a temporary hack to reduce the ammount of refactor needed.
-          const appliedReceipt: AppliedReceipt = {
-            txid: queueEntry.acceptedTx.txId,
-            result: queueEntry.ourVote.transaction_result,
-            appliedVotes: [queueEntry.ourVote],
-            app_data_hash: appliedReceipt2.app_data_hash,
-          }
-          queueEntry.appliedReceipt = appliedReceipt
-
-          return appliedReceipt
-        }
-      }
-    } else {
-      if (queueEntry.completedConfirmedOrChallenge === false) {
-        return
-      }
-      const now = Date.now()
-      const timeSinceLastConfirmOrChallenge =
-        queueEntry.lastConfirmOrChallengeTimestamp > 0 ? now - queueEntry.lastConfirmOrChallengeTimestamp : 0
-      const timeSinceFirstMessage =
-        queueEntry.firstConfirmOrChallengeTimestamp > 0
-          ? now - queueEntry.firstConfirmOrChallengeTimestamp
-          : 0
-      // check if last confirm/challenge received is 1s ago
-      const hasWaitedLongEnough =
-        timeSinceLastConfirmOrChallenge >= this.config.stateManager.waitTimeBeforeReceipt
-      const hasWaitLimitReached = timeSinceFirstMessage >= this.config.stateManager.waitLimitAfterFirstMessage
-      if (logFlags.debug)
-        this.mainLogger.debug(
-          `tryProduceReceipt: ${queueEntry.logID} hasWaitedLongEnough: ${hasWaitedLongEnough}, hasWaitLimitReached: ${hasWaitLimitReached}, timeSinceLastConfirmOrChallenge: ${timeSinceLastConfirmOrChallenge} ms, timeSinceFirstMessage: ${timeSinceFirstMessage} ms`
-        )
-      // check if last vote confirm/challenge received is 1s ago
-      if (timeSinceLastConfirmOrChallenge >= this.config.stateManager.waitTimeBeforeReceipt) {
-        // stop accepting the vote messages, confirm or challenge for this tx
-        queueEntry.acceptVoteMessage = false
-        queueEntry.acceptConfirmOrChallenge = false
-
-        if (logFlags.debug) {
-          this.mainLogger.debug(
-            `tryProduceReceipt: ${
-              queueEntry.logID
-            } ready to decide final receipt. bestReceivedChallenge: ${utils.stringifyReduce(
-              queueEntry.receivedBestChallenge
-            )}, bestReceivedConfirmation: ${utils.stringifyReduce(
-              queueEntry.receivedBestConfirmation
-            )}, receivedBestConfirmedNode: ${utils.stringifyReduce(queueEntry.receivedBestConfirmedNode)}`
-          )
-        }
-
-        // we have received challenge message, produce failed receipt
-        if (queueEntry.receivedBestChallenge && queueEntry.receivedBestChallenger) {
-          const appliedReceipt: AppliedReceipt = {
-            txid: queueEntry.receivedBestChallenge.appliedVote.txid,
-            result: false,
-            appliedVotes: [queueEntry.receivedBestChallenge.appliedVote],
-            app_data_hash: '',
-          }
-          const appliedReceipt2: AppliedReceipt2 = {
-            txid: queueEntry.receivedBestChallenge.appliedVote.txid,
-            result: false,
-            appliedVote: queueEntry.receivedBestChallenge.appliedVote,
-            app_data_hash: '',
-            signatures: [queueEntry.receivedBestChallenge.appliedVote.sign],
-          }
-          queueEntry.appliedReceipt = appliedReceipt
-          queueEntry.appliedReceipt2 = appliedReceipt2
-          if (logFlags.debug)
-            this.mainLogger.debug(
-              `tryProduceReceipt: ${
-                queueEntry.logID
-              } producing a fail receipt based on received challenge message. appliedReceipt: ${utils.stringifyReduce(
-                appliedReceipt2
-              )}`
-            )
-
-          // todo: podA reconsider querying the best receipt
-          const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
-          if (receiptFromRobustQuery == null) {
-            if (logFlags.debug)
-              this.mainLogger.debug(
-                `tryProduceReceipt: ${queueEntry.logID} failed to produce a receipt from robust query`
-              )
-            return appliedReceipt
-          }
-
-          // Received a confrim receipt. We have a challenge receipt which is better.
-          if (receiptFromRobustQuery && receiptFromRobustQuery.result !== false) {
-            if (logFlags.debug)
-              this.mainLogger.debug(
-                `tryProduceReceipt: ${queueEntry.logID} received a confirm receipt. We have a challenge receipt which is better`
-              )
-            return appliedReceipt
-          }
-
-          // Received another challenge receipt. Compare ranks
-          let bestNodeFromRobustQuery: Shardus.NodeWithRank
-          for (const node of queueEntry.executionGroup) {
-            if (node.id === receiptFromRobustQuery.appliedVote.node_id) {
-              bestNodeFromRobustQuery = node
-            }
-          }
-          const isRobustQueryNodeBetter =
-            bestNodeFromRobustQuery.rank < queueEntry.receivedBestChallenger.rank
-          if (isRobustQueryNodeBetter) {
-            if (logFlags.debug)
-              this.mainLogger.debug(
-                `tryProduceReceipt: ${
-                  queueEntry.logID
-                } receipt (challenge) from robust query is better than our receipt. receiptFromRobustQuery: ${utils.stringify(
-                  receiptFromRobustQuery
-                )}`
-              )
-            const appliedReceipt: AppliedReceipt = {
-              txid: receiptFromRobustQuery.txid,
-              result: receiptFromRobustQuery.result,
-              appliedVotes: [receiptFromRobustQuery.appliedVote],
-              app_data_hash: receiptFromRobustQuery.app_data_hash,
-            }
-            const appliedReceipt2: AppliedReceipt2 = {
-              txid: receiptFromRobustQuery.txid,
-              result: receiptFromRobustQuery.result,
-              appliedVote: receiptFromRobustQuery.appliedVote,
-              app_data_hash: receiptFromRobustQuery.app_data_hash,
-              signatures: [receiptFromRobustQuery.appliedVote.sign],
-            }
-            queueEntry.appliedReceipt = appliedReceipt
-            queueEntry.appliedReceipt2 = appliedReceipt2
-            return appliedReceipt
+          const voteCount = hashCounts.get(currentVote.voteHash)
+          let updatedVoteCount: number
+          if (voteCount === undefined) {
+            updatedVoteCount = 1
           } else {
-            return appliedReceipt
+            updatedVoteCount = voteCount + 1
+          }
+          hashCounts.set(currentVote.voteHash, updatedVoteCount)
+          if (updatedVoteCount > mostVotes) {
+            mostVotes = updatedVoteCount
+            winningVoteHash = currentVote.voteHash
           }
         }
 
-        // create receipt
-        // The receipt for the transactions is the lowest ranked challenge message or if there is no challenge the lowest ranked confirm message
-        // loop through "confirm" messages and "challenge" messages to decide the final receipt
-        if (queueEntry.receivedBestConfirmation && queueEntry.receivedBestConfirmedNode) {
-          const winningVote = queueEntry.receivedBestConfirmation.appliedVote
-          if (winningVote !== null) {
-            const appliedReceipt: AppliedReceipt = {
-              txid: winningVote.txid,
-              result: winningVote.transaction_result,
-              appliedVotes: [winningVote],
-              app_data_hash: '',
+        if (mostVotes < requiredVotes) {
+          return null
+        }
+
+        if (winningVoteHash != undefined) {
+          //make the new receipt.
+          const appliedReceipt2: AppliedReceipt2 = {
+            txid: queueEntry.acceptedTx.txId,
+            result: undefined,
+            appliedVote: undefined,
+            signatures: [],
+            app_data_hash: '',
+            // transaction_result: false //this was missing before..
+          }
+          for (let i = 0; i < numVotes; i++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const currentVote = queueEntry.collectedVoteHashes[i]
+            if (currentVote.voteHash === winningVoteHash) {
+              appliedReceipt2.signatures.push(currentVote.sign)
             }
-            const appliedReceipt2: AppliedReceipt2 = {
-              txid: winningVote.txid,
-              result: winningVote.transaction_result,
-              appliedVote: winningVote,
-              app_data_hash: '',
-              signatures: [winningVote.sign],
-            }
-            if (logFlags.debug)
-              this.mainLogger.debug(
-                `tryProduceReceipt: ${
-                  queueEntry.logID
-                } producing a confirm receipt based on received confirmation message. ${utils.stringifyReduce(
-                  appliedReceipt
-                )}`
-              )
-            for (let i = 0; i < winningVote.account_id.length; i++) {
+          }
+          //result and appliedVote must be set using a winning vote..
+          //we may not have this yet
+
+          if (queueEntry.ourVote != null && queueEntry.ourVoteHash === winningVoteHash) {
+            appliedReceipt2.result = queueEntry.ourVote.transaction_result
+            appliedReceipt2.appliedVote = queueEntry.ourVote
+            // now send it !!!
+
+            queueEntry.appliedReceipt2 = appliedReceipt2
+
+            for (let i = 0; i < queueEntry.ourVote.account_id.length; i++) {
               /* eslint-disable security/detect-object-injection */
-              if (winningVote.account_id[i] === 'app_data_hash') {
-                appliedReceipt.app_data_hash = winningVote.account_state_hash_after[i]
-                appliedReceipt2.app_data_hash = winningVote.account_state_hash_after[i]
+              if (queueEntry.ourVote.account_id[i] === 'app_data_hash') {
+                appliedReceipt2.app_data_hash = queueEntry.ourVote.account_state_hash_after[i]
                 break
               }
               /* eslint-enable security/detect-object-injection */
             }
-            queueEntry.appliedReceipt = appliedReceipt
-            queueEntry.appliedReceipt2 = appliedReceipt2
-          }
-          // do a robust query to confirm that we have the best receipt
-          // (lower the rank of confirm message, the better the receipt is)
-          const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
 
-          if (receiptFromRobustQuery == null) {
-            if (logFlags.debug)
-              this.mainLogger.debug(
-                `tryProduceReceipt: ${
-                  queueEntry.logID
-                } failed to query best receipt from robust query. Optimistic receipt: ${utils.stringifyReduce(
-                  queueEntry.appliedReceipt
-                )}`
-              )
-            return queueEntry.appliedReceipt
-          }
-
-          // Received challenge receipt, we have confirm receipt which is not as strong as challenge receipt
-          if (receiptFromRobustQuery.result === false) {
+            //this is a temporary hack to reduce the ammount of refactor needed.
             const appliedReceipt: AppliedReceipt = {
-              txid: receiptFromRobustQuery.txid,
-              result: receiptFromRobustQuery.result,
-              appliedVotes: [receiptFromRobustQuery.appliedVote],
-              app_data_hash: receiptFromRobustQuery.app_data_hash,
-            }
-            const appliedReceipt2: AppliedReceipt2 = {
-              txid: receiptFromRobustQuery.txid,
-              result: receiptFromRobustQuery.result,
-              appliedVote: receiptFromRobustQuery.appliedVote,
-              app_data_hash: receiptFromRobustQuery.app_data_hash,
-              signatures: [receiptFromRobustQuery.appliedVote.sign],
+              txid: queueEntry.acceptedTx.txId,
+              result: queueEntry.ourVote.transaction_result,
+              appliedVotes: [queueEntry.ourVote],
+              app_data_hash: appliedReceipt2.app_data_hash,
             }
             queueEntry.appliedReceipt = appliedReceipt
-            queueEntry.appliedReceipt2 = appliedReceipt2
-            return appliedReceipt
-          }
 
-          // Received another confirm receipt. Compare ranks
-          let bestNodeFromRobustQuery: Shardus.NodeWithRank
-          for (const node of queueEntry.executionGroup) {
-            if (node.id === receiptFromRobustQuery.appliedVote.node_id) {
-              bestNodeFromRobustQuery = node
-            }
-          }
-
-          const isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank < queueEntry.receivedBestVoter.rank
-          if (isRobustQueryNodeBetter) {
-            if (logFlags.debug)
-              this.mainLogger.debug(
-                `tryProduceReceipt: ${
-                  queueEntry.logID
-                } receipt (confirm) from robust query is better than our receipt. receiptFromRobustQuery: ${utils.stringify(
-                  receiptFromRobustQuery
-                )}`
-              )
-            const appliedReceipt: AppliedReceipt = {
-              txid: receiptFromRobustQuery.txid,
-              result: receiptFromRobustQuery.result,
-              appliedVotes: [receiptFromRobustQuery.appliedVote],
-              app_data_hash: receiptFromRobustQuery.app_data_hash,
-            }
-            const appliedReceipt2: AppliedReceipt2 = {
-              txid: receiptFromRobustQuery.txid,
-              result: receiptFromRobustQuery.result,
-              appliedVote: receiptFromRobustQuery.appliedVote,
-              app_data_hash: receiptFromRobustQuery.app_data_hash,
-              signatures: [receiptFromRobustQuery.appliedVote.sign],
-            }
-            queueEntry.appliedReceipt = appliedReceipt
-            queueEntry.appliedReceipt2 = appliedReceipt2
             return appliedReceipt
-          } else {
-            return queueEntry.appliedReceipt
           }
         }
       } else {
+        if (queueEntry.completedConfirmedOrChallenge === false) {
+          return
+        }
+        const now = Date.now()
+        const timeSinceLastConfirmOrChallenge =
+          queueEntry.lastConfirmOrChallengeTimestamp > 0
+            ? now - queueEntry.lastConfirmOrChallengeTimestamp
+            : 0
+        const timeSinceFirstMessage =
+          queueEntry.firstConfirmOrChallengeTimestamp > 0
+            ? now - queueEntry.firstConfirmOrChallengeTimestamp
+            : 0
+        // check if last confirm/challenge received is 1s ago
+        const hasWaitedLongEnough =
+          timeSinceLastConfirmOrChallenge >= this.config.stateManager.waitTimeBeforeReceipt
+        const hasWaitLimitReached =
+          timeSinceFirstMessage >= this.config.stateManager.waitLimitAfterFirstMessage
         if (logFlags.debug)
           this.mainLogger.debug(
-            `tryProduceReceipt: ${queueEntry.logID} not producing receipt yet because timeSinceLastConfirmOrChallenge is ${timeSinceLastConfirmOrChallenge} ms`
+            `tryProduceReceipt: ${queueEntry.logID} hasWaitedLongEnough: ${hasWaitedLongEnough}, hasWaitLimitReached: ${hasWaitLimitReached}, timeSinceLastConfirmOrChallenge: ${timeSinceLastConfirmOrChallenge} ms, timeSinceFirstMessage: ${timeSinceFirstMessage} ms`
           )
+        // check if last vote confirm/challenge received is 1s ago
+        if (timeSinceLastConfirmOrChallenge >= this.config.stateManager.waitTimeBeforeReceipt) {
+          // stop accepting the vote messages, confirm or challenge for this tx
+          queueEntry.acceptVoteMessage = false
+          queueEntry.acceptConfirmOrChallenge = false
+
+          if (logFlags.debug) {
+            this.mainLogger.debug(
+              `tryProduceReceipt: ${
+                queueEntry.logID
+              } ready to decide final receipt. bestReceivedChallenge: ${utils.stringifyReduce(
+                queueEntry.receivedBestChallenge
+              )}, bestReceivedConfirmation: ${utils.stringifyReduce(
+                queueEntry.receivedBestConfirmation
+              )}, receivedBestConfirmedNode: ${utils.stringifyReduce(queueEntry.receivedBestConfirmedNode)}`
+            )
+          }
+
+          // we have received challenge message, produce failed receipt
+          if (queueEntry.receivedBestChallenge && queueEntry.receivedBestChallenger) {
+            const appliedReceipt: AppliedReceipt = {
+              txid: queueEntry.receivedBestChallenge.appliedVote.txid,
+              result: false,
+              appliedVotes: [queueEntry.receivedBestChallenge.appliedVote],
+              app_data_hash: '',
+            }
+            const appliedReceipt2: AppliedReceipt2 = {
+              txid: queueEntry.receivedBestChallenge.appliedVote.txid,
+              result: false,
+              appliedVote: queueEntry.receivedBestChallenge.appliedVote,
+              app_data_hash: '',
+              signatures: [queueEntry.receivedBestChallenge.appliedVote.sign],
+            }
+            queueEntry.appliedReceipt = appliedReceipt
+            queueEntry.appliedReceipt2 = appliedReceipt2
+            if (logFlags.debug)
+              this.mainLogger.debug(
+                `tryProduceReceipt: ${
+                  queueEntry.logID
+                } producing a fail receipt based on received challenge message. appliedReceipt: ${utils.stringifyReduce(
+                  appliedReceipt2
+                )}`
+              )
+
+            // todo: podA reconsider querying the best receipt
+            const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
+            if (receiptFromRobustQuery == null) {
+              if (logFlags.debug)
+                this.mainLogger.debug(
+                  `tryProduceReceipt: ${queueEntry.logID} failed to produce a receipt from robust query`
+                )
+              return appliedReceipt
+            }
+
+            // Received a confrim receipt. We have a challenge receipt which is better.
+            if (receiptFromRobustQuery && receiptFromRobustQuery.result !== false) {
+              if (logFlags.debug)
+                this.mainLogger.debug(
+                  `tryProduceReceipt: ${queueEntry.logID} received a confirm receipt. We have a challenge receipt which is better`
+                )
+              return appliedReceipt
+            }
+
+            // Received another challenge receipt. Compare ranks
+            let bestNodeFromRobustQuery: Shardus.NodeWithRank
+            for (const node of queueEntry.executionGroup) {
+              if (node.id === receiptFromRobustQuery.appliedVote.node_id) {
+                bestNodeFromRobustQuery = node
+              }
+            }
+            const isRobustQueryNodeBetter =
+              bestNodeFromRobustQuery.rank < queueEntry.receivedBestChallenger.rank
+            if (isRobustQueryNodeBetter) {
+              if (logFlags.debug)
+                this.mainLogger.debug(
+                  `tryProduceReceipt: ${
+                    queueEntry.logID
+                  } receipt (challenge) from robust query is better than our receipt. receiptFromRobustQuery: ${utils.stringify(
+                    receiptFromRobustQuery
+                  )}`
+                )
+              const appliedReceipt: AppliedReceipt = {
+                txid: receiptFromRobustQuery.txid,
+                result: receiptFromRobustQuery.result,
+                appliedVotes: [receiptFromRobustQuery.appliedVote],
+                app_data_hash: receiptFromRobustQuery.app_data_hash,
+              }
+              const appliedReceipt2: AppliedReceipt2 = {
+                txid: receiptFromRobustQuery.txid,
+                result: receiptFromRobustQuery.result,
+                appliedVote: receiptFromRobustQuery.appliedVote,
+                app_data_hash: receiptFromRobustQuery.app_data_hash,
+                signatures: [receiptFromRobustQuery.appliedVote.sign],
+              }
+              queueEntry.appliedReceipt = appliedReceipt
+              queueEntry.appliedReceipt2 = appliedReceipt2
+              return appliedReceipt
+            } else {
+              return appliedReceipt
+            }
+          }
+
+          // create receipt
+          // The receipt for the transactions is the lowest ranked challenge message or if there is no challenge the lowest ranked confirm message
+          // loop through "confirm" messages and "challenge" messages to decide the final receipt
+          if (queueEntry.receivedBestConfirmation && queueEntry.receivedBestConfirmedNode) {
+            const winningVote = queueEntry.receivedBestConfirmation.appliedVote
+            if (winningVote !== null) {
+              const appliedReceipt: AppliedReceipt = {
+                txid: winningVote.txid,
+                result: winningVote.transaction_result,
+                appliedVotes: [winningVote],
+                app_data_hash: '',
+              }
+              const appliedReceipt2: AppliedReceipt2 = {
+                txid: winningVote.txid,
+                result: winningVote.transaction_result,
+                appliedVote: winningVote,
+                app_data_hash: '',
+                signatures: [winningVote.sign],
+              }
+              if (logFlags.debug)
+                this.mainLogger.debug(
+                  `tryProduceReceipt: ${
+                    queueEntry.logID
+                  } producing a confirm receipt based on received confirmation message. ${utils.stringifyReduce(
+                    appliedReceipt
+                  )}`
+                )
+              for (let i = 0; i < winningVote.account_id.length; i++) {
+                /* eslint-disable security/detect-object-injection */
+                if (winningVote.account_id[i] === 'app_data_hash') {
+                  appliedReceipt.app_data_hash = winningVote.account_state_hash_after[i]
+                  appliedReceipt2.app_data_hash = winningVote.account_state_hash_after[i]
+                  break
+                }
+                /* eslint-enable security/detect-object-injection */
+              }
+              queueEntry.appliedReceipt = appliedReceipt
+              queueEntry.appliedReceipt2 = appliedReceipt2
+            }
+            // do a robust query to confirm that we have the best receipt
+            // (lower the rank of confirm message, the better the receipt is)
+            const receiptFromRobustQuery = await this.robustQueryBestReceipt(queueEntry)
+
+            if (receiptFromRobustQuery == null) {
+              if (logFlags.debug)
+                this.mainLogger.debug(
+                  `tryProduceReceipt: ${
+                    queueEntry.logID
+                  } failed to query best receipt from robust query. Optimistic receipt: ${utils.stringifyReduce(
+                    queueEntry.appliedReceipt
+                  )}`
+                )
+              return queueEntry.appliedReceipt
+            }
+
+            // Received challenge receipt, we have confirm receipt which is not as strong as challenge receipt
+            if (receiptFromRobustQuery.result === false) {
+              const appliedReceipt: AppliedReceipt = {
+                txid: receiptFromRobustQuery.txid,
+                result: receiptFromRobustQuery.result,
+                appliedVotes: [receiptFromRobustQuery.appliedVote],
+                app_data_hash: receiptFromRobustQuery.app_data_hash,
+              }
+              const appliedReceipt2: AppliedReceipt2 = {
+                txid: receiptFromRobustQuery.txid,
+                result: receiptFromRobustQuery.result,
+                appliedVote: receiptFromRobustQuery.appliedVote,
+                app_data_hash: receiptFromRobustQuery.app_data_hash,
+                signatures: [receiptFromRobustQuery.appliedVote.sign],
+              }
+              queueEntry.appliedReceipt = appliedReceipt
+              queueEntry.appliedReceipt2 = appliedReceipt2
+              return appliedReceipt
+            }
+
+            // Received another confirm receipt. Compare ranks
+            let bestNodeFromRobustQuery: Shardus.NodeWithRank
+            for (const node of queueEntry.executionGroup) {
+              if (node.id === receiptFromRobustQuery.appliedVote.node_id) {
+                bestNodeFromRobustQuery = node
+              }
+            }
+
+            const isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank < queueEntry.receivedBestVoter.rank
+            if (isRobustQueryNodeBetter) {
+              if (logFlags.debug)
+                this.mainLogger.debug(
+                  `tryProduceReceipt: ${
+                    queueEntry.logID
+                  } receipt (confirm) from robust query is better than our receipt. bestNodeFromRobust?Query: ${utils.stringify(
+                    bestNodeFromRobustQuery
+                  )}, queueEntry.receivedBestVoter: ${utils.stringify(
+                    queueEntry.receivedBestVoter
+                  )}, receiptFromRobustQuery: ${utils.stringify(receiptFromRobustQuery)}`
+                )
+              const appliedReceipt: AppliedReceipt = {
+                txid: receiptFromRobustQuery.txid,
+                result: receiptFromRobustQuery.result,
+                appliedVotes: [receiptFromRobustQuery.appliedVote],
+                app_data_hash: receiptFromRobustQuery.app_data_hash,
+              }
+              const appliedReceipt2: AppliedReceipt2 = {
+                txid: receiptFromRobustQuery.txid,
+                result: receiptFromRobustQuery.result,
+                appliedVote: receiptFromRobustQuery.appliedVote,
+                app_data_hash: receiptFromRobustQuery.app_data_hash,
+                signatures: [receiptFromRobustQuery.appliedVote.sign],
+              }
+              queueEntry.appliedReceipt = appliedReceipt
+              queueEntry.appliedReceipt2 = appliedReceipt2
+              return appliedReceipt
+            } else {
+              return queueEntry.appliedReceipt
+            }
+          }
+        } else {
+          if (logFlags.debug)
+            this.mainLogger.debug(
+              `tryProduceReceipt: ${queueEntry.logID} not producing receipt yet because timeSinceLastConfirmOrChallenge is ${timeSinceLastConfirmOrChallenge} ms`
+            )
+        }
       }
+      return null
+    } catch (e) {
+      this.mainLogger.error(`tryProduceReceipt: ${queueEntry.logID} error: ${e.message}`)
+    } finally {
+      this.profiler.scopedProfileSectionEnd('tryProduceReceipt')
+      this.profiler.profileSectionEnd('tryProduceReceipt')
     }
-    return null
   }
 
   async robustQueryBestReceipt(queueEntry: QueueEntry): Promise<AppliedReceipt2> {
@@ -1255,32 +1269,41 @@ class TransactionConsenus {
   }
 
   async robustQueryBestVote(queueEntry: QueueEntry): Promise<AppliedVote> {
-    const queryFn = async (node: Shardus.Node): Promise<AppliedVoteQueryResponse> => {
-      const ip = node.externalIp
-      const port = node.externalPort
-      // the queryFunction must return null if the given node is our own
-      if (ip === Self.ip && port === Self.port) return null
-      const queryData: AppliedVoteQuery = { txId: queueEntry.acceptedTx.txId }
-      return await Comms.ask(node, 'get_applied_vote', queryData)
-    }
-    const eqFn = (item1: AppliedVoteQueryResponse, item2: AppliedVoteQueryResponse): boolean => {
-      try {
-        if (item1.appliedVoteHash === item2.appliedVoteHash) return true
-        return false
-      } catch (err) {
-        return false
+    profilerInstance.profileSectionStart('confirmOrChallenge robustQueryBestVote')
+    profilerInstance.scopedProfileSectionStart('confirmOrChallenge robustQueryBestVote')
+    try {
+      const queryFn = async (node: Shardus.Node): Promise<AppliedVoteQueryResponse> => {
+        const ip = node.externalIp
+        const port = node.externalPort
+        // the queryFunction must return null if the given node is our own
+        if (ip === Self.ip && port === Self.port) return null
+        const queryData: AppliedVoteQuery = { txId: queueEntry.acceptedTx.txId }
+        return await Comms.ask(node, 'get_applied_vote', queryData)
       }
-    }
-    const redundancy = 3
-    const { topResult: response } = await robustQuery(
-      this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry),
-      queryFn,
-      eqFn,
-      redundancy,
-      true
-    )
-    if (response && response.appliedVote) {
-      return response.appliedVote
+      const eqFn = (item1: AppliedVoteQueryResponse, item2: AppliedVoteQueryResponse): boolean => {
+        try {
+          if (item1.appliedVoteHash === item2.appliedVoteHash) return true
+          return false
+        } catch (err) {
+          return false
+        }
+      }
+      const redundancy = 3
+      const { topResult: response } = await robustQuery(
+        this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry),
+        queryFn,
+        eqFn,
+        redundancy,
+        true
+      )
+      if (response && response.appliedVote) {
+        return response.appliedVote
+      }
+    } catch (e) {
+      this.mainLogger.error(`robustQueryBestVote: ${queueEntry.logID} error: ${e.message}`)
+    } finally {
+      profilerInstance.scopedProfileSectionEnd('confirmOrChallenge robustQueryBestVote')
+      profilerInstance.profileSectionEnd('confirmOrChallenge robustQueryBestVote')
     }
   }
 
@@ -1324,21 +1347,25 @@ class TransactionConsenus {
   }
 
   async confirmOrChallenge(queueEntry: QueueEntry): Promise<void> {
-    if (queueEntry.gossipedConfirmOrChallenge === true) {
-      return
-    }
-    if (queueEntry.isInExecutionHome === false) {
-      return
-    }
-    if (queueEntry.ourVote == null) {
-      return
-    }
-    if (queueEntry.completedConfirmedOrChallenge) {
-      return
-    }
     this.profiler.profileSectionStart('confirmOrChallenge')
     this.profiler.scopedProfileSectionStart('confirmOrChallenge')
     try {
+      if (queueEntry.gossipedConfirmOrChallenge === true) {
+        nestedCountersInstance.countEvent('confirmOrChallenge', 'gossipedConfirmOrChallenge')
+        return
+      }
+      if (queueEntry.isInExecutionHome === false) {
+        nestedCountersInstance.countEvent('confirmOrChallenge', 'not in execution home')
+        return
+      }
+      if (queueEntry.ourVote == null) {
+        nestedCountersInstance.countEvent('confirmOrChallenge', 'ourVote == null')
+        return
+      }
+      if (queueEntry.completedConfirmedOrChallenge) {
+        nestedCountersInstance.countEvent('confirmOrChallenge', 'already completedConfirmedOrChallenge')
+        return
+      }
       if (logFlags.debug)
         this.mainLogger.debug(
           `tryConfirmOrChallenge: ${queueEntry.logID}  receivedBestVote: ${JSON.stringify(
@@ -1360,6 +1387,7 @@ class TransactionConsenus {
           `tryConfirmOrChallenge: ${queueEntry.logID} hasWaitedLongEnough: ${hasWaitedLongEnough}, hasWaitLimitReached: ${hasWaitLimitReached}, timeSinceLastVoteMessage: ${timeSinceLastVoteMessage} ms, timeSinceFirstVote: ${timeSinceFirstVote} ms`
         )
       if (hasWaitedLongEnough || hasWaitLimitReached) {
+        nestedCountersInstance.countEvent('confirmOrChallenge', 'hasWaitedLongEnough or hasWaitLimitReached')
         // stop accepting the vote messages for this tx
         queueEntry.acceptVoteMessage = false
         const eligibleToConfirm = queueEntry.eligibleNodesToConfirm.map((node) => node.id).includes(Self.id)
@@ -1369,6 +1397,7 @@ class TransactionConsenus {
         if (voteFromRobustQuery == null) {
           // we cannot confirm the best vote from network
           this.mainLogger.error(`We cannot get voteFromRobustQuery for tx ${queueEntry.acceptedTx.txId}`)
+          nestedCountersInstance.countEvent('confirmOrChallenge', 'cannot get robust vote from network')
           return
         }
         let bestVoterFromRobustQuery: Shardus.NodeWithRank
@@ -1380,6 +1409,7 @@ class TransactionConsenus {
         if (bestVoterFromRobustQuery == null) {
           // we cannot confirm the best voter from network
           this.mainLogger.error(`We cannot get bestVoter from robustQuery for tx ${queueEntry.logID}`)
+          nestedCountersInstance.countEvent('confirmOrChallenge', 'cannot get robust voter from network')
           return
         }
 
@@ -1388,6 +1418,7 @@ class TransactionConsenus {
         let finalVote = queueEntry.receivedBestVote
         let finalVoteHash = queueEntry.receivedBestVoteHash
         if (isRobustQueryVoteBetter) {
+          nestedCountersInstance.countEvent('confirmOrChallenge', 'robust query vote is better')
           finalVote = voteFromRobustQuery
           finalVoteHash = this.calculateVoteHash(voteFromRobustQuery)
           queueEntry.receivedBestVote = voteFromRobustQuery
@@ -1403,6 +1434,7 @@ class TransactionConsenus {
             `tryConfirmOrChallenge: ${queueEntry.logID} isInExecutionSet: ${isInExecutionSet}, eligibleToConfirm: ${eligibleToConfirm}, shouldChallenge: ${shouldChallenge}`
           )
         if (isInExecutionSet && shouldChallenge) {
+          nestedCountersInstance.countEvent('confirmOrChallenge', 'challenge the best vote')
           this.challengeVoteAndShare(queueEntry)
           queueEntry.completedConfirmedOrChallenge = true
           return
@@ -1413,7 +1445,7 @@ class TransactionConsenus {
           const eligibleNodeIds = queueEntry.eligibleNodesToConfirm.map((node) => node.id).reverse()
           const ourRankIndex = eligibleNodeIds.indexOf(Self.id)
           const delayBeforeConfirm = ourRankIndex * 100 // 100ms
-          let isReceivedBetterConfirmation = false
+          const isReceivedBetterConfirmation = false
 
           await utils.sleep(delayBeforeConfirm)
 
@@ -1422,9 +1454,10 @@ class TransactionConsenus {
             queueEntry.receivedBestConfirmedNode &&
             queueEntry.receivedBestConfirmedNode.rank < queueEntry.ourNodeRank
           ) {
-            isReceivedBetterConfirmation = true
-          }
-          if (isReceivedBetterConfirmation) {
+            nestedCountersInstance.countEvent(
+              'confirmOrChallenge',
+              `isReceivedBetterConfirmation after ${delayBeforeConfirm}ms delay: true`
+            )
             if (logFlags.debug)
               this.mainLogger.debug(
                 `tryConfirmOrChallenge: ${
@@ -1433,13 +1466,14 @@ class TransactionConsenus {
                   queueEntry.receivedBestConfirmation
                 )}`
               )
-            nestedCountersInstance.countEvent(
-              'transactionConsensus',
-              'confirmOrChallenge isReceivedBetterConfirmation: true'
-            )
             queueEntry.completedConfirmedOrChallenge = true
             return
           }
+          nestedCountersInstance.countEvent(
+            'confirmOrChallenge',
+            `isReceivedBetterConfirmation after ${delayBeforeConfirm}ms delay: false`
+          )
+
           // BAD NODE SIMULATION
           if (this.config.debug.produceBadChallenge) {
             this.challengeVoteAndShare(queueEntry)
@@ -1449,13 +1483,14 @@ class TransactionConsenus {
         }
         queueEntry.completedConfirmedOrChallenge = true
       } else {
+        nestedCountersInstance.countEvent('confirmOrChallenge', 'still early for confirm or challenge')
         if (logFlags.debug)
           this.mainLogger.debug(
             `tryConfirmOrChallenge: ${queueEntry.logID} not sending confirm or challenge yet because timeSinceLastVoteMessage is ${timeSinceLastVoteMessage} ms`
           )
       }
     } catch (e) {
-      this.mainLogger.error(`tryConfirmOrChallenge: ${queueEntry.logID} ${e.message}, ${e.stack}`)
+      this.mainLogger.error(`tryConfirmOrChallenge: ${queueEntry.logID} error: ${e.message}, ${e.stack}`)
     } finally {
       this.profiler.profileSectionEnd('confirmOrChallenge')
       this.profiler.scopedProfileSectionEnd('confirmOrChallenge')
@@ -1468,71 +1503,78 @@ class TransactionConsenus {
 
   async confirmVoteAndShare(queueEntry: QueueEntry): Promise<void> {
     this.profiler.profileSectionStart('confirmVoteAndShare')
-    /* prettier-ignore */
-    if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
+    try {
+      /* prettier-ignore */
+      if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
-    // podA: POQ3 create confirm message and share to tx group
-    const confirmMessage: ConfirmOrChallengeMessage = {
-      message: 'confirm',
-      nodeId: queueEntry.ourVote.node_id,
-      appliedVote: queueEntry.ourVote,
+      // podA: POQ3 create confirm message and share to tx group
+      const confirmMessage: ConfirmOrChallengeMessage = {
+        message: 'confirm',
+        nodeId: queueEntry.ourVote.node_id,
+        appliedVote: queueEntry.ourVote,
+      }
+      const signedConfirmMessage = this.crypto.sign(confirmMessage)
+      this.mainLogger.debug(`confirmVoteAndShare: ${queueEntry.logID}  ${JSON.stringify(confirmMessage)}}`)
+
+      //Share message to tx group
+      const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
+      Comms.sendGossip('spread_confirmOrChallenge', signedConfirmMessage, '', null, gossipGroup, true, 10)
+      queueEntry.gossipedConfirmOrChallenge = true
+    } catch (e) {
+      this.mainLogger.error(`confirmVoteAndShare: ${queueEntry.logID} error: ${e.message}`)
+    } finally {
+      this.profiler.profileSectionEnd('confirmVoteAndShare')
     }
-    const signedConfirmMessage = this.crypto.sign(confirmMessage)
-    this.mainLogger.debug(`confirmVoteAndShare: ${queueEntry.logID}  ${JSON.stringify(confirmMessage)}}`)
-
-    //Share message to tx group
-    const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
-    Comms.sendGossip('spread_confirmOrChallenge', signedConfirmMessage, '', null, gossipGroup, true, 10)
-    queueEntry.gossipedConfirmOrChallenge = true
-
-    this.profiler.profileSectionEnd('confirmVoteAndShare')
   }
 
   async challengeVoteAndShare(queueEntry: QueueEntry): Promise<void> {
     this.profiler.profileSectionStart('challengeVoteAndShare')
-    /* prettier-ignore */
-    if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
+    try {
+      /* prettier-ignore */
+      if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
-    // Should check account integrity only when before states are different from best vote
-    let doStatesMatch = true
-    const voteBeforeStates = queueEntry.receivedBestVote.account_state_hash_before
-    const ourBeforeStates = Object.values(queueEntry.collectedData)
-    if (voteBeforeStates.length !== ourBeforeStates.length) {
-      doStatesMatch = false
-    }
-    for (let i = 0; i < voteBeforeStates.length; i++) {
-      if (voteBeforeStates[i] !== ourBeforeStates[i].stateId) {
+      // Should check account integrity only when before states are different from best vote
+      let doStatesMatch = true
+      const voteBeforeStates = queueEntry.receivedBestVote.account_state_hash_before
+      const ourBeforeStates = Object.values(queueEntry.collectedData)
+      if (voteBeforeStates.length !== ourBeforeStates.length) {
         doStatesMatch = false
-        break
       }
+      for (let i = 0; i < voteBeforeStates.length; i++) {
+        if (voteBeforeStates[i] !== ourBeforeStates[i].stateId) {
+          doStatesMatch = false
+          break
+        }
+      }
+      const isAccountIntegrityOk = doStatesMatch ? true : await this.checkAccountIntegrity(queueEntry)
+
+      if (!isAccountIntegrityOk) {
+        if (logFlags.verbose)
+          this.mainLogger.debug(`challengeVoteAndShare: ${queueEntry.logID} account integrity is not ok`)
+        return
+      }
+
+      //podA: POQ4 create challenge message and share to tx group
+      const challengeMessage: ConfirmOrChallengeMessage = {
+        message: 'challenge',
+        nodeId: queueEntry.ourVote.node_id,
+        appliedVote: queueEntry.receivedBestVote,
+      }
+      const signedChallengeMessage = this.crypto.sign(challengeMessage)
+      if (logFlags.debug)
+        this.mainLogger.debug(
+          `challengeVoteAndShare: ${queueEntry.logID}  ${JSON.stringify(signedChallengeMessage)}}`
+        )
+
+      //Share message to tx group
+      const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
+      Comms.sendGossip('spread_confirmOrChallenge', signedChallengeMessage, '', null, gossipGroup, true, 10)
+      queueEntry.gossipedConfirmOrChallenge = true
+    } catch (e) {
+      this.mainLogger.error(`challengeVoteAndShare: ${queueEntry.logID} error: ${e.message}`)
+    } finally {
+      this.profiler.profileSectionEnd('challengeVoteAndShare')
     }
-
-    const isAccountIntegrityOk = doStatesMatch || (await this.checkAccountIntegrity(queueEntry))
-    if (!isAccountIntegrityOk) {
-      if (logFlags.verbose)
-        this.mainLogger.debug(`challengeVoteAndShare: ${queueEntry.logID} account integrity is not ok`)
-      return
-    }
-
-    //podA: POQ4 create challenge message and share to tx group
-    const challengeMessage: ConfirmOrChallengeMessage = {
-      message: 'challenge',
-      nodeId: queueEntry.ourVote.node_id,
-      appliedVote: queueEntry.receivedBestVote,
-    }
-    const signedChallengeMessage = this.crypto.sign(challengeMessage)
-    if (logFlags.debug)
-      this.mainLogger.debug(
-        `challengeVoteAndShare: ${queueEntry.logID}  ${JSON.stringify(signedChallengeMessage)}}`
-      )
-
-    //Share message to tx group
-    const gossipGroup = this.stateManager.transactionQueue.queueEntryGetTransactionGroup(queueEntry)
-    Comms.sendGossip('spread_confirmOrChallenge', signedChallengeMessage, '', null, gossipGroup, true, 10)
-    queueEntry.gossipedConfirmOrChallenge = true
-
-    this.profiler.profileSectionEnd('challengeVoteAndShare')
-    return null
   }
 
   async checkAccountIntegrity(queueEntry: QueueEntry): Promise<boolean> {
@@ -1828,6 +1870,12 @@ class TransactionConsenus {
    * @param confirmOrChallenge
    */
   tryAppendMessage(queueEntry: QueueEntry, confirmOrChallenge: ConfirmOrChallengeMessage): boolean {
+    if (
+      queueEntry.acceptConfirmOrChallenge === false ||
+      queueEntry.completedConfirmedOrChallenge ||
+      queueEntry.appliedReceipt2 != null
+    )
+      return false
     /* prettier-ignore */
     if (logFlags.playback) this.logger.playbackLogNote("tryAppendMessage", `${queueEntry.logID}`, `collectedVotes: ${queueEntry.collectedVotes.length}`);
     /* prettier-ignore */
@@ -2024,6 +2072,7 @@ class TransactionConsenus {
 
       return true
     } else {
+      if (queueEntry.acceptVoteMessage === false || queueEntry.appliedReceipt2 != null) return false
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('tryAppendVote', `${queueEntry.logID}`, `vote: ${utils.stringifyReduce(vote)}`)
       /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   vote: ${utils.stringifyReduce(vote)}`)
 
