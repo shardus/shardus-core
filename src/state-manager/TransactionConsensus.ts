@@ -1543,9 +1543,12 @@ class TransactionConsenus {
           this.mainLogger.debug(
             `tryConfirmOrChallenge: ${queueEntry.logID} isInExecutionSet: ${isInExecutionSet}, eligibleToConfirm: ${eligibleToConfirm}, shouldChallenge: ${shouldChallenge}`
           )
-        // if we are in execution group and disagree with the highest ranked vote, send out a "challenge" message
-        if (shouldChallenge) {
-          nestedCountersInstance.countEvent('confirmOrChallenge', 'challenge the best vote')
+        if (this.produceBadChallenge || (isInExecutionSet && shouldChallenge)) {
+          if (!shouldChallenge && logFlags.debug) {
+            this.mainLogger.debug(
+              `tryConfirmOrChallenge: ${queueEntry.logID} I'm a bad node producing a bad challenge`
+            )
+          }
           this.challengeVoteAndShare(queueEntry)
           return
         }
@@ -1585,13 +1588,7 @@ class TransactionConsenus {
               `isReceivedBetterConfirmation after ${delayBeforeConfirm}ms delay: false`
             )
           }
-
-          // BAD NODE SIMULATION
-          if (this.config.debug.produceBadChallenge) {
-            this.challengeVoteAndShare(queueEntry)
-          } else {
-            this.confirmVoteAndShare(queueEntry)
-          }
+          this.confirmVoteAndShare(queueEntry)
         } else if (eligibleToConfirm === false && queueEntry.ourVoteHash === finalVoteHash) {
           // we are not eligible to confirm
           queueEntry.completedConfirmedOrChallenge = true
@@ -1774,11 +1771,6 @@ class TransactionConsenus {
       for (const accountID in queueEntry.collectedData) {
         const wrappedResponse = queueEntry.collectedData[accountID]
         ourVote.account_state_hash_before.push(wrappedResponse.stateId)
-      }
-
-      // BAD NODE SIMULATION
-      if (this.config.debug.produceBadVote) {
-        ourVote.transaction_result = !ourVote.transaction_result
       }
 
       // BAD NODE SIMULATION
