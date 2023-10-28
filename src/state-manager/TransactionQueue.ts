@@ -2237,7 +2237,7 @@ class TransactionQueue {
   }
 
   // compute the rand of the node where rank = node_id XOR hash(tx_id + tx_ts)
-  computeNodeRank(nodeId: string, txId: string, txTimestamp: number, numberOfBytes: number = 4): bigint {
+  computeNodeRank(nodeId: string, txId: string, txTimestamp: number, numberOfBytes = 4): bigint {
     if (nodeId == null || txId == null || txTimestamp == null) return BigInt(0)
     const hash = this.crypto.hash([txId, txTimestamp])
     return BigInt(XOR(nodeId, hash, numberOfBytes))
