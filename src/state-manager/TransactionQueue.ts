@@ -2237,22 +2237,38 @@ class TransactionQueue {
   }
 
   // compute the rand of the node where rank = node_id XOR hash(tx_id + tx_ts)
-  computeNodeRank(nodeId: string, txId: string, txTimestamp: number): bigint {
+  computeNodeRank(nodeId: string, txId: string, txTimestamp: number, numberOfBytes: number = 4): bigint {
     if (nodeId == null || txId == null || txTimestamp == null) return BigInt(0)
     const hash = this.crypto.hash([txId, txTimestamp])
-    return BigInt(XOR(nodeId, hash))
+    return BigInt(XOR(nodeId, hash, numberOfBytes))
   }
 
   // sort the nodeList by rank, in descending order
-  orderNodesByRank(nodeList: Shardus.Node[], queueEntry: QueueEntry): Shardus.NodeWithRank[] {
+  orderNodesByRank(
+    nodeList: Shardus.Node[],
+    queueEntry: QueueEntry,
+    numberOfBytes = 4
+  ): Shardus.NodeWithRank[] {
     const nodeListWithRankData: Shardus.NodeWithRank[] = nodeList.map((node: Shardus.Node) => {
-      const rank = this.computeNodeRank(node.id, queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp)
+      const rank = this.computeNodeRank(
+        node.id,
+        queueEntry.acceptedTx.txId,
+        queueEntry.acceptedTx.timestamp,
+        numberOfBytes
+      )
       const nodeWithRank: Shardus.NodeWithRank = { ...node, rank }
       return nodeWithRank
     })
-    return nodeListWithRankData.sort((a: Shardus.NodeWithRank, b: Shardus.NodeWithRank) => {
+    let rankCollisionDetected = false
+    const sortedNodeList = nodeListWithRankData.sort((a: Shardus.NodeWithRank, b: Shardus.NodeWithRank) => {
+      if (a.rank === b.rank) {
+        rankCollisionDetected = true
+        return 0
+      }
       return b.rank > a.rank ? 1 : -1
     })
+    if (rankCollisionDetected) return this.orderNodesByRank(sortedNodeList, queueEntry, 32)
+    return sortedNodeList
   }
 
   /**
