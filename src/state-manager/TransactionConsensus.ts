@@ -2012,9 +2012,9 @@ class TransactionConsenus {
 
       if (!foundNode) {
         this.mainLogger.error(
-          'tryAppendMessage: ${queueEntry.logID} Message signature does not match with any eligible nodes that can confirm.'
+          `tryAppendMessage: ${queueEntry.logID} Message signature does not match with any eligible nodes that can confirm.`
         )
-        return
+        return false
       }
     }
 
@@ -2027,7 +2027,7 @@ class TransactionConsenus {
       this.mainLogger.error(
         `tryAppendMessage: ${queueEntry.logID} confirm/challenge is too early. Not finalized best vote yet`
       )
-      return
+      return false
     }
 
     // verify that the vote part of the message is for the same vote that was finalized in the previous phase
