@@ -1021,22 +1021,8 @@ class TransactionConsenus {
               bestNodeFromRobustQuery = node
             }
           }
-
-          let isRobustQueryNodeBetter =
+          const isRobustQueryNodeBetter =
             bestNodeFromRobustQuery.rank < queueEntry.receivedBestChallenger.rank
-          if (bestNodeFromRobustQuery.id !== queueEntry.receivedBestChallenger.id
-            && bestNodeFromRobustQuery.rank === queueEntry.receivedBestChallenger.rank) {
-            const robustQueryRank = this.computeFullNodeRank(
-              bestNodeFromRobustQuery.id,
-              receiptFromRobustQuery.txid,
-              queueEntry.acceptedTx.timestamp)
-
-            const bestVoteRank = this.computeFullNodeRank(
-              queueEntry.receivedBestChallenger.id,
-              queueEntry.receivedBestChallenge.appliedVote.txid,
-              queueEntry.acceptedTx.timestamp)
-            isRobustQueryNodeBetter = robustQueryRank < bestVoteRank
-          }
           if (isRobustQueryNodeBetter) {
             if (logFlags.debug)
               this.mainLogger.debug(
@@ -1150,20 +1136,7 @@ class TransactionConsenus {
             }
           }
 
-          let isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank < queueEntry.receivedBestVoter.rank
-          if (bestNodeFromRobustQuery.id !== queueEntry.receivedBestVoter.id
-            && bestNodeFromRobustQuery.rank === queueEntry.receivedBestVoter.rank) {
-            const robustQueryRank = this.computeFullNodeRank(
-              bestNodeFromRobustQuery.id,
-              receiptFromRobustQuery.txid,
-              queueEntry.acceptedTx.timestamp)
-
-            const bestVoteRank = this.computeFullNodeRank(
-              queueEntry.receivedBestVoter.id,
-              queueEntry.appliedReceipt.txid,
-              queueEntry.acceptedTx.timestamp)
-            isRobustQueryNodeBetter = robustQueryRank < bestVoteRank
-          }
+          const isRobustQueryNodeBetter = bestNodeFromRobustQuery.rank < queueEntry.receivedBestVoter.rank
           if (isRobustQueryNodeBetter) {
             if (logFlags.debug)
               this.mainLogger.debug(
@@ -1409,21 +1382,7 @@ class TransactionConsenus {
         }
 
         // if vote from robust is better than our received vote, use it as final vote
-        let isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
-        if (bestVoterFromRobustQuery.id !== queueEntry.receivedBestVoter.id
-          && bestVoterFromRobustQuery.rank === queueEntry.receivedBestVoter.rank) {
-          const robustQueryRank = this.computeFullNodeRank(
-            bestVoterFromRobustQuery.id,
-            voteFromRobustQuery.txid,
-            queueEntry.acceptedTx.timestamp)
-
-          const bestVoteRank = this.computeFullNodeRank(
-            queueEntry.receivedBestVoter.id,
-            queueEntry.receivedBestVote.txid,
-            queueEntry.acceptedTx.timestamp)
-          isRobustQueryVoteBetter = robustQueryRank > bestVoteRank
-        }
-
+        const isRobustQueryVoteBetter = bestVoterFromRobustQuery.rank > queueEntry.receivedBestVoter.rank
         let finalVote = queueEntry.receivedBestVote
         let finalVoteHash = queueEntry.receivedBestVoteHash
         if (isRobustQueryVoteBetter) {
@@ -1940,19 +1899,6 @@ class TransactionConsenus {
 
         isBetterThanCurrentConfirmation =
           receivedConfirmedNode.rank > queueEntry.receivedBestConfirmedNode.rank
-        if (receivedConfirmedNode.id !== queueEntry.receivedBestConfirmedNode.id
-          && receivedConfirmedNode.rank === queueEntry.receivedBestConfirmedNode.rank) {
-          const receivedConfirmRank = this.computeFullNodeRank(
-            receivedConfirmedNode.id,
-            confirmOrChallenge.appliedVote.txid,
-            queueEntry.acceptedTx.timestamp)
-
-          const bestCurrentRank = this.computeFullNodeRank(
-            queueEntry.receivedBestConfirmedNode.id,
-            queueEntry.receivedBestConfirmation.appliedVote.txid,
-            queueEntry.acceptedTx.timestamp)
-          isBetterThanCurrentConfirmation = receivedConfirmRank > bestCurrentRank
-        }
       }
 
       if (!isBetterThanCurrentConfirmation) {
@@ -1998,21 +1944,7 @@ class TransactionConsenus {
             break
           }
         }
-
         isBetterThanCurrentChallenge = receivedChallenger.rank < queueEntry.receivedBestChallenger.rank
-        if (receivedChallenger.id !== queueEntry.receivedBestChallenger.id
-          && receivedChallenger.rank === queueEntry.receivedBestChallenger.rank) {
-          const receivedChallengeRank = this.computeFullNodeRank(
-            receivedChallenger.id,
-            confirmOrChallenge.appliedVote.txid,
-            queueEntry.acceptedTx.timestamp)
-
-          const bestCurrentRank = this.computeFullNodeRank(
-            queueEntry.receivedBestChallenger.id,
-            queueEntry.receivedBestChallenge.appliedVote.txid,
-            queueEntry.acceptedTx.timestamp)
-          isBetterThanCurrentChallenge = receivedChallengeRank < bestCurrentRank
-        }
       }
 
       if (!isBetterThanCurrentChallenge) {
@@ -2129,19 +2061,6 @@ class TransactionConsenus {
           }
         }
         isBetterThanCurrentVote = recievedVoter.rank > queueEntry.receivedBestVoter.rank
-        if (recievedVoter.id !== queueEntry.receivedBestVoter.id
-          && recievedVoter.rank > queueEntry.receivedBestVoter.rank) {
-          const receivedVoteRank = this.computeFullNodeRank(
-            recievedVoter.id,
-            vote.txid,
-            queueEntry.acceptedTx.timestamp)
-
-          const bestCurrentRank = this.computeFullNodeRank(
-            queueEntry.receivedBestVoter.id,
-            queueEntry.receivedBestVote.txid,
-            queueEntry.acceptedTx.timestamp)
-          isBetterThanCurrentVote = receivedVoteRank > bestCurrentRank
-        }
       }
 
       if (!isBetterThanCurrentVote) {
@@ -2204,15 +2123,6 @@ class TransactionConsenus {
     queueEntry.newVotes = true
 
     return true
-  }
-
-  // used for edge cases on rank collisions
-  private computeFullNodeRank(nodeId: string, txId: string, txTimestamp: number): bigint {
-    if (nodeId == null || txId == null || txTimestamp == null) return BigInt(0)
-    const hash = this.crypto.hash([txId, txTimestamp])
-    const num1 = BigInt('0x' + nodeId)
-    const num2 = BigInt('0x' + hash)
-    return num1 ^ num2
   }
 }
 

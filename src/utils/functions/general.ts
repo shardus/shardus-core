@@ -67,9 +67,11 @@ export function propComparator2<T>(prop: keyof T, prop2: keyof T): (a: T, b: T) 
 
 export const XOR = (hexString1: string, hexString2: string, numberOfBytes = 4): number => {
   // tslint:disable-next-line: ban
-  const num1 = parseInt(hexString1.substring(0, 8), Math.max(hexString1.length, Math.pow(2, numberOfBytes)))
+  const num1 = parseInt(hexString1.substring(0,
+    Math.min(hexString1.length, Math.pow(2, numberOfBytes) / 2)), 16)
   // tslint:disable-next-line: ban
-  const num2 = parseInt(hexString2.substring(0, 8), Math.max(hexString2.length, Math.pow(2, numberOfBytes)))
+  const num2 = parseInt(hexString2.substring(0,
+    Math.min(hexString2.length, Math.pow(2, numberOfBytes) / 2)), 16)
   return (num1 ^ num2) >>> 0
 }
 

@@ -2267,7 +2267,7 @@ class TransactionQueue {
       }
       return b.rank > a.rank ? 1 : -1
     })
-    if (rankCollisionDetected) return this.orderNodesByRank(sortedNodeList, queueEntry, 32)
+    if (rankCollisionDetected) return this.orderNodesByRank(sortedNodeList, queueEntry, 16)
     return sortedNodeList
   }
 
