@@ -672,10 +672,20 @@ export type AppliedVoteQuery = {
   txId: string
 }
 
+export type ConfirmOrChallengeQuery = {
+  txId: string
+}
+
 export type AppliedVoteQueryResponse = {
   txId: string
   appliedVote: AppliedVote
   appliedVoteHash: string
+}
+
+export type ConfirmOrChallengeQueryResponse = {
+  txId: string
+  appliedVoteHash: string
+  result: ConfirmOrChallengeMessage
 }
 
 // export type AppliedReceiptGossip2 = {
