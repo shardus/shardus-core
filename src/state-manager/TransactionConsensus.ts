@@ -1463,8 +1463,6 @@ class TransactionConsenus {
   }
 
   async confirmOrChallenge(queueEntry: QueueEntry): Promise<void> {
-    this.profiler.profileSectionStart('confirmOrChallenge')
-    this.profiler.scopedProfileSectionStart('confirmOrChallenge')
     try {
       if (queueEntry.isInExecutionHome === false) {
         nestedCountersInstance.countEvent('confirmOrChallenge', 'not in execution home')
@@ -1484,6 +1482,9 @@ class TransactionConsenus {
             queueEntry.receivedBestVote
           )}} `
         )
+
+      this.profiler.profileSectionStart('confirmOrChallenge')
+      this.profiler.scopedProfileSectionStart('confirmOrChallenge')
 
       const now = Date.now()
       //  if we are in lowest 10% of execution group and agrees with the highest ranked vote, send out a confirm msg
@@ -1541,9 +1542,9 @@ class TransactionConsenus {
 
         if (logFlags.debug)
           this.mainLogger.debug(
-            `tryConfirmOrChallenge: ${queueEntry.logID} isInExecutionSet: ${isInExecutionSet}, eligibleToConfirm: ${eligibleToConfirm}, shouldChallenge: ${shouldChallenge}`
+            `tryConfirmOrChallenge: ${queueEntry.logID} isInExecutionSet: ${queueEntry.isInExecutionHome}, eligibleToConfirm: ${eligibleToConfirm}, shouldChallenge: ${shouldChallenge}`
           )
-        if (this.produceBadChallenge || (isInExecutionSet && shouldChallenge)) {
+        if (this.produceBadChallenge || shouldChallenge) {
           if (!shouldChallenge && logFlags.debug) {
             this.mainLogger.debug(
               `tryConfirmOrChallenge: ${queueEntry.logID} I'm a bad node producing a bad challenge`
@@ -1656,12 +1657,20 @@ class TransactionConsenus {
       for (let i = 0; i < voteBeforeStates.length; i++) {
         if (voteBeforeStates[i] !== ourBeforeStates[i].stateId) {
           doStatesMatch = false
+          nestedCountersInstance.countEvent(
+            'confirmOrChallenge',
+            'tryChallengeVoteAndShare states do not match'
+          )
           break
         }
       }
       const isAccountIntegrityOk = doStatesMatch ? true : await this.checkAccountIntegrity(queueEntry)
 
       if (!isAccountIntegrityOk) {
+        nestedCountersInstance.countEvent(
+          'confirmOrChallenge',
+          'tryChallengeVoteAndShare account integrity not ok.'
+        )
         if (logFlags.verbose)
           this.mainLogger.debug(`challengeVoteAndShare: ${queueEntry.logID} account integrity is not ok`)
         return
