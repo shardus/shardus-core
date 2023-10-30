@@ -3377,7 +3377,7 @@ class StateManager {
           if (receipt.app_data_hash != null && receipt.app_data_hash != '') {
             const applyResponse = queueEntry?.preApplyTXResult?.applyResponse
             // we may not always have appReceiptData... especially in execute in local shard
-            if (applyResponse.appReceiptDataHash === receipt.app_data_hash) {
+            if (applyResponse && applyResponse.appReceiptDataHash === receipt.app_data_hash) {
               mapResult.txsMapEVMReceipt[txIdShort] = applyResponse.appReceiptData
               gotAppReceipt = true
             }
