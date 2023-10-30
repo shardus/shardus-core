@@ -1738,7 +1738,7 @@ class TransactionConsenus {
         const key = keys[i]
         const collectedAccountData = queueEntry.collectedData[key]
         const robustQueryAccountData = results[i]
-        if (
+        if (robustQueryAccountData &&
           robustQueryAccountData.stateId === collectedAccountData.stateId &&
           robustQueryAccountData.timestamp === collectedAccountData.timestamp
         ) {
