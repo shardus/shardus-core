@@ -215,34 +215,55 @@ class TransactionConsenus {
       'get_confirm_or_challenge',
       async (payload: AppliedVoteQuery, respond: (arg0: ConfirmOrChallengeQuery) => unknown) => {
         nestedCountersInstance.countEvent('consensus', 'get_confirm_or_challenge')
-        const { txId } = payload
-        let queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(txId)
-        if (queueEntry == null) {
-          // It is ok to search the archive for this.  Not checking this was possibly breaking the gossip chain before
-          queueEntry = this.stateManager.transactionQueue.getQueueEntryArchived(
-            txId,
-            'get_confirm_or_challenge'
-          )
-        }
+        this.profiler.scopedProfileSectionStart('get_confirm_or_challenge', true)
+        try {
+          const { txId } = payload
+          let queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(txId)
+          if (queueEntry == null) {
+            // It is ok to search the archive for this.  Not checking this was possibly breaking the gossip chain before
+            queueEntry = this.stateManager.transactionQueue.getQueueEntryArchived(
+              txId,
+              'get_confirm_or_challenge'
+            )
+          }
 
-        if (queueEntry == null) {
-          /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`get_confirm_or_challenge no queue entry for ${payload.txId} dbg:${this.stateManager.debugTXHistory[utils.stringifyReduce(payload.txId)]}`)
-          return
+          if (queueEntry == null) {
+            /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`get_confirm_or_challenge no queue entry for ${payload.txId} dbg:${this.stateManager.debugTXHistory[utils.stringifyReduce(payload.txId)]}`)
+            return
+          }
+          if (queueEntry.receivedBestConfirmation == null && queueEntry.receivedBestChallenge == null) {
+            nestedCountersInstance.countEvent(
+              'consensus',
+              'get_confirm_or_challenge no confirmation or challenge'
+            )
+            /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`get_confirm_or_challenge no confirmation or challenge for ${queueEntry.logID}, bestVote: ${JSON.stringify(queueEntry.receivedBestVote)},  bestConfirmation: ${JSON.stringify(queueEntry.receivedBestConfirmation)}`)
+            return
+          }
+          const waitedTime = Date.now() - queueEntry.lastConfirmOrChallengeTimestamp
+          const waitCompletionPercent = waitedTime / this.config.stateManager.waitTimeBeforeReceipt
+          if (waitCompletionPercent < 0.8) {
+            nestedCountersInstance.countEvent(
+              'consensus',
+              'get_confirm_or_challenge wait completion: ' + waitCompletionPercent
+            )
+            nestedCountersInstance.countEvent('consensus', 'get_confirm_or_challenge still waiting messages')
+            /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`get_confirm_or_challenge still accepting messages for ${queueEntry.logID}, bestVote: ${JSON.stringify(queueEntry.receivedBestVote)},  bestConfirmation: ${JSON.stringify(queueEntry.receivedBestConfirmation)}`)
+            return
+          }
+          const confirmOrChallengeResult: ConfirmOrChallengeQueryResponse = {
+            txId,
+            appliedVoteHash: queueEntry.receivedBestVoteHash
+              ? queueEntry.receivedBestVoteHash
+              : this.calculateVoteHash(queueEntry.receivedBestVote),
+            result: queueEntry.receivedBestChallenge
+              ? queueEntry.receivedBestChallenge
+              : queueEntry.receivedBestConfirmation,
+          }
+          await respond(confirmOrChallengeResult)
+        } catch (e) {
+        } finally {
+          this.profiler.scopedProfileSectionEnd('get_confirm_or_challenge')
         }
-        if (queueEntry.receivedBestConfirmation == null && queueEntry.receivedBestChallenge == null) {
-          /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`get_confirm_or_challenge no confirmation or challenge for ${queueEntry.logID}, bestVote: ${JSON.stringify(queueEntry.receivedBestVote)},  bestConfirmation: ${JSON.stringify(queueEntry.receivedBestConfirmation)}`)
-          return
-        }
-        const confirmOrChallengeResult: ConfirmOrChallengeQueryResponse = {
-          txId,
-          appliedVoteHash: queueEntry.receivedBestVoteHash
-            ? queueEntry.receivedBestVoteHash
-            : this.calculateVoteHash(queueEntry.receivedBestVote),
-          result: queueEntry.receivedBestChallenge
-            ? queueEntry.receivedBestChallenge
-            : queueEntry.receivedBestConfirmation,
-        }
-        await respond(confirmOrChallengeResult)
       }
     )
 
@@ -978,6 +999,7 @@ class TransactionConsenus {
         }
       } else {
         if (queueEntry.completedConfirmedOrChallenge === false) {
+          nestedCountersInstance.countEvent('consensus', 'tryProduceReceipt still in confirm/challenge stage')
           return
         }
         const now = Date.now()
@@ -1001,7 +1023,6 @@ class TransactionConsenus {
         // check if last vote confirm/challenge received is 1s ago
         if (timeSinceLastConfirmOrChallenge >= this.config.stateManager.waitTimeBeforeReceipt) {
           // stop accepting the vote messages, confirm or challenge for this tx
-          queueEntry.acceptConfirmOrChallenge = false
           queueEntry.acceptConfirmOrChallenge = false
           if (logFlags.debug)
             this.mainLogger.debug(
@@ -1049,7 +1070,7 @@ class TransactionConsenus {
             if (robustConfirmOrChallenge == null) {
               nestedCountersInstance.countEvent(
                 'consensus',
-                'tryProduceReceipt robustQueryConfirmOrChallenge failed'
+                'tryProduceReceipt robustQueryConfirmOrChallenge challenge failed'
               )
               if (logFlags.debug)
                 this.mainLogger.debug(
@@ -1108,6 +1129,10 @@ class TransactionConsenus {
               queueEntry.appliedReceipt2 = robustReceipt2
               return robustReceipt
             } else {
+              nestedCountersInstance.countEvent(
+                'consensus',
+                'tryProduceReceipt robustQueryConfirmOrChallenge is NOT better'
+              )
               queueEntry.appliedReceipt = appliedReceipt
               queueEntry.appliedReceipt2 = appliedReceipt2
               return appliedReceipt
@@ -1156,7 +1181,7 @@ class TransactionConsenus {
             if (robustConfirmOrChallenge == null) {
               nestedCountersInstance.countEvent(
                 'consensus',
-                'tryProduceReceipt robustQueryConfirmOrChallenge failed'
+                'tryProduceReceipt robustQueryConfirmOrChallenge confirm failed'
               )
               if (logFlags.debug)
                 this.mainLogger.debug(
