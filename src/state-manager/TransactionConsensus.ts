@@ -1642,6 +1642,10 @@ class TransactionConsenus {
       /* prettier-ignore */
       if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote("shrd_confirmOrChallengeVote", `${queueEntry.acceptedTx.txId}`, `qId: ${queueEntry.entryID} `);
 
+      if (!queueEntry.ourVote) {
+        return
+      }
+
       // podA: POQ3 create confirm message and share to tx group
       const confirmMessage: ConfirmOrChallengeMessage = {
         message: 'confirm',
