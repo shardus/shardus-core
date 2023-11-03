@@ -13,6 +13,7 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import { QueueEntry, AppliedVote, AccountHashCache, RequestStateForTxResp } from './state-manager-types'
 import { Logger as log4jsLogger } from 'log4js'
 
+const consensusLogs = true
 class TransactionRepair {
   app: Shardus.App
   crypto: Crypto
@@ -160,7 +161,7 @@ class TransactionRepair {
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_note', `${txLogID}`, `appliedVoters ${utils.stringifyReduce(voters)}  `)
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_repairToMatchReceipt_note', `${txLogID}`, `queueEntry.uniqueKeys ${utils.stringifyReduce(queueEntry.uniqueKeys)}`)
 
-      /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`repairToMatchReceipt: ${txLogID} queueEntry.uniqueKeys ${utils.stringifyReduce(queueEntry.uniqueKeys)}`)
+      /* prettier-ignore */ if (logFlags.debug || consensusLogs) this.mainLogger.debug(`repairToMatchReceipt: ${txLogID} queueEntry.uniqueKeys ${utils.stringifyReduce(queueEntry.uniqueKeys)}`)
 
       // Build a request object for each key involved.
       // once we have a valid request object add in alternate nodes we could use as a backup
