@@ -39,6 +39,8 @@ import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
 import { Logger as L4jsLogger } from 'log4js'
 import { shardusGetTime } from '../network'
 
+const consensusLogs = true
+
 interface Receipt {
   tx: AcceptedTx
 }
@@ -698,6 +700,7 @@ class TransactionQueue {
         applyResult = 'applied'
       }
       /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`preApplyTransaction  post apply wrappedStates: ${utils.stringifyReduce(wrappedStates)}`)
+      /* prettier-ignore */ if (consensusLogs) this.mainLogger.debug(`preApplyTransaction ${queueEntry.logID} completed.`)
 
       //applyResponse = queueEntry?.preApplyTXResult?.applyResponse
       //super verbose option:
@@ -781,6 +784,7 @@ class TransactionQueue {
       /* prettier-ignore */ this.setDebugLastAwaitedCallInner('commit this.stateManager.fifoLock', DebugComplete.Completed)
 
       /* prettier-ignore */ if (logFlags.verbose) if (logFlags.console) console.log(`commitConsensedTransaction tx:${queueEntry.logID} ts:${timestamp} Applying!`)
+      /* prettier-ignore */ this.mainLogger.debug(`commitConsensedTransaction tx:${queueEntry.logID} ts:${timestamp} Applying!`)
       // /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug('APPSTATE: tryApplyTransaction ' + timestamp + ' Applying!' + ' source: ' + utils.makeShortHash(sourceAddress) + ' target: ' + utils.makeShortHash(targetAddress) + ' srchash_before:' + utils.makeShortHash(sourceState) + ' tgtHash_before: ' + utils.makeShortHash(targetState))
 
       //let { stateTableResults, accountData: _accountdata } = applyResponse
@@ -1415,6 +1419,7 @@ class TransactionQueue {
 
           /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`routeAndQueueAcceptedTransaction info ${txQueueEntry.logID} isInExecutionHome:${txQueueEntry.isInExecutionHome} hasShardInfo:${txQueueEntry.hasShardInfo}`)
           /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('routeAndQueueAcceptedTransaction', `routeAndQueueAcceptedTransaction info ${txQueueEntry.logID} isInExecutionHome:${txQueueEntry.isInExecutionHome} hasShardInfo:${txQueueEntry.hasShardInfo} executionShardKey:${utils.makeShortHash(txQueueEntry.executionShardKey)}`)
+          /* prettier-ignore */ if (consensusLogs) this.mainLogger.debug(`routeAndQueueAcceptedTransaction info ${txQueueEntry.logID} isInExecutionHome:${txQueueEntry.isInExecutionHome}`)
         }
 
         // calculate information needed for receiptmap
@@ -3508,9 +3513,9 @@ class TransactionQueue {
       const localRestartCounter = this.queueRestartCounter
 
       const timeM = this.stateManager.queueSitTime
-      const timeM2 = timeM * 2
-      const timeM2_5 = timeM * 2.5
-      const timeM3 = timeM * 3
+      const timeM2 = timeM * 20
+      const timeM2_5 = timeM * 25
+      const timeM3 = timeM * 30
       let currentTime = shardusGetTime()
 
       const app = this.app
@@ -4386,7 +4391,7 @@ class TransactionQueue {
               if (result != null || queueEntry.appliedReceipt2 != null) {
                 //TODO share receipt with corresponding index
 
-                if (logFlags.debug) {
+                if (logFlags.debug || consensusLogs) {
                   this.mainLogger.debug(
                     `processAcceptedTxQueue2 tryProduceReceipt final result : ${
                       queueEntry.logID
@@ -4397,6 +4402,7 @@ class TransactionQueue {
                 if (
                   this.stateManager.transactionConsensus.hasAppliedReceiptMatchingPreApply(queueEntry, result)
                 ) {
+                  nestedCountersInstance.countEvent('consensus', 'hasAppliedReceiptMatchingPreApply: true')
                   /* prettier-ignore */ if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote('shrd_consensingComplete_madeReceipt', `${shortID}`, `qId: ${queueEntry.entryID}  `)
 
                   const shouldSendReceipt = true
@@ -4456,6 +4462,7 @@ class TransactionQueue {
                   }
                   //continue
                 } else {
+                  nestedCountersInstance.countEvent('consensus', 'hasAppliedReceiptMatchingPreApply: false')
                   /* prettier-ignore */ if (logFlags.verbose) if (logFlags.playback) this.logger.playbackLogNote('shrd_consensingComplete_gotReceiptNoMatch1', `${shortID}`, `qId: ${queueEntry.entryID}  `)
                   didNotMatchReceipt = true
                   queueEntry.appliedReceiptForRepair = result
@@ -4505,6 +4512,7 @@ class TransactionQueue {
 
                 // we got a receipt but did not match it.
                 if (didNotMatchReceipt === true) {
+                  nestedCountersInstance.countEvent('stateManager', 'didNotMatchReceipt')
                   if (queueEntry.debugFail_failNoRepair) {
                     queueEntry.state = 'fail'
                     this.removeFromQueue(queueEntry, currentIndex)
@@ -4966,7 +4974,7 @@ class TransactionQueue {
   }
 
   private setTXExpired(queueEntry: QueueEntry, currentIndex: number, message: string): void {
-    /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`setTXExpired ${message} tx:${queueEntry.logID} ts:${queueEntry.acceptedTx.timestamp} debug:${utils.stringifyReduce(queueEntry.debug)}`)
+    /* prettier-ignore */ if (logFlags.verbose || consensusLogs) this.mainLogger.debug(`setTXExpired tx:${queueEntry.logID} ${message}  ts:${queueEntry.acceptedTx.timestamp} debug:${utils.stringifyReduce(queueEntry.debug)}`)
     queueEntry.state = 'expired'
     this.removeFromQueue(queueEntry, currentIndex)
 
