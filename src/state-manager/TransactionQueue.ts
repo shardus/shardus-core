@@ -34,7 +34,6 @@ import {
   WrappedResponses,
 } from './state-manager-types'
 
-import { stringify } from '../utils'
 import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
 import { Logger as L4jsLogger } from 'log4js'
 import { shardusGetTime } from '../network'

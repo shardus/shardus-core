@@ -241,7 +241,7 @@ class TransactionConsenus {
             /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`get_confirm_or_challenge no confirmation or challenge for ${queueEntry.logID}, bestVote: ${JSON.stringify(queueEntry.receivedBestVote)},  bestConfirmation: ${JSON.stringify(queueEntry.receivedBestConfirmation)}`)
             return
           }
-          const waitedTime = Date.now() - queueEntry.lastConfirmOrChallengeTimestamp
+          const waitedTime = shardusGetTime() - queueEntry.lastConfirmOrChallengeTimestamp
           const waitCompletionPercent = waitedTime / this.config.stateManager.waitTimeBeforeReceipt
           if (waitCompletionPercent < 0.8) {
             nestedCountersInstance.countEvent(
@@ -611,7 +611,7 @@ class TransactionConsenus {
       txId,
       cycleMarker,
       cycleCounter,
-      // Date.now() was replaced with shardusGetTime() so we can have a more reliable timestamp consensus
+      // shardusGetTime() was replaced with shardusGetTime() so we can have a more reliable timestamp consensus
       timestamp: shardusGetTime(),
     }
     const signedTsReceipt = this.crypto.sign(tsReceipt)
@@ -1009,7 +1009,7 @@ class TransactionConsenus {
           nestedCountersInstance.countEvent('consensus', 'tryProduceReceipt still in confirm/challenge stage')
           return
         }
-        const now = Date.now()
+        const now = shardusGetTime()
         const timeSinceLastConfirmOrChallenge =
           queueEntry.lastConfirmOrChallengeTimestamp > 0
             ? now - queueEntry.lastConfirmOrChallengeTimestamp
@@ -1563,7 +1563,7 @@ class TransactionConsenus {
       this.profiler.profileSectionStart('confirmOrChallenge')
       this.profiler.scopedProfileSectionStart('confirmOrChallenge')
 
-      const now = Date.now()
+      const now = shardusGetTime()
       //  if we are in lowest 10% of execution group and agrees with the highest ranked vote, send out a confirm msg
       const timeSinceLastVoteMessage =
         queueEntry.lastVoteReceivedTimestamp > 0 ? now - queueEntry.lastVoteReceivedTimestamp : 0
@@ -2150,7 +2150,7 @@ class TransactionConsenus {
     }
 
     // record the timestamps
-    const now = Date.now()
+    const now = shardusGetTime()
     queueEntry.lastConfirmOrChallengeTimestamp = now
     if (queueEntry.firstConfirmOrChallengeTimestamp === 0) {
       queueEntry.firstConfirmOrChallengeTimestamp = now
@@ -2237,7 +2237,7 @@ class TransactionConsenus {
       }
 
       queueEntry.receivedBestChallenge = confirmOrChallenge
-      queueEntry.lastConfirmOrChallengeTimestamp = Date.now()
+      queueEntry.lastConfirmOrChallengeTimestamp = shardusGetTime()
 
       if (receivedChallenger) {
         queueEntry.receivedBestChallenger = receivedChallenger
@@ -2325,7 +2325,7 @@ class TransactionConsenus {
       if (!isVoteValid) return
 
       // we will mark the last received vote timestamp
-      const now = Date.now()
+      const now = shardusGetTime()
       queueEntry.lastVoteReceivedTimestamp = now
       if (queueEntry.firstVoteReceivedTimestamp === 0) queueEntry.firstVoteReceivedTimestamp = now
 
