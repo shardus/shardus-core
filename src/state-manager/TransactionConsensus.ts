@@ -1415,9 +1415,9 @@ class TransactionConsenus {
         queryFn,
         eqFn,
         redundancy,
+        true,
+        true,
         false,
-        true,
-        true,
         'robustQueryBestVote'
       )
       if (response && response.appliedVote) {
@@ -1478,7 +1478,7 @@ class TransactionConsenus {
         redundancy,
         true,
         true,
-        true,
+        false,
         'robustQueryConfirmOrChallenge'
       )
       nestedCountersInstance.countEvent('robustQueryConfirmOrChallenge', `isRobustResult:${isRobustResult}`)
