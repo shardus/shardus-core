@@ -953,6 +953,8 @@ export interface ServerConfiguration {
     waitTimeBeforeReceipt: number
     // max limit on how long to wait before confirming or challenge since first vote
     waitLimitAfterFirstMessage: number
+    // number of unique challenges to produce a fail receipt
+    minRequiredChallenges: number
   }
   /** Options for sharding calculations */
   sharding?: {

@@ -1266,6 +1266,8 @@ class TransactionQueue {
         gossipedVote: false,
         gossipedConfirmOrChallenge: false,
         completedConfirmedOrChallenge: false,
+        uniqueChallengesCount: 0,
+        uniqueChallenges: {},
         archived: false,
         ourTXGroupIndex: -1,
         ourExGroupIndex: -1,
@@ -3512,9 +3514,9 @@ class TransactionQueue {
       const localRestartCounter = this.queueRestartCounter
 
       const timeM = this.stateManager.queueSitTime
-      const timeM2 = timeM * 20
-      const timeM2_5 = timeM * 25
-      const timeM3 = timeM * 30
+      const timeM2 = timeM * 4
+      const timeM2_5 = timeM * 5
+      const timeM3 = timeM * 6
       let currentTime = shardusGetTime()
 
       const app = this.app
