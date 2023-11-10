@@ -469,7 +469,12 @@ class TransactionConsenus {
             }
             if (queueEntry == null) {
               /* prettier-ignore */
-              if (logFlags.error || this.stateManager.consensusLog) this.mainLogger.error(`spread_appliedReceipt no queue entry for ${appliedReceipt.txid} dbg:${this.stateManager.debugTXHistory[utils.stringifyReduce(payload.txid)]}`);
+              if (logFlags.error || this.stateManager.consensusLog)
+                this.mainLogger.error(
+                  `spread_appliedReceipt no queue entry for ${appliedReceipt.txid} dbg:${
+                    this.stateManager.debugTXHistory[utils.stringifyReduce(payload.txid)]
+                  }`
+                )
               // NEW start repair process that will find the TX then apply repairs
               // this.stateManager.transactionRepair.repairToMatchReceiptWithoutQueueEntry(appliedReceipt)
               return
@@ -512,7 +517,10 @@ class TransactionConsenus {
           if (queueEntry.gossipedReceipt === false) {
             queueEntry.gossipedReceipt = true
             /* prettier-ignore */
-            if (logFlags.debug || this.stateManager.consensusLog) this.mainLogger.debug(`spread_appliedReceipt2 update ${queueEntry.logID} receiptNotNull:${receiptNotNull}`);
+            if (logFlags.debug || this.stateManager.consensusLog)
+              this.mainLogger.debug(
+                `spread_appliedReceipt2 update ${queueEntry.logID} receiptNotNull:${receiptNotNull}`
+              )
 
             if (queueEntry.archived === false) {
               queueEntry.recievedAppliedReceipt2 = appliedReceipt
@@ -1985,9 +1993,11 @@ class TransactionConsenus {
           // popoulate after state hashes
           ourVote.account_state_hash_after.push(wrappedState.stateId)
 
-          const wrappedResponse = queueEntry.collectedData[wrappedState.accountId]
-          // populate before state hashes
-          if (wrappedResponse != null) ourVote.account_state_hash_before.push(wrappedResponse.stateId)
+          if (this.stateManager.transactionQueue.useNewPOQ) {
+            const wrappedResponse = queueEntry.collectedData[wrappedState.accountId]
+            // populate before state hashes
+            if (wrappedResponse != null) ourVote.account_state_hash_before.push(wrappedResponse.stateId)
+          }
         }
       }
 
