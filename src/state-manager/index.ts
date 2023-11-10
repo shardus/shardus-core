@@ -179,6 +179,8 @@ class StateManager {
 
   extendedRepairLogging: boolean
 
+  consensusLog: boolean
+
   //canDataRepair: boolean // the old repair.. todo depricate further.
   lastActiveNodeCount: number
 
@@ -256,6 +258,7 @@ class StateManager {
     this.lastActiveNodeCount = 0
 
     this.extendedRepairLogging = true
+    this.consensusLog = false
 
     this.shardValuesByCycle = new Map()
     this.currentCycleShardData = null as CycleShardData | null
@@ -1680,6 +1683,12 @@ class StateManager {
         debugNodeList.push(nodeEntry)
       }
       res.json(debugNodeList)
+    })
+
+    Context.network.registerExternalGet('debug-consensus-log', isDebugModeMiddleware, (req, res) => {
+      this.consensusLog = !this.consensusLog
+      res.write(`consensusLog: ${this.consensusLog}`)
+      res.end()
     })
 
     Context.network.registerExternalGet('debug-stuck-processing', isDebugModeMiddleware, (_req, res) => {

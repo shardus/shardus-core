@@ -38,8 +38,6 @@ import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
 import { Logger as L4jsLogger } from 'log4js'
 import { shardusGetTime } from '../network'
 
-const consensusLogs = true
-
 interface Receipt {
   tx: AcceptedTx
 }
@@ -699,7 +697,7 @@ class TransactionQueue {
         applyResult = 'applied'
       }
       /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`preApplyTransaction  post apply wrappedStates: ${utils.stringifyReduce(wrappedStates)}`)
-      /* prettier-ignore */ if (consensusLogs) this.mainLogger.debug(`preApplyTransaction ${queueEntry.logID} completed.`)
+      /* prettier-ignore */ if (this.stateManager.consensusLog) this.mainLogger.debug(`preApplyTransaction ${queueEntry.logID} completed.`)
 
       //applyResponse = queueEntry?.preApplyTXResult?.applyResponse
       //super verbose option:
@@ -1420,7 +1418,7 @@ class TransactionQueue {
 
           /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`routeAndQueueAcceptedTransaction info ${txQueueEntry.logID} isInExecutionHome:${txQueueEntry.isInExecutionHome} hasShardInfo:${txQueueEntry.hasShardInfo}`)
           /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('routeAndQueueAcceptedTransaction', `routeAndQueueAcceptedTransaction info ${txQueueEntry.logID} isInExecutionHome:${txQueueEntry.isInExecutionHome} hasShardInfo:${txQueueEntry.hasShardInfo} executionShardKey:${utils.makeShortHash(txQueueEntry.executionShardKey)}`)
-          /* prettier-ignore */ if (consensusLogs) this.mainLogger.debug(`routeAndQueueAcceptedTransaction info ${txQueueEntry.logID} isInExecutionHome:${txQueueEntry.isInExecutionHome}`)
+          /* prettier-ignore */ if (this.stateManager.consensusLog) this.mainLogger.debug(`routeAndQueueAcceptedTransaction info ${txQueueEntry.logID} isInExecutionHome:${txQueueEntry.isInExecutionHome}`)
         }
 
         // calculate information needed for receiptmap
@@ -4392,7 +4390,7 @@ class TransactionQueue {
               if (result != null || queueEntry.appliedReceipt2 != null) {
                 //TODO share receipt with corresponding index
 
-                if (logFlags.debug || consensusLogs) {
+                if (logFlags.debug || this.stateManager.consensusLog) {
                   this.mainLogger.debug(
                     `processAcceptedTxQueue2 tryProduceReceipt final result : ${
                       queueEntry.logID
@@ -4975,7 +4973,7 @@ class TransactionQueue {
   }
 
   private setTXExpired(queueEntry: QueueEntry, currentIndex: number, message: string): void {
-    /* prettier-ignore */ if (logFlags.verbose || consensusLogs) this.mainLogger.debug(`setTXExpired tx:${queueEntry.logID} ${message}  ts:${queueEntry.acceptedTx.timestamp} debug:${utils.stringifyReduce(queueEntry.debug)}`)
+    /* prettier-ignore */ if (logFlags.verbose || this.stateManager.consensusLog) this.mainLogger.debug(`setTXExpired tx:${queueEntry.logID} ${message}  ts:${queueEntry.acceptedTx.timestamp} debug:${utils.stringifyReduce(queueEntry.debug)}`)
     queueEntry.state = 'expired'
     this.removeFromQueue(queueEntry, currentIndex)
 
