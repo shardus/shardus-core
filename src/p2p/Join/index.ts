@@ -248,9 +248,6 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       const id = computeNodeId(nodeInfo.publicKey, standbyInfo.cycleMarker)
       const counterRefreshed = record.counter
 
-      // finally, remove the node from the standby list
-      getStandbyNodesInfoMap().delete(publicKey)
-
       record.joinedConsensors.push({ ...nodeInfo, cycleJoined, counterRefreshed, id })
     }
     record.joinedConsensors.sort()
@@ -273,6 +270,8 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
 
   for (const node of added) {
     node.syncingTimestamp = record.start
+    // Remove the joined node from the standby list
+    getStandbyNodesInfoMap().delete(node.publicKey)
   }
 
   return {
