@@ -229,19 +229,9 @@ export function startupV2(): Promise<boolean> {
         // note this may not actually result in a message to the network, as the dapp
         // may need to check stain and take other actions before it isReadyToJoin
         if (resp?.isOnStandbyList === false) {
-          await joinNetworkV2(activeNodes)
-          // Call scheduler after 2 cycles
-          attemptJoiningTimer = setTimeout(() => {
-            attemptJoining()
-          }, 2 * cycleDuration * 1000)
-          attemptJoiningRunning = false
-          return
-        }
-
-        // If we are in state stanby but suddenly isOnStandbyList becomes false again
-        // then we have been kicked from the stanby list.  The node should exit with error
-        if (state === P2P.P2PTypes.NodeStatus.STANDBY) {
-          if (resp?.isOnStandbyList === false) {
+          // If we are in state stanby but suddenly isOnStandbyList becomes false again
+          // then we have been kicked from the stanby list.  The node should exit with error
+          if (state === P2P.P2PTypes.NodeStatus.STANDBY) {
             nestedCountersInstance.countEvent('p2p', 'detected standby list removal of our node')
             /* prettier-ignore */ if (logFlags.important_as_fatal) console.log('startupV2 our node has been removed from the standby list and will restart')
 
@@ -252,6 +242,14 @@ export function startupV2(): Promise<boolean> {
             attemptJoiningRunning = false
             return
           }
+
+          await joinNetworkV2(activeNodes)
+          // Call scheduler after 2 cycles
+          attemptJoiningTimer = setTimeout(() => {
+            attemptJoining()
+          }, 2 * cycleDuration * 1000)
+          attemptJoiningRunning = false
+          return
         }
 
         // iff we need to ever jump out of standby ??
