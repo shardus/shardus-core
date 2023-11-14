@@ -1037,7 +1037,6 @@ class TransactionConsenus {
           queueEntry.firstConfirmOrChallengeTimestamp > 0
             ? now - queueEntry.firstConfirmOrChallengeTimestamp
             : 0
-        // check if last confirm/challenge received is 1s ago
         const hasWaitedLongEnough =
           timeSinceLastConfirmOrChallenge >= this.config.stateManager.waitTimeBeforeReceipt
         const hasWaitLimitReached =
@@ -1046,7 +1045,7 @@ class TransactionConsenus {
           this.mainLogger.debug(
             `tryProduceReceipt: ${queueEntry.logID} hasWaitedLongEnough: ${hasWaitedLongEnough}, hasWaitLimitReached: ${hasWaitLimitReached}, timeSinceLastConfirmOrChallenge: ${timeSinceLastConfirmOrChallenge} ms, timeSinceFirstMessage: ${timeSinceFirstMessage} ms`
           )
-        // check if last vote confirm/challenge received is 1s ago
+        // check if last vote confirm/challenge received is waitTimeBeforeReceipt ago
         if (timeSinceLastConfirmOrChallenge >= this.config.stateManager.waitTimeBeforeReceipt) {
           // stop accepting the vote messages, confirm or challenge for this tx
           queueEntry.acceptConfirmOrChallenge = false
@@ -1636,7 +1635,13 @@ class TransactionConsenus {
         nestedCountersInstance.countEvent('confirmOrChallenge', 'hasWaitedLongEnough or hasWaitLimitReached')
         // stop accepting the vote messages for this tx
         queueEntry.acceptVoteMessage = false
-        const eligibleToConfirm = queueEntry.eligibleNodesToConfirm.map((node) => node.id).includes(Self.id)
+        let eligibleToConfirm = false
+        for (let i = 0; i < queueEntry.eligibleNodesToConfirm.length; i++) {
+          if (queueEntry.eligibleNodesToConfirm[i].id === Self.id) {
+            eligibleToConfirm = true
+            break
+          }
+        }
         if (this.stateManager.consensusLog) {
           this.mainLogger.info(
             `confirmOrChallenge: ${queueEntry.logID} hasWaitedLongEnough: true. Now we will try to confirm or challenge. eligibleToConfirm: ${eligibleToConfirm}`
@@ -1652,9 +1657,11 @@ class TransactionConsenus {
           return
         }
         let bestVoterFromRobustQuery: Shardus.NodeWithRank
-        for (const node of queueEntry.executionGroup) {
+        for (let i = 0; i < queueEntry.executionGroup.length; i++) {
+          const node = queueEntry.executionGroup[i]
           if (node.id === voteFromRobustQuery.node_id) {
             bestVoterFromRobustQuery = node
+            break
           }
         }
         if (bestVoterFromRobustQuery == null) {
@@ -1707,8 +1714,8 @@ class TransactionConsenus {
 
         if (eligibleToConfirm && queueEntry.ourVoteHash === finalVoteHash) {
           // queueEntry.eligibleNodesToConfirm is sorted highest to lowest rank
-          const eligibleNodeIds = queueEntry.eligibleNodesToConfirm.map((node) => node.id).reverse()
-          const ourRankIndex = eligibleNodeIds.indexOf(Self.id)
+          const confirmNodeIds = queueEntry.eligibleNodesToConfirm.map((node) => node.id).reverse()
+          const ourRankIndex = confirmNodeIds.indexOf(Self.id)
           let delayBeforeConfirm = ourRankIndex * 50 // 50ms
 
           if (delayBeforeConfirm > 500) delayBeforeConfirm = 500 // we don't want to wait too long
@@ -1913,7 +1920,10 @@ class TransactionConsenus {
 
     try {
       const ourNodeId = Self.id
-      const eligibleNodeIds = queueEntry.eligibleNodesToVote.map((node) => node.id)
+      const eligibleNodeIds = []
+      for (let i = 0; i < queueEntry.eligibleNodesToVote.length; i++) {
+        eligibleNodeIds.push(queueEntry.eligibleNodesToVote[i].id)
+      }
       const isEligibleToShareVote = eligibleNodeIds.includes(ourNodeId)
       let isReceivedBetterVote = false
 
@@ -2170,11 +2180,17 @@ class TransactionConsenus {
     }
 
     if (confirmOrChallenge.message === 'confirm') {
-      const foundNode = queueEntry.eligibleNodesToConfirm.find(
-        (node) =>
+      let foundNode
+      for (let i = 0; i < queueEntry.eligibleNodesToConfirm.length; i++) {
+        const node = queueEntry.eligibleNodesToConfirm[i]
+        if (
           confirmOrChallenge.nodeId === node.id &&
           this.crypto.verify(confirmOrChallenge as SignedObject, node.publicKey)
-      )
+        ) {
+          foundNode = node
+          break
+        }
+      }
 
       if (!foundNode) {
         this.mainLogger.error(
@@ -2228,9 +2244,12 @@ class TransactionConsenus {
         isBetterThanCurrentConfirmation = false
       else {
         // Compare ranks
-        receivedConfirmedNode = queueEntry.executionGroup.find(
-          (node) => node.id === confirmOrChallenge.nodeId
-        )
+        for (let i = 0; i < queueEntry.executionGroup.length; i++) {
+          if (queueEntry.executionGroup[i].id === confirmOrChallenge.nodeId) {
+            receivedConfirmedNode = queueEntry.executionGroup[i]
+            break
+          }
+        }
 
         isBetterThanCurrentConfirmation =
           receivedConfirmedNode.rank > queueEntry.receivedBestConfirmedNode.rank
@@ -2375,11 +2394,16 @@ class TransactionConsenus {
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('tryAppendVote', `${queueEntry.logID}`, `vote: ${utils.stringifyReduce(vote)}`)
       /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`tryAppendVote collectedVotes: ${queueEntry.logID}   vote: ${utils.stringifyReduce(vote)}`)
 
-      const foundNode = queueEntry.eligibleNodesToVote.find(
-        (node) => vote.node_id === node.id && this.crypto.verify(vote as SignedObject, node.publicKey)
-      )
+      let isEligibleToVote = null
+      for (let i = 0; i < queueEntry.eligibleNodesToVote.length; i++) {
+        const node = queueEntry.eligibleNodesToVote[i]
+        if (vote.node_id === node.id && this.crypto.verify(vote as SignedObject, node.publicKey)) {
+          isEligibleToVote = node
+          break
+        }
+      }
 
-      if (!foundNode) {
+      if (!isEligibleToVote) {
         if (logFlags.debug) {
           this.mainLogger.debug(
             `tryAppendVote: logId:${
@@ -2403,19 +2427,19 @@ class TransactionConsenus {
 
       // Compare with existing vote. Skip we already have it or node rank is lower than ours
       let isBetterThanCurrentVote
-      let recievedVoter: Shardus.NodeWithRank
+      let receivedVoter: Shardus.NodeWithRank
       if (!queueEntry.receivedBestVote) isBetterThanCurrentVote = true
       else if (queueEntry.receivedBestVoteHash === this.calculateVoteHash(vote))
         isBetterThanCurrentVote = false
       else {
         // Compare ranks
-        for (const node of queueEntry.executionGroup) {
-          if (node.id === vote.node_id) {
-            recievedVoter = node
+        for (let i = 0, length = queueEntry.executionGroup.length; i < length; i++) {
+          if (queueEntry.executionGroup[i].id === vote.node_id) {
+            receivedVoter = queueEntry.executionGroup[i]
             break
           }
         }
-        isBetterThanCurrentVote = recievedVoter.rank > queueEntry.receivedBestVoter.rank
+        isBetterThanCurrentVote = receivedVoter.rank > queueEntry.receivedBestVoter.rank
       }
 
       if (!isBetterThanCurrentVote) {
@@ -2435,8 +2459,8 @@ class TransactionConsenus {
           `tryAppendVote: ${queueEntry.logID} received vote is better than current vote. lastReceivedVoteTimestamp: ${queueEntry.lastVoteReceivedTimestamp}`
         )
       }
-      if (recievedVoter) {
-        queueEntry.receivedBestVoter = recievedVoter
+      if (receivedVoter) {
+        queueEntry.receivedBestVoter = receivedVoter
         return true
       } else {
         for (const node of queueEntry.executionGroup) {
