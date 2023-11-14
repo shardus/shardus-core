@@ -22,17 +22,14 @@ export const robustPromiseAll = async <T, E = Error>(promises: Promise<T>[]): Pr
   const resolved = []
   const errors = []
   // We await the wrapped promises to finish resolving or rejecting
-  const wrappedResults = await Promise.all(wrappedPromises)
+  const wrappedResults = await Promise.allSettled(wrappedPromises)
   // We iterate over all the results, checking if they resolved or rejected
   for (const wrapped of wrappedResults) {
-    const [result, err] = wrapped
-    // If there was an error, we push it to our errors array
-    if (err) {
-      errors.push(err)
-      continue
+    if (wrapped.status === 'fulfilled') {
+      resolved.push(wrapped.value[0])
+    } else {
+      errors.push(wrapped.reason)
     }
-    // Otherwise, we were able to resolve so we push it to the resolved array
-    resolved.push(result)
   }
   // We return two arrays, one of the resolved promises, and one of the errors
   return [resolved, errors]
