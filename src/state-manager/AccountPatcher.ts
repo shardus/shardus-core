@@ -1639,13 +1639,13 @@ class AccountPatcher {
     }
 
     try {
-      //TODO should we convert to Promise.allSettled?
-      const results = await Promise.all(promises)
+      const results = await Promise.allSettled(promises);
       for (const result of results) {
-        if (result != null && result.nodeHashes != null) {
-          nodeHashes = nodeHashes.concat(result.nodeHashes)
+        if (result.status === 'fulfilled' && result.value.nodeHashes != null) {
+          nodeHashes = nodeHashes.concat(result.value.nodeHashes);
         }
       }
+
     } catch (error) {
       this.statemanager_fatal('getChildrenOf failed', `getChildrenOf failed: ` + errorToStringFull(error))
     }
@@ -1740,14 +1740,14 @@ class AccountPatcher {
 
     try {
       //TODO should we convert to Promise.allSettled?
-      const results = await Promise.all(promises)
+      const results = await Promise.allSettled(promises)
       for (const result of results) {
-        if (result != null && result.nodeChildHashes != null) {
-          nodeChildHashes = nodeChildHashes.concat(result.nodeChildHashes)
+        if (result.status === 'fulfilled' && result.value.nodeChildHashes != null) {
+          nodeChildHashes = nodeChildHashes.concat(result.value.nodeChildHashes)
           // for(let childHashes of result.nodeChildHashes){
           //   allHashes = allHashes.concat(childHashes.childAccounts)
           // }
-          utils.sumObject(getAccountHashStats, result.stats)
+          utils.sumObject(getAccountHashStats, result.value.stats)
           getAccountHashStats.responses++
         } else {
           getAccountHashStats.nullResults++
