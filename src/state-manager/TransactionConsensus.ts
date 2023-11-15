@@ -882,18 +882,6 @@ class TransactionConsenus {
     this.profiler.profileSectionStart('tryProduceReceipt')
     this.profiler.scopedProfileSectionStart('tryProduceReceipt')
     try {
-      const receipt2 = queueEntry.recievedAppliedReceipt2 ?? queueEntry.appliedReceipt2
-      if (receipt2 != null) {
-        nestedCountersInstance.countEvent(`consensus`, 'tryProduceReceipt receipt2 != null')
-        //we have a receipt2, so we can make a receipt
-        return {
-          result: receipt2.result,
-          appliedVotes: [receipt2.appliedVote], // everything is the same but the applied vote is an array
-          txid: receipt2.txid,
-          app_data_hash: receipt2.app_data_hash,
-        }
-      }
-
       if (queueEntry.waitForReceiptOnly === true) {
         nestedCountersInstance.countEvent(`consensus`, 'tryProduceReceipt waitForReceiptOnly === true')
         return null

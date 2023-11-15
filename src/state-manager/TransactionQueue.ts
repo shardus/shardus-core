@@ -32,6 +32,7 @@ import {
   StringNodeObjectMap,
   TxDebug,
   WrappedResponses,
+  AppliedReceipt,
 } from './state-manager-types'
 
 import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
@@ -4380,7 +4381,25 @@ class TransactionQueue {
 
               // try to produce a receipt
               /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`processAcceptedTxQueue2 consensing : ${queueEntry.logID} receiptRcv:${hasReceivedApplyReceipt}`)
-              const result = await this.stateManager.transactionConsensus.tryProduceReceipt(queueEntry)
+
+              let result: AppliedReceipt
+              const receipt2 = queueEntry.recievedAppliedReceipt2 ?? queueEntry.appliedReceipt2
+              if (receipt2 != null) {
+                nestedCountersInstance.countEvent(`consensus`, 'tryProduceReceipt receipt2 != null')
+                //we have a receipt2, so we can make a receipt
+                result = {
+                  result: receipt2.result,
+                  appliedVotes: [receipt2.appliedVote], // everything is the same but the applied vote is an array
+                  txid: receipt2.txid,
+                  app_data_hash: receipt2.app_data_hash,
+                }
+              } else {
+                result = queueEntry.appliedReceipt
+              }
+
+              if (result == null) {
+                this.stateManager.transactionConsensus.tryProduceReceipt(queueEntry)
+              }
 
               /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`processAcceptedTxQueue2 tryProduceReceipt result : ${queueEntry.logID} ${utils.stringifyReduce(result)}`)
 
