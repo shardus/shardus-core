@@ -2252,14 +2252,18 @@ class TransactionQueue {
 
   // sort the nodeList by rank, in descending order
   orderNodesByRank(nodeList: Shardus.Node[], queueEntry: QueueEntry): Shardus.NodeWithRank[] {
-    const nodeListWithRankData: Shardus.NodeWithRank[] = nodeList.map((node: Shardus.Node) => {
+    const nodeListWithRankData: Shardus.NodeWithRank[] = []
+
+    for (let i = 0; i < nodeList.length; i++) {
+      const node: Shardus.Node = nodeList[i]
       const rank = this.computeNodeRank(node.id, queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp)
-      const nodeWithRank: Shardus.NodeWithRank = { ...node, rank }
-      return nodeWithRank
-    })
-    return nodeListWithRankData.sort((a: Shardus.NodeWithRank, b: Shardus.NodeWithRank) => {
-      return b.rank > a.rank ? 1 : -1
-    })
+      ;(node as Shardus.NodeWithRank).rank = rank
+      nodeListWithRankData.push(node as Shardus.NodeWithRank)
+    }
+
+    nodeListWithRankData.sort((a, b) => (a.rank > b.rank ? -1 : 1))
+
+    return nodeListWithRankData
   }
 
   /**

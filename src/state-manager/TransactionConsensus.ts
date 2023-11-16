@@ -2125,13 +2125,20 @@ class TransactionConsenus {
   }
 
   calculateVoteHash(vote: AppliedVote, removeSign = true): string {
-    const voteToHash = Object.assign({}, vote)
     if (this.stateManager.transactionQueue.useNewPOQ) {
-      if (voteToHash.node_id && voteToHash.node_id.length > 0) voteToHash.node_id = ''
-      if (removeSign && voteToHash.sign != null) delete voteToHash.sign
+      const voteToHash = {
+        txId: vote.txid,
+        transaction_result: vote.transaction_result,
+        account_id: vote.account_id,
+        account_state_hash_after: vote.account_state_hash_after,
+        account_state_hash_before: vote.account_state_hash_before,
+        cant_apply: vote.cant_apply,
+        app_data_hash: vote.app_data_hash,
+      }
       return this.crypto.hash(voteToHash)
     } else {
-      voteToHash.node_id = ''
+      const voteToHash = Object.assign({}, vote)
+      if (voteToHash.node_id != null) voteToHash.node_id = ''
       if (voteToHash.sign != null) delete voteToHash.sign
       return this.crypto.hash(voteToHash)
     }
