@@ -1203,8 +1203,8 @@ class TransactionQueue {
 
       this.queueEntryCounter++
       const txQueueEntry: QueueEntry = {
-        eligibleNodesToConfirm: [],
-        eligibleNodesToVote: [],
+        eligibleNodeIdsToConfirm: new Set(),
+        eligibleNodeIdsToVote: new Set(),
         acceptedTx: acceptedTx,
         txKeys: keysResponse,
         executionShardKey: null,
@@ -1275,7 +1275,7 @@ class TransactionQueue {
           enqueueHrTime: process.hrtime(),
           duration: {},
         },
-        executionIdSet: new Set(),
+        executionGroupMap: new Map(),
         txSieveTime: 0,
         debug: {},
         voteCastAge: 0,
@@ -1395,24 +1395,28 @@ class TransactionQueue {
             Math.floor(txQueueEntry.executionGroup.length * voterPercentage)
           )
           // voters are highest ranked nodes
-          txQueueEntry.eligibleNodesToVote = txQueueEntry.executionGroup.slice(0, numberOfVoters)
+          txQueueEntry.eligibleNodeIdsToVote = new Set(
+            txQueueEntry.executionGroup.slice(0, numberOfVoters).map((node) => node.id)
+          )
           // confirm nodes are lowest ranked nodes
-          txQueueEntry.eligibleNodesToConfirm = txQueueEntry.executionGroup.slice(
-            txQueueEntry.executionGroup.length - numberOfVoters
+          txQueueEntry.eligibleNodeIdsToConfirm = new Set(
+            txQueueEntry.executionGroup
+              .slice(txQueueEntry.executionGroup.length - numberOfVoters)
+              .map((node) => node.id)
           )
 
           const ourID = this.stateManager.currentCycleShardData.ourNode.id
           for (let idx = 0; idx < txQueueEntry.executionGroup.length; idx++) {
             // eslint-disable-next-line security/detect-object-injection
             const node = txQueueEntry.executionGroup[idx]
-            txQueueEntry.executionIdSet.add(node.id)
+            txQueueEntry.executionGroupMap.set(node.id, node)
             if (node.id === ourID) {
               txQueueEntry.ourExGroupIndex = idx
             }
           }
 
           //if we are not in the execution group then set isInExecutionHome to false
-          if (txQueueEntry.executionIdSet.has(this.stateManager.currentCycleShardData.ourNode.id) === false) {
+          if (txQueueEntry.executionGroupMap.has(this.stateManager.currentCycleShardData.ourNode.id) === false) {
             txQueueEntry.isInExecutionHome = false
           }
 
@@ -3041,7 +3045,7 @@ class TransactionQueue {
             for (const index of indicies) {
               const node = remoteHomeNode.consensusNodeForOurNodeFull[index - 1] // fastStableCorrespondingIndicies is one based so adjust for 0 based array
               //only send data to the execution group
-              if (queueEntry.executionIdSet.has(remoteHomeNode.node.id) === false) {
+              if (queueEntry.executionGroupMap.has(remoteHomeNode.node.id) === false) {
                 continue
               }
               if (node != null && node.id !== ourNodeData.node.id) {
@@ -3052,7 +3056,7 @@ class TransactionQueue {
             for (const index of edgeIndicies) {
               const node = remoteHomeNode.edgeNodes[index - 1] // fastStableCorrespondingIndicies is one based so adjust for 0 based array
               //only send data to the execution group
-              if (queueEntry.executionIdSet.has(remoteHomeNode.node.id) === false) {
+              if (queueEntry.executionGroupMap.has(remoteHomeNode.node.id) === false) {
                 continue
               }
               if (node != null && node.id !== ourNodeData.node.id) {
@@ -3064,7 +3068,7 @@ class TransactionQueue {
             for (const index of patchIndicies) {
               const node = remoteHomeNode.edgeNodes[index - 1] // fastStableCorrespondingIndicies is one based so adjust for 0 based array
               //only send data to the execution group
-              if (queueEntry.executionIdSet.has(remoteHomeNode.node.id) === false) {
+              if (queueEntry.executionGroupMap.has(remoteHomeNode.node.id) === false) {
                 continue
               }
               if (node != null && node.id !== ourNodeData.node.id) {
@@ -3220,7 +3224,7 @@ class TransactionQueue {
         }
 
         const ourLocalExecutionSetIndex = queueEntry.ourExGroupIndex
-        const ourSendingGroupSize = queueEntry.executionIdSet.size
+        const ourSendingGroupSize = queueEntry.executionGroupMap.size
 
         const consensusListSize = accountHomeNode.consensusNodeForOurNodeFull.length
         const edgeListSize = accountHomeNode.edgeNodes.length
