@@ -45,7 +45,7 @@ export function getAllowBogon(): boolean {
 
 let mode = null
 
-let hasSubmittedJoinRequest = false
+const hasSubmittedJoinRequest = false
 export function getHasSubmittedJoinRequest(): boolean {
   return hasSubmittedJoinRequest
 }
