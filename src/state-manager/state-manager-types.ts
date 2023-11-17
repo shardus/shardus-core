@@ -11,8 +11,8 @@ export type TxDebug = {
 }
 
 export type QueueEntry = {
-  eligibleNodesToVote: Shardus.Node[]
-  eligibleNodesToConfirm: Shardus.Node[]
+  eligibleNodesToVote: Shardus.NodeWithRank[]
+  eligibleNodesToConfirm: Shardus.NodeWithRank[]
   acceptedTx: Shardus.AcceptedTx
   txKeys: Shardus.TransactionKeys
   /** This is data that is collected or loaded locally before it attemps to call apply() */

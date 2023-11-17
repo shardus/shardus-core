@@ -1,8 +1,14 @@
 import { P2P } from '@shardus/types'
 export type Node = P2P.NodeListTypes.Node
 export type Cycle = P2P.CycleCreatorTypes.CycleRecord
-export interface NodeWithRank extends P2P.NodeListTypes.Node {
+export interface NodeWithRank {
   rank: bigint
+  id: string
+  publicKey: string
+  externalIp: string
+  externalPort: number
+  internalIp: string
+  internalPort: number
 }
 //import { RequestHandler } from "express"; //express was causing problems.
 

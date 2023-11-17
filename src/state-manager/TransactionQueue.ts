@@ -2257,13 +2257,20 @@ class TransactionQueue {
     for (let i = 0; i < nodeList.length; i++) {
       const node: Shardus.Node = nodeList[i]
       const rank = this.computeNodeRank(node.id, queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp)
-      ;(node as Shardus.NodeWithRank).rank = rank
-      nodeListWithRankData.push(node as Shardus.NodeWithRank)
+      const nodeWithRank: Shardus.NodeWithRank = {
+        rank,
+        id: node.id,
+        publicKey: node.publicKey,
+        externalIp: node.externalIp,
+        externalPort: node.externalPort,
+        internalIp: node.internalIp,
+        internalPort: node.internalPort,
+      }
+      nodeListWithRankData.push(nodeWithRank)
     }
-
-    nodeListWithRankData.sort((a, b) => (a.rank > b.rank ? -1 : 1))
-
-    return nodeListWithRankData
+    return nodeListWithRankData.sort((a: Shardus.NodeWithRank, b: Shardus.NodeWithRank) => {
+      return b.rank > a.rank ? 1 : -1
+    })
   }
 
   /**
