@@ -985,6 +985,7 @@ export interface ServerConfiguration {
     fixHomeNodeCheckForTXGroupChanges?: boolean
     /** To enable at shardeum v1.1.3 */
     archiverDataSubscriptionsUpdate?: boolean
+    startInServiceMode?: boolean
     /** This flag defaults to true. If set to true, addresses marked as ir will be fetched when tx is ageing. */
     enableRIAccountsCache: boolean
   }
