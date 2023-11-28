@@ -217,7 +217,14 @@ function createGossipTracker() {
 }
 
 // Our own P2P version of the network tell, with a sign added
-export async function tell(nodes: ShardusTypes.Node[], route, message, logged = false, tracker = '') {
+export async function tell(
+  nodes: ShardusTypes.Node[],
+  route,
+  message,
+  logged = false,
+  tracker = '',
+  subRoute = '' // used by gossip to differentiate between different gossip types
+) {
   profilerInstance.profileSectionStart('p2p-tell')
   profilerInstance.profileSectionStart(`p2p-tell-${route}`)
   let msgSize = cUninitializedSize
@@ -284,7 +291,8 @@ async function taggedMultiTell(
   tracker: string,
   msgSize: number,
   route: any,
-  logged: boolean
+  logged: boolean,
+  subRoute = ''
 ) {
   const promises = []
   for (const node of nodes) {
@@ -295,7 +303,7 @@ async function taggedMultiTell(
     const signedMessage = _wrapAndTagMessage(message, tracker, node)
     msgSize = signedMessage.msgSize
     /* prettier-ignore */ if (logFlags.p2pNonFatal) info(`taggedMultiTell: signed and tagged gossip`, utils.stringifyReduceLimit(signedMessage))
-    promises.push(network.tell([node], route, signedMessage, logged))
+    promises.push(network.tell([node], route, signedMessage, logged, subRoute))
   }
   try {
     await Promise.all(promises)
@@ -311,14 +319,15 @@ async function signedMultiTell(
   tracker: string,
   msgSize: number,
   route: any,
-  logged: boolean
+  logged: boolean,
+  subRoute = ''
 ) {
   const signedMessage = _wrapAndSignMessage(message, tracker)
   msgSize = signedMessage.msgSize
   const nonSelfNodes = nodes.filter((node) => node.id !== Self.id)
   /* prettier-ignore */ if (logFlags.p2pNonFatal) info(`signedMultiTell: signed and tagged gossip`, utils.stringifyReduceLimit(signedMessage))
   try {
-    await network.tell(nonSelfNodes, route, signedMessage, logged)
+    await network.tell(nonSelfNodes, route, signedMessage, logged, subRoute)
   } catch (err) {
     warn('signedMultiTell: P2P TELL: failed', err)
   }
@@ -573,7 +582,7 @@ function sortByID(first, second) {
  */
 // [TODO] This function should not sort nodes; they should be pre-sorted
 export async function sendGossip(
-  type,
+  type: string,
   payload,
   tracker = '',
   sender = null,
@@ -613,7 +622,7 @@ export async function sendGossip(
   const myIdx = nodes.findIndex((node) => node.id === Self.id)
   if (myIdx < 0) {
     // throw new Error('Could not find self in nodes array')
-    error(`Failed to sendGossip. Could not find self in nodes array`)
+    error(`Failed to sendGossip. Could not find self in nodes array ${type}`)
     return msgSize
   }
 
@@ -664,12 +673,12 @@ export async function sendGossip(
       /* prettier-ignore */ nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossip ${type} recipients: ${recipients.length}`)
     }
 
-    msgSize = await tell(recipients, 'gossip', gossipPayload, true, tracker)
+    msgSize = await tell(recipients, 'gossip', gossipPayload, true, tracker, type)
   } catch (ex) {
     if (logFlags.verbose) {
-      error(`Failed to sendGossip(${utils.stringifyReduce(payload)}) Exception => ${ex}`)
+      error(`Failed to sendGossip(${type}, ${utils.stringifyReduce(payload)}) Exception => ${ex}`)
     }
-    fatal('sendGossipIn: ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
+    fatal(`sendGossipIn: ${type}: ` + ex.name + ': ' + ex.message + ' at ' + ex.stack)
   }
   // gossipedHashesSent.set(gossipHash, currentCycle)    // No longer used
   if (logFlags.verbose && logFlags.p2pNonFatal) {
@@ -679,7 +688,7 @@ export async function sendGossip(
 }
 
 export async function sendGossipAll(
-  type,
+  type: string,
   payload,
   tracker = '',
   sender = null,
@@ -715,7 +724,7 @@ export async function sendGossipAll(
   const myIdx = nodes.findIndex((node) => node.id === Self.id)
   if (myIdx < 0) {
     // throw new Error('Could not find self in nodes array')
-    error(`Failed to sendGossip. Could not find self in nodes array`)
+    error(`Failed to sendGossip. Could not find self in nodes array ${type}`)
     return msgSize
   }
 
@@ -742,12 +751,12 @@ export async function sendGossipAll(
       /* prettier-ignore */ nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossipAll ${type} recipients: ${recipients.length}`)
     }
 
-    msgSize = await tell(recipients, 'gossip', gossipPayload, true, tracker)
+    msgSize = await tell(recipients, 'gossip', gossipPayload, true, tracker, type)
   } catch (ex) {
     if (logFlags.verbose) {
-      p2pLogger.error(`Failed to sendGossip(${utils.stringifyReduce(payload)}) Exception => ${ex}`)
+      p2pLogger.error(`Failed to sendGossip(${type} ${utils.stringifyReduce(payload)}) Exception => ${ex}`)
     }
-    p2pLogger.fatal('sendGossipIn: ' + ex.name + ': ' + ex.message + ' at ' + ex.stack)
+    p2pLogger.fatal(`sendGossipIn: ${type}:` + ex.name + ': ' + ex.message + ' at ' + ex.stack)
   }
   //gossipedHashesSent.set(gossipHash, false)
   if (logFlags.verbose) {
