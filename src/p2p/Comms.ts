@@ -240,8 +240,8 @@ export async function tell(
   }
 
   msgSize = config.p2p.useSignaturesForAuth
-    ? await signedMultiTell(nodes, message, tracker, msgSize, route, logged)
-    : await taggedMultiTell(nodes, message, tracker, msgSize, route, logged)
+    ? await signedMultiTell(nodes, message, tracker, msgSize, route, logged, subRoute)
+    : await taggedMultiTell(nodes, message, tracker, msgSize, route, logged, subRoute)
   profilerInstance.profileSectionEnd('p2p-tell')
   profilerInstance.profileSectionEnd(`p2p-tell-${route}`)
   return msgSize
