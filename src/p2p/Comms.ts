@@ -2,7 +2,7 @@ import { AppHeader } from '@shardus/net/build/src/types'
 import { P2P } from '@shardus/types'
 import { Logger } from 'log4js'
 import { logFlags } from '../logger'
-import { setIsUpTs } from '../p2p/Lost'
+import { isNodeDown, isNodeLost, isNodeUpRecent, setIsUpTs } from '../p2p/Lost'
 import { ShardusTypes } from '../shardus'
 import { Sign } from '../shardus/shardus-types'
 import { InternalBinaryHandler } from '../types/Handler'
@@ -577,6 +577,81 @@ function sortByID(first, second) {
   return utils.sortAscProp(first, second, 'id')
 }
 
+function isNodeValidForInternalMessage(
+  node: P2P.NodeListTypes.Node,
+  debugMsg: string,
+  checkForNodeDown = true,
+  checkForNodeLost = true,
+  checkIsUpRecent = true
+): boolean {
+  const logErrors = logFlags.debug
+  if (node == null) {
+    if (logErrors)
+      if (logFlags.error)
+        /* prettier-ignore */ this.mainLogger.error(`isNodeValidForInternalMessage node == null ${utils.stringifyReduce(node.id)} ${debugMsg}`)
+    return false
+  }
+  const nodeStatus = node.status
+  if (nodeStatus != 'active' || NodeList.potentiallyRemoved.has(node.id)) {
+    if (logErrors)
+      if (logFlags.error)
+        /* prettier-ignore */ this.mainLogger.error(`isNodeValidForInternalMessage node not active. ${nodeStatus} ${utils.stringifyReduce(node.id)} ${debugMsg}`)
+    return false
+  }
+
+  if (checkIsUpRecent) {
+    const { upRecent, age } = isNodeUpRecent(node.id, 5000)
+    if (upRecent === true) {
+      if (checkForNodeDown) {
+        const { down, state } = isNodeDown(node.id)
+        if (down === true) {
+          if (logErrors)
+            this.mainLogger.debug(
+              `isNodeUpRecentOverride: ${age} isNodeValidForInternalMessage isNodeDown == true state:${state} ${utils.stringifyReduce(
+                node.id
+              )} ${debugMsg}`
+            )
+        }
+      }
+      if (checkForNodeLost) {
+        if (isNodeLost(node.id) === true) {
+          if (logErrors)
+            this.mainLogger.debug(
+              `isNodeUpRecentOverride: ${age} isNodeValidForInternalMessage isNodeLost == true ${utils.stringifyReduce(
+                node.id
+              )} ${debugMsg}`
+            )
+        }
+      }
+      return true
+    } else {
+      if (logErrors)
+        this.mainLogger.debug(
+          `isNodeUpRecentOverride: ${age} upRecent = false. no recent TX, but this is not a fail conditions`
+        )
+    }
+  }
+
+  if (checkForNodeDown) {
+    const { down, state } = isNodeDown(node.id)
+    if (down === true) {
+      if (logErrors)
+        if (logFlags.error)
+          /* prettier-ignore */ this.mainLogger.error(`isNodeValidForInternalMessage isNodeDown == true state:${state} ${utils.stringifyReduce(node.id)} ${debugMsg}`)
+      return false
+    }
+  }
+  if (checkForNodeLost) {
+    if (isNodeLost(node.id) === true) {
+      if (logErrors)
+        if (logFlags.error)
+          /* prettier-ignore */ this.mainLogger.error(`isNodeValidForInternalMessage isNodeLost == true ${utils.stringifyReduce(node.id)} ${debugMsg}`)
+      return false
+    }
+  }
+  return true
+}
+
 /**
  * Send Gossip to all nodes, using gossip in
  */
@@ -648,7 +723,7 @@ export async function sendGossip(
   }
 
   // Map back recipient idxs to node objects
-  let recipients = recipientIdxs.map((idx) => nodes[idx])
+  let recipients: P2P.NodeListTypes.Node[] = recipientIdxs.map((idx) => nodes[idx])
   if (sender != null) {
     recipients = utils.removeNodesByID(recipients, [sender])
   }
@@ -672,6 +747,19 @@ export async function sendGossip(
       /* prettier-ignore */ nestedCountersInstance.countEvent('comms-recipients', `sendGossip recipients: ${recipients.length}`, recipients.length)
       /* prettier-ignore */ nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossip ${type} recipients: ${recipients.length}`)
     }
+
+    // Filter recipients to only include those that are valid
+    recipients = recipients.filter((node) => {
+      if (isNodeValidForInternalMessage(node, 'sendGossip', true, true, true)) {
+        return true
+      } else {
+        nestedCountersInstance.countEvent('p2p-skip-send', 'skipping gossip')
+        nestedCountersInstance.countEvent(
+          'p2p-skip-send',
+          `skipping gossip ${node.internalIp}:${node.externalPort}`
+        )
+      }
+    })
 
     msgSize = await tell(recipients, 'gossip', gossipPayload, true, tracker, type)
   } catch (ex) {
@@ -750,6 +838,19 @@ export async function sendGossipAll(
       /* prettier-ignore */ nestedCountersInstance.countEvent('comms-recipients', `sendGossipAll recipients: ${recipients.length}`, recipients.length)
       /* prettier-ignore */ nestedCountersInstance.countEvent('comms-route x recipients (logical count)', `sendGossipAll ${type} recipients: ${recipients.length}`)
     }
+
+    // Filter recipients to only include those that are valid
+    recipients = recipients.filter((node) => {
+      if (isNodeValidForInternalMessage(node, 'sendGossip', true, true, true)) {
+        return true
+      } else {
+        nestedCountersInstance.countEvent('p2p-skip-send', 'skipping gossip')
+        nestedCountersInstance.countEvent(
+          'p2p-skip-send',
+          `skipping gossip ${node.internalIp}:${node.externalPort}`
+        )
+      }
+    })
 
     msgSize = await tell(recipients, 'gossip', gossipPayload, true, tracker, type)
   } catch (ex) {
