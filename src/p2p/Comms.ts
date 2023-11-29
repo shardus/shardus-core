@@ -599,39 +599,6 @@ function isNodeValidForInternalMessage(
     return false
   }
 
-  if (checkIsUpRecent) {
-    const { upRecent, age } = isNodeUpRecent(node.id, 5000)
-    if (upRecent === true) {
-      if (checkForNodeDown) {
-        const { down, state } = isNodeDown(node.id)
-        if (down === true) {
-          if (logErrors)
-            this.mainLogger.debug(
-              `isNodeUpRecentOverride: ${age} isNodeValidForInternalMessage isNodeDown == true state:${state} ${utils.stringifyReduce(
-                node.id
-              )} ${debugMsg}`
-            )
-        }
-      }
-      if (checkForNodeLost) {
-        if (isNodeLost(node.id) === true) {
-          if (logErrors)
-            this.mainLogger.debug(
-              `isNodeUpRecentOverride: ${age} isNodeValidForInternalMessage isNodeLost == true ${utils.stringifyReduce(
-                node.id
-              )} ${debugMsg}`
-            )
-        }
-      }
-      return true
-    } else {
-      if (logErrors)
-        this.mainLogger.debug(
-          `isNodeUpRecentOverride: ${age} upRecent = false. no recent TX, but this is not a fail conditions`
-        )
-    }
-  }
-
   if (checkForNodeDown) {
     const { down, state } = isNodeDown(node.id)
     if (down === true) {
@@ -646,6 +613,18 @@ function isNodeValidForInternalMessage(
       if (logErrors)
         if (logFlags.error)
           /* prettier-ignore */ this.mainLogger.error(`isNodeValidForInternalMessage isNodeLost == true ${utils.stringifyReduce(node.id)} ${debugMsg}`)
+      return false
+    }
+  }
+  if (checkIsUpRecent) {
+    const { upRecent, age } = isNodeUpRecent(node.id, 5000)
+    if (upRecent === true) {
+      return true
+    } else {
+      if (logErrors)
+        this.mainLogger.debug(
+          `isNodeUpRecentOverride: ${age} upRecent = false. no recent TX, but this is not a fail conditions`
+        )
       return false
     }
   }
