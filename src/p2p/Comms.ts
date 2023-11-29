@@ -749,17 +749,27 @@ export async function sendGossip(
     }
 
     // Filter recipients to only include those that are valid
-    recipients = recipients.filter((node) => {
-      if (isNodeValidForInternalMessage(node, 'sendGossip', true, true, true)) {
-        return true
-      } else {
-        nestedCountersInstance.countEvent('p2p-skip-send', 'skipping gossip')
-        nestedCountersInstance.countEvent(
-          'p2p-skip-send',
-          `skipping gossip ${node.internalIp}:${node.externalPort}`
-        )
-      }
-    })
+    if (config.p2p.preGossipNodeCheck) {
+      recipients = recipients.filter((node) => {
+        if (
+          isNodeValidForInternalMessage(
+            node,
+            'sendGossip',
+            config.p2p.preGossipDownCheck,
+            config.p2p.preGossipLostCheck,
+            config.p2p.preGossipRecentCheck
+          )
+        ) {
+          return true
+        } else {
+          nestedCountersInstance.countEvent('p2p-skip-send', 'skipping gossip')
+          nestedCountersInstance.countEvent(
+            'p2p-skip-send',
+            `skipping gossip ${node.internalIp}:${node.externalPort}`
+          )
+        }
+      })
+    }
 
     msgSize = await tell(recipients, 'gossip', gossipPayload, true, tracker, type)
   } catch (ex) {
@@ -840,17 +850,27 @@ export async function sendGossipAll(
     }
 
     // Filter recipients to only include those that are valid
-    recipients = recipients.filter((node) => {
-      if (isNodeValidForInternalMessage(node, 'sendGossip', true, true, true)) {
-        return true
-      } else {
-        nestedCountersInstance.countEvent('p2p-skip-send', 'skipping gossip')
-        nestedCountersInstance.countEvent(
-          'p2p-skip-send',
-          `skipping gossip ${node.internalIp}:${node.externalPort}`
-        )
-      }
-    })
+    if (config.p2p.preGossipNodeCheck) {
+      recipients = recipients.filter((node) => {
+        if (
+          isNodeValidForInternalMessage(
+            node,
+            'sendGossip',
+            config.p2p.preGossipDownCheck,
+            config.p2p.preGossipLostCheck,
+            config.p2p.preGossipRecentCheck
+          )
+        ) {
+          return true
+        } else {
+          nestedCountersInstance.countEvent('p2p-skip-send', 'skipping gossip')
+          nestedCountersInstance.countEvent(
+            'p2p-skip-send',
+            `skipping gossip ${node.internalIp}:${node.externalPort}`
+          )
+        }
+      })
+    }
 
     msgSize = await tell(recipients, 'gossip', gossipPayload, true, tracker, type)
   } catch (ex) {
