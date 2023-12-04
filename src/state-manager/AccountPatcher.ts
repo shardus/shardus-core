@@ -34,7 +34,7 @@ import {
   CycleShardData,
 } from './state-manager-types'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
-import { errorToStringFull, Ordering } from '../utils'
+import { allSettledTimeout, errorToStringFull, Ordering } from '../utils'
 import { Response } from 'express-serve-static-core'
 import { shardusGetTime } from '../network'
 
@@ -1640,10 +1640,11 @@ class AccountPatcher {
 
     try {
       //TODO should we convert to Promise.allSettled?
-      const results = await Promise.all(promises)
+      const results = await allSettledTimeout(promises, 2000)
       for (const result of results) {
-        if (result != null && result.nodeHashes != null) {
-          nodeHashes = nodeHashes.concat(result.nodeHashes)
+        if (result.status === 'fulfilled'  && result.value.data.nodeHashes != null) {
+          console.log("all settled:",result);
+          nodeHashes = nodeHashes.concat(result.value.data.nodeHashes)
         }
       }
     } catch (error) {
@@ -1740,15 +1741,16 @@ class AccountPatcher {
 
     try {
       //TODO should we convert to Promise.allSettled?
-      const results = await Promise.all(promises)
+      const results = await allSettledTimeout(promises, 2000)
       for (const result of results) {
-        if (result != null && result.nodeChildHashes != null) {
-          nodeChildHashes = nodeChildHashes.concat(result.nodeChildHashes)
+        if (result.status === 'fulfilled' && result.value.data.nodeChildHashes != null) {
+          nodeChildHashes = nodeChildHashes.concat(result.value.data.nodeChildHashes)
           // for(let childHashes of result.nodeChildHashes){
           //   allHashes = allHashes.concat(childHashes.childAccounts)
           // }
-          utils.sumObject(getAccountHashStats, result.stats)
+          utils.sumObject(getAccountHashStats, result.value.data.stats)
           getAccountHashStats.responses++
+          console.log("all settled", result);
         } else {
           getAccountHashStats.nullResults++
         }
@@ -2295,7 +2297,8 @@ class AccountPatcher {
       const promise = this.p2p.tell([messageEntry.node], 'sync_trie_hashes', messageEntry.message)
       promises.push(promise)
     }
-    await Promise.all(promises)
+
+    await allSettledTimeout(promises, 2000)
   }
 
   /***

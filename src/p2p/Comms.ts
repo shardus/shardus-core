@@ -16,6 +16,7 @@ import { config, crypto, logger, network } from './Context'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
 import { shardusGetTime } from '../network'
+import { allSettledTimeout } from '../utils'
 
 /** ROUTES */
 
@@ -298,7 +299,7 @@ async function taggedMultiTell(
     promises.push(network.tell([node], route, signedMessage, logged))
   }
   try {
-    await Promise.all(promises)
+    await allSettledTimeout(promises, 2000);
   } catch (err) {
     warn('taggedMultiTell: P2P TELL: failed', err)
   }
