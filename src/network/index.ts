@@ -16,6 +16,7 @@ import { generateUUID } from '../p2p/Utils'
 import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
 import { formatErrorMessage } from '../utils'
+import * as ShardusPromise from '../utils/functions/promises'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { profilerInstance } from '../utils/profiler'
 import NatAPI = require('nat-api')
@@ -223,8 +224,9 @@ export class NetworkClass extends EventEmitter {
    * @param route
    * @param message
    * @param alreadyLogged this is so that gossip system can indicate that we already have recorded playback logs
+   * @param useAllSettled if true, then we will wait for all promises to settle, otherwise promise.all behaviour
    */
-  async tell(nodes: Shardus.Node[], route: string, message, alreadyLogged = false) {
+  async tell(nodes: Shardus.Node[], route: string, message, alreadyLogged = false, useAllSettled = true) {
     const data = { route, payload: message }
     const promises = []
     let id = ''
@@ -248,7 +250,12 @@ export class NetworkClass extends EventEmitter {
       promises.push(promise)
     }
     try {
-      await Promise.all(promises)
+      if(useAllSettled) {
+        await ShardusPromise.allSettledTimeout(promises, 2000)
+      }
+      else {
+        await Promise.all(promises)
+      }
     } catch (err) {
       nestedCountersInstance.countEvent('network', `error-tell ${route}`)
       /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell-err) on ${route}: ${formatErrorMessage(err)}`)
@@ -261,7 +268,8 @@ export class NetworkClass extends EventEmitter {
     message: Buffer,
     appHeader: AppHeader,
     trackerId: string,
-    alreadyLogged = false
+    alreadyLogged = false,
+    useAllSettled = true,
   ) {
     const data = { route, payload: message }
     const promises = []
@@ -282,7 +290,12 @@ export class NetworkClass extends EventEmitter {
       promises.push(promise)
     }
     try {
-      await Promise.all(promises)
+      if(useAllSettled) {
+        await ShardusPromise.allSettledTimeout(promises, 2000)
+      }
+      else{
+        await Promise.all(promises)
+      }
     } catch (err) {
       nestedCountersInstance.countEvent('network', `error-tell2 ${route}`)
       /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell2-promise) on ${route}: ${formatErrorMessage(err)}`)

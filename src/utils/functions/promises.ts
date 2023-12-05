@@ -142,23 +142,25 @@ export async function withTimeout<T>(fn: () => Promise<T>, timeoutMs: number): P
  * Behave similarly to the all settled but with a timeout specified for all requests
  * @param promises - The promises to be settled
  * @param timeoutMilli - The timeout in milliseconds
- * @returns A promise that resolves with the function's return value, or "timeout" if the timeout expires first.
+ * @returns results of the promises that resolves with the function's return value, or "timeout" if the timeout expires first.
  */
-export async function allSettledTimeout(promises: Promise<any>[], timeoutMilli = 2000): Promise<PromiseSettledResult<any>[]> {
-    const wrappedPromises = promises.map((p) => {
-        return new Promise((resolve, reject) => {
+export async function allSettledTimeout (promises: Promise<any>[], timeoutMilli = 2000): Promise<PromiseSettledResult<any>[]> {
+  const wrappedPromises = promises.map((p) => {
+    return new Promise((resolve, reject) => {
+      let isRejected = false;
 
-            // if a promise resolved then resolve
-            // if a promise rejected then reject
-            p.then(resolve).catch(reject);
+      p.then(resolve).catch((reason) => {
+        isRejected = true;
+        reject(reason);
+      });
 
-            setTimeout(() => {
+      setTimeout(() => {
+        if (!isRejected) {
+          reject('timeout');
+        }
+      }, timeoutMilli);
+    });
+  });
 
-                // if a promise is timed out then reject
-                reject(new Error('timeout'));
-            }, timeoutMilli);
-        });
-    }
-    );
-    return Promise.allSettled(wrappedPromises);
+  return Promise.allSettled(wrappedPromises);
 };

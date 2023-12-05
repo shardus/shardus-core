@@ -34,7 +34,8 @@ import {
   CycleShardData,
 } from './state-manager-types'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
-import { allSettledTimeout, errorToStringFull, Ordering } from '../utils'
+import { errorToStringFull, Ordering } from '../utils'
+import * as ShardusPromise from '../utils/functions/promises' 
 import { Response } from 'express-serve-static-core'
 import { shardusGetTime } from '../network'
 
@@ -1640,11 +1641,10 @@ class AccountPatcher {
 
     try {
       //TODO should we convert to Promise.allSettled?
-      const results = await allSettledTimeout(promises, 2000)
+      const results = await ShardusPromise.allSettledTimeout(promises, 2000)
       for (const result of results) {
-        if (result.status === 'fulfilled'  && result.value.data.nodeHashes != null) {
-          console.log("all settled:",result);
-          nodeHashes = nodeHashes.concat(result.value.data.nodeHashes)
+        if (result.status === 'fulfilled'  && result.value.nodeHashes != null) {
+          nodeHashes = nodeHashes.concat(result.value.nodeHashes)
         }
       }
     } catch (error) {
@@ -1741,16 +1741,15 @@ class AccountPatcher {
 
     try {
       //TODO should we convert to Promise.allSettled?
-      const results = await allSettledTimeout(promises, 2000)
+      const results = await ShardusPromise.allSettledTimeout(promises, 2000)
       for (const result of results) {
-        if (result.status === 'fulfilled' && result.value.data.nodeChildHashes != null) {
-          nodeChildHashes = nodeChildHashes.concat(result.value.data.nodeChildHashes)
+        if (result.status === 'fulfilled' && result.value.nodeChildHashes != null) {
+          nodeChildHashes = nodeChildHashes.concat(result.value.nodeChildHashes)
           // for(let childHashes of result.nodeChildHashes){
           //   allHashes = allHashes.concat(childHashes.childAccounts)
           // }
-          utils.sumObject(getAccountHashStats, result.value.data.stats)
+          utils.sumObject(getAccountHashStats, result.value.stats)
           getAccountHashStats.responses++
-          console.log("all settled", result);
         } else {
           getAccountHashStats.nullResults++
         }
@@ -2298,7 +2297,7 @@ class AccountPatcher {
       promises.push(promise)
     }
 
-    await allSettledTimeout(promises, 2000)
+    await ShardusPromise.allSettledTimeout(promises, 2000)
   }
 
   /***

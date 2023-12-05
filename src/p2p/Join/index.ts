@@ -1,4 +1,5 @@
 import deepmerge from 'deepmerge'
+import * as ShardusPromise from '../../utils/functions/promises'
 import { version } from '../../../package.json'
 import * as http from '../../http'
 import { logFlags } from '../../logger'
@@ -581,7 +582,7 @@ export async function submitJoinV2(
     }
   }
 
-  const responses = await Promise.all(promises)
+  const responses  = await ShardusPromise.allSettledTimeout(promises) 
   const errs = []
 
   let goodCount = 0
@@ -589,15 +590,15 @@ export async function submitJoinV2(
 
   for (const res of responses) {
     /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Join Request Response: ${JSON.stringify(res)}`)
-    if (res && res.fatal) {
+    if (res.status === 'fulfilled' && res.value.fatal) {
       errs.push(res)
 
       //special case for unreachable because the very nature of it means some timeouts could prevent us from hearing back
-      if (res.reason && res.reason.startsWith('IP or Port is not reachable')) {
+      if (res.value.reason && res.value.reason.startsWith('IP or Port is not reachable')) {
         unreachable++
       }
     }
-    if (res && res.success === true) {
+    if (res.status === 'fulfilled' && res.value.success === true) {
       goodCount++
     }
   }
@@ -615,7 +616,7 @@ export async function submitJoinV2(
   //it is important to check that we go one good response.  this was the past cause of nodes giving up
   if (goodCount === 0) {
     nestedCountersInstance.countEvent('p2p', `submitJoin: no join success repsonses`)
-    /* prettier-ignore */ if (logFlags.important_as_fatal) info(`submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`)
+    /* prettier-ignore */ if (logFlags.important_as_fatal) info(`submitJoin: no join success repsonses: ${responses.map((e: any) => e.reason).join(', ')}`)
     //throw new Error(`submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`)
   }
 
