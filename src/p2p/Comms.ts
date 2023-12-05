@@ -517,6 +517,10 @@ export function registerInternal(route, handler) {
     if (route !== 'gossip') {
       /* prettier-ignore */ if (logFlags.playback) logger.playbackLog(sender, 'self', 'InternalRecv', route, tracker, payload)
     }
+
+    //mark that we got a message from this node (for isNodeUpRecent)
+    setIsUpTs(sender)
+
     await handler(payload, respondWrapped, sender, tracker, msgSize)
   }
   // Include that in the handler function that is passed
@@ -564,6 +568,10 @@ export function registerInternal2(route: string, handler: InternalBinaryHandler)
     if (route !== 'gossip') {
       /* prettier-ignore */ if (logFlags.playback) logger.playbackLog(header.sender_id, 'self', 'InternalRecv', route, header.tracker_id, requestPayload)
     }
+
+    //mark that we got a message from this node (for isNodeUpRecent)
+    setIsUpTs(header.sender_id) //is this correct?
+
     await handler(requestPayload, respondWrapped, header, sign)
   }
   network.registerInternal(route, wrappedHandler)
@@ -599,6 +607,21 @@ function isNodeValidForInternalMessage(
     return false
   }
 
+  // check up recent first which will tell us if we have gossip from this node in the last 5 seconds
+  // consider a larger amount of time
+  if (checkIsUpRecent) {
+    const { upRecent, age } = isNodeUpRecent(node.id, 5000)
+    if (upRecent === true) {
+      return true
+    } else {
+      // if (logErrors)
+      //   this.mainLogger.debug(
+      //     `isNodeUpRecentOverride: ${age} upRecent = false. no recent TX, but this is not a fail conditions`
+      //   )
+      // return false //not a fail conditions
+    }
+  }
+
   if (checkForNodeDown) {
     const { down, state } = isNodeDown(node.id)
     if (down === true) {
@@ -616,18 +639,7 @@ function isNodeValidForInternalMessage(
       return false
     }
   }
-  if (checkIsUpRecent) {
-    const { upRecent, age } = isNodeUpRecent(node.id, 5000)
-    if (upRecent === true) {
-      return true
-    } else {
-      if (logErrors)
-        this.mainLogger.debug(
-          `isNodeUpRecentOverride: ${age} upRecent = false. no recent TX, but this is not a fail conditions`
-        )
-      return false
-    }
-  }
+
   return true
 }
 
@@ -945,7 +957,8 @@ export async function handleGossip(payload, sender, tracker = '', msgSize = cNoS
   gossipedHashesRecv.set(gossipHash, false)    // [TODO] - double check logic; we setTimeout to delete gossipHash if we get it a second time, but not first time ???
   */
 
-  setIsUpTs(sender)
+  //mark that we got a message from this node (for isNodeUpRecent)
+  setIsUpTs(sender) //may not need this since gossip is goes through the internal route, and that now flags this
 
   gossipRecv++
   gossipTypeRecv[type] = gossipTypeRecv[type] ? gossipTypeRecv[type] + 1 : 1
