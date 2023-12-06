@@ -124,14 +124,14 @@ interface CompareCertRes {
   record: P2P.CycleCreatorTypes.CycleRecord
 }
 
-const compareMarkerRoute: P2P.P2PTypes.InternalHandler<CompareMarkerReq, CompareMarkerRes> = (
+const compareMarkerRoute: P2P.P2PTypes.InternalHandler<CompareMarkerReq, CompareMarkerRes> = async (
   payload,
   respond,
   sender
 ) => {
   profilerInstance.scopedProfileSectionStart('compareMarker')
   const req = payload
-  respond(compareCycleMarkersEndpoint(req))
+  await respond(compareCycleMarkersEndpoint(req))
   profilerInstance.scopedProfileSectionStart('compareMarker')
 }
 
@@ -139,9 +139,9 @@ const compareCertRoute: P2P.P2PTypes.InternalHandler<
   CompareCertReq,
   CompareCertRes,
   P2P.NodeListTypes.Node['id']
-> = (payload, respond, sender) => {
+> = async (payload, respond, sender) => {
   profilerInstance.scopedProfileSectionStart('compareCert')
-  respond(compareCycleCertEndpoint(payload, sender))
+  await respond(compareCycleCertEndpoint(payload, sender))
   profilerInstance.scopedProfileSectionEnd('compareCert')
 }
 
