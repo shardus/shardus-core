@@ -695,6 +695,19 @@ export type ConfirmOrChallengeQueryResponse = {
   uniqueCount: number
 }
 
+/**
+ * ArchiverReceipt is the full data (shardusReceipt + appReceiptData + accounts ) of a tx that is sent to the archiver
+ */
+export interface ArchiverReceipt {
+  tx: Shardus.AcceptedTx['data']
+  cycle: number
+  beforeStateAccounts: Shardus.AccountsCopy[]
+  accounts: Shardus.AccountsCopy[]
+  appReceiptData: unknown
+  appliedReceipt: AppliedReceipt2
+  executionShardKey: string
+}
+
 // export type AppliedReceiptGossip2 = {
 //     appliedReceipt: AppliedReceipt2
 // };
