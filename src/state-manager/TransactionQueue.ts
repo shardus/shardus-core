@@ -4464,6 +4464,7 @@ class TransactionQueue {
                   result = {
                     result: receipt2.result,
                     appliedVotes: [receipt2.appliedVote], // everything is the same but the applied vote is an array
+                    confirmOrChallenge: [receipt2.confirmOrChallenge],
                     txid: receipt2.txid,
                     app_data_hash: receipt2.app_data_hash,
                   }
@@ -4486,6 +4487,7 @@ class TransactionQueue {
                   result = {
                     result: receipt2.result,
                     appliedVotes: [receipt2.appliedVote], // everything is the same but the applied vote is an array
+                    confirmOrChallenge: [receipt2.confirmOrChallenge],
                     txid: receipt2.txid,
                     app_data_hash: receipt2.app_data_hash,
                   }
