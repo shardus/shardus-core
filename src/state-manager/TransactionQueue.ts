@@ -78,10 +78,10 @@ class TransactionQueue {
   _transactionQueueByID: Map<string, QueueEntry> //old name: newAcceptedTxQueueByID
   pendingTransactionQueueByID: Map<string, QueueEntry> //old name: newAcceptedTxQueueTempInjestByID
   archivedQueueEntriesByID: Map<string, QueueEntry>
-  receiptsToForward: Receipt[]
+  receiptsToForward: ArchiverReceipt[]
   forwardedReceipts: Map<string, boolean>
   oldNotForwardedReceipts: Map<string, boolean>
-  receiptsBundleByInterval: Map<number, Receipt[]>
+  receiptsBundleByInterval: Map<number, ArchiverReceipt[]>
   receiptsForwardedTimestamp: number
   lastReceiptForwardResetTimestamp: number
 
@@ -5128,8 +5128,8 @@ class TransactionQueue {
     // const txIdShort = utils.short(txHash)
     // const txResult = utils.short(txResultFullHash)x
 
-    const accountsToAdd = {} as Shardus.AccountsCopy
-    const beforeAccountsToAdd = {} as Shardus.AccountsCopy
+    const accountsToAdd: { [accountId: string]: Shardus.AccountsCopy } = {}
+    const beforeAccountsToAdd: { [accountId: string]: Shardus.AccountsCopy } = {}
 
     if (this.config.stateManager.includeBeforeStatesInReceipts) {
       for (const account of Object.values(queueEntry.collectedData)) {
@@ -5138,11 +5138,12 @@ class TransactionQueue {
           this.app.beforeStateAccountFilter(account)
         ) {
           const isGlobal = this.stateManager.accountGlobals.isGlobalAccount(account.accountId)
-          const accountCopy = {
+          const accountCopy: Shardus.AccountsCopy = {
             accountId: account.accountId,
             data: account.data,
+            hash: account.stateId,
             timestamp: account.timestamp,
-            stateId: account.stateId,
+            cycleNumber: queueEntry.cycleToRecordOn,
             isGlobal,
           }
           beforeAccountsToAdd[account.accountId] = accountCopy
@@ -5157,13 +5158,15 @@ class TransactionQueue {
     ) {
       for (const account of queueEntry.preApplyTXResult.applyResponse.accountWrites) {
         const isGlobal = this.stateManager.accountGlobals.isGlobalAccount(account.accountId)
-        accountsToAdd[account.accountId] = {
+        const accountCopy: Shardus.AccountsCopy = {
           accountId: account.accountId,
           data: account.data.data,
           timestamp: account.timestamp,
-          stateId: account.data.stateId,
+          hash: account.data.stateId,
+          cycleNumber: queueEntry.cycleToRecordOn,
           isGlobal,
-        }
+        } as Shardus.AccountsCopy
+        accountsToAdd[account.accountId] = accountCopy
       }
     }
 
@@ -5186,13 +5189,13 @@ class TransactionQueue {
     // console.log('App Receipt', queueEntry.preApplyTXResult.applyResponse.appReceiptData)
     // console.log('App Receipt Data Hash', queueEntry.preApplyTXResult.applyResponse.appReceiptDataHash)
 
-    const signedTxReceiptToPass: any = this.crypto.sign(txReceiptToPass)
+    // const signedTxReceiptToPass: any = this.crypto.sign(txReceiptToPass)
 
     if (this.config.p2p.instantForwardReceipts) {
-      Archivers.instantForwardReceipts([signedTxReceiptToPass])
+      Archivers.instantForwardReceipts([txReceiptToPass])
       this.receiptsForwardedTimestamp = shardusGetTime()
     }
-    this.receiptsToForward.push(signedTxReceiptToPass)
+    this.receiptsToForward.push(txReceiptToPass)
   }
 
   getReceiptsToForward(): Receipt[] {
