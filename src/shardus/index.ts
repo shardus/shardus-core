@@ -781,7 +781,14 @@ class Shardus extends EventEmitter {
     })
     Self.emitter.on('node-left-early', ({ ...params }) => {
       try {
-        this.app.eventNotify?.({ type: 'node-left-early', ...params })
+        if (!this.stateManager.currentCycleShardData) throw new Error('No current cycle data')
+        if (params.publicKey == null) throw new Error('No node publicKey provided for node-left-early event')
+        const consensusNodes = this.getConsenusGroupForAccount(params.publicKey)
+        for (let node of consensusNodes) {
+          if (node.id === Self.id) {
+            this.app.eventNotify?.({ type: 'node-left-early', ...params })
+          }
+        }
       } catch (e) {
         this.mainLogger.error(`Error: while processing node-left-early event stack: ${e.stack}`)
       }
@@ -1321,6 +1328,10 @@ class Shardus extends EventEmitter {
 
   getClosestNodesGlobal(hash, count) {
     return this.stateManager.getClosestNodesGlobal(hash, count)
+  }
+
+  computeNodeRank(nodeId: string, txId: string, timestamp: number): bigint {
+    return this.stateManager.transactionQueue.computeNodeRank(nodeId, txId, timestamp)
   }
 
   getShardusProfiler() {
