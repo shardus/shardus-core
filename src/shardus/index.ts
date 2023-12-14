@@ -799,6 +799,22 @@ class Shardus extends EventEmitter {
         this.mainLogger.error(`Error: while processing node-left-early event stack: ${e.stack}`)
       }
     })
+    Self.emitter.on('node-sync-timeout', ({ ...params }) => {
+      try {
+        if (!this.stateManager.currentCycleShardData) throw new Error('No current cycle data')
+        if (params.publicKey == null)
+          throw new Error('No node publicKey provided for node-sync-timeout event')
+        const consensusNodes = this.getConsenusGroupForAccount(params.publicKey)
+        for (let node of consensusNodes) {
+          if (node.id === Self.id) {
+            this.app.eventNotify?.({ type: 'node-sync-timeout', ...params })
+            break
+          }
+        }
+      } catch (e) {
+        this.mainLogger.error(`Error: while processing node-sync-timeout event stack: ${e.stack}`)
+      }
+    })
 
     Context.setShardusContext(this)
 

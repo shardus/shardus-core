@@ -305,6 +305,7 @@ export function updateRecord(
         //todo remove this later after we feel good about the system.. it wont really be that rare, so we dont want to swamp rare counters
         /* prettier-ignore */ nestedCountersInstance.countRareEvent('lost', 'sync timeout ' + `${utils.stringifyReduce(syncingNode.id)} ${syncTime} > ${record.maxSyncTime}`)
         lostSyncingNodeIds.push(syncingNode.id)
+        NodeList.emitSyncTimeoutEvent(syncingNode, record)
       }
     }
   }
