@@ -279,7 +279,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
 }
 
 export function sendRequests() {
-  if (queuedRequest) {
+  if (queuedRequest && !neverGoActive) {
     const activeTx = crypto.sign(queuedRequest)
     queuedRequest = undefined
 
