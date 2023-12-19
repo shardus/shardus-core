@@ -79,11 +79,9 @@ class TransactionQueue {
   pendingTransactionQueueByID: Map<string, QueueEntry> //old name: newAcceptedTxQueueTempInjestByID
   archivedQueueEntriesByID: Map<string, QueueEntry>
   receiptsToForward: ArchiverReceipt[]
-  forwardedReceipts: Map<string, boolean>
-  oldNotForwardedReceipts: Map<string, boolean>
+  forwardedReceiptsByTimestamp: Map<number, ArchiverReceipt>
   receiptsBundleByInterval: Map<number, ArchiverReceipt[]>
   receiptsForwardedTimestamp: number
-  lastReceiptForwardResetTimestamp: number
 
   queueStopped: boolean
   queueEntryCounter: number
@@ -169,9 +167,7 @@ class TransactionQueue {
     this.archivedQueueEntries = []
     this.txDebugStatList = []
     this.receiptsToForward = []
-    this.forwardedReceipts = new Map()
-    this.oldNotForwardedReceipts = new Map()
-    this.lastReceiptForwardResetTimestamp = shardusGetTime()
+    this.forwardedReceiptsByTimestamp = new Map()
     this.receiptsBundleByInterval = new Map()
     this.receiptsForwardedTimestamp = shardusGetTime()
 
@@ -5178,7 +5174,7 @@ class TransactionQueue {
       beforeStateAccounts: [...Object.values(beforeAccountsToAdd)],
       accounts: [...Object.values(accountsToAdd)],
       appReceiptData: queueEntry.preApplyTXResult.applyResponse.appReceiptData || null,
-      appliedReceipt: queueEntry.appliedReceiptFinal2,
+      appliedReceipt: this.stateManager.getReceipt2(queueEntry),
       executionShardKey: queueEntry.executionShardKey,
     }
     // console.log('acceptedTx', queueEntry.acceptedTx)
@@ -5192,43 +5188,26 @@ class TransactionQueue {
     if (this.config.p2p.instantForwardReceipts) {
       Archivers.instantForwardReceipts([txReceiptToPass])
       this.receiptsForwardedTimestamp = shardusGetTime()
+      this.forwardedReceiptsByTimestamp.set(this.receiptsForwardedTimestamp, txReceiptToPass)
     }
-    this.receiptsToForward.push(txReceiptToPass)
+    // this.receiptsToForward.push(txReceiptToPass)
   }
 
-  getReceiptsToForward(): Receipt[] {
-    const freshReceipts = []
-    for (const receipt of this.receiptsToForward) {
-      if (!this.forwardedReceipts.has(receipt.tx.txId)) {
-        freshReceipts.push(receipt)
-      }
-    }
-    return freshReceipts
+  getReceiptsToForward(): ArchiverReceipt[] {
+    return [...this.forwardedReceiptsByTimestamp.values()]
   }
 
   resetReceiptsToForward(): void {
-    const RECEIPT_CLEANUP_INTERVAL_MS = 30000 // 30 seconds
-    if (
-      !this.config.p2p.instantForwardReceipts &&
-      shardusGetTime() - this.lastReceiptForwardResetTimestamp >= RECEIPT_CLEANUP_INTERVAL_MS
-    ) {
-      const lastReceiptsToForward = [...this.receiptsToForward]
-      this.receiptsToForward = []
-      for (const receipt of lastReceiptsToForward) {
-        // Start sending from the last receipts it saved (30s of data) when a new node is selected
-        if (
-          !this.forwardedReceipts.has(receipt.tx.txId) &&
-          !this.oldNotForwardedReceipts.has(receipt.tx.txId)
-        ) {
-          this.receiptsToForward.push(receipt)
+    const receiptsStorageUpdate = true
+    if (receiptsStorageUpdate) {
+      const MAX_RECEIPT_AGE_MS = 15000
+      const now = shardusGetTime()
+      // Clear receipts that are older than MAX_RECEIPT_AGE_MS
+      for (const [key] of this.forwardedReceiptsByTimestamp) {
+        if (key - now > MAX_RECEIPT_AGE_MS) {
+          this.forwardedReceiptsByTimestamp.delete(key)
         }
       }
-      this.forwardedReceipts = new Map()
-      this.oldNotForwardedReceipts = new Map()
-      for (const receipt of this.receiptsToForward) {
-        this.oldNotForwardedReceipts.set(receipt.tx.txId, true)
-      }
-      this.lastReceiptForwardResetTimestamp = shardusGetTime()
     } else if (this.config.p2p.instantForwardReceipts) {
       const lastReceiptsToForward = [...this.receiptsToForward]
       this.receiptsToForward = []
@@ -5246,7 +5225,6 @@ class TransactionQueue {
         lastReceiptsToForward
       )
       if (logFlags.console) console.log('receiptsBundleByInterval', this.receiptsBundleByInterval)
-      this.lastReceiptForwardResetTimestamp = shardusGetTime()
     }
   }
 
