@@ -2156,7 +2156,7 @@ class StateManager {
     }
 
     // If enabled, check the RI cache first
-    if (opts.useRICache) {
+    if (!isServiceMode() && opts.useRICache) {
       const riCacheResult = await this.app.getCachedRIAccountData([address])
       if (riCacheResult != null) {
         if (riCacheResult.length > 0) {
@@ -2176,7 +2176,9 @@ class StateManager {
 
     // hack to say we have all the data
     if (!isServiceMode())
-      if (this.currentCycleShardData.nodes.length <= this.currentCycleShardData.shardGlobals.consensusRadius) {
+      if (
+        this.currentCycleShardData.nodes.length <= this.currentCycleShardData.shardGlobals.consensusRadius
+      ) {
         accountIsRemote = false
       }
     if (forceLocalGlobalLookup) {
