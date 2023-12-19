@@ -5138,14 +5138,13 @@ class TransactionQueue {
           this.app.beforeStateAccountFilter(account)
         ) {
           const isGlobal = this.stateManager.accountGlobals.isGlobalAccount(account.accountId)
-          const accountCopy: Shardus.AccountsCopy = {
+          const accountCopy = {
             accountId: account.accountId,
             data: account.data,
             hash: account.stateId,
             timestamp: account.timestamp,
-            cycleNumber: queueEntry.cycleToRecordOn,
             isGlobal,
-          }
+          } as Shardus.AccountsCopy
           beforeAccountsToAdd[account.accountId] = accountCopy
         }
       }
@@ -5158,12 +5157,11 @@ class TransactionQueue {
     ) {
       for (const account of queueEntry.preApplyTXResult.applyResponse.accountWrites) {
         const isGlobal = this.stateManager.accountGlobals.isGlobalAccount(account.accountId)
-        const accountCopy: Shardus.AccountsCopy = {
+        const accountCopy = {
           accountId: account.accountId,
           data: account.data.data,
           timestamp: account.timestamp,
           hash: account.data.stateId,
-          cycleNumber: queueEntry.cycleToRecordOn,
           isGlobal,
         } as Shardus.AccountsCopy
         accountsToAdd[account.accountId] = accountCopy
