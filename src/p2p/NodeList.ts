@@ -250,6 +250,9 @@ export function updateNodes(
 export function isNodeLeftNetworkEarly(node: P2P.NodeListTypes.Node) {
   return CycleChain.newest && CycleChain.newest.lost.includes(node.id)
 }
+export function isNodeRefuted(node: P2P.NodeListTypes.Node) {
+  return CycleChain.newest && CycleChain.newest.refuted.includes(node.id)
+}
 export function createNode(joined: P2P.JoinTypes.JoinedConsensor) {
   const node: P2P.NodeListTypes.Node = {
     ...joined,

@@ -1259,7 +1259,7 @@ export type DeepRequired<T> = Required<{
   [P in keyof T]: T[P] extends object | undefined ? DeepRequired<Required<T[P]>> : T[P]
 }>
 
-type ShardusEventType = 'node-activated' | 'node-deactivated'
+type ShardusEventType = 'node-activated' | 'node-deactivated' | 'node-left-early' | 'node-refuted'
 
 export type ShardusEvent = {
   type: ShardusEventType
