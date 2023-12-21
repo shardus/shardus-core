@@ -5170,7 +5170,7 @@ class TransactionQueue {
         txId: queueEntry.acceptedTx.txId,
         timestamp: queueEntry.acceptedTx.timestamp,
       },
-      cycle: queueEntry.cycleToRecordOn,
+      cycle: queueEntry.txGroupCycle, // Updated to use txGroupCycle instead of cycleToRecordOn because when the receipt is arrived at the archiver, the cycleToRecordOn cycle might not exist yet.
       beforeStateAccounts: [...Object.values(beforeAccountsToAdd)],
       accounts: [...Object.values(accountsToAdd)],
       appReceiptData: queueEntry.preApplyTXResult.applyResponse.appReceiptData || null,
