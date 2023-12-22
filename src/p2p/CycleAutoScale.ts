@@ -87,6 +87,7 @@ export function reset() {
 
 export function getDesiredCount(): number {
   // having trouble finding a better way to update this!
+  // TODO: (BUI) add condition for if less than minSafetyNodes?
   if (desiredCount < config.p2p.minNodes) {
     desiredCount = config.p2p.minNodes
   }
@@ -150,6 +151,7 @@ export function requestNetworkUpsize() {
 }
 
 export function requestNetworkDownsize() {
+  // TODO: (Bui) add condition for if less than minSafetyNodes?
   if (getDesiredCount() <= config.p2p.minNodes) {
     return
   }
@@ -326,7 +328,8 @@ function _checkScaling() {
     case P2P.CycleAutoScaleTypes.ScaleType.DOWN:
       newDesired = CycleChain.newest.desired - config.p2p.amountToGrow
       // If newDesired less than minNodes, set newDesired to minNodes
-      // Use minSafetyNodes instead of minNodes to have a buffer of nodes before we start scaling down
+      // TODO: (BUI) Use minSafetyNodes instead of minNodes to have a buffer of nodes before we start scaling down
+      // or add another condition for minSafetyNodes?
       if (newDesired < config.p2p.minNodes) newDesired = config.p2p.minSafetyNodes
 
       setDesiredCount(newDesired, 'DOWN')
@@ -401,6 +404,8 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
         /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log(`CycleAutoScale: prev target is ${prevRecord.target} and addRem is ${addRem}`)
         targetCount = prevRecord.target + addRem
         // may want to swap config values to values from cycle record
+        // TODO: (BUI) Should this change to minSafetyNodes add an extra conditional for it? thinking if in processing then keep minNodes as target... if so should I add conditional when less
+        // than minSafetyNodes?
         if (targetCount < config.p2p.minNodes) {
           targetCount = config.p2p.minNodes
         }
@@ -414,6 +419,8 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
       prevRecord.mode === 'restore'
     ) {
       // For the number of nodes to be added in each cycle during these modes is defined in the calculateToAcceptV2 function
+      // TODO: (BUI) if in one of these modes want to be just above baseline to be in processing? so I am changing minSafetyNodes instead of minNodes
+      // main quesiton change to minSafetyMode here?
       targetCount = config.p2p.minNodes
     } else if (prevRecord.mode === 'restart') {
       // In restart mode, all the nodes remain in 'syncing' mode until the desired number of nodes are reached
@@ -439,6 +446,7 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
 }
 
 export function configUpdated() {
+  // TODO: (Bui) possibly need to add condition for minSafetyNodes now?
   if (desiredCount < config.p2p.minNodes) {
     desiredCount = config.p2p.minNodes
     //requestNetworkUpsize updates desiredCount internally
