@@ -148,6 +148,7 @@ export function calculateToAcceptV2(prevRecord: P2P.CycleCreatorTypes.CycleRecor
     } else if (prevRecord.mode === 'safety') {
       if (enterProcessing(active) === false && enterRecovery(active) === false) {
         // TODO: ask pod or Andrew if we should use minNodes or minSafetyNodes
+        // (BUI) add flag here?
         let addRem = 1.02 * config.p2p.minSafetyNodes - (active + syncing) // we try to overshoot min value by 2%; for slow syncing nodes
         if (addRem > active * 0.05) {
           addRem = ~~(active * 0.05)

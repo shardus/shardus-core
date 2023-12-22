@@ -87,7 +87,7 @@ export function reset() {
 
 export function getDesiredCount(): number {
   // having trouble finding a better way to update this!
-  // TODO: (BUI) add condition for if less than minSafetyNodes?
+  // TODO: (BUI) add flag here?
   if (desiredCount < config.p2p.minSafetyNodes) {
     return desiredCount = config.p2p.minSafetyNodes
   }
@@ -155,8 +155,8 @@ export function requestNetworkUpsize() {
 }
 
 export function requestNetworkDownsize() {
-  // TODO: (Bui) add condition for if less than minSafetyNodes? Only downsize if less than minNodes?
-  // requestNetworkDownsize is called when we are in processing mode and we have more nodes than desired
+  // TODO: (Bui) add condition for if less than minSafetyNodes (thinking no)? Only downsize if less than minNodes since in processing and want network to grow to minNodes?
+  // (Bui) requestNetworkDownsize is called when we are in processing mode and we have more nodes than desired
   if (getDesiredCount() <= config.p2p.minNodes) {
     return
   }
@@ -334,7 +334,8 @@ function _checkScaling() {
       newDesired = CycleChain.newest.desired - config.p2p.amountToGrow
       // If newDesired less than minNodes, set newDesired to minNodes
       // TODO: (BUI) Use minSafetyNodes instead of minNodes to have a buffer of nodes before we start scaling down
-      // or add another condition for minSafetyNodes?
+      // (BUI) or add another condition for minSafetyNodes (think no bc we don't want to scale down if under minNodes
+      // (BUI) add flag here?
       if (newDesired < config.p2p.minSafetyNodes) newDesired = config.p2p.minSafetyNodes
 
       setDesiredCount(newDesired, 'DOWN')
@@ -354,7 +355,8 @@ function setDesiredCount(count: number, scaleDirection: 'UP' | 'DOWN') {
     }
   } else if (scaleDirection === 'DOWN') {
     // TODO: (BUI) double check if minSafetyNodes should be used here
-    // setDesiredCount is called when we are in processing mode and we have more nodes than desired
+    // (BUI) only want to scale down if we are above minNodes, correct? [] Need to double check where this is used and if we want to use minSafetyNodes instead
+    // (BUI) add flag here? and or statement?
     if (count >= config.p2p.minSafetyNodes && count <= config.p2p.maxNodes) {
       console.log('Setting desired count to', count)
       desiredCount = count
@@ -413,6 +415,7 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
         // may want to swap config values to values from cycle record
         // TODO: (BUI) Should this change to minSafetyNodes add an extra conditional for it? thinking if in processing then keep minNodes as target... if so should I add conditional when less
         // than minSafetyNodes?
+        // (BUI) add flag here?
         if (targetCount < config.p2p.minSafetyNodes) {
           targetCount = config.p2p.minSafetyNodes
         }
@@ -430,8 +433,8 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
     ) {
       // For the number of nodes to be added in each cycle during these modes is defined in the calculateToAcceptV2 function
       // TODO: (BUI) if in one of these modes want to be just above baseline to be in processing? so I am changing minSafetyNodes instead of minNodes
-      // main quesiton change to minSafetyMode here?
       // minSafetyNodes is the baseline for processing now so targetCount should be set to minSafetyNodes
+      // (BUI) add flag here? + add or statement too?
       targetCount = config.p2p.minSafetyNodes
     } else if (prevRecord.mode === 'restart') {
       // In restart mode, all the nodes remain in 'syncing' mode until the desired number of nodes are reached
@@ -458,6 +461,7 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
 
 export function configUpdated() {
   // TODO: (Bui) possibly need to add condition for minSafetyNodes now?
+  // (BUIS) add flag here?
   if (desiredCount < config.p2p.minSafetyNodes) {
     desiredCount = config.p2p.minSafetyNodes
   }

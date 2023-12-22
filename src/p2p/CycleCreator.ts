@@ -380,9 +380,9 @@ async function cycleCreator() {
     // I think once the network has reached to processing mode and some nodes drop to 10% and goes into safety mode
     // At this point, the new node might find that active count from previous record is still less than minNodes and would not flip hasAlreadyEnteredProcessing to true
     // I think we should flip hasAlreadyEnteredProcessing to true any mode other than forming in the previous record
-    // TODO (Bui): should this be changed to minNodes to minSafetyNodes? Does this involve the transition from safety mode to processing mode?
+    // TODO (BUI): should this be changed to minNodes to minSafetyNodes? Does this involve the transition from safety mode to processing mode?
     // Therefore would we want to use minSafetyNodes instead? Now thinking if we go into recovery, safety, or processing 
-    // then should cause minNodes and minSafetyNodes the same?
+    // (BUI) Add flag and `or` statement?
     if (prevRecord.active >= config.p2p.minSafetyNodes && hasAlreadyEnteredProcessing === false) {
       hasAlreadyEnteredProcessing = true
     }
