@@ -171,17 +171,17 @@ export function sendRequests(): void {
 
 /* These functions make the code neater and easier to understand
  */
-
+// Use minSafetyNodes instead of minNodes to create a buffer for the safety modes
 export function enterRecovery(activeCount: number): boolean {
-  return activeCount < 0.75 * Context.config.p2p.minNodes
+  return activeCount < 0.75 * Context.config.p2p.minSafetyNodes
 }
 
 export function enterShutdown(activeCount: number): boolean {
-  return activeCount <= 0.3 * Context.config.p2p.minNodes
+  return activeCount <= 0.3 * Context.config.p2p.minSafetyNodes
 }
 
 export function enterSafety(activeCount: number, prevRecord: P2P.CycleCreatorTypes.CycleRecord): boolean {
-  return activeCount >= 0.75 * Context.config.p2p.minNodes && activeCount < 0.9 * Context.config.p2p.minNodes
+  return activeCount >= 0.75 * Context.config.p2p.minSafetyNodes && activeCount < 0.9 * Context.config.p2p.minSafetyNodes
 }
 
 export function enterProcessing(activeCount: number): boolean {
@@ -190,7 +190,7 @@ export function enterProcessing(activeCount: number): boolean {
   per Andrew, we may want a sticky state that doesn't enter processing until something indicates the data is restored,
   and we may even want the nodes to get to minnodes count before the archivers start patching data
   */
-  return activeCount >= Context.config.p2p.minNodes
+  return activeCount >= Context.config.p2p.minNodes 
 }
 /** An internal tx is allowed to be processed if the network is in one of the modes mentioned in the function */
 export function isInternalTxAllowed(): boolean {
@@ -198,5 +198,5 @@ export function isInternalTxAllowed(): boolean {
 }
 
 export function enterRestore(totalNodeCount: number): boolean {
-  return totalNodeCount >= Context.config.p2p.minNodes
+  return totalNodeCount >= Context.config.p2p.minSafetyNodes
 }

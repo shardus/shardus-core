@@ -50,6 +50,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     minNodesToAllowTxs: 1,
     continueOnException: false,
     minNodesPerctToAllowExitOnException: 0.66,
+    minSafetyNodes: 15,
     minNodes: 15,
     maxNodes: 30,
     seedNodeOffset: 4,

@@ -321,14 +321,15 @@ function _checkScaling() {
       let moreThanActiveMax = Math.floor(numActiveNodes * config.p2p.maxDesiredMultiplier)
       if (newDesired > moreThanActiveMax) newDesired = moreThanActiveMax
 
-      setDesiredCount(newDesired)
+      setDesiredCount(newDesired, 'UP')
       break
     case P2P.CycleAutoScaleTypes.ScaleType.DOWN:
       newDesired = CycleChain.newest.desired - config.p2p.amountToGrow
       // If newDesired less than minNodes, set newDesired to minNodes
-      if (newDesired < config.p2p.minNodes) newDesired = config.p2p.minNodes
+      // Use minSafetyNodes instead of minNodes to have a buffer of nodes before we start scaling down
+      if (newDesired < config.p2p.minNodes) newDesired = config.p2p.minSafetyNodes
 
-      setDesiredCount(newDesired)
+      setDesiredCount(newDesired, 'DOWN')
       break
     default:
       error(new Error(`Invalid scaling flag after changing flag. Flag: ${approvedScalingType}`))
@@ -337,10 +338,17 @@ function _checkScaling() {
   console.log('newDesired', newDesired)
 }
 
-function setDesiredCount(count: number) {
-  if (count >= config.p2p.minNodes && count <= config.p2p.maxNodes) {
-    console.log('Setting desired count to', count)
-    desiredCount = count
+function setDesiredCount(count: number, scaleDirection: 'UP' | 'DOWN') {
+  if (scaleDirection === 'UP') {
+    if (count >= config.p2p.minNodes && count <= config.p2p.maxNodes) {
+      console.log('Setting desired count to', count)
+      desiredCount = count
+    }
+  } else if (scaleDirection === 'DOWN') {
+    if (count >= config.p2p.minSafetyNodes && count <= config.p2p.maxNodes) {
+      console.log('Setting desired count to', count)
+      desiredCount = count
+    }
   }
 }
 

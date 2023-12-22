@@ -667,6 +667,8 @@ export interface ServerConfiguration {
      *  If the number of active nodes in the network is less than (minNodesPerctToAllowExitOnException) * (minNodes), then the node will not exit on exception.
      */
     minNodesPerctToAllowExitOnException?: number
+    /** The minSafetyNodes parameter is an Integer specifying the minimum number of nodes that need to be active in the network in order to not go into the three safety modes. */
+    minSafetyNodes?: number
     /** The minNodes parameter is an Integer specifying the minimum number of nodes that need to be active in the network in order to process transactions. */
     minNodes?: number
     /** The maxNodes parameter is an Integer specifying the maximum number of nodes that can be active in the network at once. */
