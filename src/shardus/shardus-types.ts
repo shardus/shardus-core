@@ -326,7 +326,7 @@ export interface App {
     data: any,
     mode: P2P.ModesTypes.Record['mode'] | null,
     latestCycle: Cycle,
-    minNodes: number
+    minSafetyNodes: number
   ) => ValidateJoinRequestResponse
   validateArchiverJoinRequest?: (data: any) => any
   getJoinData?: () => any

@@ -383,7 +383,7 @@ async function cycleCreator() {
     // TODO (Bui): should this be changed to minNodes to minSafetyNodes? Does this involve the transition from safety mode to processing mode?
     // Therefore would we want to use minSafetyNodes instead? Now thinking if we go into recovery, safety, or processing 
     // then should cause minNodes and minSafetyNodes the same?
-    if (prevRecord.active >= config.p2p.minNodes && hasAlreadyEnteredProcessing === false) {
+    if (prevRecord.active >= config.p2p.minSafetyNodes && hasAlreadyEnteredProcessing === false) {
       hasAlreadyEnteredProcessing = true
     }
     const networkModeAfter = Modes.networkMode // After applying new record

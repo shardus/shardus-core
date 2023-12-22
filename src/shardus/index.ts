@@ -2094,8 +2094,8 @@ class Shardus extends EventEmitter {
         }
       }
       if (typeof application.validateJoinRequest === 'function') {
-        applicationInterfaceImpl.validateJoinRequest = (data, mode, latestCycle, minNodes) =>
-          application.validateJoinRequest(data, mode, latestCycle, minNodes)
+        applicationInterfaceImpl.validateJoinRequest = (data, mode, latestCycle, minSafetyNodes) =>
+          application.validateJoinRequest(data, mode, latestCycle, minSafetyNodes)
       }
       if (typeof application.validateArchiverJoinRequest === 'function') {
         applicationInterfaceImpl.validateArchiverJoinRequest = (data) =>
@@ -2329,10 +2329,10 @@ class Shardus extends EventEmitter {
       // If the networks active node count is < some percentage of minNodes, don't exit on exceptions and log a counter instead
       if (config.p2p.continueOnException === true) {
         const activeNodes = activeByIdOrder
-        const minNodesToExit = config.p2p.minNodes * config.p2p.minNodesPerctToAllowExitOnException
+        const minNodesToExit = config.p2p.minSafetyNodes * config.p2p.minNodesPerctToAllowExitOnException
         if (activeNodes.length < minNodesToExit) {
           // Log a counter to say node is not going to apoptosize
-          const msg = `Not enough active nodes to exit on exception. Active nodes: ${activeNodes.length}, minNodesToExit: ${minNodesToExit}, minNodes: ${config.p2p.minNodes}, minNodesPerctToAllowExitOnException: ${config.p2p.minNodesPerctToAllowExitOnException}`
+          const msg = `Not enough active nodes to exit on exception. Active nodes: ${activeNodes.length}, minNodesToExit: ${minNodesToExit}, minSafetyNodes: ${config.p2p.minSafetyNodes}, minNodesPerctToAllowExitOnException: ${config.p2p.minNodesPerctToAllowExitOnException}`
           this.mainLogger.warn(msg)
           nestedCountersInstance.countEvent('continueOnException', msg)
           return

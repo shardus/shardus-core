@@ -191,7 +191,7 @@ export function enterProcessing(activeCount: number): boolean {
   and we may even want the nodes to get to minnodes count before the archivers start patching data
   */
   //TODO: (BUI) use minNodes or minSafetyNodes? (thinking should be minSafetyNodes since this is baseline for processing now)
-  return activeCount >= Context.config.p2p.minNodes 
+  return activeCount >= Context.config.p2p.minSafetyNodes 
 }
 /** An internal tx is allowed to be processed if the network is in one of the modes mentioned in the function */
 export function isInternalTxAllowed(): boolean {

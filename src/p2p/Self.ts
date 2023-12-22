@@ -759,8 +759,8 @@ async function contactArchiver(): Promise<P2P.P2PTypes.Node[]> {
     // The archiver is sending a cycle record with shutdown mode from previous network
     // TODO - Make sure the cycle record is valid
     // TODO: Ask if when restarting the network should use minNodes or minSafetyNodes?
-    // TODO: assumption when restarting the minNodes and minSafetyNodes would be the same then minNodes would be increased. Main concern still question above though.
-    restartCycleRecord.desired = Context.config.p2p.minNodes
+    // TODO: (BUI) assumption when restarting the minNodes and minSafetyNodes would be the same then minNodes would be increased. Main concern still question above though.
+    restartCycleRecord.desired = Context.config.p2p.minSafetyNodes
     restartCycleRecord.duration = Context.config.p2p.cycleDuration
     CycleChain.prepend(restartCycleRecord)
     isRestartNetwork = true

@@ -991,7 +991,7 @@ function getSelectionKey(joinRequest: JoinRequest): Result<string, JoinRequestRe
         joinRequest,
         mode,
         CycleChain.newest,
-        config.p2p.minNodes
+        config.p2p.minSafetyNodes
       )
 
       if (validationResponse.success !== true) {
