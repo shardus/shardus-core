@@ -5199,7 +5199,7 @@ class TransactionQueue {
       const now = shardusGetTime()
       // Clear receipts that are older than MAX_RECEIPT_AGE_MS
       for (const [key] of this.forwardedReceiptsByTimestamp) {
-        if (key - now > MAX_RECEIPT_AGE_MS) {
+        if (now - key > MAX_RECEIPT_AGE_MS) {
           this.forwardedReceiptsByTimestamp.delete(key)
         }
       }

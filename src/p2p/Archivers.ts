@@ -542,15 +542,15 @@ async function forwardReceipts() {
   if (config.p2p.instantForwardReceipts) {
     const receiptsStorageUpdate = true
     if (newArchiversToForward.length > 0 && receiptsStorageUpdate) {
-      if (logFlags.console) console.log('newArchiversToForward', newArchiversToForward)
-      for (let publicKey of newArchiversToForward) {
-        if (logFlags.console)
-          console.log('Sending last 15s receipts to newly subscribed archivers', publicKey)
-        const recipient = recipients.get(publicKey)
-        if (!recipient) continue
-        const receipts = stateManager.transactionQueue.getReceiptsToForward()
-        if (receipts && receipts.length > 0) {
-          responses.RECEIPT = [...receipts]
+      const receipts = stateManager.transactionQueue.getReceiptsToForward()
+      if (receipts && receipts.length > 0) {
+        responses.RECEIPT = receipts
+        if (logFlags.console) console.log('newArchiversToForward', newArchiversToForward)
+        for (let publicKey of newArchiversToForward) {
+          if (logFlags.console)
+            console.log('Sending last 15s receipts to newly subscribed archivers', publicKey)
+          const recipient = recipients.get(publicKey)
+          if (!recipient) continue
           forwardDataToSubscribedArchivers(responses, publicKey, recipient)
         }
       }
