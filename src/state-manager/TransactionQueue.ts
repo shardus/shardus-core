@@ -425,7 +425,7 @@ class TransactionQueue {
         const { txId, full_receipt } = req.body
         const isReqFromArchiver = Archivers.archivers.has(req.body.sign.owner)
         if (!isReqFromArchiver) {
-          result = { success: false, reason: 'Request not from archiver.' }
+          result = { success: false, reason: 'Request not from Archiver.' }
         } else {
           const isValidSignature = this.crypto.verify(req.body, req.body.sign.owner)
           if (isValidSignature) {
@@ -436,7 +436,7 @@ class TransactionQueue {
               if (full_receipt === 'true') {
                 const fullReceipt: ArchiverReceipt =
                   this.stateManager.transactionQueue.getArchiverReceiptFromQueueEntry(queueEntry)
-                result = { success: true, receipt: fullReceipt }
+                result = JSON.parse(utils.cryptoStringify({ success: true, receipt: fullReceipt }))
               } else {
                 // returning appliedReceipt (AppliedReceipt2) from the fullReceipt (ArchiverReceipt)
                 result = { success: true, receipt: this.stateManager.getReceipt2(queueEntry) }
@@ -448,7 +448,8 @@ class TransactionQueue {
             result = { success: false, reason: 'Invalid Signature.' }
           }
         }
-        res.json(this.crypto.sign(result))
+        if (!result.success) res.status(400).json(result)
+        else res.json(result)
       } catch (e) {
         console.log('Error caught in /get-tx-receipt: ', e)
         res.json(this.crypto.sign({ success: false, error: e }))
