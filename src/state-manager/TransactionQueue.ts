@@ -415,15 +415,20 @@ class TransactionQueue {
     networkContext.registerExternalPost('get-tx-receipt', async (req, res) => {
       let result: { success: boolean; receipt?: ArchiverReceipt | AppliedReceipt2; reason?: string }
       try {
-        const error = utils.validateTypes(req.body, {
+        let error = utils.validateTypes(req.body, {
           txId: 's',
-          full_receipt: 's',
+          full_receipt: 'b',
           sign: 'o',
         })
-        if (error) res.json({ success: false, error })
+        if (error) return res.json((result = { success: false, reason: error }))
+        error = utils.validateTypes(req.body.sign, {
+          owner: 's',
+          sig: 's',
+        })
+        if (error) return res.json((result = { success: false, reason: error }))
 
-        const { txId, full_receipt } = req.body
-        const isReqFromArchiver = Archivers.archivers.has(req.body.sign.owner)
+        const { txId, full_receipt, sign } = req.body
+        const isReqFromArchiver = Archivers.archivers.has(sign.owner)
         if (!isReqFromArchiver) {
           result = { success: false, reason: 'Request not from Archiver.' }
         } else {
@@ -433,7 +438,7 @@ class TransactionQueue {
               const queueEntry = this.stateManager.transactionQueue.archivedQueueEntriesByID.get(
                 txId as string
               )
-              if (full_receipt === 'true') {
+              if (full_receipt) {
                 const fullReceipt: ArchiverReceipt =
                   this.stateManager.transactionQueue.getArchiverReceiptFromQueueEntry(queueEntry)
                 result = JSON.parse(utils.cryptoStringify({ success: true, receipt: fullReceipt }))
@@ -452,7 +457,7 @@ class TransactionQueue {
         else res.json(result)
       } catch (e) {
         console.log('Error caught in /get-tx-receipt: ', e)
-        res.json(this.crypto.sign({ success: false, error: e }))
+        res.json((result = { success: false, reason: e }))
       }
     })
   }
