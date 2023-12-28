@@ -434,13 +434,10 @@ class TransactionQueue {
         } else {
           const isValidSignature = this.crypto.verify(req.body, req.body.sign.owner)
           if (isValidSignature) {
-            if (this.stateManager.transactionQueue.archivedQueueEntriesByID.has(txId as string)) {
-              const queueEntry = this.stateManager.transactionQueue.archivedQueueEntriesByID.get(
-                txId as string
-              )
+            if (this.archivedQueueEntriesByID.has(txId as string)) {
+              const queueEntry = this.archivedQueueEntriesByID.get(txId as string)
               if (full_receipt) {
-                const fullReceipt: ArchiverReceipt =
-                  this.stateManager.transactionQueue.getArchiverReceiptFromQueueEntry(queueEntry)
+                const fullReceipt: ArchiverReceipt = this.getArchiverReceiptFromQueueEntry(queueEntry)
                 result = JSON.parse(utils.cryptoStringify({ success: true, receipt: fullReceipt }))
               } else {
                 // returning appliedReceipt (AppliedReceipt2) from the fullReceipt (ArchiverReceipt)
