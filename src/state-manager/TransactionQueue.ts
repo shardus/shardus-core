@@ -347,16 +347,7 @@ class TransactionQueue {
             /* prettier-ignore */ if (logFlags.verbose) console.log( 'queueEntry.isInExecutionHome', queueEntry.acceptedTx.txId, queueEntry.isInExecutionHome )
             // If our node is in the execution group, forward this raw tx to the subscribed archivers
             if (queueEntry.isInExecutionHome === true) {
-              /* prettier-ignore */ if (logFlags.verbose) console.log('originalTxData', queueEntry.acceptedTx.txId)
-              const { acceptedTx } = queueEntry
-              const originalTxData = {
-                txId: acceptedTx.txId,
-                originalTxData: acceptedTx.data,
-                cycle: queueEntry.cycleToRecordOn,
-                timestamp: acceptedTx.timestamp,
-              }
-              const signedOriginalTxData: any = this.crypto.sign(originalTxData)
-              Archivers.instantForwardOriginalTxData(signedOriginalTxData)
+              this.addOriginalTxDataToForward(queueEntry)
             }
           }
         } finally {
@@ -432,7 +423,7 @@ class TransactionQueue {
         if (!isReqFromArchiver) {
           result = { success: false, reason: 'Request not from Archiver.' }
         } else {
-          const isValidSignature = this.crypto.verify(req.body, req.body.sign.owner)
+          const isValidSignature = this.crypto.verify(req.body, sign.owner)
           if (isValidSignature) {
             if (this.archivedQueueEntriesByID.has(txId as string)) {
               const queueEntry = this.archivedQueueEntriesByID.get(txId as string)
@@ -1604,6 +1595,7 @@ class TransactionQueue {
                 this.stateManager.debugNodeGroup(txId, timestamp, `share to neighbors`, transactionGroup)
                 this.p2p.sendGossipIn('spread_tx_to_group', acceptedTx, '', sender, transactionGroup, true)
                 /* prettier-ignore */ if (logFlags.verbose) console.log( 'spread_tx_to_group', txId, txQueueEntry.executionGroup.length, txQueueEntry.conensusGroup.length, txQueueEntry.transactionGroup.length )
+                this.addOriginalTxDataToForward(txQueueEntry)
               }
               // /* prettier-ignore */ if (logFlags.playback ) this.logger.playbackLogNote('tx_homeGossip', `${txId}`, `AcceptedTransaction: ${acceptedTX}`)
             } catch (ex) {
@@ -5225,6 +5217,19 @@ class TransactionQueue {
       executionShardKey: queueEntry.executionShardKey,
     }
     return archiverReceipt
+  }
+
+  addOriginalTxDataToForward(queueEntry: QueueEntry): void {
+    /* prettier-ignore */ if (logFlags.verbose) console.log('originalTxData', queueEntry.acceptedTx.txId)
+    const { acceptedTx } = queueEntry
+    const originalTxData = {
+      txId: acceptedTx.txId,
+      originalTxData: acceptedTx.data,
+      cycle: queueEntry.cycleToRecordOn,
+      timestamp: acceptedTx.timestamp,
+    }
+    // const signedOriginalTxData: any = this.crypto.sign(originalTxData) // maybe we don't need to send by signing it
+    Archivers.instantForwardOriginalTxData(originalTxData)
   }
 
   addReceiptToForward(queueEntry: QueueEntry): void {
