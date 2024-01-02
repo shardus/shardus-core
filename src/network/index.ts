@@ -267,11 +267,15 @@ export class NetworkClass extends EventEmitter {
     const ports = []
     const addresses = []
     for (const node of nodes) {
-      /* prettier-ignore */ if (logFlags.playback && alreadyLogged === false) this.logger.playbackLog('self', node, 'InternalTell2', route, trackerId, message)
-      const requestId = generateUUID()
-      /* prettier-ignore */ if (logFlags.net_verbose) this.mainLogger.info(`tell2: initiating tell request with requestId: ${requestId}`)
-      /* prettier-ignore */ if (logFlags.net_verbose) this.mainLogger.info(`tell2: requestId: ${requestId}, node: ${utils.logNode(node)}`)
-      /* prettier-ignore */ if (logFlags.net_verbose) this.mainLogger.info(`tell2: route: ${route}, message: ${message} requestId: ${requestId}`)
+      /* prettier-ignore */ if (logFlags.playback && !alreadyLogged) {
+      /* prettier-ignore */  this.logger.playbackLog('self', node, 'InternalTell2', route, trackerId, message);
+      /* prettier-ignore */}
+      const requestId = generateUUID();
+      /* prettier-ignore */ if (logFlags.net_verbose) {
+      /* prettier-ignore */  this.mainLogger.info(`tell2: initiating tell request with requestId: ${requestId}`);
+      /* prettier-ignore */  this.mainLogger.info(`tell2: requestId: ${requestId}, node: ${utils.logNode(node)}`);
+      /* prettier-ignore */  this.mainLogger.info(`tell2: route: ${route}, message: ${message} requestId: ${requestId}`);
+      /* prettier-ignore */ }
       this.InternalTellCounter++
       ports.push(node.internalPort)
       addresses.push(node.internalIp)
@@ -285,7 +289,7 @@ export class NetworkClass extends EventEmitter {
         this.emit('error', ports, addresses, 'tell2', errorGroup, route)
       })
     try {
-      await Promise.resolve(promise)
+      await promise
     } catch (err) {
       nestedCountersInstance.countEvent('network', `error-tell2 ${route}`)
       /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell2-promise) on ${route}: ${formatErrorMessage(err)}`)
