@@ -264,7 +264,8 @@ export class NetworkClass extends EventEmitter {
     alreadyLogged = false
   ) {
     const data = { route, payload: message }
-    const promises = []
+    const ports = []
+    const addresses = []
     for (const node of nodes) {
       /* prettier-ignore */ if (logFlags.playback && alreadyLogged === false) this.logger.playbackLog('self', node, 'InternalTell2', route, trackerId, message)
       const requestId = generateUUID()
@@ -272,17 +273,19 @@ export class NetworkClass extends EventEmitter {
       /* prettier-ignore */ if (logFlags.net_verbose) this.mainLogger.info(`tell2: requestId: ${requestId}, node: ${utils.logNode(node)}`)
       /* prettier-ignore */ if (logFlags.net_verbose) this.mainLogger.info(`tell2: route: ${route}, message: ${message} requestId: ${requestId}`)
       this.InternalTellCounter++
-      const promise = this.sn.sendWithHeader(node.internalPort, node.internalIp, data, appHeader)
+      ports.push(node.internalPort)
+      addresses.push(node.internalIp)
+    }
+
+    const promise = this.sn.multiSendWithHeader(ports, addresses, data, appHeader)
       promise.catch((err) => {
         /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell2) on ${route}: ${formatErrorMessage(err)}`)
         let errorGroup = ('' + err).slice(0, 20)
         nestedCountersInstance.countEvent('network', `error2-tell2 ${route}`)
-        this.emit('error', node, requestId, 'tell2', errorGroup, route)
+        this.emit('error', ports, addresses, 'tell2', errorGroup, route)
       })
-      promises.push(promise)
-    }
     try {
-      await Promise.all(promises)
+      await Promise.resolve(promise)
     } catch (err) {
       nestedCountersInstance.countEvent('network', `error-tell2 ${route}`)
       /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell2-promise) on ${route}: ${formatErrorMessage(err)}`)
