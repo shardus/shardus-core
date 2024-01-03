@@ -425,24 +425,28 @@ class TransactionQueue {
         } else {
           const isValidSignature = this.crypto.verify(req.body, sign.owner)
           if (isValidSignature) {
-            if (this.archivedQueueEntriesByID.has(txId as string)) {
-              const queueEntry = this.archivedQueueEntriesByID.get(txId as string)
+            if (this.archivedQueueEntriesByID.has(txId)) {
+              const queueEntry = this.archivedQueueEntriesByID.get(txId)
               if (full_receipt) {
                 const fullReceipt: ArchiverReceipt = this.getArchiverReceiptFromQueueEntry(queueEntry)
                 result = JSON.parse(utils.cryptoStringify({ success: true, receipt: fullReceipt }))
               } else {
-                // returning appliedReceipt (AppliedReceipt2) from the fullReceipt (ArchiverReceipt)
                 result = { success: true, receipt: this.stateManager.getReceipt2(queueEntry) }
+              }
+            } else if (!full_receipt && this._transactionQueueByID.get(txId)?.state === 'commiting') {
+              result = {
+                success: true,
+                receipt: this.stateManager.getReceipt2(this._transactionQueueByID.get(txId)),
               }
             } else {
               result = { success: false, reason: 'Receipt Not Found.' }
+              return res.status(400).json(result)
             }
           } else {
             result = { success: false, reason: 'Invalid Signature.' }
           }
         }
-        if (!result.success) res.status(400).json(result)
-        else res.json(result)
+        res.json(result)
       } catch (e) {
         console.log('Error caught in /get-tx-receipt: ', e)
         res.json((result = { success: false, reason: e }))
