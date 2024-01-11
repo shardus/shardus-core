@@ -11,50 +11,37 @@ const objKeys =
     }
     return keys
   })
-
-export const stringifyReduce = (val, isArrayProp?: boolean): string => {
-  let i, max, str, keys, key, propVal, toStr
-  if (val === true) {
-    return 'true'
-  }
-  if (val === false) {
-    return 'false'
-  }
-  switch (typeof val) {
-    case 'object':
-      if (val === null) {
-        return null
-      } else if (val.toJSON && typeof val.toJSON === 'function') {
-        return stringifyReduce(val.toJSON(), isArrayProp)
-      } else if (val instanceof Map) {
-        // let mapContainer = {stringifyReduce_map_2_array:[...val.entries()]}
-        // return stringifyReduce(mapContainer)
-        const mapContainer = {
-          dataType: 'stringifyReduce_map_2_array',
-          value: Array.from(val.entries()), // or with spread: value: [...originalObject]
+  export const stringifyReduce = (val, isArrayProp?: boolean): string => {
+    let i, max, str, keys, key, propVal, toStr
+    if (val === true) {
+      return 'true'
+    }
+    if (val === false) {
+      return 'false'
+    }
+    switch (typeof val) {
+      case 'object':
+        if (val === null) {
+          return null
+        } else if (val.toJSON && typeof val.toJSON === 'function') {
+          return stringifyReduce(val.toJSON(), isArrayProp)
+        } else if (val instanceof Map) {
+          // let mapContainer = {stringifyReduce_map_2_array:[...val.entries()]}
+          // return stringifyReduce(mapContainer)
+          const mapContainer = {
+            dataType: 'stringifyReduce_map_2_array',
+            value: Array.from(val.entries()), // or with spread: value: [...originalObject]
+          }
+          return stringifyReduce(mapContainer)
+        } 
+        else if (val instanceof Uint8Array) {
+          return JSON.stringify({
+            data: Array.from(val).map(byte => byte.toString(16).padStart(2, '0')).join(''),
+            dataType: 'bh',
+          });
         }
-        return stringifyReduce(mapContainer)
-      } else {
-        if (val.hasOwnProperty('codeHash') || val.hasOwnProperty('storageRoot')) {
-          let codeHash;
-          let storageRoot
-          if(val.hasOwnProperty('codeHash')){
-            val.codeHash=Object.values(val?.codeHash).map(vnum=>{
-                 vnum = Number(vnum).toString(16).padStart(2, '0')
-                 return vnum;
-              }).join('')
-           }
-           if(val.hasOwnProperty('storageRoot')){
-            val.storageRoot=Object.values(val?.storageRoot).map(vnum=>{
-                 vnum = Number(vnum).toString(16).padStart(2, '0')
-                 return vnum;
-              }).join('')
-           }
-          
-          return val;
-        }  else {
+        else {
           toStr = objToString.call(val)
-
           if (toStr === '[object Array]') {
             str = '['
             max = val.length - 1
@@ -67,7 +54,8 @@ export const stringifyReduce = (val, isArrayProp?: boolean): string => {
               str += stringifyReduce(val[i], true)
             }
             return str + ']'
-          } else if (toStr === '[object Object]') {
+          } 
+          else if (toStr === '[object Object]') {
             // only object is left
             keys = objKeys(val).sort()
             max = keys.length
@@ -87,25 +75,26 @@ export const stringifyReduce = (val, isArrayProp?: boolean): string => {
               i++
             }
             return '{' + str + '}'
-          } else {
+          }
+          else {
             return JSON.stringify(val)
           }
         }
+      case 'function':
+      case 'undefined':
+        return isArrayProp ? null : undefined
+      case 'string': {
+        const reduced = makeShortHash(val)
+        return JSON.stringify(reduced)
       }
-    case 'function':
-    case 'undefined':
-      return isArrayProp ? null : undefined
-    case 'string': {
-      const reduced = makeShortHash(val)
-      return JSON.stringify(reduced)
+      
+      default:
+        if (typeof val === 'bigint') {
+          val = val.toString()
+        }  
+        return isFinite(val) ? val : null
     }
-    default:
-      if (typeof val === 'bigint') {
-        val = val.toString()
-      }
-      return isFinite(val) ? val : null
   }
-}
 
 export const stringifyReduceLimit = (val, limit = 100, isArrayProp?: boolean): string => {
   let i, max, str, keys, key, propVal, toStr
