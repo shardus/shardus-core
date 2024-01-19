@@ -1,10 +1,17 @@
 import { StateManager as StateManagerTypes } from '@shardus/types'
+import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
 import { Logger as Log4jsLogger } from 'log4js'
 import StateManager from '.'
 import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
 import { P2PModuleContext as P2P } from '../p2p/Context'
 import * as Shardus from '../shardus/shardus-types'
+import { AppObjEnum } from '../shardus/shardus-types'
+import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
+import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
+import { InternalBinaryHandler } from '../types/Handler'
+import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
+import { cSendCachedAppDataReq, deserializeSendCachedAppDataReq } from '../types/SendCachedAppDataReq'
 import * as utils from '../utils'
 import { reversed } from '../utils'
 import Profiler, { profilerInstance } from '../utils/profiler'
@@ -87,6 +94,52 @@ class CachedAppDataManager {
         profilerInstance.scopedProfileSectionEnd('send_cachedAppData')
       }
     })
+
+    // serialized handler
+    const send_cacheAppData2Handler: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.send_cachedAppData2,
+      handler: (payload, response, header, sign) => {
+        profilerInstance.scopedProfileSectionStart('send_cachedAppData2')
+
+        const errorHandler = (
+          errorType: RequestErrorEnum,
+          opts?: { customErrorLog?: string; customCounterSuffix?: string }
+        ): void => requestErrorHandler(InternalRouteEnum.send_cachedAppData2, errorType, header, opts)
+
+        try{
+          const requestStream = getStreamWithTypeCheck(payload, cSendCachedAppDataReq)
+
+          if(!requestStream) return errorHandler(RequestErrorEnum.InvalidRequest)
+
+          // verification data checks
+          if (header.verification_data == null) {
+            return errorHandler(RequestErrorEnum.MissingVerificationData)
+          }
+
+          const req = deserializeSendCachedAppDataReq(requestStream)
+          const appDeserializedData = this.stateManager.app.binaryDeserializeObject(
+            AppObjEnum.AppData,
+            req.cachedAppData.appData 
+          )
+          const cachedAppData: CachedAppData = {
+            dataID: req.cachedAppData.dataID,
+            appData: appDeserializedData,
+            cycle: req.cachedAppData.cycle,
+          }
+
+          const existingCachedAppData = this.getCachedItem(req.topic, cachedAppData.dataID)
+          if (existingCachedAppData) {
+            console.log(`We have already processed this cached data`, cachedAppData)
+            return
+          }
+          this.insertCachedItem(req.topic, cachedAppData.dataID, cachedAppData.appData, cachedAppData.cycle)
+        } finally {
+          profilerInstance.scopedProfileSectionEnd('send_cachedAppData2')
+        }
+      }
+    }
+
+    this.p2p.registerInternal(InternalRouteEnum.send_cachedAppData2,send_cacheAppData2Handler)
 
     this.p2p.registerInternal('get_cached_app_data', async (payload: CacheAppDataRequest, respond: (arg0: CachedAppData) => Promise<void>) => {
       profilerInstance.scopedProfileSectionStart('get_cached_app_data')
