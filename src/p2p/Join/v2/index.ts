@@ -17,6 +17,10 @@ import { reset as resetAcceptance } from './acceptance'
 import { stringifyReduce } from '../../../utils/functions/stringifyReduce'
 import { logFlags } from '../../../logger'
 import * as NodeList from '../../NodeList'
+<<<<<<< HEAD
+=======
+import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
+>>>>>>> c24edcdb (resolved build issues)
 
 const clone = rfdc()
 
@@ -140,7 +144,7 @@ export function addSyncStarted(syncStarted: SyncStarted): SyncStartedRequestResp
     }
   }
 
-  if (!crypto.verify(syncStarted, syncStarted.sign.owner)) {
+  if (!crypto.verify(syncStarted as unknown as SignedObject, syncStarted.sign.owner)) {
     return {
       success: false,
       reason: '',
