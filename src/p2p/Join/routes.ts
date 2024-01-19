@@ -24,7 +24,7 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { profilerInstance } from '../../utils/profiler'
 import * as acceptance from './v2/acceptance'
 import { attempt } from '../Utils'
-import { getStandbyNodesInfoMap, saveJoinRequest, isOnStandbyList } from './v2'
+import { getStandbyNodesInfoMap, saveJoinRequest, isOnStandbyList, addSyncStarted } from './v2'
 import { processNewUnjoinRequest, UnjoinRequest } from './v2/unjoin'
 import { isActive } from '../Self'
 import { logFlags } from '../../logger'
@@ -365,11 +365,30 @@ const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<UnjoinRequest, P2P.NodeLi
   Comms.sendGossip('gossip-unjoin', payload, tracker, sender, NodeList.byIdOrder, false)
 }
 
+const gossipSyncStarted: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.SyncStarted, P2P.NodeListTypes.Node['id']> = (
+  payload,
+  sender,
+  tracker
+) => {
+  profilerInstance.scopedProfileSectionStart('gossip-sync-started')
+  try {
+    // Do not forward gossip after quarter 2
+    if (CycleCreator.currentQuarter >= 3) return
+
+    //  Validate of payload is done in addSyncStarted
+    if (addSyncStarted(payload).success)
+      Comms.sendGossip('gossip-sync-started', payload, tracker, sender, NodeList.byIdOrder, false)
+  } finally {
+    profilerInstance.scopedProfileSectionEnd('gossip-sync-started')
+  }
+}
+
 export const routes = {
   external: [cycleMarkerRoute, joinRoute, joinedRoute, joinedV2Route, acceptedRoute, unjoinRoute],
   gossip: {
     'gossip-join': gossipJoinRoute,
     'gossip-valid-join-requests': gossipValidJoinRequests,
     'gossip-unjoin': gossipUnjoinRequests,
+    'gossip-sync-started': gossipSyncStarted
   },
 }

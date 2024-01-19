@@ -4,7 +4,7 @@
  */
 
 import { hexstring } from '@shardus/types'
-import { JoinRequest } from '@shardus/types/build/src/p2p/JoinTypes'
+import { JoinRequest, SyncStarted } from '@shardus/types/build/src/p2p/JoinTypes'
 import { config, crypto, shardus } from '../../Context'
 import * as CycleChain from '../../CycleChain'
 import * as Self from '../../Self'
@@ -16,6 +16,7 @@ import { ResultAsync } from 'neverthrow'
 import { reset as resetAcceptance } from './acceptance'
 import { stringifyReduce } from '../../../utils/functions/stringifyReduce'
 import { logFlags } from '../../../logger'
+import * as NodeList from '../../NodeList'
 
 const clone = rfdc()
 
@@ -33,6 +34,9 @@ export const standbyNodesInfoHashes: Map<publickey, string> = new Map()
  * digestion. appetizing!
  */
 let newJoinRequests: JoinRequest[] = []
+
+let newSyncStartedRequests: Map<string, SyncStarted> = new Map()
+export const nodesYetToStartSyncing: Map<string, number> = new Map()
 
 export function init(): void {
   console.log('initializing join protocol v2')
@@ -99,6 +103,60 @@ export function saveJoinRequest(joinRequest: JoinRequest, persistImmediately = f
   newJoinRequests.push(joinRequest)
 }
 
+export interface SyncStartedRequestResponse {
+  success: boolean
+  reason: string
+  fatal: boolean
+}
+
+export function addSyncStarted(syncStarted: SyncStarted): SyncStartedRequestResponse {
+  // validate
+  // lookup node by id in payload and use pubkey and compare to sig.owner
+  const publicKeysMatch = (NodeList.byIdOrder.find((node) => node.id === syncStarted.nodeId)).publicKey === syncStarted.sign.owner
+  if (!publicKeysMatch) {
+    return {
+      success: false,
+      reason: '',
+      fatal: false,
+    }
+  }
+
+  // add cycle number check
+  const cycleNumber = CycleChain.getNewest().counter
+  if (cycleNumber !== syncStarted.cycleNumber) {
+    return {
+      success: false,
+      reason: '',
+      fatal: false,
+    }
+  }
+
+  // return false if already in map
+  if (newSyncStartedRequests.has(syncStarted.nodeId) === true) {
+    return {
+      success: false,
+      reason: '',
+      fatal: false,
+    }
+  }
+
+  if (!crypto.verify(syncStarted, syncStarted.sign.owner)) {
+    return {
+      success: false,
+      reason: '',
+      fatal: false,
+    }
+  }
+
+  newSyncStartedRequests.set(syncStarted.nodeId, syncStarted)
+
+  return {
+    success: true,
+    reason: '',
+    fatal: false,
+  }
+}
+
 /**
  * Returns the list of new standby join requests and empties the list.
  */
@@ -106,6 +164,16 @@ export function drainNewJoinRequests(): JoinRequest[] {
   if (logFlags.verbose) console.log('draining new standby info:', newJoinRequests)
   const tmp = newJoinRequests
   newJoinRequests = []
+  return tmp
+}
+
+/**
+ * Returns the list of nodeIds of nodes that started syncing empties the map.
+ */
+export function drainSyncStartedRequests(): string[] {
+  if (logFlags.verbose) console.log('draining new KeepInStandby info:', newSyncStartedRequests)
+  const tmp = Array.from(newSyncStartedRequests.keys())
+  newSyncStartedRequests = new Map()
   return tmp
 }
 

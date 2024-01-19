@@ -128,6 +128,14 @@ export function startupV2(): Promise<boolean> {
         // set status SYNCING
         updateNodeState(P2P.P2PTypes.NodeStatus.SYNCING)
 
+        const payload = {
+          nodeId: id,
+          cycleNumber: CycleChain.getNewest().counter,
+        }
+        Context.crypto.sign(payload)
+        // send gossip true put false in handler
+        Comms.sendGossip('syncStarted', payload, undefined, undefined, undefined, true)
+
         p2pSyncStart = shardusGetTime()
 
         if (logFlags.p2pNonFatal) info('Emitting `joined` event.')

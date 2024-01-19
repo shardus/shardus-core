@@ -20,9 +20,11 @@ import { routes } from './routes'
 import {
   debugDumpJoinRequestList,
   drainNewJoinRequests,
+  drainSyncStartedRequests,
   getLastHashedStandbyList,
   getStandbyNodesInfoMap,
   saveJoinRequest,
+  nodesYetToStartSyncing
 } from './v2'
 import { err, ok, Result } from 'neverthrow'
 import { drainSelectedPublicKeys, forceSelectSelf } from './v2/select'
@@ -234,12 +236,30 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       record.standbyRemove.push(publicKey)
     }
 
+    for (const nodeId of drainSyncStartedRequests()) {
+      record.startedSyncing.push(nodeId)
+    }
+
     let standbyRemoved_Age = 0
     //let standbyRemoved_joined = 0
     let standbyRemoved_App = 0
     let skipped = 0
     const standbyList = getLastHashedStandbyList()
     const standbyListMap = getStandbyNodesInfoMap()
+
+    // remove nodes that haven't started sycing after 2 cycles
+    for (const [nodeId, cycleNumber] of nodesYetToStartSyncing) {
+      if (record.counter > cycleNumber + 2) {    
+        // mark as lost; remove from nodelist
+        record.lostStandby.push(nodeId)
+        NodeList.removeSyncingNode(nodeId)
+      } else {
+        if (record.startedSyncing.includes(nodeId)) {
+          nodesYetToStartSyncing.delete(nodeId)
+        }
+      }
+    }
+
     if (config.p2p.standbyAgeScrub) {
       // scrub the stanby list of nodes that have been in it too long.  > standbyListCyclesTTL num cycles
       for (const joinRequest of standbyList) {
@@ -306,10 +326,12 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       const id = computeNodeId(nodeInfo.publicKey, standbyInfo.cycleMarker)
       const counterRefreshed = record.counter
 
+      nodesYetToStartSyncing.set(id, record.counter)
+
       record.joinedConsensors.push({ ...nodeInfo, cycleJoined, counterRefreshed, id })
     }
 
-    /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log( `standbyRemved_Age: ${standbyRemoved_Age} standbyRemoved_App: ${standbyRemoved_App}` )
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log( `standbyRemoved_Age: ${standbyRemoved_Age} standbyRemoved_App: ${standbyRemoved_App}` )
 
     record.joinedConsensors.sort()
   } else {
