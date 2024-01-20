@@ -6,7 +6,7 @@ export const cSendCachedAppDataReqVersion = 1
 
 export type SendCachedAppDataReq = {
   topic: string
-  cachedAppData: CachedAppData
+  cachedAppData: CachedAppData 
 }
 
 export function serializeSendCachedAppDataReq (

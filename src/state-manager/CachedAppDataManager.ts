@@ -10,8 +10,8 @@ import { AppObjEnum } from '../shardus/shardus-types'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { InternalBinaryHandler } from '../types/Handler'
-import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
-import { cSendCachedAppDataReq, deserializeSendCachedAppDataReq } from '../types/SendCachedAppDataReq'
+import { getStreamWithTypeCheck, requestErrorHandler, verificationDataCombiner } from '../types/Helpers'
+import { cSendCachedAppDataReq, deserializeSendCachedAppDataReq, SendCachedAppDataReq, serializeSendCachedAppDataReq } from '../types/SendCachedAppDataReq'
 import * as utils from '../utils'
 import { reversed } from '../utils'
 import Profiler, { profilerInstance } from '../utils/profiler'
@@ -80,6 +80,9 @@ class CachedAppDataManager {
     this.p2p.registerInternal('send_cachedAppData', async (payload: CacheAppDataResponse) => {
       profilerInstance.scopedProfileSectionStart('send_cachedAppData')
       try {
+        const dummy = payload.cachedAppData as any
+        console.log(`send_cachedAppData`, dummy.appData.data.receipt);
+        console.log(`send_cachedAppData full payload`, JSON.stringify(payload));
         const cachedAppData = payload.cachedAppData
         const existingCachedAppData = this.getCachedItem(payload.topic, cachedAppData.dataID)
         if (existingCachedAppData) {
@@ -116,15 +119,31 @@ class CachedAppDataManager {
             return errorHandler(RequestErrorEnum.MissingVerificationData)
           }
 
+          const verificationDataParts = header.verification_data.split(':')
+          if (verificationDataParts.length !== 2) {
+            return errorHandler(RequestErrorEnum.InvalidVerificationData)
+          }
+
           const req = deserializeSendCachedAppDataReq(requestStream)
           const appDeserializedData = this.stateManager.app.binaryDeserializeObject(
-            AppObjEnum.AppData,
+            AppObjEnum.CachedAppData,
             req.cachedAppData.appData 
           )
           const cachedAppData: CachedAppData = {
             dataID: req.cachedAppData.dataID,
             appData: appDeserializedData,
             cycle: req.cachedAppData.cycle,
+          }
+
+          if (cachedAppData == null) {
+            return errorHandler(RequestErrorEnum.InvalidRequest)
+          }
+          if (cachedAppData.dataID !== verificationDataParts[1]) {
+            return errorHandler(RequestErrorEnum.InvalidVerificationData)
+          }
+
+          if (cachedAppData.appData == verificationDataParts[0]) {
+            return errorHandler(RequestErrorEnum.InvalidRequest)
           }
 
           const existingCachedAppData = this.getCachedItem(req.topic, cachedAppData.dataID)
@@ -430,8 +449,38 @@ class CachedAppDataManager {
             }
             const filteredCorrespondingAccNodes = filteredNodes
 
+            if(this.config.p2p.useBinarySerializedEndpoints){
+              const appSerializedAppData = this.stateManager.app.binarySerializeObject(
+                AppObjEnum.CachedAppData, 
+                message.cachedAppData.appData
+              )
+              const sendCacheAppDataReq: SendCachedAppDataReq = {
+                topic,
+                cachedAppData: {
+                  dataID: message.cachedAppData.dataID,
+                  appData: appSerializedAppData,
+                  cycle: message.cachedAppData.cycle
+                }
+              }
+              this.p2p.tellBinary<SendCachedAppDataReq>(
+                filteredCorrespondingAccNodes, 
+                InternalRouteEnum.send_cachedAppData2, 
+                sendCacheAppDataReq, 
+                serializeSendCachedAppDataReq,
+                {
+                  verification_data: verificationDataCombiner(
+                    sendCacheAppDataReq.topic,
+                    sendCacheAppDataReq.cachedAppData.dataID,
+                  ),
+                }
+              )
+              return
+
+            }
+
             // TODO Perf: need a tellMany enhancement.  that will minimize signing and stringify required!
             this.p2p.tell(filteredCorrespondingAccNodes, 'send_cachedAppData', message)
+
           }
         }
       }
