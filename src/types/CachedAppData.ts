@@ -4,7 +4,7 @@ export const cCachedAppData = 7
 export const cCachedAppDataVersion = 1
 
 
-export type AppSerializedCachedAppData = {
+export type CachedAppData = {
     cycle: number
     appData: Buffer
     dataID: string
@@ -12,7 +12,7 @@ export type AppSerializedCachedAppData = {
 
 export function serializeCachedAppData (
     stream: VectorBufferStream, 
-    obj: AppSerializedCachedAppData,
+    obj: CachedAppData,
     root = false
 ): void {
     if(root) {
@@ -27,7 +27,7 @@ export function serializeCachedAppData (
 export function deserializeCachedAppData (
   stream: VectorBufferStream,
   root = false
-): AppSerializedCachedAppData {
+): CachedAppData {
   if(root) {
     const type = stream.readUInt16()
     if(type !== cCachedAppData) {
