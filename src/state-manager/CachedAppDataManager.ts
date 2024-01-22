@@ -9,9 +9,10 @@ import * as Shardus from '../shardus/shardus-types'
 import { AppObjEnum } from '../shardus/shardus-types'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
+import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { InternalBinaryHandler } from '../types/Handler'
 import { getStreamWithTypeCheck, requestErrorHandler, verificationDataCombiner } from '../types/Helpers'
-import { cSendCachedAppDataReq, deserializeSendCachedAppDataReq, SendCachedAppDataReq, serializeSendCachedAppDataReq } from '../types/SendCachedAppDataReq'
+import { deserializeSendCachedAppDataReq, SendCachedAppDataReq, serializeSendCachedAppDataReq } from '../types/SendCachedAppDataReq'
 import * as utils from '../utils'
 import { reversed } from '../utils'
 import Profiler, { profilerInstance } from '../utils/profiler'
@@ -99,30 +100,21 @@ class CachedAppDataManager {
     })
 
     // serialized handler
-    const send_cacheAppData2Handler: Route<InternalBinaryHandler<Buffer>> = {
-      name: InternalRouteEnum.send_cachedAppData2,
+    const send_cacheAppDataBinarySerializedHandler: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_send_cachedAppData,
       handler: (payload, response, header, sign) => {
         profilerInstance.scopedProfileSectionStart('send_cachedAppData2')
 
         const errorHandler = (
           errorType: RequestErrorEnum,
           opts?: { customErrorLog?: string; customCounterSuffix?: string }
-        ): void => requestErrorHandler(InternalRouteEnum.send_cachedAppData2, errorType, header, opts)
+        ): void => requestErrorHandler(InternalRouteEnum.binary_send_cachedAppData, errorType, header, opts)
 
         try{
-          const requestStream = getStreamWithTypeCheck(payload, cSendCachedAppDataReq)
+
+          const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cSendCachedAppDataReq)
 
           if(!requestStream) return errorHandler(RequestErrorEnum.InvalidRequest)
-
-          // verification data checks
-          if (header.verification_data == null) {
-            return errorHandler(RequestErrorEnum.MissingVerificationData)
-          }
-
-          const verificationDataParts = header.verification_data.split(':')
-          if (verificationDataParts.length !== 2) {
-            return errorHandler(RequestErrorEnum.InvalidVerificationData)
-          }
 
           const req = deserializeSendCachedAppDataReq(requestStream)
           const appDeserializedData = this.stateManager.app.binaryDeserializeObject(
@@ -135,14 +127,20 @@ class CachedAppDataManager {
             cycle: req.cachedAppData.cycle,
           }
 
-          if (cachedAppData == null) {
-            return errorHandler(RequestErrorEnum.InvalidRequest)
-          }
-          if (cachedAppData.dataID !== verificationDataParts[1]) {
-            return errorHandler(RequestErrorEnum.InvalidVerificationData)
-          }
 
-          if (cachedAppData.appData == verificationDataParts[0]) {
+          //are we(this node) the one that belong to this cache?
+          // const homeNodeForThisDataID = ShardFunctions.findHomeNode(
+          //   this.stateManager.currentCycleShardData.shardGlobals,
+          //   cachedAppData.dataID,
+          //   this.stateManager.currentCycleShardData.parititionShardDataMap
+          // )
+
+          // if (homeNodeForThisDataID.node.id !== this.stateManager.currentCycleShardData.ourNode.id) {
+          //   return errorHandler(RequestErrorEnum.InvalidRequest)
+          // }
+
+
+          if (cachedAppData == null) {
             return errorHandler(RequestErrorEnum.InvalidRequest)
           }
 
@@ -158,7 +156,7 @@ class CachedAppDataManager {
       }
     }
 
-    this.p2p.registerInternal(InternalRouteEnum.send_cachedAppData2,send_cacheAppData2Handler)
+    this.p2p.registerInternal(InternalRouteEnum.binary_send_cachedAppData,send_cacheAppDataBinarySerializedHandler)
 
     this.p2p.registerInternal('get_cached_app_data', async (payload: CacheAppDataRequest, respond: (arg0: CachedAppData) => Promise<void>) => {
       profilerInstance.scopedProfileSectionStart('get_cached_app_data')
@@ -464,15 +462,10 @@ class CachedAppDataManager {
               }
               this.p2p.tellBinary<SendCachedAppDataReq>(
                 filteredCorrespondingAccNodes, 
-                InternalRouteEnum.send_cachedAppData2, 
+                InternalRouteEnum.binary_send_cachedAppData, 
                 sendCacheAppDataReq, 
                 serializeSendCachedAppDataReq,
-                {
-                  verification_data: verificationDataCombiner(
-                    sendCacheAppDataReq.topic,
-                    sendCacheAppDataReq.cachedAppData.dataID,
-                  ),
-                }
+                {}
               )
               return
 

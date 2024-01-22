@@ -5,4 +5,6 @@ export enum TypeIdentifierEnum {
   cWrappedResp,
   cWrappedData,
   cBroadcastStateReq,
+  cSendCachedAppDataReq,
+  cCachedAppData,
 }
