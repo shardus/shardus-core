@@ -376,6 +376,7 @@ const gossipSyncStarted: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.SyncStarted, P
     if (CycleCreator.currentQuarter >= 3) return
 
     //  Validate of payload is done in addSyncStarted
+    console.log(`inside gossipSyncStarted`)
     if (addSyncStarted(payload).success)
       Comms.sendGossip('gossip-sync-started', payload, tracker, sender, NodeList.byIdOrder, false)
   } finally {

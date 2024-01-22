@@ -134,6 +134,7 @@ export function startupV2(): Promise<boolean> {
         }
         Context.crypto.sign(payload)
         // send gossip true put false in handler
+        console.log(`payload is ${JSON.stringify(payload)}`)
         Comms.sendGossip('syncStarted', payload, undefined, undefined, undefined, true)
 
         p2pSyncStart = shardusGetTime()

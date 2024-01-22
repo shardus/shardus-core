@@ -247,19 +247,6 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
     const standbyList = getLastHashedStandbyList()
     const standbyListMap = getStandbyNodesInfoMap()
 
-    // remove nodes that haven't started sycing after 2 cycles
-    for (const [nodeId, cycleNumber] of nodesYetToStartSyncing) {
-      if (record.counter > cycleNumber + 2) {    
-        // mark as lost; remove from nodelist
-        record.lostStandby.push(nodeId)
-        NodeList.removeSyncingNode(nodeId)
-      } else {
-        if (record.startedSyncing.includes(nodeId)) {
-          nodesYetToStartSyncing.delete(nodeId)
-        }
-      }
-    }
-
     if (config.p2p.standbyAgeScrub) {
       // scrub the stanby list of nodes that have been in it too long.  > standbyListCyclesTTL num cycles
       for (const joinRequest of standbyList) {
@@ -326,8 +313,6 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       const id = computeNodeId(nodeInfo.publicKey, standbyInfo.cycleMarker)
       const counterRefreshed = record.counter
 
-      nodesYetToStartSyncing.set(id, record.counter)
-
       record.joinedConsensors.push({ ...nodeInfo, cycleJoined, counterRefreshed, id })
     }
 
@@ -358,11 +343,28 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
     const publicKey = node.publicKey
     /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log(`join:parseRecord node-selcted cycle: ${record.counter} removed standby node ${publicKey}`)
     deleteStandbyNode(publicKey)
+
+    nodesYetToStartSyncing.set(node.id, record.counter)
   }
 
   if (added.length > 0) {
     /* prettier-ignore */ if (logFlags.p2pNonFatal) debugDumpJoinRequestList( Array.from(getStandbyNodesInfoMap().values()), `join.parseRecord: standby-map ${record.counter} some activated:${record.counter}` )
   }
+
+  // remove nodes that haven't started sycing after 2 cycles
+  for (const [nodeId, cycleNumber] of nodesYetToStartSyncing) {
+    if (record.counter > cycleNumber + 2) {
+      // mark as lost; remove from nodelist
+      record.lostStandby.push(nodeId)
+      NodeList.removeSyncingNode(nodeId)
+      nodesYetToStartSyncing.delete(nodeId)
+    } else {
+      if (record.startedSyncing.includes(nodeId)) {
+        nodesYetToStartSyncing.delete(nodeId)
+      }
+    }
+  }
+  
 
   return {
     added,

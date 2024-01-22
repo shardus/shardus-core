@@ -114,6 +114,8 @@ export interface SyncStartedRequestResponse {
 }
 
 export function addSyncStarted(syncStarted: SyncStarted): SyncStartedRequestResponse {
+
+  console.log(`inside addSyncStarted ${JSON.stringify(syncStarted)}`)
   // validate
   // lookup node by id in payload and use pubkey and compare to sig.owner
   const publicKeysMatch = (NodeList.byIdOrder.find((node) => node.id === syncStarted.nodeId)).publicKey === syncStarted.sign.owner
@@ -151,7 +153,7 @@ export function addSyncStarted(syncStarted: SyncStarted): SyncStartedRequestResp
       fatal: false,
     }
   }
-
+  console.log(`made it past all the falses`)
   newSyncStartedRequests.set(syncStarted.nodeId, syncStarted)
 
   return {
