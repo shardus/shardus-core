@@ -78,6 +78,15 @@ import { Logger as Log4jsLogger } from 'log4js'
 import { timingSafeEqual } from 'crypto'
 import { shardusGetTime } from '../network'
 import { isServiceMode } from '../debug'
+import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
+import { InternalBinaryHandler } from '../types/Handler'
+import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
+import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
+import { deserializeGetAccountDataWithQueueHintsResp, GetAccountDataWithQueueHintsRespSerialized, serializeGetAccountDataWithQueueHintsResp } from '../types/GetAccountDataWithQueueHintsResp'
+import { deserializeGetAccountDataWithQueueHintsReq, serializeGetAccountDataWithQueueHintsReq } from '../types/GetAccountDataWithQueueHintsReq'
+import { WrappedDataFromQueueSerialized } from '../types/WrappedDataFromQueue'
+import { WrappedData } from '../types/WrappedData'
 
 export type Callback = (...args: unknown[]) => void
 
@@ -1626,6 +1635,70 @@ class StateManager {
       }
     )
 
+    const binaryGetAccDataWithQueueHintsHandler: Route<InternalBinaryHandler<Buffer>> = {
+        name: InternalRouteEnum.binary_get_account_data_with_queue_hints,
+        handler: async (payload, respond, header, sign) => {
+            profilerInstance.scopedProfileSectionStart(
+                'binary_get_account_data_with_queue_hints', 
+                false, 
+                payload.length
+            )
+            try{
+                const requestStream = VectorBufferStream.fromBuffer(payload)
+                const requestType = requestStream.readUInt8()
+                if(requestType !== TypeIdentifierEnum.cGetAccountDataWithQueueHintsReq){
+                    // implement error handling
+                    return
+                }
+                const req = deserializeGetAccountDataWithQueueHintsReq(requestStream)
+                let accountData = null
+                let ourLockID = -1
+                try{
+                    ourLockID = await this.fifoLock('accountModification')
+                    accountData = await this.app.getAccountDataByList(req.accountIds) 
+                }finally{
+                    this.fifoUnlock('accountModification', ourLockID)
+                }
+                if(accountData != null){
+                    for(const wrappedAccount of accountData){
+                        const wrappedAccountInQueueRef = wrappedAccount as WrappedDataFromQueueSerialized
+                        wrappedAccountInQueueRef.seenInQueue = false
+                        wrappedAccountInQueueRef.data = this.app.binarySerializeObject(
+                            Shardus.AppObjEnum.AccountData,
+                            wrappedAccount.data
+                        )
+
+                        if(this.lastSeenAccountsMap != null){
+                            const queueEntry = this.lastSeenAccountsMap[wrappedAccountInQueueRef.accountId]
+                            if(queueEntry != null){
+                                wrappedAccountInQueueRef.seenInQueue = true
+                            }
+                        }
+                    }
+                }
+
+                const resp: GetAccountDataWithQueueHintsRespSerialized = {
+                    accountData: accountData as WrappedDataFromQueueSerialized[] | null
+                    // this can still be null
+                }
+                respond(resp, serializeGetAccountDataWithQueueHintsResp)
+
+            }finally{
+                profilerInstance.scopedProfileSectionEnd(
+                    'binary_get_account_data_with_queue_hints', 
+                    payload.length
+                )
+            }
+
+        }
+    }
+
+    this.p2p.registerInternalBinary(
+        binaryGetAccDataWithQueueHintsHandler.name, 
+        binaryGetAccDataWithQueueHintsHandler.handler
+    )
+
+
     this.p2p.registerInternal(
       'get_account_queue_count',
       async (
@@ -2199,7 +2272,7 @@ class StateManager {
       }
 
       const message = { accountIds: [address] }
-      const r: GetAccountDataWithQueueHintsResp | boolean = await this.p2p.ask(
+      const r: GetAccountDataWithQueueHintsRespSerialized | boolean = await this.p2p.ask(
         randomConsensusNode,
         'get_account_data_with_queue_hints',
         message
@@ -2208,7 +2281,7 @@ class StateManager {
         if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteAccount r === false')
       }
 
-      const result = r as GetAccountDataWithQueueHintsResp
+      const result = r as GetAccountDataWithQueueHintsRespSerialized
       if (result != null && result.accountData != null && result.accountData.length > 0) {
         wrappedAccount = result.accountData[0]
         if (wrappedAccount == null) {
@@ -2288,7 +2361,19 @@ class StateManager {
     }
 
     const message = { accountIds: [address] }
-    const result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
+    let result = null 
+    if(this.config.p2p.useBinarySerializedEndpoints){
+        result = await this.p2p.askBinary(
+            homeNode.node, 
+            InternalRouteEnum.binary_get_account_data_with_queue_hints,
+            message, 
+            serializeGetAccountDataWithQueueHintsReq,
+            deserializeGetAccountDataWithQueueHintsResp,
+            {})
+
+    }else{
+        result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
+    }
     if (result === false) {
       if (logFlags.error) this.mainLogger.error('ASK FAIL getRemoteAccount result === false')
     }
