@@ -7,4 +7,7 @@ export enum TypeIdentifierEnum {
   cBroadcastStateReq,
   cSendCachedAppDataReq,
   cCachedAppData,
+  cGetAccountDataWithQueueHintsReq,
+  cGetAccountDataWithQueueHintsResp,
+  cWrappedDataFromQueue,
 }
