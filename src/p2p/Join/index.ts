@@ -355,11 +355,11 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   for (const [nodeId, cycleNumber] of nodesYetToStartSyncing) {
     if (record.counter > cycleNumber + 2) {
       // mark as lost; remove from nodelist
-      record.lostStandby.push(nodeId)
+      record.lostStandby?.push(nodeId)
       NodeList.removeSyncingNode(nodeId)
       nodesYetToStartSyncing.delete(nodeId)
     } else {
-      if (record.startedSyncing.includes(nodeId)) {
+      if (record.startedSyncing?.includes(nodeId)) {
         nodesYetToStartSyncing.delete(nodeId)
       }
     }

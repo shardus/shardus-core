@@ -128,14 +128,18 @@ export function startupV2(): Promise<boolean> {
         // set status SYNCING
         updateNodeState(P2P.P2PTypes.NodeStatus.SYNCING)
 
-        const payload = {
-          nodeId: id,
-          cycleNumber: CycleChain.getNewest().counter,
+        const newestCycle = CycleChain.getNewest()
+        // there will be no newest cycle if we are the first node
+        if (newestCycle) {
+          const payload = {
+            nodeId: id,
+            cycleNumber: newestCycle.counter,
+          }
+          Context.crypto.sign(payload)
+          // send gossip true put false in handler
+          console.log(`payload is ${JSON.stringify(payload)}`)
+          Comms.sendGossip('syncStarted', payload, undefined, undefined, undefined, true)
         }
-        Context.crypto.sign(payload)
-        // send gossip true put false in handler
-        console.log(`payload is ${JSON.stringify(payload)}`)
-        Comms.sendGossip('syncStarted', payload, undefined, undefined, undefined, true)
 
         p2pSyncStart = shardusGetTime()
 
