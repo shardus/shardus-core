@@ -28,6 +28,7 @@ import { ActiveNode } from '@shardus/types/build/src/p2p/SyncTypes'
 import { Result } from 'neverthrow'
 const deepCopy = rfdc()
 import { isServiceMode } from '../debug'
+import { sendSyncStartedGossip } from './Join/routes'
 
 /** STATE */
 
@@ -128,18 +129,21 @@ export function startupV2(): Promise<boolean> {
         // set status SYNCING
         updateNodeState(P2P.P2PTypes.NodeStatus.SYNCING)
 
-        const newestCycle = CycleChain.getNewest()
+        const newestCycle = await CycleChain.getNewest()
         // there will be no newest cycle if we are the first node
-        if (newestCycle) {
+        console.log(`before newestcycle check`)
+        //if (newestCycle) {
+          console.log(`after newestcycle check`)
           const payload = {
             nodeId: id,
-            cycleNumber: newestCycle.counter,
+            cycleNumber: newestCycle?.counter || 99,
           }
           Context.crypto.sign(payload)
           // send gossip true put false in handler
           console.log(`payload is ${JSON.stringify(payload)}`)
-          Comms.sendGossip('syncStarted', payload, undefined, undefined, undefined, true)
-        }
+          // Comms.sendGossip('gossip-sync-started', payload, '', null, NodeList.byIdOrder, true)
+          sendSyncStartedGossip(payload)
+        //}
 
         p2pSyncStart = shardusGetTime()
 

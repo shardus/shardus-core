@@ -239,6 +239,7 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
     for (const nodeId of drainSyncStartedRequests()) {
       record.startedSyncing.push(nodeId)
     }
+    console.log('record.startedSyncing', record.startedSyncing)
 
     let standbyRemoved_Age = 0
     //let standbyRemoved_joined = 0
@@ -355,6 +356,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   for (const [nodeId, cycleNumber] of nodesYetToStartSyncing) {
     if (record.counter > cycleNumber + 2) {
       // mark as lost; remove from nodelist
+      console.log(`booting out a node`)
       record.lostStandby?.push(nodeId)
       NodeList.removeSyncingNode(nodeId)
       nodesYetToStartSyncing.delete(nodeId)

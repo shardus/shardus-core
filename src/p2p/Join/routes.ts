@@ -365,18 +365,19 @@ const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<UnjoinRequest, P2P.NodeLi
   Comms.sendGossip('gossip-unjoin', payload, tracker, sender, NodeList.byIdOrder, false)
 }
 
-const gossipSyncStarted: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.SyncStarted, P2P.NodeListTypes.Node['id']> = (
+const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.SyncStarted, P2P.NodeListTypes.Node['id']> = (
   payload,
   sender,
   tracker
 ) => {
   profilerInstance.scopedProfileSectionStart('gossip-sync-started')
+  console.log(`inside gossipSyncStarted 1`)
   try {
     // Do not forward gossip after quarter 2
     if (CycleCreator.currentQuarter >= 3) return
 
     //  Validate of payload is done in addSyncStarted
-    console.log(`inside gossipSyncStarted`)
+    console.log(`inside gossipSyncStarted 2`)
     if (addSyncStarted(payload).success)
       Comms.sendGossip('gossip-sync-started', payload, tracker, sender, NodeList.byIdOrder, false)
   } finally {
@@ -390,6 +391,10 @@ export const routes = {
     'gossip-join': gossipJoinRoute,
     'gossip-valid-join-requests': gossipValidJoinRequests,
     'gossip-unjoin': gossipUnjoinRequests,
-    'gossip-sync-started': gossipSyncStarted
+    'gossip-sync-started': gossipSyncStartedRoute
   },
+}
+
+export function sendSyncStartedGossip(payload: P2P.JoinTypes.SyncStarted): void {
+  Comms.sendGossip('gossip-sync-started', payload, '', null, NodeList.byIdOrder, true)
 }

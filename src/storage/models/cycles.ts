@@ -53,6 +53,8 @@ const cycles = [
     lostArchivers: { type: SQLDataTypes.TEXT, allowNull: false },
     refutedArchivers: { type: SQLDataTypes.TEXT, allowNull: false },
     removedArchivers: { type: SQLDataTypes.TEXT, allowNull: false },
+    startedSyncing: { type: SQLDataTypes.TEXT, allowNull: false },
+    lostStandby: { type: SQLDataTypes.TEXT, allowNull: false },
     ...P2PApoptosis.sequelizeCycleFieldModel,
   },
 ]
