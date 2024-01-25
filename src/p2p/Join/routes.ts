@@ -28,6 +28,7 @@ import { getStandbyNodesInfoMap, saveJoinRequest, isOnStandbyList, addSyncStarte
 import { processNewUnjoinRequest, UnjoinRequest } from './v2/unjoin'
 import { isActive } from '../Self'
 import { logFlags } from '../../logger'
+import { SyncStarted } from '@shardus/types/build/src/p2p/JoinTypes'
 
 const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
@@ -365,8 +366,8 @@ const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<UnjoinRequest, P2P.NodeLi
   Comms.sendGossip('gossip-unjoin', payload, tracker, sender, NodeList.byIdOrder, false)
 }
 
-const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.SyncStarted, P2P.NodeListTypes.Node['id']> = (
-  payload,
+const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler = (
+  payload: SyncStarted,
   sender,
   tracker
 ) => {
@@ -396,5 +397,6 @@ export const routes = {
 }
 
 export function sendSyncStartedGossip(payload: P2P.JoinTypes.SyncStarted): void {
+  Comms.registerGossipHandler('gossip-sync-started', gossipSyncStartedRoute)
   Comms.sendGossip('gossip-sync-started', payload, '', null, NodeList.byIdOrder, true)
 }
