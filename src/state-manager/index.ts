@@ -84,7 +84,7 @@ import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { deserializeGetAccountDataWithQueueHintsResp, GetAccountDataWithQueueHintsRespSerialized, serializeGetAccountDataWithQueueHintsResp } from '../types/GetAccountDataWithQueueHintsResp'
-import { deserializeGetAccountDataWithQueueHintsReq, serializeGetAccountDataWithQueueHintsReq } from '../types/GetAccountDataWithQueueHintsReq'
+import { deserializeGetAccountDataWithQueueHintsReq, GetAccountDataWithQueueHintsReqSerialized, serializeGetAccountDataWithQueueHintsReq } from '../types/GetAccountDataWithQueueHintsReq'
 import { WrappedDataFromQueueSerialized } from '../types/WrappedDataFromQueue'
 import { WrappedData } from '../types/WrappedData'
 
@@ -1644,14 +1644,16 @@ class StateManager {
                 payload.length
             )
             try{
+                let accountData = null
                 const requestStream = VectorBufferStream.fromBuffer(payload)
                 const requestType = requestStream.readUInt8()
                 if(requestType !== TypeIdentifierEnum.cGetAccountDataWithQueueHintsReq){
                     // implement error handling
+                    respond({ accountData }, serializeGetAccountDataWithQueueHintsResp)
                     return
                 }
                 const req = deserializeGetAccountDataWithQueueHintsReq(requestStream)
-                let accountData = null
+                console.log("req stream deserialize", req);
                 let ourLockID = -1
                 try{
                     ourLockID = await this.fifoLock('accountModification')
@@ -2272,16 +2274,57 @@ class StateManager {
       }
 
       const message = { accountIds: [address] }
-      const r: GetAccountDataWithQueueHintsRespSerialized | boolean = await this.p2p.ask(
-        randomConsensusNode,
-        'get_account_data_with_queue_hints',
-        message
-      )
-      if (r === false) {
+
+      let r: GetAccountDataWithQueueHintsResp
+
+      if(this.config.p2p.useBinarySerializedEndpoints){
+        const serialized_res = await this.p2p.askBinary<
+          GetAccountDataWithQueueHintsReqSerialized, 
+          GetAccountDataWithQueueHintsRespSerialized
+          >(
+            randomConsensusNode,
+            InternalRouteEnum.binary_get_account_data_with_queue_hints,
+            message, 
+            serializeGetAccountDataWithQueueHintsReq,
+            deserializeGetAccountDataWithQueueHintsResp,
+            {}) as GetAccountDataWithQueueHintsRespSerialized
+
+        if(serialized_res && serialized_res.accountData != null){
+          r = {
+            accountData: serialized_res.accountData.map((account) => {
+              return {
+                accountId: account.accountId,
+                stateId: account.stateId,
+                data: this.app.binaryDeserializeObject(
+                  Shardus.AppObjEnum.AccountData,
+                  account.data
+                ),
+                timestamp: account.timestamp,
+                seenInQueue: account.seenInQueue
+              }
+            })
+          }
+
+        }
+      }
+      else{
+        r = await this.p2p.ask(
+          randomConsensusNode,
+          'get_account_data_with_queue_hints',
+          message
+        )
+      }
+      
+
+      console.log("Binary get account data with queue hints result: ", JSON.stringify(r));
+
+
+
+      if (!r) {
         if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteAccount r === false')
       }
 
-      const result = r as GetAccountDataWithQueueHintsRespSerialized
+      const result = r as GetAccountDataWithQueueHintsResp
       if (result != null && result.accountData != null && result.accountData.length > 0) {
         wrappedAccount = result.accountData[0]
         if (wrappedAccount == null) {
@@ -2363,7 +2406,10 @@ class StateManager {
     const message = { accountIds: [address] }
     let result = null 
     if(this.config.p2p.useBinarySerializedEndpoints){
-        result = await this.p2p.askBinary(
+        result = await this.p2p.askBinary<
+          GetAccountDataWithQueueHintsReqSerialized, 
+          GetAccountDataWithQueueHintsRespSerialized
+          >(
             homeNode.node, 
             InternalRouteEnum.binary_get_account_data_with_queue_hints,
             message, 
@@ -2374,6 +2420,8 @@ class StateManager {
     }else{
         result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
     }
+
+    console.log("Binary get account data with queue hints result: ", JSON.stringify(result))
     if (result === false) {
       if (logFlags.error) this.mainLogger.error('ASK FAIL getRemoteAccount result === false')
     }

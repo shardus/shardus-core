@@ -2,7 +2,9 @@ import { VectorBufferStream } from "../utils/serialization/VectorBufferStream";
 import { TypeIdentifierEnum } from "./enum/TypeIdentifierEnum";
 import { serializeWrappedData, WrappedData } from "./WrappedData";
 
-export interface WrappedDataFromQueueSerialized extends Omit<WrappedData, 'accountCreated'> {
+type StrippedWrappedData = Omit<Omit<WrappedData, 'accountCreated'>,'isPartial'>;
+
+export interface WrappedDataFromQueueSerialized extends StrippedWrappedData {
   seenInQueue: boolean;
 }
 
@@ -15,7 +17,6 @@ export function serializeWrappedDataFromQueue(stream: VectorBufferStream, obj: W
   stream.writeUInt8(cWrappedDataFromQueueVersion);
 
   stream.writeUInt8(obj.seenInQueue ? 1 : 0);
-  stream.writeUInt8(obj.isPartial ? 1 : 0);
   stream.writeString(obj.accountId);
   stream.writeString(obj.stateId);
   stream.writeDouble(obj.timestamp);
@@ -26,7 +27,6 @@ export function serializeWrappedDataFromQueue(stream: VectorBufferStream, obj: W
 export function deserializeWrappedDataFromQueue(stream: VectorBufferStream): WrappedDataFromQueueSerialized {
   const obj: WrappedDataFromQueueSerialized = {
     seenInQueue: false,
-    isPartial: false,
     accountId: '',
     stateId: '',
     timestamp: 0,
@@ -37,7 +37,6 @@ export function deserializeWrappedDataFromQueue(stream: VectorBufferStream): Wra
     throw new Error(`Expected version 1. Actual version: ${version}`);
   }
   obj.seenInQueue = stream.readUInt8() === 1;
-  obj.isPartial = stream.readUInt8() === 1;
   obj.accountId = stream.readString();
   obj.stateId = stream.readString();
   obj.timestamp = stream.readDouble(); 
