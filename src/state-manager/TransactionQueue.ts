@@ -346,7 +346,7 @@ class TransactionQueue {
               timestamp: state.timestamp,
             })
             if (queueEntry.state === 'syncing') {
-              /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_gotBroadcastData', `${queueEntry.acceptedTx.txId}`, ` qId: ${queueEntry.entryID} data:${state.accountId}`)
+              /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_gotBroadcastData', `${queueEntry.acceptedTx.txId}`, ` qId: ${queueEntry.entryID} data:${deserializedStateData}`)
             }
           }
         } finally {
