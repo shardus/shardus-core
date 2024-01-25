@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { P2P as P2PTypes, StateManager as StateManagerTypes } from '@shardus/types'
 import StateManager from '.'
 import Crypto from '../crypto'
@@ -51,6 +52,7 @@ import { getStreamWithTypeCheck, requestErrorHandler, verificationDataCombiner }
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
+import { BroadcastFinalStateReq, deserializeBroadcastFinalStateReq, serializeBroadcastFinalStateReq } from '../types/BroadcastFinalStateReq'
 
 interface Receipt {
   tx: AcceptedTx
@@ -390,6 +392,126 @@ class TransactionQueue {
       }
     )
 
+    const broadcastFinalStateRoute: P2PTypes.P2PTypes.Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_broadcast_final_state,
+      handler: (payload, response, header, sign) => {
+        const route = InternalRouteEnum.binary_broadcast_final_state
+        nestedCountersInstance.countEvent('internal', route)
+        profilerInstance.scopedProfileSectionStart(route, true, payload.length)
+
+        const errorHandler = (
+          errorType: RequestErrorEnum,
+          opts?: { customErrorLog?: string; customCounterSuffix?: string }
+        ): void => requestErrorHandler(route, errorType, header, opts)
+
+        try {
+          const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cBroadcastFinalStateReq)
+          if (!requestStream) {
+            return errorHandler(RequestErrorEnum.InvalidRequest)
+          }
+
+          if (header.verification_data == null) {
+            return errorHandler(RequestErrorEnum.MissingVerificationData)
+          }
+
+          const verificationDataParts = header.verification_data.split(':')
+          if (verificationDataParts.length !== 3) {
+            return errorHandler(RequestErrorEnum.InvalidVerificationData)
+          }
+
+          const [vTxId, vStateSize, vStateAddress] = verificationDataParts
+          const queueEntry = this.getQueueEntrySafe(vTxId)
+          if (queueEntry == null) {
+            if (logFlags.error && logFlags.verbose) {
+              this.mainLogger.error(`${route} can't find queueEntry for: ${utils.makeShortHash(vTxId)}`)
+            }
+            return errorHandler(RequestErrorEnum.InvalidVerificationData)
+          }
+
+          const isSenderValid = this.validateCorrespondingTellSender(
+            queueEntry,
+            vStateAddress,
+            header.sender_id
+          )
+          if (logFlags.verbose && logFlags.console) {
+            console.log(`${route} TxId: ${vTxId} isSenderValid: ${isSenderValid}`)
+          }
+          if (!isSenderValid) {
+            if (logFlags.error && logFlags.verbose) {
+              this.mainLogger.error(`${route} validateCorrespondingTellSender failed`)
+            }
+            return errorHandler(RequestErrorEnum.InvalidSender)
+          }
+
+          const req = deserializeBroadcastFinalStateReq(requestStream)
+          if (req.txid !== vTxId) {
+            return errorHandler(RequestErrorEnum.InvalidVerificationData)
+          }
+          if (req.stateList.length !== parseInt(vStateSize)) {
+            return errorHandler(RequestErrorEnum.InvalidVerificationData)
+          }
+          if (logFlags.verbose && logFlags.console) {
+            console.log(
+              `${route}: txId: ${req.txid} stateSize: ${req.stateList.length} stateAddress: ${vStateAddress}`
+            )
+          }
+
+          for (let i = 0; i < req.stateList.length; i++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const state = req.stateList[i]
+            if (
+              i !== 0 &&
+              !this.validateCorrespondingTellSender(queueEntry, state.accountId, header.sender_id)
+            ) {
+              if (logFlags.error && logFlags.verbose) {
+                this.mainLogger.error(
+                  `${route} validateCorrespondingTellSender failed for ${state.accountId}`
+                )
+              }
+              return errorHandler(RequestErrorEnum.InvalidSender)
+            }
+
+            const deserializedStateData = this.stateManager.app.binaryDeserializeObject(
+              AppObjEnum.AppData,
+              state.data
+            ) // data needs to be de-serialized by the Dapp assigned method.
+            if (state == null) {
+              if (logFlags.error && logFlags.verbose) {
+                this.mainLogger.error(`binary/broadcast_final_state data == null`)
+              }
+              continue
+            }
+            if (queueEntry.collectedFinalData[state.accountId] == null) {
+              const entry = {
+                accountCreated: state.accountCreated,
+                isPartial: state.isPartial,
+                accountId: state.accountId,
+                stateId: state.stateId,
+                data: deserializedStateData, 
+                timestamp: state.timestamp,
+              }
+              queueEntry.collectedFinalData[state.accountId] = entry
+              if (logFlags.playback && logFlags.verbose) {
+                this.logger.playbackLogNote(
+                  'binary/broadcast_final_state',
+                  `${queueEntry.logID}`,
+                  `binary/broadcast_final_state addFinalData qId: ${
+                    queueEntry.entryID
+                  } data:${utils.makeShortHash(state.accountId)} collected keys: ${utils.stringifyReduce(
+                    Object.keys(queueEntry.collectedFinalData)
+                  )}`
+                )
+              }
+            }
+          }
+        } finally {
+          profilerInstance.scopedProfileSectionEnd(route, payload.length)
+        }
+      },
+    }
+
+    this.p2p.registerInternalBinary(broadcastFinalStateRoute.name, broadcastFinalStateRoute.handler)
+    
     this.p2p.registerInternal(
       'spread_tx_to_group_syncing',
       async (payload: Shardus.AcceptedTx, _respondWrapped: unknown, sender: Node) => {
@@ -3119,6 +3241,48 @@ class TransactionQueue {
     this.p2p.tell(nodes, 'broadcast_state', message)
   }
 
+  async broadcastFinalState(
+    nodes: Shardus.Node[],
+    message: { stateList: Shardus.WrappedResponse[]; txid: string }
+  ): Promise<void> {
+    if (this.config.p2p.useBinarySerializedEndpoints) {
+      // convert legacy message to binary supported type
+      const request: BroadcastStateReq = {
+        txid: message.txid,
+        stateList: [],
+      }
+      for (const state of message.stateList) {
+        const serializedStateData = this.stateManager.app.binarySerializeObject(
+          AppObjEnum.AppData,
+          state.data
+        )
+        request.stateList.push({
+          accountCreated: state.accountCreated,
+          isPartial: state.isPartial,
+          accountId: state.accountId,
+          stateId: state.stateId,
+          data: serializedStateData,
+          timestamp: state.timestamp,
+        })
+      }
+      this.p2p.tellBinary<BroadcastFinalStateReq>(
+        nodes,
+        InternalRouteEnum.binary_broadcast_final_state,
+        request,
+        serializeBroadcastFinalStateReq,
+        {
+          verification_data: verificationDataCombiner(
+            message.txid,
+            message.stateList.length.toString(),
+            request.stateList[0].accountId
+          ),
+        }
+      )
+      return
+    }
+    this.p2p.tell(nodes, 'broadcast_finalstate', message)
+  }
+
   /**
    * tellCorrespondingNodes
    * @param queueEntry
@@ -3585,7 +3749,7 @@ class TransactionQueue {
             continue
           }
           const filterdCorrespondingAccNodes = filteredNodes
-          this.p2p.tell(filterdCorrespondingAccNodes, 'broadcast_finalstate', message)
+          this.broadcastFinalState(filterdCorrespondingAccNodes, message)
           totalShares++
         }
       }
