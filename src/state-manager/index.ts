@@ -1646,7 +1646,7 @@ class StateManager {
             try{
                 let accountData = null
                 const requestStream = VectorBufferStream.fromBuffer(payload)
-                const requestType = requestStream.readUInt8()
+                const requestType = requestStream.readUInt16()
                 if(requestType !== TypeIdentifierEnum.cGetAccountDataWithQueueHintsReq){
                     // implement error handling
                     respond({ accountData }, serializeGetAccountDataWithQueueHintsResp)
@@ -1685,7 +1685,10 @@ class StateManager {
                 }
                 respond(resp, serializeGetAccountDataWithQueueHintsResp)
 
-            }finally{
+            }catch(e){
+              respond({ accountData: null }, serializeGetAccountDataWithQueueHintsResp)
+            }
+            finally{
                 profilerInstance.scopedProfileSectionEnd(
                     'binary_get_account_data_with_queue_hints', 
                     payload.length
@@ -2315,9 +2318,6 @@ class StateManager {
         )
       }
       
-
-      console.log("Binary get account data with queue hints result: ", JSON.stringify(r));
-
 
 
       if (!r) {
