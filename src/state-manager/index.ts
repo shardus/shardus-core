@@ -87,6 +87,8 @@ import { deserializeGetAccountDataWithQueueHintsResp, GetAccountDataWithQueueHin
 import { deserializeGetAccountDataWithQueueHintsReq, GetAccountDataWithQueueHintsReqSerialized, serializeGetAccountDataWithQueueHintsReq } from '../types/GetAccountDataWithQueueHintsReq'
 import { WrappedDataFromQueueSerialized } from '../types/WrappedDataFromQueue'
 import { WrappedData } from '../types/WrappedData'
+import { deserializeGetAccountQueueCountResp, GetAccountQueueCountRespSerialized, serializeGetAccountQueueCountResp } from '../types/GetAccountQueueCountResp'
+import { deserializeGetAccountQueueCountReq, GetAccountQueueCountReq, serializeGetAccountQueueCountReq } from '../types/GetAccountQueueCountReq'
 
 export type Callback = (...args: unknown[]) => void
 
@@ -1737,6 +1739,54 @@ class StateManager {
       }
     )
 
+    const binaryGetAccountQueueCountHandler: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_get_account_queue_count,
+      handler: async (payload, respond, header, sign) => {
+        profilerInstance.scopedProfileSectionStart('binary_get_account_queue_count', false, payload.length)
+        try{
+          const requestStream = VectorBufferStream.fromBuffer(payload)
+          const requestType = requestStream.readUInt16()
+          if(requestType !== TypeIdentifierEnum.cGetAccountQueueCountReq){
+            // implement error handling
+            respond(false, serializeGetAccountQueueCountResp)
+            return
+          }
+          const req = deserializeGetAccountQueueCountReq(requestStream)
+          const result: GetAccountQueueCountRespSerialized = { counts: [], committingAppData: [], accounts: [] }
+          for (const address of req.accountIds) {
+            const { count, committingAppData } = this.transactionQueue.getAccountQueueCount(address, true)
+            result.counts.push(count)
+            if (this.config.stateManager.enableAccountFetchForQueueCounts) {
+              const currentAccountData = await this.getLocalOrRemoteAccount(address)
+              if (currentAccountData && currentAccountData.data) {
+                result.accounts.push(this.app.binarySerializeObject(
+                  Shardus.AppObjEnum.AccountData,
+                  currentAccountData.data
+                ))
+              }
+            }
+            for (const appData of committingAppData) {
+              result.committingAppData.push(this.app.binarySerializeObject(
+                Shardus.AppObjEnum.AppData,
+                appData
+              ))
+            }
+          }
+          respond(result, serializeGetAccountQueueCountResp)
+        }catch(e){
+          if(logFlags.error) this.mainLogger.error(`binary_get_account_queue_count error: ${e}`)
+          respond(false, serializeGetAccountQueueCountResp)
+        }finally{
+          profilerInstance.scopedProfileSectionEnd('binary_get_account_queue_count', payload.length)
+        }
+      }
+    }
+
+    this.p2p.registerInternalBinary(
+      binaryGetAccountQueueCountHandler.name, 
+      binaryGetAccountQueueCountHandler.handler
+    )
+
     Context.network.registerExternalGet('debug_stats', isDebugModeMiddleware, (_req, res) => {
       const cycle = this.currentCycleShardData.cycleNumber - 1
 
@@ -2167,12 +2217,54 @@ class StateManager {
         }
 
         const message: RequestAccountQueueCounts = { accountIds: [address] }
-        const r: QueueCountsResponse | boolean = await this.p2p.ask(
-          randomConsensusNode,
-          'get_account_queue_count',
-          message
-        )
-        if (r === false) {
+        // const r: QueueCountsResponse | boolean = await this.p2p.ask(
+        //   randomConsensusNode,
+        //   'get_account_queue_count',
+        //   message
+        // )
+        let r: QueueCountsResponse;  
+
+        if(this.config.p2p.useBinarySerializedEndpoints){
+          const serialized_res = await this.p2p.askBinary<
+            GetAccountQueueCountReq,
+            GetAccountQueueCountRespSerialized
+          >(
+            randomConsensusNode,
+            InternalRouteEnum.binary_get_account_queue_count,
+            message,
+            serializeGetAccountQueueCountReq,
+            deserializeGetAccountQueueCountResp,
+            {}
+          )
+          if(serialized_res){
+              r = {
+                counts: [],
+                committingAppData: [],
+                accounts: []
+              }
+              for (const account of serialized_res.accounts) {
+                r.accounts.push(this.app.binaryDeserializeObject(
+                  Shardus.AppObjEnum.AppData,
+                  account
+                ))
+              }
+              for (const appData of serialized_res.committingAppData) {
+                r.committingAppData.push(this.app.binaryDeserializeObject(
+                  Shardus.AppObjEnum.AppData,
+                  appData
+                ))
+              }
+              r.counts = serialized_res.counts
+          }
+        }else{
+          r = await this.p2p.ask(
+            randomConsensusNode,
+            'get_account_queue_count',
+            message
+          )
+        }
+
+        if (!r) {
           if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteAccountQueueCount r === false')
         }
 
@@ -2209,6 +2301,7 @@ class StateManager {
       }
       /* prettier-ignore */ if (logFlags.verbose) console.log(`queue counts local: ${count} address:${utils.stringifyReduce(address)}`)
     }
+
 
     return { count, committingAppData, account }
   }
@@ -2407,9 +2500,9 @@ class StateManager {
     }
 
     const message = { accountIds: [address] }
-    let result = null 
+    let result: GetAccountDataWithQueueHintsResp
     if(this.config.p2p.useBinarySerializedEndpoints){
-        result = await this.p2p.askBinary<
+        const serialized_res = await this.p2p.askBinary<
           GetAccountDataWithQueueHintsReqSerialized, 
           GetAccountDataWithQueueHintsRespSerialized
           >(
@@ -2420,12 +2513,28 @@ class StateManager {
             deserializeGetAccountDataWithQueueHintsResp,
             {})
 
+          if(serialized_res && serialized_res.accountData != null){
+            result = {
+              accountData: serialized_res.accountData.map((account) => {
+                return {
+                  accountId: account.accountId,
+                  stateId: account.stateId,
+                  data: this.app.binaryDeserializeObject(
+                    Shardus.AppObjEnum.AccountData,
+                    account.data
+                  ),
+                  timestamp: account.timestamp,
+                  seenInQueue: account.seenInQueue
+                }
+              })
+            }
+          }
+
     }else{
         result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
     }
 
-    console.log("Binary get account data with queue hints result: ", JSON.stringify(result))
-    if (result === false) {
+    if (!result) {
       if (logFlags.error) this.mainLogger.error('ASK FAIL getRemoteAccount result === false')
     }
     if (result === null) {
