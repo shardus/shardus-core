@@ -10,4 +10,6 @@ export enum TypeIdentifierEnum {
   cGetAccountDataWithQueueHintsReq,
   cGetAccountDataWithQueueHintsResp,
   cWrappedDataFromQueue,
+  cGetAccountQueueCountReq,
+  cGetAccountQueueCountResp,
 }
