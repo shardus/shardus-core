@@ -3,7 +3,7 @@ import { P2P } from '@shardus/types'
 import { Logger } from 'log4js'
 import { isDebugModeMiddleware, isDebugModeMiddlewareLow } from '../network/debugMiddleware'
 import { ShardusEvent } from '../shardus/shardus-types'
-import { binarySearch, insertSorted, propComparator, propComparator2 } from '../utils'
+import { binarySearch, getTime, insertSorted, propComparator, propComparator2 } from '../utils'
 import * as Comms from './Comms'
 import { config, crypto, logger, network } from './Context'
 import * as CycleChain from './CycleChain'
@@ -12,6 +12,7 @@ import { emitter, id } from './Self'
 import rfdc from 'rfdc'
 import { logFlags } from '../logger'
 import { nestedCountersInstance } from '..'
+import { shardusGetTime } from '../network'
 
 const clone = rfdc()
 
@@ -32,7 +33,7 @@ export let potentiallyRemoved: Set<P2P.NodeListTypes.Node['id']>
 
 const VERBOSE = false // Use to dump complete NodeList and CycleChain data
 
-reset()
+reset('init')
 
 /** FUNCTIONS */
 
@@ -61,7 +62,9 @@ export function init() {
   })
 }
 
-export function reset() {
+export function reset(caller: string) {
+  nestedCountersInstance.countEvent('p2p', `NodeList reset: ${caller} ${shardusGetTime()}`)
+
   nodes = new Map()
   byPubKey = new Map()
   byIpPort = new Map()
@@ -75,16 +78,16 @@ export function reset() {
 }
 
 export function addNode(node: P2P.NodeListTypes.Node, caller: string) {
+  if (node == null) {
+    //warn(`NodeList.addNode: tried to add null node ${caller}`)
+    nestedCountersInstance.countEvent('p2p', `addNode rejecting null node from: ${caller}`)
+    return
+  }
+
   // Don't add duplicates
   if (nodes.has(node.id)) {
     warn(`NodeList.addNode: tried to add duplicate ${node.externalPort}: ${stringify(node)}\n` + `${caller}`)
 
-    return
-  }
-
-  if (node == null) {
-    //warn(`NodeList.addNode: tried to add null node ${caller}`)
-    nestedCountersInstance.countEvent('p2p', `addNode rejecting null node from: ${caller}`)
     return
   }
 
@@ -351,6 +354,7 @@ export function getLastHashedNodeList(): P2P.NodeListTypes.Node[] {
 
 export function changeNodeListInRestore(cycleStartTimestamp: number) {
   info(`changeNodeListInRestore: ${cycleStartTimestamp}`)
+  nestedCountersInstance.countEvent('p2p', `changeNodeListInRestore: ${cycleStartTimestamp}`)
   if (activeByIdOrder.length === 0) return
   // Combine activeByIdOrder to syncingByIdOrder nodelist; Clear activeByIdOrder and activeOthersByIdOrder nodelists
   for (const node of activeByIdOrder) {

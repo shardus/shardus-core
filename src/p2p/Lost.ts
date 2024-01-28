@@ -520,6 +520,7 @@ function reportLost(target, reason: string, requestId: string) {
     lostRecordMap.set(key, obj)
     Comms.tell([checker], 'lost-report', msg)
   } catch (ex) {
+    nestedCountersInstance.countEvent('p2p', `reportLost error ${shardusGetTime()}`)
     error('reportLost: ' + utils.formatErrorMessage(ex))
   }
 }
@@ -533,7 +534,11 @@ function getCheckerNode(id, cycle) {
   let idx = binarySearch(activeByIdOrder, near, compareNodes)
   const oidx = idx
   if (idx < 0) idx = (-1 - idx) % activeByIdOrder.length
-  if (activeByIdOrder[idx].id === id) idx = (idx + 1) % activeByIdOrder.length // skip to next node if the selected node is target
+  const foundNode = activeByIdOrder[idx]
+  if (foundNode == null) {
+    throw new Error(`activeByIdOrder idx:${idx} length: ${activeByIdOrder.length}`)
+  }
+  if (foundNode.id === id) idx = (idx + 1) % activeByIdOrder.length // skip to next node if the selected node is target
   info(`in getCheckerNode oidx:${oidx} idx:${idx} near:${near}  cycle:${cycle}  id:${id}`)
   info(`${JSON.stringify(activeByIdOrder.map((n) => n.id))}`)
   return activeByIdOrder[idx]

@@ -21,6 +21,7 @@ import { binarySearch } from '../../utils/functions/arrays'
 import { activeByIdOrder } from '../NodeList'
 import { inspect } from 'util'
 import { formatErrorMessage } from '../../utils'
+import { nestedCountersInstance } from '../..'
 
 /** Lost Archivers Functions */
 
@@ -125,16 +126,20 @@ export async function investigateArchiver(
  * @returns The node ID of the investigator for that specific record
  */
 export function getInvestigator(target: publicKey, marker: CycleMarker): Node {
-  // TODO: Implement hashing target + marker and returning node from Nodelist with id closest to hash
+  // Implement hashing target + marker and returning node from Nodelist with id closest to hash
   // This is to ensure that the investigator node is chosen in a deterministic manner
-  const obj = { id, marker }
+  const obj = { target, marker }
   const near = Context.crypto.hash(obj)
   let idx = binarySearch(activeByIdOrder, near, (i, r) => i.localeCompare(r.id))
   if (idx < 0) idx = (-1 - idx) % activeByIdOrder.length
   // eslint-disable-next-line security/detect-object-injection
-  if (activeByIdOrder[idx].id === id) idx = (idx + 1) % activeByIdOrder.length // skip to next node if the selected node is target
+  const foundNode = activeByIdOrder[idx]
   // eslint-disable-next-line security/detect-object-injection
-  return activeByIdOrder[idx]
+  if (foundNode == null) {
+    throw new Error(`activeByIdOrder idx:${idx} length: ${activeByIdOrder.length}`)
+  }
+  if (foundNode.id === id) idx = (idx + 1) % activeByIdOrder.length // skip to next node if the selected node is target
+  return foundNode
 }
 
 /**
@@ -166,6 +171,7 @@ export function informInvestigator(target: publicKey): void {
     info(`informInvestigator: sending InvestigateArchiverMsg: ${inspect(investigateMsg)}`)
     Comms.tell([investigator], 'lost-archiver-investigate', investigateMsg)
   } catch (ex) {
+    nestedCountersInstance.countEvent('p2p', `informInvestigator error ${shardusGetTime()}`)
     error('informInvestigator: ' + formatErrorMessage(ex))
   }
 }
@@ -317,4 +323,7 @@ function _errorForInvestigateArchiverMsg(msg: InvestigateArchiverMsg | null): st
   if (missing.length) return `missing properties: ${missing.join(', ')}`
   if (msg.type !== 'investigate') return `invalid type: ${msg.type}`
   return null
+}
+function shardusGetTime() {
+  throw new Error('Function not implemented.')
 }

@@ -90,7 +90,7 @@ export function init() {
 export async function sync(activeNodes: P2P.SyncTypes.ActiveNode[]) {
   // Flush existing cycles/nodes
   CycleChain.reset()
-  NodeList.reset()
+  NodeList.reset('sync')
 
   nestedCountersInstance.countEvent('p2p', `sync-start`)
 
