@@ -15,11 +15,12 @@ import * as Comms from '../Comms'
 import * as Context from '../Context'
 import * as NodeList from '../NodeList'
 import { LostArchiverRecord, lostArchiversMap } from './state'
-import { info, warn } from './logging'
+import { info, warn, error } from './logging'
 import { id } from '../Self'
 import { binarySearch } from '../../utils/functions/arrays'
 import { activeByIdOrder } from '../NodeList'
 import { inspect } from 'util'
+import { formatErrorMessage } from '../../utils'
 
 /** Lost Archivers Functions */
 
@@ -142,28 +143,31 @@ export function getInvestigator(target: publicKey, marker: CycleMarker): Node {
  */
 export function informInvestigator(target: publicKey): void {
   // This is to initiate the investigation process
+  try {
+    // Compute investigator based off of hash(target + cycle marker)
+    const cycle = CycleChain.getCurrentCycleMarker()
+    const investigator = getInvestigator(target, cycle)
+    // Don't send yourself an InvestigateArchiverMsg
+    if (id === investigator.id) {
+      info(`informInvestigator: investigator is self, not sending InvestigateArchiverMsg`)
+      return
+    }
 
-  // Compute investigator based off of hash(target + cycle marker)
-  const cycle = CycleChain.getCurrentCycleMarker()
-  const investigator = getInvestigator(target, cycle)
-  // Don't send yourself an InvestigateArchiverMsg
-  if (id === investigator.id) {
-    info(`informInvestigator: investigator is self, not sending InvestigateArchiverMsg`)
-    return
+    // Form msg
+    const investigateMsg: SignedObject<InvestigateArchiverMsg> = Context.crypto.sign({
+      type: 'investigate',
+      target,
+      investigator: investigator.id,
+      sender: id,
+      cycle,
+    })
+
+    // Send message to investigator
+    info(`informInvestigator: sending InvestigateArchiverMsg: ${inspect(investigateMsg)}`)
+    Comms.tell([investigator], 'lost-archiver-investigate', investigateMsg)
+  } catch (ex) {
+    error('informInvestigator: ' + formatErrorMessage(ex))
   }
-
-  // Form msg
-  const investigateMsg: SignedObject<InvestigateArchiverMsg> = Context.crypto.sign({
-    type: 'investigate',
-    target,
-    investigator: investigator.id,
-    sender: id,
-    cycle,
-  })
-
-  // Send message to investigator
-  info(`informInvestigator: sending InvestigateArchiverMsg: ${inspect(investigateMsg)}`)
-  Comms.tell([investigator], 'lost-archiver-investigate', investigateMsg)
 }
 
 /**
@@ -280,7 +284,9 @@ export function errorForArchiverUpMsg(msg: SignedObject<ArchiverUpMsg> | null): 
  * @param msg - The ArchiverUpMsg to check
  * @returns null if there are no errors, and a string describing the error otherwise
  */
-export function errorForArchiverRefutesLostMsg(msg: SignedObject<ArchiverRefutesLostMsg> | null): string | null {
+export function errorForArchiverRefutesLostMsg(
+  msg: SignedObject<ArchiverRefutesLostMsg> | null
+): string | null {
   if (msg == null) return 'null message'
   if (msg.sign == null) return 'no signature'
   const missing = missingProperties(msg, 'archiver cycle')

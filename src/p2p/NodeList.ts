@@ -11,6 +11,7 @@ import * as Join from './Join'
 import { emitter, id } from './Self'
 import rfdc from 'rfdc'
 import { logFlags } from '../logger'
+import { nestedCountersInstance } from '..'
 
 const clone = rfdc()
 
@@ -73,14 +74,17 @@ export function reset() {
   potentiallyRemoved = new Set()
 }
 
-export function addNode(node: P2P.NodeListTypes.Node) {
+export function addNode(node: P2P.NodeListTypes.Node, caller: string) {
   // Don't add duplicates
   if (nodes.has(node.id)) {
-    warn(
-      `NodeList.addNode: tried to add duplicate ${node.externalPort}: ${stringify(node)}\n` +
-        `${new Error().stack}`
-    )
+    warn(`NodeList.addNode: tried to add duplicate ${node.externalPort}: ${stringify(node)}\n` + `${caller}`)
 
+    return
+  }
+
+  if (node == null) {
+    //warn(`NodeList.addNode: tried to add null node ${caller}`)
+    nestedCountersInstance.countEvent('p2p', `addNode rejecting null node from: ${caller}`)
     return
   }
 
@@ -116,8 +120,10 @@ export function addNode(node: P2P.NodeListTypes.Node) {
     removeSyncingNode(node.id)
   }
 }
-export function addNodes(newNodes: P2P.NodeListTypes.Node[]) {
-  for (const node of newNodes) addNode(node)
+export function addNodes(newNodes: P2P.NodeListTypes.Node[], caller: string) {
+  for (const node of newNodes) {
+    addNode(node, caller)
+  }
 }
 
 export function removeSyncingNode(id: string) {
@@ -344,6 +350,7 @@ export function getLastHashedNodeList(): P2P.NodeListTypes.Node[] {
 }
 
 export function changeNodeListInRestore(cycleStartTimestamp: number) {
+  info(`changeNodeListInRestore: ${cycleStartTimestamp}`)
   if (activeByIdOrder.length === 0) return
   // Combine activeByIdOrder to syncingByIdOrder nodelist; Clear activeByIdOrder and activeOthersByIdOrder nodelists
   for (const node of activeByIdOrder) {
