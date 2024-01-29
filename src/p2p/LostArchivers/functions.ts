@@ -125,7 +125,7 @@ export async function investigateArchiver(
  * @param record record in from the lostArchiverRecordMap
  * @returns The node ID of the investigator for that specific record
  */
-export function getInvestigator(target: publicKey, marker: CycleMarker): Node {
+export function getInvestigator(target: publicKey, marker: CycleMarker): Node | undefined {
   // Implement hashing target + marker and returning node from Nodelist with id closest to hash
   // This is to ensure that the investigator node is chosen in a deterministic manner
   const obj = { target, marker }
