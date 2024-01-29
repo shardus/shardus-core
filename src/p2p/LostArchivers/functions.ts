@@ -130,16 +130,9 @@ export function getInvestigator(target: publicKey, marker: CycleMarker): Node {
   // This is to ensure that the investigator node is chosen in a deterministic manner
   const obj = { target, marker }
   const near = Context.crypto.hash(obj)
-  let idx = binarySearch(activeByIdOrder, near, (i, r) => i.localeCompare(r.id))
-  if (idx < 0) idx = (-1 - idx) % activeByIdOrder.length
+  const idx = binarySearch(activeByIdOrder, near, (i, r) => i.localeCompare(r.id))
   // eslint-disable-next-line security/detect-object-injection
-  const foundNode = activeByIdOrder[idx]
-  // eslint-disable-next-line security/detect-object-injection
-  if (foundNode == null) {
-    throw new Error(`activeByIdOrder idx:${idx} length: ${activeByIdOrder.length}`)
-  }
-  if (foundNode.id === id) idx = (idx + 1) % activeByIdOrder.length // skip to next node if the selected node is target
-  return foundNode
+  return activeByIdOrder[idx]
 }
 
 /**
@@ -152,6 +145,11 @@ export function informInvestigator(target: publicKey): void {
     // Compute investigator based off of hash(target + cycle marker)
     const cycle = CycleChain.getCurrentCycleMarker()
     const investigator = getInvestigator(target, cycle)
+    // Don't send an InvestigateArchiverMsg if unable to find an investigator
+    if (investigator == null) {
+      info(`informInvestigator: unable to pick an investigator, not sending InvestigateArchiverMsg`)
+      return
+    }
     // Don't send yourself an InvestigateArchiverMsg
     if (id === investigator.id) {
       info(`informInvestigator: investigator is self, not sending InvestigateArchiverMsg`)
