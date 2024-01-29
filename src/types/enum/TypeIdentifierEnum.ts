@@ -12,4 +12,7 @@ export enum TypeIdentifierEnum {
   cWrappedDataFromQueue,
   cGetAccountQueueCountReq,
   cGetAccountQueueCountResp,
+  cGetAccountDataByListReq,
+  cGetAccountDataByListResp,
+  cWrappedDataSyncSerialized,
 }
