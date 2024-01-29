@@ -133,12 +133,20 @@ export function getInvestigator(target: publicKey, marker: CycleMarker): Node {
   let idx = binarySearch(activeByIdOrder, near, (i, r) => i.localeCompare(r.id))
   if (idx < 0) idx = (-1 - idx) % activeByIdOrder.length
   // eslint-disable-next-line security/detect-object-injection
-  const foundNode = activeByIdOrder[idx]
+  let foundNode = activeByIdOrder[idx]
   // eslint-disable-next-line security/detect-object-injection
   if (foundNode == null) {
-    throw new Error(`activeByIdOrder idx:${idx} length: ${activeByIdOrder.length}`)
+    throw new Error(`activeByIdOrder foundNode == null [1] idx:${idx} length: ${activeByIdOrder.length}`)
   }
-  if (foundNode.id === id) idx = (idx + 1) % activeByIdOrder.length // skip to next node if the selected node is target
+  if (foundNode.id === id) {
+    idx = (idx + 1) % activeByIdOrder.length // skip to next node if the selected node is target
+    // eslint-disable-next-line security/detect-object-injection
+    foundNode = activeByIdOrder[idx]
+    // eslint-disable-next-line security/detect-object-injection
+    if (foundNode == null) {
+      throw new Error(`activeByIdOrder foundNode == null [2] idx:${idx} length: ${activeByIdOrder.length}`)
+    }
+  }
   return foundNode
 }
 
