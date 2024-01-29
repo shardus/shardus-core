@@ -63,7 +63,8 @@ export function init() {
 }
 
 export function reset(caller: string) {
-  nestedCountersInstance.countEvent('p2p', `NodeList reset: ${caller} ${shardusGetTime()}`)
+  //this counter intance may not exist yet
+  nestedCountersInstance?.countEvent('p2p', `NodeList reset: ${caller} ${shardusGetTime()}`)
 
   nodes = new Map()
   byPubKey = new Map()
