@@ -108,6 +108,7 @@ export type QueueEntry = {
   robustAccountDataPromises?: { [key: string]: Promise<Shardus.WrappedData> }
   queryingRobustVote?: boolean
   queryingRobustConfirmOrChallenge?: boolean
+  queryingFinalData?: boolean
 
   gossipedReceipt: boolean
   gossipedVote: boolean
@@ -764,12 +765,13 @@ export type RequestStateForTxResp = {
 }
 
 export type RequestTxResp = {
-  acceptedTX?: Shardus.AcceptedTx
   stateList: Shardus.WrappedResponse[]
-  beforeHashes: { [accountID: string]: string }
+  account_state_hash_before: { [accountID: string]: string }
+  account_state_hash_after: { [accountID: string]: string }
   note: string
   success: boolean
-  originalData: WrappedResponses
+  acceptedTX?: Shardus.AcceptedTx
+  originalData?: WrappedResponses
 }
 
 export type RequestReceiptForTxReq = { txid: string; timestamp: number }
