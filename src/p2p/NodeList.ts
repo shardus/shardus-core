@@ -232,6 +232,10 @@ export function updateNode(
     // Update node properties
     for (const key of Object.keys(update)) {
       node[key] = update[key]
+      // add node to syncing list if its status is changed to syncing
+      if (update[key] === P2P.P2PTypes.NodeStatus.SYNCING) {
+        insertSorted(syncingByIdOrder, node, propComparator('id'))
+      }
     }
     //test if this node is in the active list already.  if it is not, then we can add it
     let idx = binarySearch(activeByIdOrder, { id: node.id }, propComparator('id'))
@@ -279,7 +283,7 @@ export function createNode(joined: P2P.JoinTypes.JoinedConsensor) {
   const node: P2P.NodeListTypes.Node = {
     ...joined,
     curvePublicKey: crypto.convertPublicKeyToCurve(joined.publicKey),
-    status: P2P.P2PTypes.NodeStatus.SYNCING,
+    status: P2P.P2PTypes.NodeStatus.SELECTED,
   }
 
   return node

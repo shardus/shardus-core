@@ -20,11 +20,9 @@ import { routes } from './routes'
 import {
   debugDumpJoinRequestList,
   drainNewJoinRequests,
-  drainSyncStartedRequests,
   getLastHashedStandbyList,
   getStandbyNodesInfoMap,
   saveJoinRequest,
-  nodesYetToStartSyncing
 } from './v2'
 import { err, ok, Result } from 'neverthrow'
 import { drainSelectedPublicKeys, forceSelectSelf } from './v2/select'
@@ -32,6 +30,7 @@ import { deleteStandbyNode, drainNewUnjoinRequests } from './v2/unjoin'
 import { JoinRequest } from '@shardus/types/build/src/p2p/JoinTypes'
 import { updateNodeState } from '../Self'
 import { HTTPError } from 'got'
+import { drainLostAfterSelectionNodes, drainSyncStarted, nodesYetToStartSyncing, lostAfterSelection } from './v2/syncStarted'
 
 /** STATE */
 
@@ -224,6 +223,8 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
   record.syncing = NodeList.byJoinOrder.length - NodeList.activeByIdOrder.length
   record.standbyAdd = []
   record.standbyRemove = []
+  record.startedSyncing = []
+  record.lostAfterSelection = []
 
   if (config.p2p.useJoinProtocolV2) {
     // for join v2, add new standby nodes to the standbyAdd field ...
@@ -236,10 +237,14 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       record.standbyRemove.push(publicKey)
     }
 
-    for (const nodeId of drainSyncStartedRequests()) {
+    for (const nodeId of drainSyncStarted()) {
       record.startedSyncing.push(nodeId)
     }
-    console.log('record.startedSyncing', record.startedSyncing)
+    
+    // these nodes are being repeated in lost and apop
+    for (const nodeId of drainLostAfterSelectionNodes()) {
+      record.lostAfterSelection.push(nodeId)
+    }
 
     let standbyRemoved_Age = 0
     //let standbyRemoved_joined = 0
@@ -332,6 +337,7 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       .sort()
     /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("new desired count: ", record.desired)
   }
+  //console.log('cycle record:', record)
 }
 
 export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
@@ -345,33 +351,35 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
     /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log(`join:parseRecord node-selcted cycle: ${record.counter} removed standby node ${publicKey}`)
     deleteStandbyNode(publicKey)
 
-    nodesYetToStartSyncing.set(node.id, record.counter)
+    if (!Self.isFirst || NodeList.byIdOrder.length !== 0) nodesYetToStartSyncing.set(node.id, record.counter)
   }
 
   if (added.length > 0) {
     /* prettier-ignore */ if (logFlags.p2pNonFatal) debugDumpJoinRequestList( Array.from(getStandbyNodesInfoMap().values()), `join.parseRecord: standby-map ${record.counter} some activated:${record.counter}` )
   }
+  
+  const updates: P2P.NodeListTypes.Update[] = []
 
-  // remove nodes that haven't started sycing after 2 cycles
-  for (const [nodeId, cycleNumber] of nodesYetToStartSyncing) {
-    if (record.counter > cycleNumber + 2) {
-      // mark as lost; remove from nodelist
-      console.log(`booting out a node`)
-      record.lostStandby?.push(nodeId)
-      NodeList.removeSyncingNode(nodeId)
+  for (const nodeId of record.startedSyncing) {
+    if (nodesYetToStartSyncing.has(nodeId)) {
       nodesYetToStartSyncing.delete(nodeId)
-    } else {
-      if (record.startedSyncing?.includes(nodeId)) {
-        nodesYetToStartSyncing.delete(nodeId)
-      }
+      updates.push({
+        id: nodeId,
+        status: P2P.P2PTypes.NodeStatus.SYNCING
+      })
     }
   }
-  
+  for (const [nodeId, cycleNumber] of nodesYetToStartSyncing) {
+    if (record.counter > cycleNumber + 3) {
+      lostAfterSelection.push(nodeId)
+      nodesYetToStartSyncing.delete(nodeId)
+    }
+  }
 
   return {
     added,
-    removed: [],
-    updated: [],
+    removed: [...lostAfterSelection],
+    updated: JSON.parse(JSON.stringify(updates)),
   }
 }
 

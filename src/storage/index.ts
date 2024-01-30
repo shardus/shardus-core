@@ -156,7 +156,7 @@ class Storage {
           '`refutedArchivers` TEXT NOT NULL',
           '`removedArchivers` TEXT NOT NULL',
           '`startedSyncing` TEXT NOT NULL',
-          '`lostStandby` TEXT NOT NULL',
+          '`lostAfterSelection` TEXT NOT NULL',
         ].join(', ') +
         ')'
     )

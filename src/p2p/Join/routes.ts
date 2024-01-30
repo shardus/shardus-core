@@ -24,11 +24,12 @@ import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { profilerInstance } from '../../utils/profiler'
 import * as acceptance from './v2/acceptance'
 import { attempt } from '../Utils'
-import { getStandbyNodesInfoMap, saveJoinRequest, isOnStandbyList, addSyncStarted } from './v2'
+import { getStandbyNodesInfoMap, saveJoinRequest, isOnStandbyList } from './v2'
 import { processNewUnjoinRequest, UnjoinRequest } from './v2/unjoin'
 import { isActive } from '../Self'
 import { logFlags } from '../../logger'
 import { SyncStarted } from '@shardus/types/build/src/p2p/JoinTypes'
+import { addSyncStarted } from './v2/syncStarted'
 
 const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
@@ -38,6 +39,19 @@ const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
     res.json(marker)
   },
 }
+
+/*
+Currently not used
+
+const cycleNumberRoute: P2P.P2PTypes.Route<Handler> = {
+  method: 'GET',
+  name: 'cyclenumber',
+  handler: (_req, res) => {
+    const number = CycleChain.newest ? CycleChain.newest.counter : 0
+    res.json(number)
+  },
+}
+*/
 
 const joinRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'POST',
@@ -186,6 +200,24 @@ const unjoinRoute: P2P.P2PTypes.Route<Handler> = {
     Comms.sendGossip('gossip-unjoin', joinRequest, '', null, NodeList.byIdOrder, true)
   },
 }
+
+/*
+Currently not used
+
+const syncStartedRoute: P2P.P2PTypes.Route<Handler> = {
+  method: 'POST',
+  name: 'sync-started',
+  handler: (req, res) => {
+    const syncStarted = req.body
+    const processResult = addSyncStarted(syncStarted)
+    if (processResult.success === false) {
+      return res.status(500).send(processResult.reason)
+    }
+    Comms.sendGossip('gossip-sync-started', syncStarted, '', null, NodeList.byIdOrder, true)
+    return res.status(200).send()
+  },
+}
+*/
 
 const joinedV2Route: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
@@ -366,19 +398,17 @@ const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<UnjoinRequest, P2P.NodeLi
   Comms.sendGossip('gossip-unjoin', payload, tracker, sender, NodeList.byIdOrder, false)
 }
 
-const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler = (
-  payload: SyncStarted,
+const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler<SyncStarted, P2P.NodeListTypes.Node['id']> = (
+  payload,
   sender,
   tracker
 ) => {
   profilerInstance.scopedProfileSectionStart('gossip-sync-started')
-  console.log(`inside gossipSyncStarted 1`)
   try {
     // Do not forward gossip after quarter 2
     if (CycleCreator.currentQuarter >= 3) return
 
     //  Validate of payload is done in addSyncStarted
-    console.log(`inside gossipSyncStarted 2`)
     if (addSyncStarted(payload).success)
       Comms.sendGossip('gossip-sync-started', payload, tracker, sender, NodeList.byIdOrder, false)
   } finally {
@@ -394,9 +424,4 @@ export const routes = {
     'gossip-unjoin': gossipUnjoinRequests,
     'gossip-sync-started': gossipSyncStartedRoute
   },
-}
-
-export function sendSyncStartedGossip(payload: P2P.JoinTypes.SyncStarted): void {
-  Comms.registerGossipHandler('gossip-sync-started', gossipSyncStartedRoute)
-  Comms.sendGossip('gossip-sync-started', payload, '', null, NodeList.byIdOrder, true)
 }

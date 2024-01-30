@@ -28,7 +28,8 @@ import { ActiveNode } from '@shardus/types/build/src/p2p/SyncTypes'
 import { Result } from 'neverthrow'
 const deepCopy = rfdc()
 import { isServiceMode } from '../debug'
-import { sendSyncStartedGossip } from './Join/routes'
+// import { submitSyncStarted } from './Join/v2/syncStarted'
+// import * as http from '../http'
 
 /** STATE */
 
@@ -129,21 +130,45 @@ export function startupV2(): Promise<boolean> {
         // set status SYNCING
         updateNodeState(P2P.P2PTypes.NodeStatus.SYNCING)
 
-        const newestCycle = await CycleChain.getNewest()
-        // there will be no newest cycle if we are the first node
-        console.log(`before newestcycle check`)
-        //if (newestCycle) {
-          console.log(`after newestcycle check`)
-          const payload = {
-            nodeId: id,
-            cycleNumber: newestCycle?.counter || 99,
+        /*        
+        if (!isFirst) {
+          // do robust query to get cycle number
+          let newestCycleNumber = null
+          const MAX_TRIES = 5
+          let gotCycleNumber = false
+          let currentTry = 0
+          const archiver = getRandomAvailableArchiver()
+          while (currentTry < MAX_TRIES && !gotCycleNumber) {
+            try {
+              const activeNodesResult = await getActiveNodesFromArchiver(archiver)
+              if (!activeNodesResult) {
+                throw Error(`couldn't get active nodes`)
+              }
+              const activeNodes = activeNodesResult.nodeList
+              const node1 = utils.getRandom(activeNodes, 1)[0]
+              const node2 = utils.getRandom(activeNodes, 1)[0]
+              const node3 = utils.getRandom(activeNodes, 1)[0]
+              const cycleNumber1 = await http.get(`${node1.ip}:${node1.port}/cyclenumber`)
+              const cycleNumber2 = await http.get(`${node2.ip}:${node2.port}/cyclenumber`)
+              const cycleNumber3 = await http.get(`${node3.ip}:${node3.port}/cyclenumber`)
+              if (cycleNumber1 === cycleNumber2 && cycleNumber2 === cycleNumber3) {
+                gotCycleNumber = true
+                newestCycleNumber = cycleNumber1
+              }
+              currentTry++
+            } catch (e) {
+              throw Error(`submitSyncStarted: Error in try ${currentTry} posting syncStarted request: ${e}`)
+            }
           }
-          Context.crypto.sign(payload)
-          // send gossip true put false in handler
-          console.log(`payload is ${JSON.stringify(payload)}`)
-          // Comms.sendGossip('gossip-sync-started', payload, '', null, NodeList.byIdOrder, true)
-          sendSyncStartedGossip(payload)
-        //}
+
+          let payload = {
+            nodeId: id,
+            cycleNumber: newestCycleNumber,
+          }
+          payload = Context.crypto.sign(payload)
+          submitSyncStarted(payload)
+        }
+        */
 
         p2pSyncStart = shardusGetTime()
 
@@ -155,6 +180,16 @@ export function startupV2(): Promise<boolean> {
         nestedCountersInstance.countEvent('p2p', 'joined')
         // Sync cycle chain from network
         await syncCycleChain(id)
+
+        // send a sync-started message to the network if you are not the first node
+        if (!isFirst) {
+          let payload = {
+            nodeId: id,
+            cycleNumber: CycleChain.getNewest()?.counter,
+          }
+          payload = Context.crypto.sign(payload)
+          Comms.sendGossip('gossip-sync-started', payload)
+        }
 
         // Enable internal routes
         Comms.setAcceptInternal(true)
@@ -285,9 +320,11 @@ export function startupV2(): Promise<boolean> {
           }
           // Call scheduler after 5 cycles... does this mean it may be 5 cycles before we realized we were
           // accepted to go active?
+          // Looks like that is the worst case
+          //
           attemptJoiningTimer = setTimeout(() => {
             attemptJoining()
-          }, 5 * cycleDuration * 1000)
+          }, 2 * cycleDuration * 1000)
           attemptJoiningRunning = false
           return
         }
