@@ -197,7 +197,7 @@ export interface App {
    * @param tx
    * @param appData
    */
-  txPreCrackData(tx: OpaqueTransaction, appData: any): Promise<void> // Promise<any>
+  txPreCrackData(tx: OpaqueTransaction, appData: any): Promise<boolean> // Promise<any>
 
   // DEPRECATED . This was previously a deep validate for buisness logic but it is up to the dapp to handle this as part of apply
   validateTransaction?: (...data: any) => any
@@ -322,6 +322,7 @@ export interface App {
   dataSummaryInit?: (blob: any, accountData: any) => void
   dataSummaryUpdate?: (blob: any, accountDataBefore: any, accountDataAfter: any) => void
   txSummaryUpdate?: (blob: any, tx: any, wrappedStates: any) => void
+  // use of minNodes instead of baselineNodes here do to minNodes used when not in processing mode (check shardeum-server condition where used)
   validateJoinRequest?: (
     data: any,
     mode: P2P.ModesTypes.Record['mode'] | null,
@@ -667,6 +668,8 @@ export interface ServerConfiguration {
      *  If the number of active nodes in the network is less than (minNodesPerctToAllowExitOnException) * (minNodes), then the node will not exit on exception.
      */
     minNodesPerctToAllowExitOnException?: number
+    /** The baselineNodes parameter is an Integer specifying the minimum number of nodes that need to be active to not change the mode into safety, recovery, and restore. */
+    baselineNodes?: number
     /** The minNodes parameter is an Integer specifying the minimum number of nodes that need to be active in the network in order to process transactions. */
     minNodes?: number
     /** The maxNodes parameter is an Integer specifying the maximum number of nodes that can be active in the network at once. */
@@ -778,7 +781,7 @@ export interface ServerConfiguration {
      */
     standbyListCyclesTTL: number
 
-    /** This limitts the amount of nodes removed from the network in a single cycle due to age in the strandby list.  
+    /** This limitts the amount of nodes removed from the network in a single cycle due to age in the strandby list.
      * This is to prevent a large number of nodes leaving all at once.  leaving is not a big deal but then they may try to sync/join again at the same time
      */
     standbyListMaxRemoveTTL: number
@@ -805,6 +808,8 @@ export interface ServerConfiguration {
     lostArchiversCyclesToWait: number
     /** enable new logic for creating a hash of our join list */
     standbyListFastHash: boolean
+    /** networkBaselineEnabled is a boolean that enables the use of the new config `baselineNodes` which is used as the new threshold for safety, recovery, and restore modes. */
+    networkBaselineEnabled: boolean
   }
   /** Server IP configuration */
   ip?: {
@@ -919,6 +924,8 @@ export interface ServerConfiguration {
     produceBadChallenge: boolean
     /**   add a random error to our ntp offset time +- */
     debugNTPErrorWindowMs: number
+    /**  Flag to enable detail scoped profiling **/
+    enableScopedProfiling: boolean
   }
   /** Options for the statistics module */
   statistics?: {
@@ -1026,6 +1033,10 @@ export interface ServerConfiguration {
     minRequiredChallenges: number
     // turn on the improved Proof of Quorum for large shards sizes
     useNewPOQ: boolean
+    // whether the node should verify its data against the network before challenging
+    integrityCheckBeforeChallenge: boolean
+    // Should the protocol consier a precrack failure as a failed transaction
+    checkPrecrackStatus: boolean
   }
   /** Options for sharding calculations */
   sharding?: {
@@ -1261,7 +1272,12 @@ export type DeepRequired<T> = Required<{
   [P in keyof T]: T[P] extends object | undefined ? DeepRequired<Required<T[P]>> : T[P]
 }>
 
-type ShardusEventType = 'node-activated' | 'node-deactivated'
+type ShardusEventType =
+  | 'node-activated'
+  | 'node-deactivated'
+  | 'node-left-early'
+  | 'node-refuted'
+  | 'node-sync-timeout'
 
 export type ShardusEvent = {
   type: ShardusEventType
