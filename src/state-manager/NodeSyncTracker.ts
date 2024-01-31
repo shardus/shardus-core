@@ -2,7 +2,13 @@ import * as Shardus from '../shardus/shardus-types'
 import { StateManager as StateManagerTypes } from '@shardus/types'
 import * as utils from '../utils'
 
-import { SimpleRange, GlobalAccountReportResp, GetAccountData3Resp, QueueEntry } from './state-manager-types'
+import {
+  SimpleRange,
+  GlobalAccountReportResp,
+  GetAccountData3Resp,
+  QueueEntry,
+  GetAccountData3Req,
+} from './state-manager-types'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import AccountSync from './AccountSync'
 import { logFlags } from '../logger'
@@ -12,9 +18,14 @@ import { P2PModuleContext as P2P, stateManager } from '../p2p/Context'
 import DataSourceHelper from './DataSourceHelper'
 import { shardusGetTime } from '../network'
 import { GetAccountDataByListReq, serializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
-import { deserializeGetAccountDataByListRespSerialized, getAccountDataByListRespSerialized } from '../types/GetAccountDataByListResp'
+import {
+  deserializeGetAccountDataByListRespSerialized,
+  getAccountDataByListRespSerialized,
+} from '../types/GetAccountDataByListResp'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { AppObjEnum } from '../shardus/shardus-types'
+import { deserializeGetAccountData3Resp, getAccountData3Resp } from '../types/GetAccountData3Resp'
+import { serializeGetAccountData3Req } from '../types/GetAccountData3Req'
 
 // Not sure where to put this interface yet. I guess maybe to @shardus/types? or to state-manager-types?
 // Keeping it here for now. can move it later.
@@ -331,7 +342,7 @@ export default class NodeSyncTracker implements SyncTrackerInterface {
           let result = {
             accountData: null,
           }
-          if(stateManager.config.p2p.useBinarySerializedEndpoints){
+          if (stateManager.config.p2p.useBinarySerializedEndpoints) {
             const serialized_res = await this.p2p.askBinary<
               GetAccountDataByListReq,
               getAccountDataByListRespSerialized
@@ -343,23 +354,22 @@ export default class NodeSyncTracker implements SyncTrackerInterface {
               deserializeGetAccountDataByListRespSerialized,
               {}
             )
-            if(serialized_res && serialized_res.accountData){
+            if (serialized_res && serialized_res.accountData) {
               for (let accountDataRef of serialized_res.accountData) {
-                  accountDataRef.data = stateManager.app.binaryDeserializeObject(
-                    AppObjEnum.AccountData,
-                    accountDataRef.data
+                accountDataRef.data = stateManager.app.binaryDeserializeObject(
+                  AppObjEnum.AccountData,
+                  accountDataRef.data
+                )
+                if (accountDataRef.syncData) {
+                  accountDataRef.syncData = stateManager.app.binaryDeserializeObject(
+                    AppObjEnum.SyncData,
+                    accountDataRef.syncData
                   )
-                  if(accountDataRef.syncData){
-                    accountDataRef.syncData = stateManager.app.binaryDeserializeObject(
-                      AppObjEnum.SyncData,
-                      accountDataRef.syncData
-                    )
-                  }
+                }
               }
               result = serialized_res
             }
-          }
-          else{
+          } else {
             result = await this.p2p.ask(
               this.dataSourceHelper.dataSourceNode,
               'get_account_data_by_list',
@@ -584,14 +594,66 @@ export default class NodeSyncTracker implements SyncTrackerInterface {
 
       let r: GetAccountData3Resp | boolean
       try {
-        r = await this.p2p.ask(
-          this.dataSourceHelper.dataSourceNode,
-          'get_account_data3',
-          message,
-          false,
-          '',
-          5000 + moreAskTime
-        ) // need the repeatable form... possibly one that calls apply to allow for datasets larger than memory
+        if (stateManager.config.p2p.useBinarySerializedEndpoints) {
+          const serialized_res = await this.p2p.askBinary<GetAccountData3Req, getAccountData3Resp>(
+            this.dataSourceHelper.dataSourceNode,
+            InternalRouteEnum.binary_get_account_data_3,
+            message,
+            serializeGetAccountData3Req,
+            deserializeGetAccountData3Resp,
+            {},
+            '',
+            false,
+            5000 + moreAskTime
+          )
+          if (
+            serialized_res &&
+            serialized_res.data &&
+            serialized_res.data.wrappedAccounts &&
+            serialized_res.data.wrappedAccounts2
+          ) {
+            // eslint-disable-next-line prefer-const
+            let accounts_1 = serialized_res.data.wrappedAccounts
+            // eslint-disable-next-line prefer-const
+            for (let accountDataRef of accounts_1) {
+              accountDataRef.data = stateManager.app.binaryDeserializeObject(
+                AppObjEnum.AccountData,
+                accountDataRef.data
+              )
+              if (accountDataRef.syncData) {
+                accountDataRef.syncData = stateManager.app.binaryDeserializeObject(
+                  AppObjEnum.SyncData,
+                  accountDataRef.syncData
+                )
+              }
+            }
+            // eslint-disable-next-line prefer-const
+            let accounts_2 = serialized_res.data.wrappedAccounts2
+            // eslint-disable-next-line prefer-const
+            for (let accountDataRef of accounts_2) {
+              accountDataRef.data = stateManager.app.binaryDeserializeObject(
+                AppObjEnum.AccountData,
+                accountDataRef.data
+              )
+              if (accountDataRef.syncData) {
+                accountDataRef.syncData = stateManager.app.binaryDeserializeObject(
+                  AppObjEnum.SyncData,
+                  accountDataRef.syncData
+                )
+              }
+            }
+            r = serialized_res
+          }
+        } else {
+          r = await this.p2p.ask(
+            this.dataSourceHelper.dataSourceNode,
+            'get_account_data3',
+            message,
+            false,
+            '',
+            5000 + moreAskTime
+          ) // need the repeatable form... possibly one that calls apply to allow for datasets larger than memory
+        }
       } catch (ex) {
         /* prettier-ignore */ this.accountSync.statemanager_fatal( `syncAccountData2`, `syncAccountData2 retries:${askRetriesLeft} ask: ` + errorToStringFull(ex) )
         //wait 5 sec

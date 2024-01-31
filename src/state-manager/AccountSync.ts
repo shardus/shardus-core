@@ -17,7 +17,7 @@ import Storage from '../storage'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { errorToStringFull } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import Profiler, { cUninitializedSize } from '../utils/profiler'
+import Profiler, { cUninitializedSize, profilerInstance } from '../utils/profiler'
 import NodeSyncTracker, { SyncTrackerInterface } from './NodeSyncTracker'
 import ShardFunctions from './shardFunctions'
 import {
@@ -35,12 +35,19 @@ import ArchiverSyncTracker from './ArchiverSyncTracker'
 import { getArchiversList } from '../p2p/Archivers'
 import * as http from '../http'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
-import { getAccountDataByListRespSerialized, serializeGetAccountDataByListRespSerialized } from '../types/GetAccountDataByListResp'
+import {
+  getAccountDataByListRespSerialized,
+  serializeGetAccountDataByListRespSerialized,
+} from '../types/GetAccountDataByListResp'
 import { InternalBinaryHandler } from '../types/Handler'
 import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
-import { deserializeGetAccountDataByListReq, serializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
+import { deserializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
+import { deserializeGetAccountData3Req } from '../types/GetAccountData3Req'
+import { serializeGetAccountData3Resp } from '../types/GetAccountData3Resp'
+import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
+import { requestErrorHandler } from '../types/Helpers'
 
 const REDUNDANCY = 3
 
@@ -389,6 +396,86 @@ class AccountSync {
       }
     )
 
+    const getAccountData3Binary: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_get_account_data_3,
+      handler: async (payload, respond, header, sign) => {
+        this.profiler.scopedProfileSectionStart('binary/get_account_data_3')
+
+        const route = InternalRouteEnum.binary_get_account_data_3
+        nestedCountersInstance.countEvent('internal', route)
+        profilerInstance.scopedProfileSectionStart(route, true, payload.length)
+
+        const errorHandler = (
+          errorType: RequestErrorEnum,
+          opts?: { customErrorLog?: string; customCounterSuffix?: string }
+        ): void => requestErrorHandler(route, errorType, header, opts)
+
+        let accountData: GetAccountDataByRangeSmart | null = null
+        let ourLockID = -1
+        try {
+          const reqStream = VectorBufferStream.fromBuffer(payload)
+          const reqType = reqStream.readUInt16()
+          if (reqType !== TypeIdentifierEnum.cGetAccountData3Req) {
+            if (logFlags.console) console.log('TypeIdenitifier Process failed for binary/get_account_data3')
+            respond({ accountData }, serializeGetAccountData3Resp)
+            return errorHandler(RequestErrorEnum.InvalidRequestType)
+            // safe to return here, before the fifo lock
+          }
+
+          const result = {} as { data: GetAccountDataByRangeSmart; errors?: string[] }
+
+          const readableReq = deserializeGetAccountData3Req(reqStream)
+          const errors = verifyPayload('GetAccountData3Req', payload)
+          if (errors && errors.length > 0) {
+            this.mainLogger.error(`get_account_data3: request validation errors: ${errors}`)
+            result.errors = errors
+            respond(result, serializeGetAccountData3Resp)
+            return errorHandler(RequestErrorEnum.InvalidRequest)
+          }
+
+          ourLockID = await this.stateManager.fifoLock('accountModification')
+          accountData = await this.stateManager.getAccountDataByRangeSmart(
+            readableReq.accountStart,
+            readableReq.accountEnd,
+            readableReq.tsStart,
+            readableReq.maxRecords,
+            readableReq.offset,
+            readableReq.accountOffset
+          )
+
+          // data manipulation done by the Dapp side
+          // eslint-disable-next-line prefer-const
+          for (let account of accountData.wrappedAccounts) {
+            account.data = this.app.binarySerializeObject(Shardus.AppObjEnum.AccountData, account.data)
+            if (account.syncData) {
+              // this need to be implemented in dapp
+              account.syncData = this.app.binarySerializeObject(Shardus.AppObjEnum.SyncData, account.syncData)
+            }
+          }
+
+          // eslint-disable-next-line prefer-const
+          for (let account2 of accountData.wrappedAccounts2) {
+            account2.data = this.app.binarySerializeObject(Shardus.AppObjEnum.AccountData, account2.data)
+            if (account2.syncData) {
+              // this need to be implemented in dapp
+              account2.syncData = this.app.binarySerializeObject(
+                Shardus.AppObjEnum.SyncData,
+                account2.syncData
+              )
+            }
+          }
+
+          result.data = accountData
+          respond(result, serializeGetAccountData3Resp)
+        } finally {
+          this.stateManager.fifoUnlock('accountModification', ourLockID)
+          this.profiler.scopedProfileSectionEnd('binary_get_account_data_3')
+        }
+      },
+    }
+
+    this.p2p.registerInternalBinary(getAccountData3Binary.name, getAccountData3Binary.handler)
+
     // /get_account_data_by_list (Acc_ids)
     // Acc_ids - array of accounts to get
     // Returns data from the application Account Table for just the given account ids;
@@ -423,7 +510,7 @@ class AccountSync {
     )
 
     const getAccDataByListBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
-      name:  InternalRouteEnum.binary_get_account_data_by_list,
+      name: InternalRouteEnum.binary_get_account_data_by_list,
       handler: async (payload, respond, header, sign) => {
         this.profiler.scopedProfileSectionStart('binary_get_account_data_by_list')
 
@@ -433,8 +520,8 @@ class AccountSync {
           const reqStream = VectorBufferStream.fromBuffer(payload)
           const reqType = reqStream.readUInt16()
           if (reqType !== TypeIdentifierEnum.cGetAccountDataByListReq) {
-            respond({accountData}, serializeGetAccountDataByListRespSerialized)
-            return 
+            respond({ accountData }, serializeGetAccountDataByListRespSerialized)
+            return
             // safe to return here, before the fifo lock
           }
           const readableReq = deserializeGetAccountDataByListReq(reqStream)
@@ -444,21 +531,13 @@ class AccountSync {
           ourLockID = await this.stateManager.fifoLock('accountModification')
           accountData = await this.app.getAccountDataByList(readableReq.accountIds)
 
-
           // mutation of dataRef reflects in accountData
           for (let dataRef of accountData) {
-
             // this need to be implemented in dapp
-            dataRef.data = this.app.binarySerializeObject(
-              Shardus.AppObjEnum.AccountData,
-              dataRef.data,
-            )
+            dataRef.data = this.app.binarySerializeObject(Shardus.AppObjEnum.AccountData, dataRef.data)
             if (dataRef.syncData) {
               // this need to be implemented in dapp
-              dataRef.syncData = this.app.binarySerializeObject(
-                Shardus.AppObjEnum.SyncData,
-                dataRef.syncData,
-              )
+              dataRef.syncData = this.app.binarySerializeObject(Shardus.AppObjEnum.SyncData, dataRef.syncData)
             }
           }
 
@@ -466,20 +545,16 @@ class AccountSync {
           // this.stateManager.testAccountDataWrapped(accountData)
           result.accountData = accountData
           respond(result, serializeGetAccountDataByListRespSerialized)
-        } catch(e){
-          respond({accountData: null}, serializeGetAccountDataByListRespSerialized)
-        }finally {
+        } catch (e) {
+          respond({ accountData: null }, serializeGetAccountDataByListRespSerialized)
+        } finally {
           this.stateManager.fifoUnlock('accountModification', ourLockID)
           this.profiler.scopedProfileSectionEnd('binary_get_account_data_by_list')
         }
-      }
+      },
     }
 
-    this.p2p.registerInternalBinary(
-      getAccDataByListBinaryHandler.name,
-      getAccDataByListBinaryHandler.handler
-    )
-
+    this.p2p.registerInternalBinary(getAccDataByListBinaryHandler.name, getAccDataByListBinaryHandler.handler)
 
     Context.network.registerExternalGet('sync-statement', isDebugModeMiddleware, (_req, res) => {
       res.write(`${utils.stringifyReduce(this.syncStatement)}\n`)

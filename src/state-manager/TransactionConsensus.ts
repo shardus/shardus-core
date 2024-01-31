@@ -5,11 +5,11 @@ import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
 import * as Comms from '../p2p/Comms'
 import * as Context from '../p2p/Context'
-import { P2PModuleContext as P2P } from '../p2p/Context'
+import { P2PModuleContext as P2P, stateManager } from '../p2p/Context'
 import * as CycleChain from '../p2p/CycleChain'
 import * as Self from '../p2p/Self'
 import * as Shardus from '../shardus/shardus-types'
-import { TimestampReceipt } from '../shardus/shardus-types'
+import { AppObjEnum, TimestampReceipt } from '../shardus/shardus-types'
 import Storage from '../storage'
 import * as utils from '../utils'
 import { Ordering } from '../utils'
@@ -37,6 +37,10 @@ import { shardusGetTime } from '../network'
 import { robustQuery } from '../p2p/Utils'
 import { SignedObject } from '@shardus/crypto-utils'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
+import { deserializeGetAccountData3Resp, getAccountData3Resp } from '../types/GetAccountData3Resp'
+import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
+import { serializeGetAccountData3Req } from '../types/GetAccountData3Req'
+import { deserializeGetAccountData3Req } from '../types/ajv/GetAccountData3Req'
 
 class TransactionConsenus {
   app: Shardus.App
@@ -1623,7 +1627,59 @@ class TransactionConsenus {
         offset: 0,
         accountOffset: '',
       }
-      const result = await Comms.ask(node, 'get_account_data3', message)
+      
+      let result : GetAccountData3Resp | any  
+      if (stateManager.config.p2p.useBinarySerializedEndpoints) {
+        const serialized_res = await this.p2p.askBinary<GetAccountData3Req, getAccountData3Resp>(
+          node,
+          InternalRouteEnum.binary_get_account_data_3,
+          message,
+          serializeGetAccountData3Req,
+          deserializeGetAccountData3Resp,
+          {}
+        )
+        if (
+          serialized_res &&
+          serialized_res.data &&
+          serialized_res.data.wrappedAccounts &&
+          serialized_res.data.wrappedAccounts2
+        ) {
+          // eslint-disable-next-line prefer-const
+          let accounts_1 = serialized_res.data.wrappedAccounts
+          // eslint-disable-next-line prefer-const
+          for (let accountDataRef of accounts_1) {
+            accountDataRef.data = stateManager.app.binaryDeserializeObject(
+              AppObjEnum.AccountData,
+              accountDataRef.data
+            )
+            if (accountDataRef.syncData) {
+              accountDataRef.syncData = stateManager.app.binaryDeserializeObject(
+                AppObjEnum.SyncData,
+                accountDataRef.syncData
+              )
+            }
+          }
+          // eslint-disable-next-line prefer-const
+          let accounts_2 = serialized_res.data.wrappedAccounts2
+          // eslint-disable-next-line prefer-const
+          for (let accountDataRef of accounts_2) {
+            accountDataRef.data = stateManager.app.binaryDeserializeObject(
+              AppObjEnum.AccountData,
+              accountDataRef.data
+            )
+            if (accountDataRef.syncData) {
+              accountDataRef.syncData = stateManager.app.binaryDeserializeObject(
+                AppObjEnum.SyncData,
+                accountDataRef.syncData
+              )
+            }
+          }
+          result = serialized_res
+        }
+      } else {
+        result = await Comms.ask(node, 'get_account_data3', message)
+      }
+
       return result
     }
     const eqFn = (item1: GetAccountData3Resp, item2: GetAccountData3Resp): boolean => {

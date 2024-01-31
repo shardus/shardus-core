@@ -15,4 +15,9 @@ export enum TypeIdentifierEnum {
   cGetAccountDataByListReq,
   cGetAccountDataByListResp,
   cWrappedDataSyncSerialized,
+  cGetAccountData3Req,
+  cGetAccountData3Resp,
+  cGetAccountData3Array,
+  cWrappedGAD3Array,
+  cWrappedGAD3,
 }
