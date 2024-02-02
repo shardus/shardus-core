@@ -104,7 +104,7 @@ class CachedAppDataManager {
       name: InternalRouteEnum.binary_send_cachedAppData,
       handler: (payload, response, header, sign) => {
         profilerInstance.scopedProfileSectionStart('send_cachedAppData2')
-
+    
         const errorHandler = (
           errorType: RequestErrorEnum,
           opts?: { customErrorLog?: string; customCounterSuffix?: string }

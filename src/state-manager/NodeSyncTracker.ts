@@ -595,6 +595,7 @@ export default class NodeSyncTracker implements SyncTrackerInterface {
       let r: GetAccountData3Resp | boolean
       try {
         if (stateManager.config.p2p.useBinarySerializedEndpoints) {
+          if(logFlags.verbose) console.log("syncAccountData2 : binary serialization part of GetAccountData3")
           const serialized_res = await this.p2p.askBinary<GetAccountData3Req, getAccountData3Resp>(
             this.dataSourceHelper.dataSourceNode,
             InternalRouteEnum.binary_get_account_data_3,

@@ -1630,6 +1630,7 @@ class TransactionConsenus {
       
       let result : GetAccountData3Resp | any  
       if (stateManager.config.p2p.useBinarySerializedEndpoints) {
+        if(logFlags.verbose) console.log("robustQueryAccountData : binary serialization part of GetAccountData3")
         const serialized_res = await this.p2p.askBinary<GetAccountData3Req, getAccountData3Resp>(
           node,
           InternalRouteEnum.binary_get_account_data_3,

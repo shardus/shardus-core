@@ -42,14 +42,19 @@ export function deserializeWGAD3(stream: VectorBufferStream): WrappedGAD3 {
   let syncData
   if (stream.readUInt8() === 1) {
     syncData = stream.readBuffer()
+    return {
+      accountId,
+      stateId,
+      data,
+      timestamp,
+      syncData,
+    }
   }
-
   return {
     accountId,
     stateId,
     data,
     timestamp,
-    syncData,
   }
 }
 

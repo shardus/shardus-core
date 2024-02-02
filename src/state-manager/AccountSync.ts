@@ -400,7 +400,7 @@ class AccountSync {
       name: InternalRouteEnum.binary_get_account_data_3,
       handler: async (payload, respond, header, sign) => {
         this.profiler.scopedProfileSectionStart('binary/get_account_data_3')
-
+        if(logFlags.verbose) console.log("Entering binary/get_account_data_3")
         const route = InternalRouteEnum.binary_get_account_data_3
         nestedCountersInstance.countEvent('internal', route)
         profilerInstance.scopedProfileSectionStart(route, true, payload.length)
@@ -425,7 +425,7 @@ class AccountSync {
           const result = {} as { data: GetAccountDataByRangeSmart; errors?: string[] }
 
           const readableReq = deserializeGetAccountData3Req(reqStream)
-          const errors = verifyPayload('GetAccountData3Req', payload)
+          const errors = verifyPayload('GetAccountData3Req', readableReq)
           if (errors && errors.length > 0) {
             this.mainLogger.error(`get_account_data3: request validation errors: ${errors}`)
             result.errors = errors
@@ -469,7 +469,7 @@ class AccountSync {
           respond(result, serializeGetAccountData3Resp)
         } finally {
           this.stateManager.fifoUnlock('accountModification', ourLockID)
-          this.profiler.scopedProfileSectionEnd('binary_get_account_data_3')
+          this.profiler.scopedProfileSectionEnd('binary/get_account_data_3')
         }
       },
     }

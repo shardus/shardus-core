@@ -523,7 +523,8 @@ export function registerInternal(route, handler) {
     if (!hasHandlerResponded && route !== 'gossip') {
       nestedCountersInstance.countEvent('comms-route', `no-response`)
       nestedCountersInstance.countEvent('comms-route', `no-response ${route}`)
-      await respond({ error: 'No response from handler' })
+      console.log(`Handler ${handler} failed to call respondWrapped for route ${route}`)
+      await respond({ error: `No response from handler ${handler} for route ${route}` })
     }
   }
   // Include that in the handler function that is passed
