@@ -95,10 +95,14 @@ export function addSyncStarted(syncStarted: SyncStarted): SyncStartedRequestResp
  * Returns the list of nodeIds of nodes that started syncing empties the map.
  */
 export function drainSyncStarted(): string[] {
-  if (logFlags.verbose) console.log('draining new KeepInStandby info:', newSyncStarted)
-  const tmp = newSyncStarted
-  newSyncStarted = []
-  return tmp.sort()
+  if (currentQuarter === 3) {
+    if (logFlags.verbose) console.log('draining new KeepInStandby info:', newSyncStarted)
+    const tmp = newSyncStarted
+    newSyncStarted = []
+    return tmp.sort()
+  } else {
+    return []
+  }
 }
 
 export function drainLostAfterSelectionNodes(): string[] {
