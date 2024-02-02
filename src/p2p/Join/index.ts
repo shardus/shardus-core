@@ -220,7 +220,7 @@ export function dropInvalidTxs(txs: P2P.JoinTypes.Txs): P2P.JoinTypes.Txs {
 }
 
 export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTypes.CycleRecord): void {
-  record.syncing = NodeList.byJoinOrder.length - NodeList.activeByIdOrder.length
+  record.syncing = NodeList.byJoinOrder.length - (NodeList.activeByIdOrder.length + NodeList.selectedById.size)
   record.standbyAdd = []
   record.standbyRemove = []
   record.startedSyncing = []
@@ -337,7 +337,6 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
       .sort()
     /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("new desired count: ", record.desired)
   }
-  //console.log('cycle record:', record)
 }
 
 export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
@@ -350,36 +349,37 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
     const publicKey = node.publicKey
     /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log(`join:parseRecord node-selcted cycle: ${record.counter} removed standby node ${publicKey}`)
     deleteStandbyNode(publicKey)
-
-    if (!Self.isFirst || NodeList.byIdOrder.length !== 0) nodesYetToStartSyncing.set(node.id, record.counter)
   }
 
   if (added.length > 0) {
     /* prettier-ignore */ if (logFlags.p2pNonFatal) debugDumpJoinRequestList( Array.from(getStandbyNodesInfoMap().values()), `join.parseRecord: standby-map ${record.counter} some activated:${record.counter}` )
   }
   
-  const updates: P2P.NodeListTypes.Update[] = []
+  const updated: P2P.NodeListTypes.Update[] = []
 
   for (const nodeId of record.startedSyncing) {
-    if (nodesYetToStartSyncing.has(nodeId)) {
-      nodesYetToStartSyncing.delete(nodeId)
-      updates.push({
+    if (NodeList.selectedById.has(nodeId)) {
+      updated.push({
         id: nodeId,
         status: P2P.P2PTypes.NodeStatus.SYNCING
       })
     }
   }
-  for (const [nodeId, cycleNumber] of nodesYetToStartSyncing) {
-    if (record.counter > cycleNumber + 3) {
+
+  const addedIds = added.map((node) => node.id)
+
+  for (const [nodeId, cycleNumber] of NodeList.selectedById) {
+    if (addedIds.includes(nodeId)) {
+      // do nothing. the node was just added and isn't in the nodelist yet
+    } else if (record.counter > cycleNumber + 3) {
       lostAfterSelection.push(nodeId)
-      nodesYetToStartSyncing.delete(nodeId)
     }
   }
 
   return {
     added,
     removed: [...lostAfterSelection],
-    updated: JSON.parse(JSON.stringify(updates)),
+    updated,
   }
 }
 

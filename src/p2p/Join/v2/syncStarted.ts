@@ -23,7 +23,6 @@ export interface SyncStartedRequestResponse {
 /*
 Currently not used
 
-// Submits a request to leave the network's standby node list.
 export async function submitSyncStarted(payload: SyncStarted): Promise<Result<void, Error>> {
   const archiver = getRandomAvailableArchiver()
   try {
@@ -40,6 +39,10 @@ export async function submitSyncStarted(payload: SyncStarted): Promise<Result<vo
   }
 }
 */
+
+export function insertSyncStarted(nodeId: string): void {
+  newSyncStarted.push(nodeId)
+}
 
 export function addSyncStarted(syncStarted: SyncStarted): SyncStartedRequestResponse {
   // lookup node by id in payload and use pubkey and compare to sig.owner
@@ -78,7 +81,7 @@ export function addSyncStarted(syncStarted: SyncStarted): SyncStartedRequestResp
     }
   }
 
-  newSyncStarted.push(syncStarted.nodeId)
+  insertSyncStarted(syncStarted.nodeId)
 
   return {
     success: true,
@@ -95,7 +98,7 @@ export function drainSyncStarted(): string[] {
   if (logFlags.verbose) console.log('draining new KeepInStandby info:', newSyncStarted)
   const tmp = newSyncStarted
   newSyncStarted = []
-  return tmp
+  return tmp.sort()
 }
 
 export function drainLostAfterSelectionNodes(): string[] {
@@ -103,7 +106,7 @@ export function drainLostAfterSelectionNodes(): string[] {
     if (logFlags.verbose) console.log('draining lost after selection nodes:', lostAfterSelection)
     const tmp = lostAfterSelection
     lostAfterSelection = []
-    return tmp
+    return tmp.sort()
   } else {
     return []
   }
