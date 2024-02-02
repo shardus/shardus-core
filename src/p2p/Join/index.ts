@@ -240,6 +240,8 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
     for (const nodeId of drainSyncStarted()) {
       record.startedSyncing.push(nodeId)
     }
+
+    record.syncing += record.startedSyncing.length
     
     // these nodes are being repeated in lost and apop
     for (const nodeId of drainLostAfterSelectionNodes()) {
