@@ -404,12 +404,17 @@ const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler<SyncStarted, P2P.NodeLi
   tracker
 ) => {
   profilerInstance.scopedProfileSectionStart('gossip-sync-started')
+  nestedCountersInstance.countEvent('p2p', `received gossip-sync-started`)
+  /* prettier-ignore */ if (logFlags.verbose) console.log(`received gossip-sync-started`)
   try {
     // Do not forward gossip after quarter 2
     if (CycleCreator.currentQuarter >= 3) return
 
     //  Validate of payload is done in addSyncStarted
-    if (addSyncStarted(payload).success)
+    const addSyncStartedResult = addSyncStarted(payload)
+    nestedCountersInstance.countEvent('p2p', `sync-started validation success: ${addSyncStartedResult.success}`)
+    /* prettier-ignore */ if (logFlags.verbose) console.log(`sync-started validation success: ${addSyncStartedResult.success}`)
+    if (addSyncStartedResult.success)
       Comms.sendGossip('gossip-sync-started', payload, tracker, sender, NodeList.byIdOrder, false)
   } finally {
     profilerInstance.scopedProfileSectionEnd('gossip-sync-started')

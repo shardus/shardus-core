@@ -192,8 +192,12 @@ export function startupV2(): Promise<boolean> {
         payload = Context.crypto.sign(payload)
         // send a sync-started message to the network if you are not the first node
         if (isFirst) {
+          nestedCountersInstance.countEvent('p2p', `adding sync-started message for first node`)
+          /* prettier-ignore */ if (logFlags.verbose) console.log(`adding sync-started message for first node`)
           insertSyncStarted(id)
         } else {
+          nestedCountersInstance.countEvent('p2p', `sending sync-started gossip to network`)
+          /* prettier-ignore */ if (logFlags.verbose) console.log(`sending sync-started gossip to network`)
           Comms.sendGossip('gossip-sync-started', payload)
         }
 
