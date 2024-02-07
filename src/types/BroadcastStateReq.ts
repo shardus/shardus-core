@@ -1,12 +1,16 @@
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
-import { WrappedData, deserializeWrappedData, serializeWrappedData } from './WrappedData'
+import {
+  WrappedDataResponse,
+  deserializeWrappedDataResponse,
+  serializeWrappedDataResponse,
+} from './WrappedDataResponse'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 
 export const cBroadcastStateReqVersion = 1
 
 export interface BroadcastStateReq {
   txid: string
-  stateList: WrappedData[]
+  stateList: WrappedDataResponse[]
 }
 
 export function serializeBroadcastStateReq(
@@ -20,7 +24,7 @@ export function serializeBroadcastStateReq(
   stream.writeUInt16(cBroadcastStateReqVersion)
   stream.writeString(obj.txid)
   stream.writeUInt16(obj.stateList.length) // Serialize array length
-  obj.stateList.forEach((item) => serializeWrappedData(stream, item)) // Serialize each item
+  obj.stateList.forEach((item) => serializeWrappedDataResponse(stream, item)) // Serialize each item
 }
 
 export function deserializeBroadcastStateReq(stream: VectorBufferStream): BroadcastStateReq {
@@ -28,6 +32,6 @@ export function deserializeBroadcastStateReq(stream: VectorBufferStream): Broadc
   const version = stream.readUInt16()
   const txid = stream.readString()
   const stateListLength = stream.readUInt16()
-  const stateList = Array.from({ length: stateListLength }, () => deserializeWrappedData(stream))
+  const stateList = Array.from({ length: stateListLength }, () => deserializeWrappedDataResponse(stream))
   return { txid, stateList }
 }
