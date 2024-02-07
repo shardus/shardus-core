@@ -349,7 +349,7 @@ export default class NodeSyncTracker implements SyncTrackerInterface {
             if (serialized_res && serialized_res.accountData) {
               for (const accountDataRef of serialized_res.accountData) {
                 accountDataRef.data = stateManager.app.binaryDeserializeObject(
-                  AppObjEnum.AccountData,
+                  AppObjEnum.AppData,
                   accountDataRef.data
                 )
               }

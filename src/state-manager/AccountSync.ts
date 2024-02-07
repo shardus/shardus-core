@@ -451,7 +451,7 @@ class AccountSync {
           }
 
           for (const dataRef of accountData) {
-            dataRef.data = this.app.binarySerializeObject(Shardus.AppObjEnum.AccountData, dataRef.data)
+            dataRef.data = this.app.binarySerializeObject(Shardus.AppObjEnum.AppData, dataRef.data)
           }
 
           //PERF Disable this in production or performance testing.

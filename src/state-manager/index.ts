@@ -105,6 +105,8 @@ import {
   GetAccountQueueCountReq,
   serializeGetAccountQueueCountReq,
 } from '../types/GetAccountQueueCountReq'
+import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
+import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
 
 export type Callback = (...args: unknown[]) => void
 
@@ -1656,22 +1658,21 @@ class StateManager {
     const binaryGetAccDataWithQueueHintsHandler: Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_get_account_data_with_queue_hints,
       handler: async (payload, respond, header, sign) => {
-        profilerInstance.scopedProfileSectionStart(
-          'binary_get_account_data_with_queue_hints',
-          false,
-          payload.length
-        )
+        const route = InternalRouteEnum.binary_get_account_data_with_queue_hints
+        profilerInstance.scopedProfileSectionStart(route, false, payload.length)
+
         try {
           let accountData = null
-          const requestStream = VectorBufferStream.fromBuffer(payload)
-          const requestType = requestStream.readUInt16()
-          if (requestType !== TypeIdentifierEnum.cGetAccountDataWithQueueHintsReq) {
+          const requestStream = getStreamWithTypeCheck(
+            payload,
+            TypeIdentifierEnum.cGetAccountDataWithQueueHintsReq
+          )
+          if (!requestStream) {
             // implement error handling
             respond({ accountData }, serializeGetAccountDataWithQueueHintsResp)
             return
           }
           const req = deserializeGetAccountDataWithQueueHintsReq(requestStream)
-          console.log('req stream deserialize', req)
           let ourLockID = -1
           try {
             ourLockID = await this.fifoLock('accountModification')
@@ -1684,7 +1685,7 @@ class StateManager {
               const wrappedAccountInQueueRef = wrappedAccount as WrappedDataFromQueueBinary
               wrappedAccountInQueueRef.seenInQueue = false
               wrappedAccountInQueueRef.data = this.app.binarySerializeObject(
-                Shardus.AppObjEnum.AccountData,
+                Shardus.AppObjEnum.AppData,
                 wrappedAccount.data
               )
 
@@ -1705,7 +1706,7 @@ class StateManager {
         } catch (e) {
           respond({ accountData: null }, serializeGetAccountDataWithQueueHintsResp)
         } finally {
-          profilerInstance.scopedProfileSectionEnd('binary_get_account_data_with_queue_hints', payload.length)
+          profilerInstance.scopedProfileSectionEnd(route, payload.length)
         }
       },
     }
@@ -1751,7 +1752,8 @@ class StateManager {
     const binaryGetAccountQueueCountHandler: Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_get_account_queue_count,
       handler: async (payload, respond, header, sign) => {
-        profilerInstance.scopedProfileSectionStart('binary_get_account_queue_count', false, payload.length)
+        const route = InternalRouteEnum.binary_get_account_queue_count
+        profilerInstance.scopedProfileSectionStart(route, false, payload.length)
         try {
           const requestStream = VectorBufferStream.fromBuffer(payload)
           const requestType = requestStream.readUInt16()
@@ -1773,7 +1775,7 @@ class StateManager {
               const currentAccountData = await this.getLocalOrRemoteAccount(address)
               if (currentAccountData && currentAccountData.data) {
                 result.accounts.push(
-                  this.app.binarySerializeObject(Shardus.AppObjEnum.AccountData, currentAccountData.data)
+                  this.app.binarySerializeObject(Shardus.AppObjEnum.AppData, currentAccountData.data)
                 )
               }
             }
@@ -1783,12 +1785,12 @@ class StateManager {
               )
             }
           }
-          respond(result, serializeGetAccountQueueCountResp)
+          await respond(result, serializeGetAccountQueueCountResp)
         } catch (e) {
-          if (logFlags.error) this.mainLogger.error(`binary_get_account_queue_count error: ${e}`)
+          if (logFlags.error) this.mainLogger.error(`${route} error: ${e}`)
           respond(false, serializeGetAccountQueueCountResp)
         } finally {
-          profilerInstance.scopedProfileSectionEnd('binary_get_account_queue_count', payload.length)
+          profilerInstance.scopedProfileSectionEnd(route, payload.length)
         }
       },
     }
@@ -2394,7 +2396,7 @@ class StateManager {
               return {
                 accountId: account.accountId,
                 stateId: account.stateId,
-                data: this.app.binaryDeserializeObject(Shardus.AppObjEnum.AccountData, account.data),
+                data: this.app.binaryDeserializeObject(Shardus.AppObjEnum.AppData, account.data),
                 timestamp: account.timestamp,
                 seenInQueue: account.seenInQueue,
               }
