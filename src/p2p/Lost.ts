@@ -437,7 +437,7 @@ export function updateRecord(
 
   if (prev) {
     let apop = prev.lost.filter((id) => nodes.has(id)) // remove nodes that are no longer in the network
-    apop = apop.filter((id) => !prev.appRemoved.includes(id))
+    apop = apop.filter((id) => (prev.appRemoved ? prev.appRemoved.includes(id) : false))
 
     let apopSyncing = []
     if (config.p2p.detectLostSyncing) {
@@ -504,7 +504,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   }
 
   // Look at the app removed id's and make Self emit 'removed' if your own id is there
-  if (record.appRemoved.includes(Self.id)) {
+  if (record.appRemoved && record.appRemoved.includes(Self.id)) {
     /* prettier-ignore */
     nestedCountersInstance.countEvent("p2p", `app-removed c:${currentCycle}`, 1);
     Self.emitter.emit('app-removed', Self.id)
@@ -514,7 +514,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   // Make sure the Lost module is listed after Apoptosis in the CycleCreator submodules list
   return {
     added: [],
-    removed: [...record.appRemoved],
+    removed: record.appRemoved ? [...record.appRemoved] : [],
     updated: [],
   }
 }
