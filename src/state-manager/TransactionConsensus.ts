@@ -40,7 +40,14 @@ import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { deserializeGetAccountData3Resp, getAccountData3Resp } from '../types/GetAccountData3Resp'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { serializeGetAccountData3Req } from '../types/GetAccountData3Req'
-import { deserializeGetAccountData3Req } from '../types/ajv/GetAccountData3Req'
+import { InternalBinaryHandler } from '../types/Handler'
+import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
+import { requestErrorHandler } from '../types/Helpers'
+import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
+import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
+import { deserializeGetTxTimestampResp, getTxTimestampResp, serializeGetTxTimestampResp } from '../types/GetTxTimestampResp'
+import { deserializeGetTxTimestampReq, getTxTimestampReq, serializeGetTxTimestampReq } from '../types/GetTxTimestampReq'
 
 class TransactionConsenus {
   app: Shardus.App
@@ -214,6 +221,58 @@ class TransactionConsenus {
         /* eslint-enable security/detect-object-injection */
       }
     )
+
+    const getTxTimestampBinary: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_get_account_data_3,
+      handler: async (payload, respond, header, sign) => {
+        this.profiler.scopedProfileSectionStart('binary/get_tx_timestamp')
+        if (logFlags.verbose) console.log('Entering binary/get_tx_timestamp')
+        const route = InternalRouteEnum.binary_get_tx_timestamp
+        nestedCountersInstance.countEvent('internal', route)
+        profilerInstance.scopedProfileSectionStart(route, true, payload.length)
+
+        const errorHandler = (
+          errorType: RequestErrorEnum,
+          opts?: { customErrorLog?: string; customCounterSuffix?: string }
+        ): void => requestErrorHandler(route, errorType, header, opts)
+
+        try {
+          let tsReceipt: Shardus.TimestampReceipt
+
+          const reqStream = VectorBufferStream.fromBuffer(payload)
+          const reqType = reqStream.readUInt16()
+          if (reqType !== TypeIdentifierEnum.cGetTxTimestamp) {
+            if (logFlags.console) console.log('TypeIdenitifier Process failed for binary/get_account_data3')
+            respond(tsReceipt, serializeGetTxTimestampResp)
+            return errorHandler(RequestErrorEnum.InvalidRequestType)
+            // safe to return here, before the fifo lock
+          }
+
+          const readableReq = deserializeGetTxTimestampReq(reqStream)
+
+          // eslint-disable-next-line security/detect-object-injection
+          if (
+            this.txTimestampCache[readableReq.cycleCounter] &&
+            this.txTimestampCache[readableReq.cycleCounter][readableReq.txId]
+          ) {
+            // eslint-disable-next-line security/detect-object-injection
+            tsReceipt = this.txTimestampCache[readableReq.cycleCounter][readableReq.txId]
+            respond(tsReceipt, serializeGetTxTimestampResp)
+          } else {
+            const tsReceipt: Shardus.TimestampReceipt = this.generateTimestampReceipt(
+              readableReq.txId,
+              readableReq.cycleMarker,
+              readableReq.cycleCounter
+            )
+            respond(tsReceipt, serializeGetTxTimestampResp)
+          }
+        } finally {
+          profilerInstance.scopedProfileSectionEnd(route, payload.length)
+        }
+      },
+    }
+
+    this.p2p.registerInternalBinary(getTxTimestampBinary.name, getTxTimestampBinary.handler)
 
     this.p2p.registerInternal(
       'get_confirm_or_challenge',
@@ -709,16 +768,40 @@ class TransactionConsenus {
     const cycleMarker = CycleChain.computeCycleMarker(CycleChain.newest)
     const cycleCounter = CycleChain.newest.counter
     /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug('Asking timestamp from node', homeNode.node)
+
     if (homeNode.node.id === Self.id) {
       // we generate the tx timestamp by ourselves
       return this.generateTimestampReceipt(txId, cycleMarker, cycleCounter)
     } else {
-      const timestampReceipt = await Comms.ask(homeNode.node, 'get_tx_timestamp', {
-        cycleMarker,
-        cycleCounter,
-        txId,
-        tx,
-      })
+      let timestampReceipt
+
+      if (stateManager.config.p2p.useBinarySerializedEndpoints) {
+        
+        const serialized_res = await this.p2p.askBinary<getTxTimestampReq, getTxTimestampResp>(
+          homeNode.node,
+          InternalRouteEnum.binary_get_tx_timestamp,
+          {
+            cycleMarker,
+            cycleCounter,
+            txId,
+          },
+          serializeGetTxTimestampReq,
+          deserializeGetTxTimestampResp,
+          {}
+        )
+
+        if (serialized_res) {
+          timestampReceipt = serialized_res
+        }
+      } else {
+        timestampReceipt = await Comms.ask(homeNode.node, 'get_tx_timestamp', {
+          cycleMarker,
+          cycleCounter,
+          txId,
+          tx,
+        })
+      }
+
       delete timestampReceipt.isResponse
       const isValid = this.crypto.verify(timestampReceipt, homeNode.node.publicKey)
       if (isValid) {
@@ -1627,10 +1710,11 @@ class TransactionConsenus {
         offset: 0,
         accountOffset: '',
       }
-      
-      let result : GetAccountData3Resp | any  
+
+      let result: GetAccountData3Resp | any
       if (stateManager.config.p2p.useBinarySerializedEndpoints) {
-        if(logFlags.verbose) console.log("robustQueryAccountData : binary serialization part of GetAccountData3")
+        if (logFlags.verbose)
+          console.log('robustQueryAccountData : binary serialization part of GetAccountData3')
         const serialized_res = await this.p2p.askBinary<GetAccountData3Req, getAccountData3Resp>(
           node,
           InternalRouteEnum.binary_get_account_data_3,

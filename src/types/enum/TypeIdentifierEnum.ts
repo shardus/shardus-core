@@ -20,4 +20,5 @@ export enum TypeIdentifierEnum {
   cGetAccountData3Array,
   cWrappedGAD3Array,
   cWrappedGAD3,
+  cGetTxTimestamp,
 }
