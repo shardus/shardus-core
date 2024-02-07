@@ -75,6 +75,7 @@ let sendRefute = -1
 // map of <node_id-cycle_counter>
 let scheduledForLostReport: Map<string, ScheduledLostNodeReport> = new Map<string, ScheduledLostNodeReport>()
 let scheduledRemoveApp: Map<string, ScheduledRemoveNodeByApp> = new Map<string, ScheduledRemoveNodeByApp>()
+let lostRecordMap = new Map()
 
 //const CACHE_CYCLES = 10 replaced by multiple configs
 
