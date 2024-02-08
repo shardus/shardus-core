@@ -68,6 +68,8 @@ let state = P2P.P2PTypes.NodeStatus.INITIALIZING
 
 let firstTimeJoiningLoop = true
 
+const idErrorMessage = `id did not match the cycle record info`
+
 /** ROUTES */
 
 /** FUNCTIONS */
@@ -135,7 +137,7 @@ export function startupV2(): Promise<boolean> {
 
         nestedCountersInstance.countEvent('p2p', 'joined')
         // Sync cycle chain from network
-        await syncCycleChain()
+        await syncCycleChain(id)
 
         // Enable internal routes
         Comms.setAcceptInternal(true)
@@ -153,6 +155,12 @@ export function startupV2(): Promise<boolean> {
         // Break loop
         return resolve(true)
       } catch (err) {
+        if (err.message === idErrorMessage) {
+          nestedCountersInstance.countEvent('p2p', idErrorMessage)
+          /* prettier-ignore */ if (logFlags.important_as_fatal) console.log(`startupV2 ${idErrorMessage}`)
+          console.log(`self:startupV2.  ${idErrorMessage}.`)
+          emitter.emit('invoke-exit', `id did not match`, getCallstack(), idErrorMessage, true)
+        }
         // Log syncing error and abort startup
         /* prettier-ignore */ if (logFlags.important_as_fatal) console.log('error in startupV2 > enterSyncingState: ', utils.formatErrorMessage(err))
         /* prettier-ignore */ if (logFlags.important_as_fatal) warn('Error while syncing to network:')
@@ -657,7 +665,7 @@ async function joinNetworkV2(activeNodes): Promise<void> {
 //   }
 // }
 
-async function syncCycleChain(): Promise<void> {
+async function syncCycleChain(selfId: string): Promise<void> {
   // You're already synced if you're first
   if (isFirst) return
   let synced = false
@@ -697,6 +705,17 @@ async function syncCycleChain(): Promise<void> {
       if (logFlags.p2pNonFatal) info('Trying again in 2 sec...')
       await utils.sleep(2000)
     }
+  }
+
+  //check if the id matches the cycle record info
+  const cycle = CycleChain.getNewest()
+  const node = cycle.joinedConsensors.find(
+    (node) =>
+      node.externalIp === network.ipInfo.externalIp && node.externalPort === network.ipInfo.externalPort
+  )
+
+  if (!node || node.id !== selfId) {
+    throw new Error(idErrorMessage)
   }
 }
 
