@@ -2290,7 +2290,7 @@ class Shardus extends EventEmitter {
       } else {
         console.log('binarySerializeObject not implemented')
         applicationInterfaceImpl.binarySerializeObject = (identifier: string, obj: any): Buffer => {
-          return Buffer.from(utils.cryptoStringify(obj), 'utf8')
+          return Buffer.from(utils.SerializeToJsonString(obj), 'utf8')
         }
       }
       if (typeof application.binaryDeserializeObject === 'function') {
@@ -2303,7 +2303,7 @@ class Shardus extends EventEmitter {
       } else {
         console.log('binaryDeserializeObject not implemented')
         applicationInterfaceImpl.binaryDeserializeObject = (identifier: string, buffer: Buffer): any => {
-          return JSON.parse(buffer.toString('utf8'))
+          return utils.DeSerializeFromJsonString(buffer.toString('utf8'))
         }
       }
     } catch (ex) {
