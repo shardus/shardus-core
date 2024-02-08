@@ -16,14 +16,6 @@ import { ResultAsync } from 'neverthrow'
 import { reset as resetAcceptance } from './acceptance'
 import { stringifyReduce } from '../../../utils/functions/stringifyReduce'
 import { logFlags } from '../../../logger'
-<<<<<<< HEAD
-import * as NodeList from '../../NodeList'
-<<<<<<< HEAD
-=======
-import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
->>>>>>> c24edcdb (resolved build issues)
-=======
->>>>>>> c8e947ac (functionally complete)
 
 const clone = rfdc()
 
