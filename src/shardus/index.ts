@@ -1,5 +1,4 @@
 import { NodeStatus } from '@shardus/types/build/src/p2p/P2PTypes'
-import { RemoveCertificate } from '@shardus/types/build/src/p2p/LostTypes'
 import { EventEmitter } from 'events'
 import { Handler } from 'express'
 import Log4js from 'log4js'
@@ -32,7 +31,7 @@ import * as CycleChain from '../p2p/CycleChain'
 import * as CycleCreator from '../p2p/CycleCreator'
 import { netConfig } from '../p2p/CycleCreator'
 import * as GlobalAccounts from '../p2p/GlobalAccounts'
-import { scheduleLostReport, removeNodeWithCertificiate } from '../p2p/Lost'
+import { scheduleLostReport } from '../p2p/Lost'
 import { activeByIdOrder } from '../p2p/NodeList'
 import * as Self from '../p2p/Self'
 import { attempt } from '../p2p/Utils'
@@ -1388,8 +1387,8 @@ class Shardus extends EventEmitter {
     return this.stateManager.getClosestNodesGlobal(hash, count)
   }
 
-  removeNodeWithCertificiate(cert: RemoveCertificate) {
-    return removeNodeWithCertificiate(cert)
+  removeNodeWithCertificiate(cert: any) {
+    return null
   }
 
   computeNodeRank(nodeId: string, txId: string, timestamp: number): bigint {
