@@ -3,7 +3,7 @@ import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 import { deserializeWrappedData, serializeWrappedData, WrappedData } from './WrappedData'
 
 export const cWrappedDataFromQueueBinaryVersion = 1
-export interface WrappedDataFromQueueBinary extends WrappedData {
+export interface WrappedDataFromQueueSerializable extends WrappedData {
   seenInQueue: boolean
 }
 
@@ -11,7 +11,7 @@ export const cWrappedDataFromQueueVersion = 1
 
 export function serializeWrappedDataFromQueue(
   stream: VectorBufferStream,
-  obj: WrappedDataFromQueueBinary,
+  obj: WrappedDataFromQueueSerializable,
   root = false
 ): void {
   if (root) {
@@ -22,12 +22,14 @@ export function serializeWrappedDataFromQueue(
   stream.writeUInt8(obj.seenInQueue ? 1 : 0)
 }
 
-export function deserializeWrappedDataFromQueue(stream: VectorBufferStream): WrappedDataFromQueueBinary {
+export function deserializeWrappedDataFromQueue(
+  stream: VectorBufferStream
+): WrappedDataFromQueueSerializable {
   const version = stream.readUInt16()
   if (version > cWrappedDataFromQueueBinaryVersion) {
     throw new Error('Unsupported version')
   }
-  const wrappedData = deserializeWrappedData(stream) // Deserialize the base WrappedData part
+  const wrappedData = deserializeWrappedData(stream)
   return {
     ...wrappedData,
     seenInQueue: stream.readUInt8() === 1,

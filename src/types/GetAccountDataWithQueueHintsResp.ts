@@ -3,18 +3,18 @@ import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 import {
   deserializeWrappedDataFromQueue,
   serializeWrappedDataFromQueue,
-  WrappedDataFromQueueBinary,
+  WrappedDataFromQueueSerializable,
 } from './WrappedDataFromQueue'
 
 const cGetAccountDataWithQueueHintsRespVersion = 1
 
-export type GetAccountDataWithQueueHintsRespBinary = {
-  accountData: WrappedDataFromQueueBinary[] | null
+export type GetAccountDataWithQueueHintsRespSerializable = {
+  accountData: WrappedDataFromQueueSerializable[] | null
 }
 
 export function serializeGetAccountDataWithQueueHintsResp(
   stream: VectorBufferStream,
-  obj: GetAccountDataWithQueueHintsRespBinary,
+  obj: GetAccountDataWithQueueHintsRespSerializable,
   root = false
 ): void {
   if (root) {
@@ -34,7 +34,7 @@ export function serializeGetAccountDataWithQueueHintsResp(
 
 export function deserializeGetAccountDataWithQueueHintsResp(
   stream: VectorBufferStream
-): GetAccountDataWithQueueHintsRespBinary {
+): GetAccountDataWithQueueHintsRespSerializable {
   const version = stream.readUInt16()
   if (version > cGetAccountDataWithQueueHintsRespVersion) {
     throw new Error('Unsupported version')

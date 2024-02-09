@@ -1,12 +1,12 @@
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
-import { CachedAppData, deserializeCachedAppData, serializeCachedAppData } from './CachedAppData'
+import { CachedAppDataSerializable, deserializeCachedAppData, serializeCachedAppData } from './CachedAppData'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 
 const cSendCachedAppDataReqVersion = 1
 
 export type SendCachedAppDataReq = {
   topic: string
-  cachedAppData: CachedAppData
+  cachedAppData: CachedAppDataSerializable
 }
 
 export function serializeSendCachedAppDataReq(
