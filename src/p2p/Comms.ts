@@ -108,8 +108,8 @@ function _authenticateByNode(message, node) {
 // Extracts the payload from binary serialized wrapped messages.
 // This method could have done a complete deserialization into the specific type but,
 // that is avoided as we want to delay parsing of payload until header checks succeed.
-function _extractPayload2(wrappedPayload): Buffer {
-  /* prettier-ignore */ if (logFlags.verbose) console.log('extractPayload2: wrappedPayload', JSON.stringify(wrappedPayload))
+function _extractPayloadBinary(wrappedPayload): Buffer {
+  /* prettier-ignore */ if (logFlags.verbose) console.log('_extractPayloadBinary: wrappedPayload', JSON.stringify(wrappedPayload))
   let buffer = null
   if (wrappedPayload instanceof Buffer) {
     /* prettier-ignore */ if (logFlags.verbose) info(`_extractPayload2: wrappedPayload is a buffer: ${wrappedPayload}`)
@@ -578,7 +578,7 @@ export function registerInternalBinary(route: string, handler: InternalBinaryHan
       return
     }
     // Checks to see if we can extract the actual payload from the wrapped message
-    const requestPayload = _extractPayload2(wrappedPayload)
+    const requestPayload = _extractPayloadBinary(wrappedPayload)
     if (!requestPayload) {
       warn('registerInternalBinary: payload unable to be extracted, possible missing signature...')
       return

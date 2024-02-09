@@ -1,12 +1,14 @@
+import { stateManager } from '../p2p/Context'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
+import { AppObjEnum } from './enum/AppObjEnum'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 
 export const cWrappedDataVersion = 1
 export interface WrappedData {
   accountId: string
   stateId: string // hash of the data blob
-  data: Buffer // data blob opaqe
+  data: unknown // data blob opaqe
   timestamp: number
   syncData?: unknown
 }
@@ -18,7 +20,7 @@ export function serializeWrappedData(stream: VectorBufferStream, obj: WrappedDat
   stream.writeUInt16(cWrappedDataVersion)
   stream.writeString(obj.accountId)
   stream.writeString(obj.stateId)
-  stream.writeBuffer(obj.data)
+  stream.writeBuffer(stateManager.app.binarySerializeObject(AppObjEnum.AppData, obj.data))
   stream.writeString(obj.timestamp.toString())
   if (obj.syncData !== undefined) {
     stream.writeUInt8(1)
@@ -31,10 +33,13 @@ export function serializeWrappedData(stream: VectorBufferStream, obj: WrappedDat
 export function deserializeWrappedData(stream: VectorBufferStream): WrappedData {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const version = stream.readUInt16()
+  if (version > cWrappedDataVersion) {
+    throw new Error(`Unsupported WrappedData version ${version}`)
+  }
   return {
     accountId: stream.readString(),
     stateId: stream.readString(),
-    data: stream.readBuffer(),
+    data: stateManager.app.binaryDeserializeObject(AppObjEnum.AppData, stream.readBuffer()),
     timestamp: Number(stream.readString()),
     syncData: stream.readUInt8() === 1 ? DeSerializeFromJsonString(stream.readString()) : undefined,
   }

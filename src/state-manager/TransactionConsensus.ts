@@ -37,6 +37,13 @@ import { shardusGetTime } from '../network'
 import { robustQuery } from '../p2p/Utils'
 import { SignedObject } from '@shardus/crypto-utils'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
+import { GetAccountDataReqSerializable, serializeGetAccountDataReq } from '../types/GetAccountDataReq'
+import {
+  GetAccountDataRespSerializable,
+  deserializeGetAccountDataResp,
+  serializeGetAccountDataResp,
+} from '../types/GetAccountDataResp'
+import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 
 class TransactionConsenus {
   app: Shardus.App
@@ -1626,7 +1633,23 @@ class TransactionConsenus {
         offset: 0,
         accountOffset: '',
       }
-      const result = await Comms.ask(node, 'get_account_data3', message)
+      let result
+      if (this.config.p2p.useBinarySerializedEndpoints) {
+        const req = message as GetAccountDataReqSerializable
+        const rBin = await Comms.askBinary<GetAccountDataReqSerializable, GetAccountDataRespSerializable>(
+          node,
+          InternalRouteEnum.binary_get_account_data,
+          req,
+          serializeGetAccountDataReq,
+          deserializeGetAccountDataResp,
+          {}
+        )
+        if (((rBin.errors && rBin.errors.length === 0) || !rBin.errors) && rBin.data) {
+          result = rBin as GetAccountData3Resp
+        }
+      } else {
+        result = await Comms.ask(node, 'get_account_data3', message)
+      }
       return result
     }
     const eqFn = (item1: GetAccountData3Resp, item2: GetAccountData3Resp): boolean => {
