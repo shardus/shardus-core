@@ -38,6 +38,14 @@ import { isDebugModeMiddleware, isDebugModeMiddlewareLow, isDebugModeMiddlewareM
 import { appdata_replacer, errorToStringFull, Ordering } from '../utils'
 import { Response } from 'express-serve-static-core'
 import { shardusGetTime } from '../network'
+import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
+import { InternalBinaryHandler } from '../types/Handler'
+import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { deserializeGetAccountDataByHashesResp, GetAccountDataByHashesResp, serializeGetAccountDataByHashesResp } from '../types/GetAccountDataByHashesResp'
+import { getStreamWithTypeCheck } from '../types/Helpers'
+import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
+import { deserializeGetAccountDataByHashesReq, GetAccountDataByHashesReq, serializeGetAccountDataByHashesReq } from '../types/GetAccountDataByHashesReq'
+import { WrappedData } from '../types/WrappedData'
 
 type Line = {
   raw: string
@@ -520,6 +528,123 @@ class AccountPatcher {
         profilerInstance.scopedProfileSectionEnd('get_account_data_by_hashes', respondSize)
       }
     )
+
+    const getAccountDataByHashesBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_get_account_data_by_hashes,
+      handler: async (payload, respond, header, sign) => {
+          profilerInstance.scopedProfileSectionStart(getAccountDataByHashesBinaryHandler.name)
+          nestedCountersInstance.countEvent('accountPatcher', InternalRouteEnum.binary_get_account_data_by_hashes)
+          const result = { accounts: [], stateTableData: [] } as GetAccountDataByHashesResp
+        try{
+
+          const stream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cGetAccountDataByHashesReq)
+          const req = deserializeGetAccountDataByHashesReq(stream)
+
+          const queryStats = {
+            fix1: 0,
+            fix2: 0,
+            skip_localHashMismatch: 0,
+            skip_requestHashMismatch: 0,
+            returned: 0,
+            missingResp: false,
+            noResp: false,
+          }
+
+          const hashMap = new Map()
+          const accountIDs = []
+
+          if(req.accounts.length > 900){
+            req.accounts = req.accounts.slice(0, 900)
+          }
+
+          for (const accountHashEntry of req.accounts) {
+            if (
+              accountHashEntry == null ||
+              accountHashEntry.hash == null ||
+              accountHashEntry.accountID == null
+            ) {
+              queryStats.fix1++
+              continue
+            }
+            hashMap.set(accountHashEntry.accountID, accountHashEntry.hash)
+            accountIDs.push(accountHashEntry.accountID)
+          }
+
+          const accountData = await this.app.getAccountDataByList(accountIDs)
+          const skippedAccounts: AccountIDAndHash[] = []
+          const returnedAccounts: AccountIDAndHash[] = []
+
+          const accountsToGetStateTableDataFor = []
+          const accountDataFinal: WrappedData[] = []
+
+          if(accountData != null){
+            for(const wrappedAccount of accountData){
+              if(wrappedAccount == null || wrappedAccount.stateId == null || wrappedAccount.data == null){
+                queryStats.fix2++
+                continue
+              }
+              const { accountId, stateId, data: recordData } = wrappedAccount
+              const accountHash = this.app.calculateAccountHash(recordData)
+              if (stateId !== accountHash) {
+                skippedAccounts.push({ accountID: accountId, hash: stateId })
+                queryStats.skip_localHashMismatch++
+                continue
+              }
+
+              if (hashMap.get(accountId) === wrappedAccount.stateId) {
+                accountDataFinal.push(wrappedAccount)
+                returnedAccounts.push({ accountID: accountId, hash: stateId })
+                accountsToGetStateTableDataFor.push(accountId)
+                queryStats.returned++
+              } else {
+                queryStats.skip_requestHashMismatch++
+                skippedAccounts.push({ accountID: accountId, hash: stateId })
+              }
+
+            }
+          }
+
+          if (queryStats.returned < req.accounts.length) {
+            nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes incomplete`)
+            queryStats.missingResp = true
+            if (queryStats.returned === 0) {
+              nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes no results`)
+              queryStats.noResp = true
+            }
+          }
+
+          this.mainLogger.debug(
+            `binary_get_account_data_by_hashes1 requests[${req.accounts.length}] :${utils.stringifyReduce(
+              req.accounts
+            )} `
+          )
+          this.mainLogger.debug(
+            `binary_get_account_data_by_hashes2 skippedAccounts:${utils.stringifyReduce(skippedAccounts)} `
+          )
+          this.mainLogger.debug(
+            `binary_get_account_data_by_hashes3 returnedAccounts:${utils.stringifyReduce(returnedAccounts)} `
+          )
+          this.mainLogger.debug(
+            `binary_get_account_data_by_hashes4 queryStats:${utils.stringifyReduce(queryStats)} `
+          )
+          this.mainLogger.debug(
+            `binary_get_account_data_by_hashes4 stateTabledata:${utils.stringifyReduce(result.stateTableData)} `
+          )
+          result.accounts = accountDataFinal
+
+        } catch (ex) {
+          this.statemanager_fatal(
+            `get_account_data_by_hashes-failed`,
+            'get_account_data_by_hashes:' + ex.name + ': ' + ex.message + ' at ' + ex.stack
+          )
+        } finally {
+          respond(result, serializeGetAccountDataByHashesResp)
+          profilerInstance.scopedProfileSectionEnd(getAccountDataByHashesBinaryHandler.name)
+        }
+      }
+    }
+
+    this.p2p.registerInternalBinary(getAccountDataByHashesBinaryHandler.name, getAccountDataByHashesBinaryHandler.handler)
 
     Context.network.registerExternalGet(
       'debug-patcher-ignore-hash-updates',
@@ -2750,11 +2875,27 @@ class AccountPatcher {
             Math.min(offset + accountPerRequest, allAccounts.length) < maxAskCount
           ) {
             requestEntry.request.accounts = allAccounts.slice(offset, offset + accountPerRequest)
-            const promise = this.p2p.ask(
-              requestEntry.node,
-              'get_account_data_by_hashes',
-              requestEntry.request
-            )
+            let promise = null
+            if(this.stateManager.config.p2p.useBinarySerializedEndpoints){
+              promise = this.p2p.askBinary<
+                GetAccountDataByHashesReq,
+                GetAccountDataByHashesResp
+              >(
+                requestEntry.node,
+                InternalRouteEnum.binary_get_account_data_by_hashes,
+                requestEntry.request,
+                serializeGetAccountDataByHashesReq,
+                deserializeGetAccountDataByHashesResp,
+                {}
+              );
+            }
+            else{
+              promise = this.p2p.ask(
+                requestEntry.node,
+                'get_account_data_by_hashes',
+                requestEntry.request
+              )
+            }
             promises.push(promise)
             offset = offset + accountPerRequest
             getAccountStats.multiRequests++
@@ -2766,7 +2907,27 @@ class AccountPatcher {
 
           //would it be better to resync if we have a high number of errors?  not easy to answer this.
         } else {
-          const promise = this.p2p.ask(requestEntry.node, 'get_account_data_by_hashes', requestEntry.request)
+          let promise = null
+          if(this.stateManager.config.p2p.useBinarySerializedEndpoints){
+            promise = this.p2p.askBinary<
+              GetAccountDataByHashesReq,
+              GetAccountDataByHashesResp
+            >(
+              requestEntry.node,
+              InternalRouteEnum.binary_get_account_data_by_hashes,
+              requestEntry.request,
+              serializeGetAccountDataByHashesReq,
+              deserializeGetAccountDataByHashesResp,
+              {}
+            );
+          }
+          else{
+            promise = this.p2p.ask(
+              requestEntry.node,
+              'get_account_data_by_hashes',
+              requestEntry.request
+            )
+          }
           promises.push(promise)
           getAccountStats.requested = requestEntry.request.accounts.length
         }
