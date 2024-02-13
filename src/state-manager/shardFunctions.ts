@@ -1,8 +1,9 @@
 import Logger, { logFlags } from '../logger'
 import * as Shardus from '../shardus/shardus-types'
-import { StateManager, P2P } from '@shardus/types'
+import { hexstring, StateManager, P2P } from '@shardus/types'
 import log4js from 'log4js'
 import { Ordering, stringify } from '../utils'
+import { isAnyHexString, stripHexStringPrefix } from '../utils/hex'
 
 type ShardGlobals = StateManager.shardFunctionTypes.ShardGlobals
 type ShardInfo = StateManager.shardFunctionTypes.ShardInfo
@@ -1216,10 +1217,11 @@ class ShardFunctions {
 
   static addressToPartition(
     shardGlobals: ShardGlobals,
-    address: string
+    address: hexstring
   ): { homePartition: number; addressNum: number } {
+    if (!isAnyHexString(address)) throw new Error('address is not a hex string')
     const numPartitions = shardGlobals.numPartitions
-    const addressNum = parseInt(address.slice(0, 8), 16)
+    const addressNum = parseInt(stripHexStringPrefix(address).slice(0, 8), 16)
 
     // 2^32  4294967296 or 0xFFFFFFFF + 1
     const size = Math.round((0xffffffff + 1) / numPartitions)
@@ -1245,9 +1247,10 @@ class ShardFunctions {
 
   static findHomeNode(
     shardGlobals: ShardGlobals,
-    address: string,
+    address: hexstring,
     partitionShardDataMap: Map<number, ShardInfo>
   ): NodeShardData | null {
+    if (!isAnyHexString(address)) throw new Error('address is not a hex string')
     const { homePartition } = ShardFunctions.addressToPartition(shardGlobals, address)
     const partitionShard = partitionShardDataMap.get(homePartition)
 

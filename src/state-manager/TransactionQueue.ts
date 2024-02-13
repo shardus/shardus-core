@@ -60,6 +60,7 @@ import { getStreamWithTypeCheck, requestErrorHandler, verificationDataCombiner }
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
+import { isAnyHexString } from '../utils/hex'
 
 interface Receipt {
   tx: AcceptedTx
@@ -1253,7 +1254,10 @@ class TransactionQueue {
       // Init home nodes!
       for (const key of txQueueEntry.txKeys.allKeys) {
         if (key == null) {
-          throw new Error(`updateHomeInformation key == null ${key}`)
+          throw new Error(`updateHomeInformation key == null "${key}"`)
+        }
+        if (!isAnyHexString(key)) {
+          throw new Error(`updateHomeInformation key is not hex "${key}"`)
         }
         const homeNode = ShardFunctions.findHomeNode(
           this.stateManager.currentCycleShardData.shardGlobals,
@@ -1262,13 +1266,13 @@ class TransactionQueue {
         )
         if (homeNode == null) {
           nestedCountersInstance.countRareEvent('fatal', 'updateHomeInformation homeNode == null')
-          throw new Error(`updateHomeInformation homeNode == null ${key}`)
+          throw new Error(`updateHomeInformation homeNode == null, key: "${key}"`)
         }
         // eslint-disable-next-line security/detect-object-injection
         txQueueEntry.homeNodes[key] = homeNode
         if (homeNode == null) {
           /* prettier-ignore */ if (logFlags.verbose) if (logFlags.error) this.mainLogger.error(` routeAndQueueAcceptedTransaction: ${key} `)
-          throw new Error(`updateHomeInformation homeNode == null ${txQueueEntry}`)
+          throw new Error(`updateHomeInformation homeNode == null, txQueueEntry: ${txQueueEntry}`)
         }
 
         // calculate the partitions this TX is involved in for the receipt map
@@ -1830,7 +1834,7 @@ class TransactionQueue {
           `routeAndQueueAcceptedTransaction_ex`,
           'routeAndQueueAcceptedTransaction failed: ' + errorToStringFull(error)
         )
-        throw new Error(error)
+        throw error instanceof Error ? error : new Error(error)
       }
       return true
     } finally {
