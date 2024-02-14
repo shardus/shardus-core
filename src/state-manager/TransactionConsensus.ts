@@ -44,6 +44,7 @@ import {
   serializeGetAccountDataResp,
 } from '../types/GetAccountDataResp'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
+import { SpreadAppliedVoteHashReq, serializeSpreadAppliedVoteHashReq } from '../types/SpreadAppliedVoteHashReq'
 
 class TransactionConsenus {
   app: Shardus.App
@@ -2232,7 +2233,22 @@ class TransactionConsenus {
           // Gossip the vote to the entire consensus group
           Comms.sendGossip('gossip-applied-vote', ourVote, '', null, filteredConsensusGroup, true, 4)
         } else {
-          this.p2p.tell(filteredConsensusGroup, 'spread_appliedVoteHash', appliedVoteHash)
+          this.profiler.profileSectionStart('createAndShareVote-tell')
+          if (this.config.p2p.useBinarySerializedEndpoints) {
+            const request = appliedVoteHash as AppliedVoteHash
+            this.p2p.tellBinary<SpreadAppliedVoteHashReq>(
+              filteredConsensusGroup,
+              InternalRouteEnum.binary_broadcast_finalstate,
+              request,
+              serializeSpreadAppliedVoteHashReq,
+              {
+              }
+            )
+          } else {
+            this.p2p.tell(filteredConsensusGroup, 'spread_appliedVoteHash', appliedVoteHash)
+          }
+          
+          this.profiler.profileSectionEnd('createAndShareVote-tell')
         }
       } else {
         nestedCountersInstance.countEvent('transactionQueue', 'createAndShareVote fail, no consensus group')

@@ -105,7 +105,10 @@ import {
   GetAccountQueueCountReq,
   serializeGetAccountQueueCountReq,
 } from '../types/GetAccountQueueCountReq'
-import { getStreamWithTypeCheck } from '../types/Helpers'
+import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
+import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
+import { deserializeSpreadAppliedVoteHashReq, serializeSpreadAppliedVoteHashReq } from '../types/SpreadAppliedVoteHashReq'
+import { deserializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
 
 export type Callback = (...args: unknown[]) => void
 
@@ -1623,6 +1626,53 @@ class StateManager {
           profilerInstance.scopedProfileSectionEnd('spread_appliedVoteHash')
         }
       }
+    )
+
+    const spread_appliedVoteHashBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_spread_appliedVoteHash,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      handler: async (payload, respond, header, sign) => {
+        const route = InternalRouteEnum.binary_spread_appliedVoteHash
+        nestedCountersInstance.countEvent('internal', route)
+        this.profiler.scopedProfileSectionStart(route, false, payload.length)
+        const errorHandler = (
+          errorType: RequestErrorEnum,
+          opts?: { customErrorLog?: string; customCounterSuffix?: string }
+        ): void => requestErrorHandler(route, errorType, header, opts)
+        try {
+          // Type check the request
+          const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cSpreadAppliedVoteHash)
+          if (!requestStream) {
+            return errorHandler(RequestErrorEnum.InvalidRequest)
+          }
+          // (Optional) Check verification data in the header
+          // (Optional) AJV validation
+          // Deserialise the request using the deserializer helper
+          const req = deserializeSpreadAppliedVoteHashReq(requestStream)
+          const queueEntry = this.transactionQueue.getQueueEntrySafe(req.txid) // , payload.timestamp)
+          if (queueEntry == null) {
+            return
+          }
+          const collectedVoteHash = req as AppliedVoteHash
+          // TODO STATESHARDING4 ENDPOINTS check payload format
+          // TODO STATESHARDING4 ENDPOINTS that this message is from a valid sender (correct consenus group and valid signature)
+
+          if (this.transactionConsensus.tryAppendVoteHash(queueEntry, collectedVoteHash)) {
+            // Note this was sending out gossip, but since this needs to be converted to a tell function i deleted the gossip send
+          }
+          
+          // Business logic which should be inspired from the original handler
+        } catch (e) {
+          // Error handling
+        } finally {
+          this.profiler.scopedProfileSectionEnd(route)
+        }
+      },
+    }
+
+    this.p2p.registerInternalBinary(
+      spread_appliedVoteHashBinaryHandler.name,
+      spread_appliedVoteHashBinaryHandler.handler
     )
 
     this.p2p.registerInternal(

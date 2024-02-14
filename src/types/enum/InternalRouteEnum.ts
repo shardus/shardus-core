@@ -7,4 +7,5 @@ export enum InternalRouteEnum {
   binary_get_account_data_by_list = 'binary/get_account_data_by_list', // ask
   binary_broadcast_finalstate = 'binary/broadcast_finalstate', // tell
   binary_get_account_data = 'binary/get_account_data', // ask
+  binary_spread_appliedVoteHash = 'binary/spread_applied_vote_hash', // ask
 }
