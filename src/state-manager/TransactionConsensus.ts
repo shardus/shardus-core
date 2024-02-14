@@ -44,7 +44,10 @@ import {
   serializeGetAccountDataResp,
 } from '../types/GetAccountDataResp'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
-import { SpreadAppliedVoteHashReq, serializeSpreadAppliedVoteHashReq } from '../types/SpreadAppliedVoteHashReq'
+import {
+  SpreadAppliedVoteHashReq,
+  serializeSpreadAppliedVoteHashReq,
+} from '../types/SpreadAppliedVoteHashReq'
 
 class TransactionConsenus {
   app: Shardus.App
@@ -2238,16 +2241,15 @@ class TransactionConsenus {
             const request = appliedVoteHash as AppliedVoteHash
             this.p2p.tellBinary<SpreadAppliedVoteHashReq>(
               filteredConsensusGroup,
-              InternalRouteEnum.binary_broadcast_finalstate,
+              InternalRouteEnum.binary_spread_appliedVoteHash,
               request,
               serializeSpreadAppliedVoteHashReq,
-              {
-              }
+              {}
             )
           } else {
             this.p2p.tell(filteredConsensusGroup, 'spread_appliedVoteHash', appliedVoteHash)
           }
-          
+
           this.profiler.profileSectionEnd('createAndShareVote-tell')
         }
       } else {
