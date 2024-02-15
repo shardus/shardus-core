@@ -46,7 +46,7 @@ import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { deserializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
 import { getStreamWithTypeCheck } from '../types/Helpers'
 import { GetAccountDataRespSerializable, serializeGetAccountDataResp } from '../types/GetAccountDataResp'
-import { deserializeGetAccountDataReq } from '../types/GetAccountDataReq'
+import { deserializeGetAccountDataReq, verifyGetAccountDataReq } from '../types/GetAccountDataReq'
 
 const REDUNDANCY = 3
 
@@ -412,6 +412,15 @@ class AccountSync {
             return
           }
           const readableReq = deserializeGetAccountDataReq(reqStream)
+
+          // validate the request
+          const valid = verifyGetAccountDataReq(readableReq)
+          if (!valid) {
+            result.errors.push(`request validation failed`)
+            respond(result, serializeGetAccountDataResp)
+            return
+          }
+
           let accountData = null
           let ourLockID = -1
           try {

@@ -1,3 +1,4 @@
+import { isValidShardusAddress } from '../utils'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 
@@ -43,4 +44,10 @@ export function deserializeGetAccountDataReq(stream: VectorBufferStream): GetAcc
     accountOffset: stream.readString(),
   }
   return obj
+}
+
+export function verifyGetAccountDataReq(obj: GetAccountDataReqSerializable): boolean {
+  if (isValidShardusAddress([obj.accountStart, obj.accountEnd]) === false) {
+    return false
+  }
 }
