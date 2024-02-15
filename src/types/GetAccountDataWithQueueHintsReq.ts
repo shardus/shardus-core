@@ -15,7 +15,7 @@ export function serializeGetAccountDataWithQueueHintsReq(
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cGetAccountDataWithQueueHintsReq)
   }
-  stream.writeUInt16(cGetAccountDataWithQueueHintsReqVersion)
+  stream.writeUInt8(cGetAccountDataWithQueueHintsReqVersion)
   stream.writeUInt32(obj.accountIds.length)
   for (const accountId of obj.accountIds) {
     stream.writeString(accountId)
@@ -25,9 +25,9 @@ export function serializeGetAccountDataWithQueueHintsReq(
 export function deserializeGetAccountDataWithQueueHintsReq(
   stream: VectorBufferStream
 ): GetAccountDataWithQueueHintsReqSerializable {
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
   if (version > cGetAccountDataWithQueueHintsReqVersion) {
-    throw new Error('Unsupported version')
+    throw new Error('GetAccountDataWithQueueHintsReq version mismatch')
   }
   const length = stream.readUInt32()
   const accountIds = []

@@ -23,7 +23,7 @@ export function serializeGetAccountDataResp(
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cGetAccountDataResp)
   }
-  stream.writeUInt16(cGetAccountDataRespVersion)
+  stream.writeUInt8(cGetAccountDataRespVersion)
 
   if (obj.data) {
     stream.writeUInt8(1)
@@ -48,8 +48,10 @@ export function serializeGetAccountDataResp(
 }
 
 export function deserializeGetAccountDataResp(stream: VectorBufferStream): GetAccountDataRespSerializable {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
+  if (version > cGetAccountDataRespVersion) {
+    throw new Error('GetAccountDataResp version mismatch')
+  }
   let data, errors
 
   if (stream.readUInt8() === 1) {

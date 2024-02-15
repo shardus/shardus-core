@@ -20,7 +20,7 @@ export function serializeGetAccountDataReq(
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cGetAccountDataReq)
   }
-  stream.writeUInt16(cGetAccountDataReqVersion)
+  stream.writeUInt8(cGetAccountDataReqVersion)
   stream.writeString(inp.accountStart)
   stream.writeString(inp.accountEnd)
   stream.writeString(inp.tsStart.toString())
@@ -30,11 +30,9 @@ export function serializeGetAccountDataReq(
 }
 
 export function deserializeGetAccountDataReq(stream: VectorBufferStream): GetAccountDataReqSerializable {
-  const version = stream.readUInt16()
-  if (version !== cGetAccountDataReqVersion) {
-    throw new Error(
-      `GetAccountDataReq version mismatch: expected ${cGetAccountDataReqVersion}, got ${version}`
-    )
+  const version = stream.readUInt8()
+  if (version > cGetAccountDataReqVersion) {
+    throw new Error('GetAccountDataReq version mismatch')
   }
   const obj: GetAccountDataReqSerializable = {
     accountStart: stream.readString(),

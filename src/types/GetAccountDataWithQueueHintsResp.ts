@@ -20,7 +20,7 @@ export function serializeGetAccountDataWithQueueHintsResp(
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cGetAccountDataWithQueueHintsResp)
   }
-  stream.writeUInt16(cGetAccountDataWithQueueHintsRespVersion)
+  stream.writeUInt8(cGetAccountDataWithQueueHintsRespVersion)
   if (obj.accountData !== null) {
     stream.writeUInt8(1)
     stream.writeUInt16(obj.accountData.length)
@@ -35,9 +35,9 @@ export function serializeGetAccountDataWithQueueHintsResp(
 export function deserializeGetAccountDataWithQueueHintsResp(
   stream: VectorBufferStream
 ): GetAccountDataWithQueueHintsRespSerializable {
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
   if (version > cGetAccountDataWithQueueHintsRespVersion) {
-    throw new Error('Unsupported version')
+    throw new Error('GetAccountDataWithQueueHintsResp version mismatch')
   }
   const accountDataPresent = stream.readUInt8()
   let accountData = null
