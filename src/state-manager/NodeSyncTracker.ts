@@ -339,9 +339,7 @@ export default class NodeSyncTracker implements SyncTrackerInterface {
 
           //Get accounts.
           const message = { accountIds: remainingAccountsToSync }
-          let result = {
-            accountData: null,
-          }
+          let result
           if (stateManager.config.p2p.useBinarySerializedEndpoints) {
             result = await this.p2p.askBinary<GetAccountDataByListReq, GetAccountDataByListResp>(
               this.dataSourceHelper.dataSourceNode,

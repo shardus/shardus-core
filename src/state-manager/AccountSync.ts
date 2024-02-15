@@ -407,7 +407,7 @@ class AccountSync {
         try {
           const reqStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cGetAccountDataReq)
           if (!reqStream) {
-            result.errors.push(`${route}: request validation errors`)
+            result.errors.push(`invalid request payload`)
             respond(result, serializeGetAccountDataResp)
             return
           }
