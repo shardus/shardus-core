@@ -17,7 +17,7 @@ export function serializeWrappedData(stream: VectorBufferStream, obj: WrappedDat
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cWrappedData)
   }
-  stream.writeUInt16(cWrappedDataVersion)
+  stream.writeUInt8(cWrappedDataVersion)
   stream.writeString(obj.accountId)
   stream.writeString(obj.stateId)
   stream.writeBuffer(stateManager.app.binarySerializeObject(AppObjEnum.AppData, obj.data))
@@ -31,10 +31,9 @@ export function serializeWrappedData(stream: VectorBufferStream, obj: WrappedDat
 }
 
 export function deserializeWrappedData(stream: VectorBufferStream): WrappedData {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
   if (version > cWrappedDataVersion) {
-    throw new Error(`Unsupported WrappedData version ${version}`)
+    throw new Error(`WrappedData version mismatch`)
   }
   return {
     accountId: stream.readString(),

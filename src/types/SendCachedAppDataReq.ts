@@ -17,15 +17,15 @@ export function serializeSendCachedAppDataReq(
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cSendCachedAppDataReq)
   }
-  stream.writeUInt16(cSendCachedAppDataReqVersion)
+  stream.writeUInt8(cSendCachedAppDataReqVersion)
   stream.writeString(obj.topic)
   serializeCachedAppData(stream, obj.cachedAppData)
 }
 
 export function deserializeSendCachedAppDataReq(stream: VectorBufferStream): SendCachedAppDataReq {
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
   if (version > cSendCachedAppDataReqVersion) {
-    throw new Error('Unsupported version')
+    throw new Error('SendCachedAppDataReq version mismatch')
   }
   return {
     topic: stream.readString(),

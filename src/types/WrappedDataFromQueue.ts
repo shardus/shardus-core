@@ -17,7 +17,7 @@ export function serializeWrappedDataFromQueue(
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cWrappedDataFromQueue)
   }
-  stream.writeUInt16(cWrappedDataFromQueueVersion)
+  stream.writeUInt8(cWrappedDataFromQueueVersion)
   serializeWrappedData(stream, obj)
   stream.writeUInt8(obj.seenInQueue ? 1 : 0)
 }
@@ -25,9 +25,9 @@ export function serializeWrappedDataFromQueue(
 export function deserializeWrappedDataFromQueue(
   stream: VectorBufferStream
 ): WrappedDataFromQueueSerializable {
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
   if (version > cWrappedDataFromQueueBinaryVersion) {
-    throw new Error('Unsupported version')
+    throw new Error('WrappedDataFromQueue version mismatch')
   }
   const wrappedData = deserializeWrappedData(stream)
   return {
