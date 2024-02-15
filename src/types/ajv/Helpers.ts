@@ -1,9 +1,11 @@
 import { ErrorObject } from 'ajv'
 import { getVerifyFunction } from '../../utils/serialization/SchemaHelpers'
 import { initGetAccountData3Req } from './GetAccountData3Req'
+import { initSpreadTxToGroupSyncingReq } from './SpreadTxToGroupSyncingReq'
 
 export function initAjvSchemas(): void {
   initGetAccountData3Req()
+  initSpreadTxToGroupSyncingReq()
 }
 
 export function verifyPayload<T>(name: string, payload: T): string[] | null {

@@ -70,6 +70,8 @@ import {
   deserializeBroadcastFinalStateReq,
   serializeBroadcastFinalStateReq,
 } from '../types/BroadcastFinalStateReq'
+import { verifyPayload } from '../types/ajv/Helpers'
+import { SpreadTxToGroupSyncingReq, deserializeSpreadTxToGroupSyncingReq, serializeSpreadTxToGroupSyncingReq } from '../types/SpreadTxToGroupSyncingReq'
 
 interface Receipt {
   tx: AcceptedTx
@@ -495,6 +497,53 @@ class TransactionQueue {
         }
       }
     )
+
+    const spreadTxToGroupSyncingBinaryHandler: P2PTypes.P2PTypes.Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_spread_tx_to_group_syncing,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      handler: async (payload, respond, header, sign) => {
+        const route = InternalRouteEnum.binary_spread_tx_to_group_syncing
+        nestedCountersInstance.countEvent('internal', route)
+        this.profiler.scopedProfileSectionStart(route, false, payload.length)
+        const errorHandler = (
+          errorType: RequestErrorEnum,
+          opts?: { customErrorLog?: string; customCounterSuffix?: string }
+        ): void => requestErrorHandler(route, errorType, header, opts)
+
+        try {
+          const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cSpreadTxToGroupSyncingReq)
+          if (!requestStream) {
+            return errorHandler(RequestErrorEnum.InvalidRequest)
+          }
+
+          // verification data checks
+          if (header.verification_data == null) {
+            return errorHandler(RequestErrorEnum.MissingVerificationData)
+          }
+          const verificationDataParts = verificationDataSplitter(header.verification_data)
+          if (verificationDataParts.length !== 1) {
+            return errorHandler(RequestErrorEnum.InvalidVerificationData)
+          }
+
+          const ajvErrors = verifyPayload('SpreadTxToGroupSyncingReq', payload)
+          if (ajvErrors && ajvErrors.length > 0) {
+            this.mainLogger.error(`s${route}: request validation errors: ${ajvErrors}`)
+            return errorHandler(RequestErrorEnum.InvalidPayload)
+          }
+
+          // Deserialise the request using the deserializer helper
+          const req : SpreadTxToGroupSyncingReq= deserializeSpreadTxToGroupSyncingReq(requestStream)
+          // Business logic which should be inspired from the original handler
+          const node =this.p2p.state.getNode(header.sender_id)
+          const {data: data, appData: appData} = req
+          this.handleSharedTX(data,appData, node)
+        } finally {
+          this.profiler.scopedProfileSectionEnd(route)
+        }
+      },
+    }
+
+    this.p2p.registerInternalBinary(spreadTxToGroupSyncingBinaryHandler.name, spreadTxToGroupSyncingBinaryHandler.handler)
 
     this.p2p.registerGossipHandler(
       'spread_tx_to_group',
@@ -1861,11 +1910,23 @@ class TransactionQueue {
                       this.stateManager.currentCycleShardData.syncingNeighborsTxGroup
                     )
                     //this.p2p.sendGossipAll('spread_tx_to_group', acceptedTx, '', sender, this.stateManager.currentCycleShardData.syncingNeighborsTxGroup)
-                    this.p2p.tell(
-                      this.stateManager.currentCycleShardData.syncingNeighborsTxGroup,
-                      'spread_tx_to_group_syncing',
-                      acceptedTx
-                    )
+                    if (this.stateManager.config.p2p.useBinarySerializedEndpoints) {
+                      const request = acceptedTx as SpreadTxToGroupSyncingReq
+                      this.p2p.tellBinary<SpreadTxToGroupSyncingReq>(
+                        this.stateManager.currentCycleShardData.syncingNeighborsTxGroup,
+                        InternalRouteEnum.binary_spread_tx_to_group_syncing,
+                        request, 
+                        serializeSpreadTxToGroupSyncingReq,
+                        { sender_id: this.stateManager.currentCycleShardData.ourNode.id},
+                      )
+                    } else {
+                      this.p2p.tell(
+                        this.stateManager.currentCycleShardData.syncingNeighborsTxGroup,
+                        'spread_tx_to_group_syncing',
+                        acceptedTx
+                      )
+                    }
+                    
                   } else {
                     /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`routeAndQueueAcceptedTransaction: bugfix detected. avoid forwarding txs where globalModification == true ${txQueueEntry.logID}`)
                   }
