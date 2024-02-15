@@ -1788,6 +1788,11 @@ class StateManager {
             committingAppData: [],
             accounts: [],
           }
+          if (utils.isValidShardusAddress(req.accountIds) === false) {
+            nestedCountersInstance.countEvent('internal', `${route}-invalid_address`)
+            respond(false, serializeGetAccountQueueCountResp)
+            return
+          }
           for (const address of req.accountIds) {
             const { count, committingAppData } = this.transactionQueue.getAccountQueueCount(address, true)
             result.counts.push(count)
@@ -1799,9 +1804,10 @@ class StateManager {
               }
             }
           }
-          await respond(result, serializeGetAccountQueueCountResp)
+          respond(result, serializeGetAccountQueueCountResp)
         } catch (e) {
           if (logFlags.error) this.mainLogger.error(`${route} error: ${e}`)
+          nestedCountersInstance.countEvent('internal', `${route}-error`)
           respond(false, serializeGetAccountQueueCountResp)
         } finally {
           profilerInstance.scopedProfileSectionEnd(route, payload.length)
