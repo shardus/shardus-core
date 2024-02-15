@@ -34,10 +34,24 @@ import {
   TrieAccount,
   CycleShardData,
 } from './state-manager-types'
-import { isDebugModeMiddleware, isDebugModeMiddlewareLow, isDebugModeMiddlewareMedium } from '../network/debugMiddleware'
+import {
+  isDebugModeMiddleware,
+  isDebugModeMiddlewareLow,
+  isDebugModeMiddlewareMedium,
+} from '../network/debugMiddleware'
 import { appdata_replacer, errorToStringFull, Ordering } from '../utils'
 import { Response } from 'express-serve-static-core'
 import { shardusGetTime } from '../network'
+import { InternalBinaryHandler } from '../types/Handler'
+import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
+import {
+  SyncTrieHashesRequest,
+  deserializeSyncTrieHashesReq,
+  serializeSyncTrieHashesReq,
+} from '../types/SyncTrieHashesReq'
+import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
+import { getStreamWithTypeCheck } from '../types/Helpers'
 
 type Line = {
   raw: string
@@ -333,6 +347,88 @@ class AccountPatcher {
       }
     )
 
+    const syncTrieHashesBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_sync_trie_hashes,
+      handler: async (payload, respond, header, sign) => {
+        const route = InternalRouteEnum.binary_sync_trie_hashes
+        nestedCountersInstance.countEvent('internal', route)
+        this.profiler.scopedProfileSectionStart(route, false, payload.length)
+        try {
+          const stream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cSyncTrieHashesReq)
+          if (!stream) {
+            console.error('Failed to get stream with type check.')
+            return
+          }
+          const request = deserializeSyncTrieHashesReq(stream)
+          const cycle = request.cycle
+
+          let hashTrieSyncConsensus = this.hashTrieSyncConsensusByCycle.get(cycle)
+          if (hashTrieSyncConsensus == null) {
+            hashTrieSyncConsensus = {
+              cycle,
+              radixHashVotes: new Map(),
+              coverageMap: new Map(),
+            }
+            this.hashTrieSyncConsensusByCycle.set(cycle, hashTrieSyncConsensus)
+
+            const shardValues = this.stateManager.shardValuesByCycle.get(cycle)
+            if (shardValues == null) {
+              nestedCountersInstance.countEvent('accountPatcher', `sync_trie_hashes not ready c:${cycle}`)
+              console.error(`Shard values not ready for cycle: ${cycle}`)
+              return
+            }
+
+            //mark syncing radixes..
+            //todo compare to cycle!! only init if from current cycle.
+            this.initStoredRadixValues(cycle)
+          }
+
+          const node = NodeList.nodes.get(header.sender_id)
+          if (!node) {
+            console.error(`Node not found for sender_id: ${header.sender_id}`)
+            return
+          }
+
+          for (const nodeHashes of request.nodeHashes) {
+            //don't record the vote if we cant use it!
+            // easier than filtering it out later on in the stream.
+            if (this.isRadixStored(cycle, nodeHashes.radix) === false) {
+              continue
+            }
+
+            //todo: secure that the voter is allowed to vote.
+            let hashVote = hashTrieSyncConsensus.radixHashVotes.get(nodeHashes.radix)
+            if (hashVote == null) {
+              hashVote = { allVotes: new Map(), bestHash: nodeHashes.hash, bestVotes: 1 }
+              hashTrieSyncConsensus.radixHashVotes.set(nodeHashes.radix, hashVote)
+              hashVote.allVotes.set(nodeHashes.hash, { count: 1, voters: [node] })
+            } else {
+              const voteEntry = hashVote.allVotes.get(nodeHashes.hash)
+              if (voteEntry == null) {
+                hashVote.allVotes.set(nodeHashes.hash, { count: 1, voters: [node] })
+              } else {
+                const voteCount = voteEntry.count + 1
+                voteEntry.count = voteCount
+                voteEntry.voters.push(node)
+                //hashVote.allVotes.set(nodeHashes.hash, votes + 1)
+                //will ties be a problem? (not if we need a majority!)
+                if (voteCount > hashVote.bestVotes) {
+                  hashVote.bestVotes = voteCount
+                  hashVote.bestHash = nodeHashes.hash
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`Error processing syncTrieHashesBinaryHandler: ${e}`)
+        } finally {
+          profilerInstance.scopedProfileSectionEnd('sync_trie_hashes')
+        }
+      },
+    }
+
+    this.p2p.registerInternalBinary(syncTrieHashesBinaryHandler.name, syncTrieHashesBinaryHandler.handler)
+
     //get child accountHashes for radix.  //get the hashes and ids so we know what to fix.
     this.p2p.registerInternal(
       'get_trie_accountHashes',
@@ -578,27 +674,31 @@ class AccountPatcher {
       }
       res.end()
     })
-    Context.network.registerExternalGet('debug-patcher-dumpTree', isDebugModeMiddlewareMedium, (_req, res) => {
-      try {
-        // this.statemanager_fatal('debug shardTrie',`temp shardTrie ${utils.stringifyReduce(this.shardTrie.layerMaps[0].values().next().value)}`)
-        // res.write(`${utils.stringifyReduce(this.shardTrie.layerMaps[0].values().next().value)}\n`)
+    Context.network.registerExternalGet(
+      'debug-patcher-dumpTree',
+      isDebugModeMiddlewareMedium,
+      (_req, res) => {
+        try {
+          // this.statemanager_fatal('debug shardTrie',`temp shardTrie ${utils.stringifyReduce(this.shardTrie.layerMaps[0].values().next().value)}`)
+          // res.write(`${utils.stringifyReduce(this.shardTrie.layerMaps[0].values().next().value)}\n`)
 
-        const trieRoot = this.shardTrie.layerMaps[0].values().next().value
+          const trieRoot = this.shardTrie.layerMaps[0].values().next().value
 
-        //strip noisy fields
-        const tempString = JSON.stringify(trieRoot, utils.debugReplacer)
-        const processedObject = JSON.parse(tempString)
+          //strip noisy fields
+          const tempString = JSON.stringify(trieRoot, utils.debugReplacer)
+          const processedObject = JSON.parse(tempString)
 
-        // use stringify to put a stable sort on the object keys (important for comparisons)
-        const finalStr = utils.stringifyReduce(processedObject)
+          // use stringify to put a stable sort on the object keys (important for comparisons)
+          const finalStr = utils.stringifyReduce(processedObject)
 
-        this.statemanager_fatal('debug shardTrie', `temp shardTrie ${finalStr}`)
-        res.write(`${finalStr}\n`)
-      } catch (e) {
-        res.write(`${e}\n`)
+          this.statemanager_fatal('debug shardTrie', `temp shardTrie ${finalStr}`)
+          res.write(`${finalStr}\n`)
+        } catch (e) {
+          res.write(`${e}\n`)
+        }
+        res.end()
       }
-      res.end()
-    })
+    )
 
     Context.network.registerExternalGet(
       'debug-patcher-dumpTree-partial',
@@ -634,58 +734,62 @@ class AccountPatcher {
       }
     )
 
-    Context.network.registerExternalGet('debug-patcher-fail-hashes', isDebugModeMiddlewareLow, (_req, res) => {
-      try {
-        const lastCycle = this.p2p.state.getLastCycle()
-        const cycle = lastCycle.counter
-        const minVotes = this.calculateMinVotes()
-        const notEnoughVotesRadix = {}
-        const outOfSyncRadix = {}
+    Context.network.registerExternalGet(
+      'debug-patcher-fail-hashes',
+      isDebugModeMiddlewareLow,
+      (_req, res) => {
+        try {
+          const lastCycle = this.p2p.state.getLastCycle()
+          const cycle = lastCycle.counter
+          const minVotes = this.calculateMinVotes()
+          const notEnoughVotesRadix = {}
+          const outOfSyncRadix = {}
 
-        const hashTrieSyncConsensus = this.hashTrieSyncConsensusByCycle.get(cycle)
+          const hashTrieSyncConsensus = this.hashTrieSyncConsensusByCycle.get(cycle)
 
-        if (!hashTrieSyncConsensus) {
-          return res.json({ error: `Unable to find hashTrieSyncConsensus for last cycle ${lastCycle}` })
-        }
-
-        for (const radix of hashTrieSyncConsensus.radixHashVotes.keys()) {
-          const votesMap = hashTrieSyncConsensus.radixHashVotes.get(radix)
-          const ourTrieNode = this.shardTrie.layerMaps[this.treeSyncDepth].get(radix)
-
-          const hasEnoughVotes = votesMap.bestVotes >= minVotes
-          const isRadixInSync = ourTrieNode ? ourTrieNode.hash === votesMap.bestHash : false
-
-          if (!hasEnoughVotes || !isRadixInSync) {
-            const kvp = []
-            for (const [key, value] of votesMap.allVotes.entries()) {
-              kvp.push({
-                id: key,
-                count: value.count,
-                nodeIDs: value.voters.map((node) => utils.makeShortHash(node.id) + ':' + node.externalPort),
-              })
-            }
-            const simpleMap = {
-              bestHash: votesMap.bestHash,
-              ourHash: ourTrieNode ? ourTrieNode.hash : '',
-              bestVotes: votesMap.bestVotes,
-              minVotes,
-              allVotes: kvp,
-            }
-            if (!hasEnoughVotes) notEnoughVotesRadix[radix] = simpleMap // eslint-disable-line security/detect-object-injection
-            if (!isRadixInSync) outOfSyncRadix[radix] = simpleMap // eslint-disable-line security/detect-object-injection
+          if (!hashTrieSyncConsensus) {
+            return res.json({ error: `Unable to find hashTrieSyncConsensus for last cycle ${lastCycle}` })
           }
+
+          for (const radix of hashTrieSyncConsensus.radixHashVotes.keys()) {
+            const votesMap = hashTrieSyncConsensus.radixHashVotes.get(radix)
+            const ourTrieNode = this.shardTrie.layerMaps[this.treeSyncDepth].get(radix)
+
+            const hasEnoughVotes = votesMap.bestVotes >= minVotes
+            const isRadixInSync = ourTrieNode ? ourTrieNode.hash === votesMap.bestHash : false
+
+            if (!hasEnoughVotes || !isRadixInSync) {
+              const kvp = []
+              for (const [key, value] of votesMap.allVotes.entries()) {
+                kvp.push({
+                  id: key,
+                  count: value.count,
+                  nodeIDs: value.voters.map((node) => utils.makeShortHash(node.id) + ':' + node.externalPort),
+                })
+              }
+              const simpleMap = {
+                bestHash: votesMap.bestHash,
+                ourHash: ourTrieNode ? ourTrieNode.hash : '',
+                bestVotes: votesMap.bestVotes,
+                minVotes,
+                allVotes: kvp,
+              }
+              if (!hasEnoughVotes) notEnoughVotesRadix[radix] = simpleMap // eslint-disable-line security/detect-object-injection
+              if (!isRadixInSync) outOfSyncRadix[radix] = simpleMap // eslint-disable-line security/detect-object-injection
+            }
+          }
+          return res.json({
+            cycle,
+            notEnoughVotesRadix,
+            outOfSyncRadix,
+          })
+        } catch (e) {
+          console.log('Error', e)
+          res.write(`${e}\n`)
         }
-        return res.json({
-          cycle,
-          notEnoughVotesRadix,
-          outOfSyncRadix,
-        })
-      } catch (e) {
-        console.log('Error', e)
-        res.write(`${e}\n`)
+        res.end()
       }
-      res.end()
-    })
+    )
 
     Context.network.registerExternalGet('get-tree-last-insync', isDebugModeMiddlewareLow, (_req, res) => {
       res.write(`${this.failedLastTrieSync === false}\n`)
@@ -758,7 +862,7 @@ class AccountPatcher {
         res.write(`trieAccount: ${JSON.stringify(trieAccount)} \n`)
         res.write(`accountHash: ${JSON.stringify(accountHash)} \n`)
         res.write(`accountHashFull: ${JSON.stringify(accountHashFull)} \n`)
-        res.write(`accountData: ${JSON.stringify(accountData,appdata_replacer)} \n\n`)
+        res.write(`accountData: ${JSON.stringify(accountData, appdata_replacer)} \n\n`)
         res.write(`tests: \n`)
         if (accountData != null && accountData.length === 1 && accountHash != null) {
           res.write(`accountData hash matches cache ${accountData[0].stateId === accountHash.h} \n`)
@@ -2201,9 +2305,28 @@ class AccountPatcher {
 
     //send the messages we have built up.  (parallel waiting with promise.all)
     const promises = []
-    for (const messageEntry of messageToNodeMap.values()) {
-      const promise = this.p2p.tell([messageEntry.node], 'sync_trie_hashes', messageEntry.message)
-      promises.push(promise)
+    if (this.stateManager.config.p2p.useBinarySerializedEndpoints) {
+      for (const messageEntry of messageToNodeMap.values()) {
+        const syncTrieHashesRequest: SyncTrieHashesRequest = {
+          cycle,
+          nodeHashes: messageEntry.message.nodeHashes,
+        }
+        const promise = this.p2p.tellBinary<SyncTrieHashesRequest>(
+          [messageEntry.node],
+          InternalRouteEnum.binary_sync_trie_hashes,
+          syncTrieHashesRequest,
+          serializeSyncTrieHashesReq,
+          {
+            sender_id: Self.id,
+          }
+        )
+        promises.push(promise)
+      }
+    } else {
+      for (const messageEntry of messageToNodeMap.values()) {
+        const promise = this.p2p.tell([messageEntry.node], 'sync_trie_hashes', messageEntry.message)
+        promises.push(promise)
+      }
     }
     await Promise.all(promises)
   }
