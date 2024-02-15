@@ -39,8 +39,10 @@ export function deserializeSpreadAppliedVoteHashReq(stream: VectorBufferStream):
   const voteHash = stream.readString()
   let sign: Sign | undefined
   if (stream.readUInt8() === 1) {
-    sign.owner = stream.readString()
-    sign.sig = stream.readString()
+    sign = {
+      owner: stream.readString(),
+      sig: stream.readString(),
+    }
     return {
       txid,
       voteHash,
