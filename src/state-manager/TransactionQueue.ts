@@ -3702,6 +3702,10 @@ class TransactionQueue {
             continue
           }
           const filterdCorrespondingAccNodes = filteredNodes
+          const filterNodesIpPort = filterdCorrespondingAccNodes.map(
+            (node) => node.externalIp + ':' + node.externalPort
+          )
+          /* prettier-ignore */ if (logFlags.error) this.mainLogger.debug('tellcorrernodingnodesfinaldata', queueEntry.logID, ` : filterValidNodesForInternalMessage ${filterNodesIpPort} for accounts: ${utils.stringifyReduce(message.stateList)}`)
           if (this.config.p2p.useBinarySerializedEndpoints) {
             // convert legacy message to binary supported type
             const request = message as BroadcastFinalStateReq
@@ -3718,10 +3722,6 @@ class TransactionQueue {
               }
             )
           } else {
-          const filterNodesIpPort = filterdCorrespondingAccNodes.map(
-            (node) => node.externalIp + ':' + node.externalPort
-          /* prettier-ignore */ if (logFlags.error) this.mainLogger.debug('tellcorrernodingnodesfinaldata', queueEntry.logID, ` : filterValidNodesForInternalMessage ${filterNodesIpPort} for accounts: ${utils.stringifyReduce(message.stateList)}`)
-	  
             this.p2p.tell(filterdCorrespondingAccNodes, 'broadcast_finalstate', message)
           }
           totalShares++
