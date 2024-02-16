@@ -32,8 +32,8 @@ export function serializeGetAccountDataResp(
     stream.writeUInt8(obj.data.lastUpdateNeeded ? 1 : 0)
     stream.writeUInt16(obj.data.wrappedAccounts2.length)
     obj.data.wrappedAccounts2.forEach((wrappedAccount) => serializeWrappedData(stream, wrappedAccount))
-    stream.writeString(obj.data.highestTs.toString())
-    stream.writeString(obj.data.delta.toString())
+    stream.writeBigUInt64(BigInt(obj.data.highestTs))
+    stream.writeBigUInt64(BigInt(obj.data.delta))
   } else {
     stream.writeUInt8(0)
   }
@@ -67,8 +67,8 @@ export function deserializeGetAccountDataResp(stream: VectorBufferStream): GetAc
     for (let i = 0; i < wrappedAccounts2Length; i++) {
       wrappedAccounts2.push(deserializeWrappedData(stream))
     }
-    const highestTs = Number(stream.readString())
-    const delta = Number(stream.readString())
+    const highestTs = Number(stream.readBigUInt64())
+    const delta = Number(stream.readBigUInt64())
     data = { wrappedAccounts, lastUpdateNeeded, wrappedAccounts2, highestTs, delta }
   }
 
