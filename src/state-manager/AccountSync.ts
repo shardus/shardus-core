@@ -403,10 +403,14 @@ class AccountSync {
         nestedCountersInstance.countEvent('internal', route)
         this.profiler.scopedProfileSectionStart(route, false, payload.length)
 
-        const result = {} as GetAccountDataRespSerializable
+        const result = {
+          data: null,
+          errors: [],
+        } as GetAccountDataRespSerializable
         try {
           const reqStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cGetAccountDataReq)
           if (!reqStream) {
+            nestedCountersInstance.countEvent('internal', `${route}-invalid_request`)
             result.errors.push(`invalid request payload`)
             respond(result, serializeGetAccountDataResp)
             return
@@ -415,7 +419,8 @@ class AccountSync {
 
           // validate the request
           const valid = verifyGetAccountDataReq(readableReq)
-          if (!valid) {
+          if (valid === false) {
+            nestedCountersInstance.countEvent('internal', `${route}-invalid_account_ids`)
             result.errors.push(`request validation failed`)
             respond(result, serializeGetAccountDataResp)
             return
@@ -440,11 +445,9 @@ class AccountSync {
           result.data = accountData
           respond(result, serializeGetAccountDataResp)
         } catch (e) {
-          result.errors.push(errorToStringFull(e))
-          if (result.errors.length > 0) {
-            this.mainLogger.error(`${route}: request validation errors: ${result.errors}`)
-            respond(result, serializeGetAccountDataResp)
-          }
+          result.errors.push(`${route} internal error`)
+          this.mainLogger.error(`${route}: request validation errors: ${errorToStringFull(e)}`)
+          respond(result, serializeGetAccountDataResp)
         } finally {
           this.profiler.scopedProfileSectionEnd(route)
         }
@@ -498,10 +501,16 @@ class AccountSync {
         try {
           const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cGetAccountDataByListReq)
           if (!requestStream) {
+            nestedCountersInstance.countEvent('internal', `${route}-invalid_request`)
             respond({ accountData }, serializeGetAccountDataByListResp)
             return
           }
           const readableReq = deserializeGetAccountDataByListReq(requestStream)
+          if (utils.isValidShardusAddress(readableReq.accountIds) === false) {
+            nestedCountersInstance.countEvent('internal', `${route}-invalid_account_ids`)
+            respond({ accountData }, serializeGetAccountDataByListResp)
+            return
+          }
 
           const result = {} as GetAccountDataByListResp
 
@@ -517,6 +526,8 @@ class AccountSync {
           result.accountData = accountData
           respond(result, serializeGetAccountDataByListResp)
         } catch (e) {
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          this.mainLogger.error(`${route}: Exception executing request: ${errorToStringFull(e)}`)
           respond({ accountData: null }, serializeGetAccountDataByListResp)
         } finally {
           this.profiler.scopedProfileSectionEnd(route)

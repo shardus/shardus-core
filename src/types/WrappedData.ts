@@ -21,7 +21,7 @@ export function serializeWrappedData(stream: VectorBufferStream, obj: WrappedDat
   stream.writeString(obj.accountId)
   stream.writeString(obj.stateId)
   stream.writeBuffer(stateManager.app.binarySerializeObject(AppObjEnum.AppData, obj.data))
-  stream.writeString(obj.timestamp.toString())
+  stream.writeBigUInt64(BigInt(obj.timestamp))
   if (obj.syncData !== undefined) {
     stream.writeUInt8(1)
     stream.writeString(SerializeToJsonString(obj.syncData))
@@ -39,7 +39,7 @@ export function deserializeWrappedData(stream: VectorBufferStream): WrappedData 
     accountId: stream.readString(),
     stateId: stream.readString(),
     data: stateManager.app.binaryDeserializeObject(AppObjEnum.AppData, stream.readBuffer()),
-    timestamp: Number(stream.readString()),
+    timestamp: Number(stream.readBigUInt64()),
     syncData: stream.readUInt8() === 1 ? DeSerializeFromJsonString(stream.readString()) : undefined,
   }
 }

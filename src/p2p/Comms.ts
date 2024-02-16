@@ -111,13 +111,13 @@ function _extractPayloadBinary(wrappedPayload): Buffer {
   /* prettier-ignore */ if (logFlags.verbose) console.log('_extractPayloadBinary: wrappedPayload', JSON.stringify(wrappedPayload))
   let buffer = null
   if (wrappedPayload instanceof Buffer) {
-    /* prettier-ignore */ if (logFlags.verbose) info(`_extractPayload2: wrappedPayload is a buffer: ${wrappedPayload}`)
+    /* prettier-ignore */ if (logFlags.verbose) info(`_extractPayloadBinary: wrappedPayload is a buffer: ${wrappedPayload}`)
     buffer = wrappedPayload
   } else if (wrappedPayload.type === 'Buffer' && Array.isArray(wrappedPayload.data)) {
-    /* prettier-ignore */ if (logFlags.verbose) info(`_extractPayload2: wrappedPayload is a buffer struct: ${wrappedPayload}`)
+    /* prettier-ignore */ if (logFlags.verbose) info(`_extractPayloadBinary: wrappedPayload is a buffer struct: ${wrappedPayload}`)
     buffer = Buffer.from(wrappedPayload.data)
   } else {
-    nestedCountersInstance.countEvent('comms-route', `extractPayload2: bad wrappedPayload`)
+    nestedCountersInstance.countEvent('comms-route', `_extractPayloadBinary: bad wrappedPayload`)
     throw new Error(`Unsupported wrappedPayload type: ${wrappedPayload.type}`)
   }
 
@@ -265,8 +265,6 @@ export async function tellBinary<TReq>(
   }
   appHeader.sender_id = Self.id
 
-  const wrappedReq = requestSerializer(message, serializerFunc)
-
   if (commsCounters) {
     nestedCountersInstance.countEvent('comms-route', `tellBinary ${route}`, nodes.length)
     /* prettier-ignore */ nestedCountersInstance.countEvent('comms-route x recipients', `tellBinary ${route} recipients:${nodes.length}`, nodes.length)
@@ -280,6 +278,7 @@ export async function tellBinary<TReq>(
 
   const nonSelfNodes = nodes.filter((node) => node.id !== Self.id)
   try {
+    const wrappedReq = requestSerializer(message, serializerFunc)
     await network.tellBinary(nonSelfNodes, route, wrappedReq.getBuffer(), appHeader, tracker, logged)
   } catch (err) {
     warn('tellBinary: network.tellBinary: P2P TELL_BINARY: failed', err)
@@ -410,8 +409,6 @@ export async function askBinary<TReq, TResp>(
     throw new Error('Not asking self')
   }
 
-  const wrappedReq = requestSerializer(message, reqSerializerFunc)
-
   if (commsCounters) {
     nestedCountersInstance.countEvent('comms-route', `askBinary ${route}`)
     nestedCountersInstance.countEvent('comms-route x recipients', `askBinary ${route} recipients: 1`)
@@ -421,6 +418,7 @@ export async function askBinary<TReq, TResp>(
 
   let res, header: AppHeader, sign: Sign
   try {
+    const wrappedReq = requestSerializer(message, reqSerializerFunc)
     ;({ res, header, sign } = await network.askBinary(
       node,
       route,
@@ -468,8 +466,8 @@ export function registerInternal(route, handler) {
     internalRecvCounter++
     // We have internal requests turned off until we have a node id
     if (!acceptInternal) {
-      if (logFlags.p2pNonFatal) info('We are not currently accepting internal requests...')
-      await respond({ error: 'Not accepting internal requests' })
+      if (logFlags.p2pNonFatal) info(`${route} We are not currently accepting internal requests...`)
+      await respond({ error: `${route} error: Not accepting internal requests` })
       return
     }
 
@@ -514,13 +512,13 @@ export function registerInternal(route, handler) {
     tracker = payloadArray[2] || ''
     msgSize = payloadArray[3] || cNoSizeTrack
     if (!payload) {
-      warn('Payload unable to be extracted, possible missing signature...')
-      await respond({ error: 'Payload unable to be extracted' })
+      warn(`${route} Payload unable to be extracted, possible missing signature...`)
+      await respond({ error: `${route} error: Payload unable to be extracted` })
       return
     }
     if (!NodeList.nodes.has(sender)) {
-      warn('Internal routes can only be used by nodes in the network...')
-      await respond({ error: 'Sender not in node list' })
+      warn(`${route} Internal routes can only be used by nodes in the network...`)
+      await respond({ error: `${route} error: Sender not in node list` })
       return
     }
     if (route !== 'gossip') {
@@ -536,7 +534,7 @@ export function registerInternal(route, handler) {
     if (!hasHandlerResponded && route !== 'gossip') {
       nestedCountersInstance.countEvent('comms-route', `no-response`)
       nestedCountersInstance.countEvent('comms-route', `no-response ${route}`)
-      await respond({ error: 'No response from handler' })
+      await respond({ error: `${route} error: No response from handler` })
     }
   }
   // Include that in the handler function that is passed

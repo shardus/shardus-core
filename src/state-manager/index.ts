@@ -95,7 +95,6 @@ import {
   serializeGetAccountDataWithQueueHintsReq,
 } from '../types/GetAccountDataWithQueueHintsReq'
 import { WrappedDataFromQueueSerializable } from '../types/WrappedDataFromQueue'
-import { WrappedDataResponse } from '../types/WrappedDataResponse'
 import {
   deserializeGetAccountQueueCountResp,
   GetAccountQueueCountResp,
@@ -106,8 +105,7 @@ import {
   GetAccountQueueCountReq,
   serializeGetAccountQueueCountReq,
 } from '../types/GetAccountQueueCountReq'
-import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
-import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
+import { getStreamWithTypeCheck } from '../types/Helpers'
 
 export type Callback = (...args: unknown[]) => void
 
@@ -1691,10 +1689,16 @@ class StateManager {
           )
           if (!requestStream) {
             // implement error handling
+            nestedCountersInstance.countEvent('internal', `${route}-invalid_request`)
             respond({ accountData }, serializeGetAccountDataWithQueueHintsResp)
             return
           }
           const req = deserializeGetAccountDataWithQueueHintsReq(requestStream)
+          if (utils.isValidShardusAddress(req.accountIds) === false) {
+            nestedCountersInstance.countEvent('internal', `${route}-invalid_account_ids`)
+            respond({ accountData }, serializeGetAccountDataWithQueueHintsResp)
+            return
+          }
           let ourLockID = -1
           try {
             ourLockID = await this.fifoLock('accountModification')
@@ -1722,6 +1726,8 @@ class StateManager {
           }
           respond(resp, serializeGetAccountDataWithQueueHintsResp)
         } catch (e) {
+          if (logFlags.error) this.mainLogger.error(`${route} error: ${utils.errorToStringFull(e)}`)
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
           respond({ accountData: null }, serializeGetAccountDataWithQueueHintsResp)
         } finally {
           profilerInstance.scopedProfileSectionEnd(route, payload.length)
@@ -1788,7 +1794,7 @@ class StateManager {
             accounts: [],
           }
           if (utils.isValidShardusAddress(req.accountIds) === false) {
-            nestedCountersInstance.countEvent('internal', `${route}-invalid_address`)
+            nestedCountersInstance.countEvent('internal', `${route}-invalid_account_ids`)
             respond(false, serializeGetAccountQueueCountResp)
             return
           }
@@ -1806,7 +1812,7 @@ class StateManager {
           respond(result, serializeGetAccountQueueCountResp)
         } catch (e) {
           if (logFlags.error) this.mainLogger.error(`${route} error: ${e}`)
-          nestedCountersInstance.countEvent('internal', `${route}-error`)
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
           respond(false, serializeGetAccountQueueCountResp)
         } finally {
           profilerInstance.scopedProfileSectionEnd(route, payload.length)
