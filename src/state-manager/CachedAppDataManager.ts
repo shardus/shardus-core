@@ -105,7 +105,7 @@ class CachedAppDataManager {
 
     const send_cacheAppDataBinarySerializedHandler: Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_send_cachedAppData,
-      handler: (payload, response, header, sign) => {
+      handler: (payload, respond, header, sign) => {
         const route = InternalRouteEnum.binary_send_cachedAppData
         profilerInstance.scopedProfileSectionStart(route, false, payload.length)
         nestedCountersInstance.countEvent('internal', route)
@@ -133,6 +133,9 @@ class CachedAppDataManager {
             return
           }
           this.insertCachedItem(req.topic, cachedAppData.dataID, cachedAppData.appData, cachedAppData.cycle)
+        } catch (e) {
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          this.mainLogger.error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
         } finally {
           profilerInstance.scopedProfileSectionEnd(route)
         }

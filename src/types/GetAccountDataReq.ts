@@ -24,9 +24,9 @@ export function serializeGetAccountDataReq(
   stream.writeUInt8(cGetAccountDataReqVersion)
   stream.writeString(inp.accountStart)
   stream.writeString(inp.accountEnd)
-  stream.writeString(inp.tsStart.toString())
-  stream.writeString(inp.maxRecords.toString())
-  stream.writeString(inp.offset.toString())
+  stream.writeBigUInt64(BigInt(inp.tsStart))
+  stream.writeBigUInt64(BigInt(inp.maxRecords))
+  stream.writeBigUInt64(BigInt(inp.offset))
   stream.writeString(inp.accountOffset)
 }
 
@@ -38,9 +38,9 @@ export function deserializeGetAccountDataReq(stream: VectorBufferStream): GetAcc
   const obj: GetAccountDataReqSerializable = {
     accountStart: stream.readString(),
     accountEnd: stream.readString(),
-    tsStart: Number(stream.readString()),
-    maxRecords: Number(stream.readString()),
-    offset: Number(stream.readString()),
+    tsStart: Number(stream.readBigUInt64()),
+    maxRecords: Number(stream.readBigUInt64()),
+    offset: Number(stream.readBigUInt64()),
     accountOffset: stream.readString(),
   }
   return obj
@@ -48,6 +48,7 @@ export function deserializeGetAccountDataReq(stream: VectorBufferStream): GetAcc
 
 export function verifyGetAccountDataReq(obj: GetAccountDataReqSerializable): boolean {
   if (isValidShardusAddress([obj.accountStart, obj.accountEnd]) === false) {
+    /* prettier-ignore */ console.log(`GetAccountDataReq: Invalid accountStart or accountEnd: ${obj.accountStart}, ${obj.accountEnd}`)
     return false
   }
 }

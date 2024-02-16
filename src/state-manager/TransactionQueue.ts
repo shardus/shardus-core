@@ -290,7 +290,7 @@ class TransactionQueue {
     const broadcastStateRoute: P2PTypes.P2PTypes.Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_broadcast_state,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      handler: (payload, response, header, sign) => {
+      handler: (payload, respond, header, sign) => {
         const route = InternalRouteEnum.binary_broadcast_state
         nestedCountersInstance.countEvent('internal', route)
         profilerInstance.scopedProfileSectionStart(route, false, payload.length)
@@ -365,6 +365,9 @@ class TransactionQueue {
               /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_gotBroadcastData', `${queueEntry.acceptedTx.txId}`, ` qId: ${queueEntry.entryID} data:${state.accountId}`)
             }
           }
+        } catch (e) {
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          this.mainLogger.error(`${route}: Exception executing request: ${errorToStringFull(e)}`)
         } finally {
           profilerInstance.scopedProfileSectionEnd(route, payload.length)
         }
@@ -469,6 +472,9 @@ class TransactionQueue {
               /* prettier-ignore */ if (logFlags.playback && logFlags.verbose) this.logger.playbackLogNote(route, `${queueEntry.logID}`, `${route} addFinalData qId: ${queueEntry.entryID} data:${utils.makeShortHash(state.accountId)} collected keys: ${utils.stringifyReduce(Object.keys(queueEntry.collectedFinalData))}`)
             }
           }
+        } catch (e) {
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          this.mainLogger.error(`${route}: Exception executing request: ${errorToStringFull(e)}`)
         } finally {
           profilerInstance.scopedProfileSectionEnd(route, payload.length)
         }
