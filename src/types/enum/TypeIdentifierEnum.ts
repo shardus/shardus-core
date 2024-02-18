@@ -18,4 +18,7 @@ export enum TypeIdentifierEnum {
   cBroadcastFinalStateReq,
   cGetAccountDataReq,
   cGetAccountDataResp,
+  cGetAccountTrieHashesReq,
+  cGetAccountTrieHashesResp,
+  cRadixAndChildHashes
 }
