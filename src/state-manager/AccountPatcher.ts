@@ -373,8 +373,10 @@ class AccountPatcher {
 
             const shardValues = this.stateManager.shardValuesByCycle.get(cycle)
             if (shardValues == null) {
-              nestedCountersInstance.countEvent('accountPatcher', `sync_trie_hashes not ready c:${cycle}`)
-              console.error(`Shard values not ready for cycle: ${cycle}`)
+              if (logFlags.debug) {
+                nestedCountersInstance.countEvent('accountPatcher', `sync_trie_hashes not ready c:${cycle}`)
+                console.error(`Shard values not ready for cycle: ${cycle}`)
+              }
               return
             }
 
@@ -421,6 +423,8 @@ class AccountPatcher {
           }
         } catch (e) {
           console.error(`Error processing syncTrieHashesBinaryHandler: ${e}`)
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          this.mainLogger.error(`${route}: Exception executing request: ${errorToStringFull(e)}`)
         } finally {
           profilerInstance.scopedProfileSectionEnd('sync_trie_hashes')
         }
@@ -2316,9 +2320,7 @@ class AccountPatcher {
           InternalRouteEnum.binary_sync_trie_hashes,
           syncTrieHashesRequest,
           serializeSyncTrieHashesReq,
-          {
-            sender_id: Self.id,
-          }
+          {}
         )
         promises.push(promise)
       }

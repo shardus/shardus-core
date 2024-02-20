@@ -16,9 +16,9 @@ export function serializeSyncTrieHashesReq(
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cSyncTrieHashesReq)
   }
-  stream.writeUInt16(cSyncTrieHashesReqVersion)
-  stream.writeUInt32(request.cycle)
-  stream.writeUInt16(request.nodeHashes.length)
+  stream.writeUInt8(cSyncTrieHashesReqVersion)
+  stream.writeBigUInt64(BigInt(request.cycle))
+  stream.writeUInt32(request.nodeHashes.length)
   for (const nodeHash of request.nodeHashes) {
     stream.writeString(nodeHash.radix)
     stream.writeString(nodeHash.hash)
@@ -28,10 +28,10 @@ export function serializeSyncTrieHashesReq(
 export function deserializeSyncTrieHashesReq(stream: VectorBufferStream): SyncTrieHashesRequest {
   const version = stream.readUInt16()
   if (version > cSyncTrieHashesReqVersion) {
-    throw new Error('Unsupported version')
+    throw new Error('Unsupported version in deserializeSyncTrieHashesReq')
   }
-  const cycle = stream.readUInt32()
-  const nodeHashesLength = stream.readUInt16()
+  const cycle = Number(stream.readBigUInt64())
+  const nodeHashesLength = stream.readUInt32()
   const nodeHashes = []
   for (let i = 0; i < nodeHashesLength; i++) {
     const radix = stream.readString()
