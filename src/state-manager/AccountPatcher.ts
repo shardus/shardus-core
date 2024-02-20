@@ -51,7 +51,8 @@ import {
   serializeSyncTrieHashesReq,
 } from '../types/SyncTrieHashesReq'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
-import { getStreamWithTypeCheck } from '../types/Helpers'
+import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
+import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 
 type Line = {
   raw: string
@@ -353,11 +354,14 @@ class AccountPatcher {
         const route = InternalRouteEnum.binary_sync_trie_hashes
         nestedCountersInstance.countEvent('internal', route)
         this.profiler.scopedProfileSectionStart(route, false, payload.length)
+        const errorHandler = (
+          errorType: RequestErrorEnum,
+          opts?: { customErrorLog?: string; customCounterSuffix?: string }
+        ): void => requestErrorHandler(route, errorType, header, opts)
         try {
           const stream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cSyncTrieHashesReq)
           if (!stream) {
-            console.error('Failed to get stream with type check.')
-            return
+            return errorHandler(RequestErrorEnum.InvalidRequest)
           }
           const request = deserializeSyncTrieHashesReq(stream)
           const cycle = request.cycle
