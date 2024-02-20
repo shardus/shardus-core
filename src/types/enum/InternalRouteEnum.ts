@@ -7,4 +7,5 @@ export enum InternalRouteEnum {
   binary_get_account_data_by_list = 'binary/get_account_data_by_list', // ask
   binary_broadcast_finalstate = 'binary/broadcast_finalstate', // tell
   binary_get_account_data = 'binary/get_account_data', // ask
+  binary_request_state_for_tx_post = 'binary/request_state_for_tx_post', // ask
 }
