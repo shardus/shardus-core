@@ -18,4 +18,8 @@ export enum TypeIdentifierEnum {
   cBroadcastFinalStateReq,
   cGetAccountDataReq,
   cGetAccountDataResp,
+  cGetAppliedVoteReq,
+  cSign,
+  cAppliedVote,
+  cGetAppliedVoteResp,
 }
