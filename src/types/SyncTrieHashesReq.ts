@@ -1,12 +1,12 @@
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 
+const cSyncTrieHashesReqVersion = 1
+
 export type SyncTrieHashesRequest = {
   cycle: number
   nodeHashes: { radix: string; hash: string }[]
 }
-
-const cSyncTrieHashesReqVersion = 1
 
 export function serializeSyncTrieHashesReq(
   stream: VectorBufferStream,
@@ -26,9 +26,9 @@ export function serializeSyncTrieHashesReq(
 }
 
 export function deserializeSyncTrieHashesReq(stream: VectorBufferStream): SyncTrieHashesRequest {
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
   if (version > cSyncTrieHashesReqVersion) {
-    throw new Error('Unsupported version in deserializeSyncTrieHashesReq')
+    throw new Error('SyncTrieHashesRequest version mismatch')
   }
   const cycle = Number(stream.readBigUInt64())
   const nodeHashesLength = stream.readUInt32()

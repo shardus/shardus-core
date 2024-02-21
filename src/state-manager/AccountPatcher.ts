@@ -354,10 +354,12 @@ class AccountPatcher {
         const route = InternalRouteEnum.binary_sync_trie_hashes
         nestedCountersInstance.countEvent('internal', route)
         this.profiler.scopedProfileSectionStart(route, false, payload.length)
+
         const errorHandler = (
           errorType: RequestErrorEnum,
           opts?: { customErrorLog?: string; customCounterSuffix?: string }
         ): void => requestErrorHandler(route, errorType, header, opts)
+
         try {
           const stream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cSyncTrieHashesReq)
           if (!stream) {
@@ -377,10 +379,8 @@ class AccountPatcher {
 
             const shardValues = this.stateManager.shardValuesByCycle.get(cycle)
             if (shardValues == null) {
-              if (logFlags.debug) {
-                nestedCountersInstance.countEvent('accountPatcher', `sync_trie_hashes not ready c:${cycle}`)
-                console.error(`Shard values not ready for cycle: ${cycle}`)
-              }
+              nestedCountersInstance.countEvent('accountPatcher', `sync_trie_hashes not ready c:${cycle}`)
+              if (logFlags.debug) console.error(`Shard values not ready for cycle: ${cycle}`)
               return
             }
 
@@ -390,19 +390,13 @@ class AccountPatcher {
           }
 
           const node = NodeList.nodes.get(header.sender_id)
-          if (!node) {
-            console.error(`Node not found for sender_id: ${header.sender_id}`)
-            return
-          }
 
           for (const nodeHashes of request.nodeHashes) {
-            //don't record the vote if we cant use it!
-            // easier than filtering it out later on in the stream.
             if (this.isRadixStored(cycle, nodeHashes.radix) === false) {
               continue
             }
 
-            //todo: secure that the voter is allowed to vote.
+            // todo: secure that the voter is allowed to vote.
             let hashVote = hashTrieSyncConsensus.radixHashVotes.get(nodeHashes.radix)
             if (hashVote == null) {
               hashVote = { allVotes: new Map(), bestHash: nodeHashes.hash, bestVotes: 1 }
@@ -416,8 +410,6 @@ class AccountPatcher {
                 const voteCount = voteEntry.count + 1
                 voteEntry.count = voteCount
                 voteEntry.voters.push(node)
-                //hashVote.allVotes.set(nodeHashes.hash, votes + 1)
-                //will ties be a problem? (not if we need a majority!)
                 if (voteCount > hashVote.bestVotes) {
                   hashVote.bestVotes = voteCount
                   hashVote.bestHash = nodeHashes.hash
@@ -430,7 +422,7 @@ class AccountPatcher {
           nestedCountersInstance.countEvent('internal', `${route}-exception`)
           this.mainLogger.error(`${route}: Exception executing request: ${errorToStringFull(e)}`)
         } finally {
-          profilerInstance.scopedProfileSectionEnd('sync_trie_hashes')
+          profilerInstance.scopedProfileSectionEnd(route)
         }
       },
     }
