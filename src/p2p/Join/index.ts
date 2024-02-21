@@ -453,6 +453,11 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   
   const updated: P2P.NodeListTypes.Update[] = []
 
+  if (record.startedSyncing.includes(Self.id)) {
+    Self.updateNodeState(P2P.P2PTypes.NodeStatus.SYNCING)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log(`join:parseRecord node-selcted cycle: ${record.counter} updated self to syncing`)
+  }
+
   for (const nodeId of record.startedSyncing) {
     if (NodeList.selectedById.has(nodeId)) {
       updated.push({

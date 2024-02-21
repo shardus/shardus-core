@@ -519,6 +519,19 @@ async function runQ3() {
     }
   }
 
+  if (currentQuarter === 3 && Self.isActive) {
+    const cycleData = JSON.stringify({
+      port: Self.port,
+      cycleNumber: record.counter,
+      cycleRecord: record,
+    }) + '\n'
+    fs.appendFile(filePath, cycleData, err => {
+      if (err) {
+        console.error('Error appending to file:', err);
+      }
+    });
+  }
+
   /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("cycle record: ", record)
 
   /*
