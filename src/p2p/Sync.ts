@@ -24,7 +24,6 @@ import {
 import * as JoinV2 from './Join/v2'
 import { deleteStandbyNode } from './Join/v2/unjoin'
 import { logFlags } from '../logger'
-import { currentQuarter } from './CycleCreator'
 import fs from 'fs'
 import path from 'path'
 
