@@ -31,11 +31,12 @@ export const deserializeGetAccountDataByHashesReq = (stream: VectorBufferStream)
   if(version !== cGetAccountDataByHashesReqVersion) {
     throw new Error(`GetAccountDataByHashesReqDeserializer expected version cGetAccountDataByHashesReqVersion, got ${version}`);
   }
-  const result: GetAccountDataByHashesReq = {
-    cycle: Number(stream.readString()),
-    accounts: []
-  };
+  const cycleNumber = Number(stream.readString())
   const accountsLength = stream.readUInt32();
+  const result: GetAccountDataByHashesReq = {
+    cycle: cycleNumber,
+    accounts: new Array<AccountIDAndHash>(accountsLength) 
+  };
   for(let i = 0; i < accountsLength; i++) {
     result.accounts.push({
       accountID: stream.readString(),

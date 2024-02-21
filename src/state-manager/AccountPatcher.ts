@@ -533,7 +533,7 @@ class AccountPatcher {
       name: InternalRouteEnum.binary_get_account_data_by_hashes,
       handler: async (payload, respond, header, sign) => {
           profilerInstance.scopedProfileSectionStart(getAccountDataByHashesBinaryHandler.name)
-          nestedCountersInstance.countEvent('accountPatcher', InternalRouteEnum.binary_get_account_data_by_hashes)
+          nestedCountersInstance.countEvent('internal', InternalRouteEnum.binary_get_account_data_by_hashes)
           const result = { accounts: [], stateTableData: [] } as GetAccountDataByHashesResp
         try{
 
@@ -605,10 +605,10 @@ class AccountPatcher {
           }
 
           if (queryStats.returned < req.accounts.length) {
-            nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes incomplete`)
+            nestedCountersInstance.countEvent('internal', `${InternalRouteEnum.binary_get_account_data_by_hashes} incomplete`)
             queryStats.missingResp = true
             if (queryStats.returned === 0) {
-              nestedCountersInstance.countEvent('accountPatcher', `get_account_data_by_hashes no results`)
+              nestedCountersInstance.countEvent('internal', `${InternalRouteEnum.binary_get_account_data_by_hashes} no results`)
               queryStats.noResp = true
             }
           }
