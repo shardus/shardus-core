@@ -147,15 +147,15 @@ export function updateRecord(
   record: P2P.CycleCreatorTypes.CycleRecord,
   _prev: P2P.CycleCreatorTypes.CycleRecord
 ) {
-  console.log(`node ${Self.port}`)
   console.log(`cycle number ${record.counter}`)
   const active = NodeList.activeByIdOrder.length
   const activated = []
   const activatedPublicKeys = []
 
-  console.log(`active txs ${txs.active}`)
+  console.log(`active txs`)
+  console.log(txs.active)
   console.log(`ready list`)
-  NodeList.readyByTimeAndIdOrder.forEach(node => console.log(node.externalPort))
+  NodeList.readyByTimeAndIdOrder.forEach(node => console.log(`port: ${node.externalPort} id: ${node.id}`))
 
   for (const request of txs.active) {
     const publicKey = request.sign.owner
