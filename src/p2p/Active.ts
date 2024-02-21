@@ -147,15 +147,9 @@ export function updateRecord(
   record: P2P.CycleCreatorTypes.CycleRecord,
   _prev: P2P.CycleCreatorTypes.CycleRecord
 ) {
-  console.log(`cycle number ${record.counter}`)
   const active = NodeList.activeByIdOrder.length
   const activated = []
   const activatedPublicKeys = []
-
-  console.log(`active txs`)
-  console.log(txs.active)
-  console.log(`ready list`)
-  NodeList.readyByTimeAndIdOrder.forEach(node => console.log(`port: ${node.externalPort} id: ${node.id}`))
 
   if (NodeList.readyByTimeAndIdOrder.length > 0) {
     const selectedNodes = selectNodesFromReadyList(_prev.mode)
