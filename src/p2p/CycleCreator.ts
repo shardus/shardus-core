@@ -505,7 +505,7 @@ async function runQ3() {
   // Get txs and create this cycle's record, marker, and cert
   txs = collectCycleTxs()
   ;({ record, marker, cert } = makeCycleData(txs, CycleChain.newest))
-  
+
   if (config.debug.enableCycleRecordDebugTool) {
     if (currentQuarter === 3 && Self.isActive) {
       const cycleData = JSON.stringify({
@@ -519,19 +519,6 @@ async function runQ3() {
         }
       });
     }
-  }
-
-  if (currentQuarter === 3 && Self.isActive) {
-    const cycleData = JSON.stringify({
-      port: Self.port,
-      cycleNumber: record.counter,
-      cycleRecord: record,
-    }) + '\n'
-    fs.appendFile(filePath, cycleData, err => {
-      if (err) {
-        console.error('Error appending to file:', err);
-      }
-    });
   }
 
   /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("cycle record: ", record)
