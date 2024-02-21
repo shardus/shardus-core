@@ -316,10 +316,10 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
     }
   }
 
-<<<<<<< HEAD
   if (config.debug.enableCycleRecordDebugTool) {
     if (Self.isActive) {
       const cycleData = JSON.stringify({
+        port: Self.port,
         cycleNumber: cycle.counter,
         cycleRecord: cycle,
       }) + '\n'
@@ -329,19 +329,6 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
         }
       });
     }
-=======
-  if (Self.isActive) {
-    const cycleData = JSON.stringify({
-      port: Self.port,
-      cycleNumber: cycle.counter,
-      cycleRecord: cycle,
-    }) + '\n'
-    fs.appendFile(filePath, cycleData, err => {
-      if (err) {
-        console.error('Error appending to file:', err);
-      }
-    });
->>>>>>> cf6cd058 (save workign state)
   }
 
   const marker = CycleCreator.makeCycleMarker(cycle)
