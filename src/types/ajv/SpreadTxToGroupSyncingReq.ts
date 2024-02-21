@@ -1,7 +1,4 @@
-import Ajv from 'ajv'
 import { addSchema } from '../../utils/serialization/SchemaHelpers'
-
-const ajv = new Ajv()
 const schemaSpreadTxToGroupSyncingReq = {
   type: 'object',
   properties: {

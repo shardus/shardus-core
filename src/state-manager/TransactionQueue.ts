@@ -516,15 +516,6 @@ class TransactionQueue {
             return errorHandler(RequestErrorEnum.InvalidRequest)
           }
 
-          // verification data checks
-          if (header.verification_data == null) {
-            return errorHandler(RequestErrorEnum.MissingVerificationData)
-          }
-          const verificationDataParts = verificationDataSplitter(header.verification_data)
-          if (verificationDataParts.length !== 1) {
-            return errorHandler(RequestErrorEnum.InvalidVerificationData)
-          }
-
           const ajvErrors = verifyPayload('SpreadTxToGroupSyncingReq', payload)
           if (ajvErrors && ajvErrors.length > 0) {
             this.mainLogger.error(`s${route}: request validation errors: ${ajvErrors}`)
@@ -532,11 +523,14 @@ class TransactionQueue {
           }
 
           // Deserialise the request using the deserializer helper
-          const req : SpreadTxToGroupSyncingReq= deserializeSpreadTxToGroupSyncingReq(requestStream)
+          const req: SpreadTxToGroupSyncingReq = deserializeSpreadTxToGroupSyncingReq(requestStream)
           // Business logic which should be inspired from the original handler
-          const node =this.p2p.state.getNode(header.sender_id)
-          const {data: data, appData: appData} = req
-          this.handleSharedTX(data,appData, node)
+          const node = this.p2p.state.getNode(header.sender_id)
+          const { data: data, appData: appData } = req
+          this.handleSharedTX(data, appData, node)
+        } catch (e) {
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          this.mainLogger.error(`${route}: Exception executing request: ${errorToStringFull(e)}`)
         } finally {
           this.profiler.scopedProfileSectionEnd(route)
         }
@@ -1917,7 +1911,7 @@ class TransactionQueue {
                         InternalRouteEnum.binary_spread_tx_to_group_syncing,
                         request, 
                         serializeSpreadTxToGroupSyncingReq,
-                        { sender_id: this.stateManager.currentCycleShardData.ourNode.id},
+                        {},
                       )
                     } else {
                       this.p2p.tell(

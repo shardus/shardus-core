@@ -1,5 +1,6 @@
+import { stateManager } from '../p2p/Context'
 import {
-  AcceptedTx,
+  AppObjEnum,
   OpaqueTransaction,
   ShardusMemoryPatternsInput,
   TransactionKeys,
@@ -14,7 +15,7 @@ export type SpreadTxToGroupSyncingReq = {
   txId: string
   keys: TransactionKeys
   data: OpaqueTransaction
-  appData: any
+  appData: unknown
   shardusMemoryPatterns: ShardusMemoryPatternsInput
 }
 
@@ -24,31 +25,28 @@ export function serializeSpreadTxToGroupSyncingReq(
   root = false
 ): void {
   if (root) {
-    stream.writeUInt16(TypeIdentifierEnum.cSpreadTxToGroupSyncingReq)
+    stream.writeUInt8(TypeIdentifierEnum.cSpreadTxToGroupSyncingReq)
   }
-  stream.writeUInt16(cSpreadTxToGroupSyncingReqVersion)
+  stream.writeUInt8(cSpreadTxToGroupSyncingReqVersion)
   stream.writeBigUInt64(BigInt(inp.timestamp))
   stream.writeString(inp.txId)
-  stream.writeString(SerializeToJsonString(inp.keys))
-  const dataBuffer = Buffer.from(SerializeToJsonString(inp.data), 'utf8')
-  stream.writeBuffer(dataBuffer)
-  stream.writeString(SerializeToJsonString(inp.appData))
+  stream.writeString(SerializeToJsonString(inp.keys)) 
+  stream.writeString(SerializeToJsonString(inp.data))
+  stream.writeBuffer(stateManager.app.binarySerializeObject(AppObjEnum.AppData, inp.appData))
   stream.writeString(SerializeToJsonString(inp.shardusMemoryPatterns))
 }
 
 export function deserializeSpreadTxToGroupSyncingReq(stream: VectorBufferStream): SpreadTxToGroupSyncingReq {
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
   if (version > cSpreadTxToGroupSyncingReqVersion) {
-    throw new Error('Unsupported version')
+    throw new Error('SpreadTxToGroupSyncingReq Unsupported version')
   }
-  const dataBuffer = stream.readBuffer()
-  const dataString = dataBuffer.toString('utf8')
   return {
     timestamp: Number(stream.readBigUInt64()),
     txId: stream.readString(),
     keys: DeSerializeFromJsonString(stream.readString()),
-    data: DeSerializeFromJsonString(dataString),
-    appData: DeSerializeFromJsonString(stream.readString()),
+    data: DeSerializeFromJsonString(stream.readString()),
+    appData: stateManager.app.binaryDeserializeObject(AppObjEnum.AppData, stream.readBuffer()),//DeSerializeFromJsonString(stream.readString()),
     shardusMemoryPatterns: DeSerializeFromJsonString(stream.readString()),
   }
 }
