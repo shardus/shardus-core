@@ -167,7 +167,7 @@ class AccountGlobals {
       }
     )
 
-    const GlobalAccountReportBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
+    const globalAccountReportBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_get_globalaccountreport,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       handler: async (payload, respond, header, sign) => {
@@ -227,6 +227,9 @@ class AccountGlobals {
             // TODO: if we have more than 900 keys to query in this list must split this into multiple queries!.. ok technically this will not impact liberdus but it could impact
             //       a dapp that uses sqlite
             accountData = await this.app.getAccountDataByList(toQuery)
+          } catch (e) {
+            nestedCountersInstance.countEvent('internal', `${route}-exception`)
+            this.mainLogger.error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
           } finally {
             this.stateManager.fifoUnlock('accountModification', ourLockID)
           }
@@ -247,14 +250,18 @@ class AccountGlobals {
           result.accounts.sort(utils.sort_id_Asc)
           result.combinedHash = this.crypto.hash(result)
           respond(result, serializeGlobalAccountReportResp)
-        } finally {
+        } 
+        catch(e){
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          this.mainLogger.error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
+        }finally {
           this.profiler.scopedProfileSectionEnd(route)
         }
       },
     }
     this.p2p.registerInternalBinary(
-      GlobalAccountReportBinaryHandler.name,
-      GlobalAccountReportBinaryHandler.handler
+      globalAccountReportBinaryHandler.name,
+      globalAccountReportBinaryHandler.handler
     )
   }
 
