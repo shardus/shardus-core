@@ -46,7 +46,9 @@ import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { deserializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
 import { getStreamWithTypeCheck } from '../types/Helpers'
 import { GetAccountDataRespSerializable, serializeGetAccountDataResp } from '../types/GetAccountDataResp'
-import { deserializeGetAccountDataReq, verifyGetAccountDataReq } from '../types/GetAccountDataReq'
+import { deserializeGetAccountDataReq } from '../types/GetAccountDataReq'
+import { GlobalAccountReportReqSerializable, serializeGlobalAccountReportReq } from '../types/GlobalAccountReportReq'
+import { GlobalAccountReportRespSerializable, deserializeGlobalAccountReportResp } from '../types/GlobalAccountReportResp'
 
 const REDUNDANCY = 3
 
@@ -1043,7 +1045,23 @@ class AccountSync {
 
       // Various failure cases will alter the returned result so that it is tallied in a more orderly way.
       // The random numbers were kept to prevent the hash of results from being equal, but now custom equalFn takes care of this concern
-      let result = await this.p2p.ask(node, 'get_globalaccountreport', {})
+      let result
+      if (this.stateManager.config.p2p.useBinarySerializedEndpoints) {
+        const request = {} as GlobalAccountReportReqSerializable
+        result = await this.p2p.askBinary<
+          GlobalAccountReportReqSerializable,
+          GlobalAccountReportRespSerializable
+        >(
+          node,
+          InternalRouteEnum.binary_get_globalaccountreport,
+          request,
+          serializeGlobalAccountReportReq,
+          deserializeGlobalAccountReportResp,
+          {}
+        )
+      } else {
+        result = await this.p2p.ask(node, 'get_globalaccountreport', {})
+      }
       return checkResultFn(result, node.id)
     }
 
