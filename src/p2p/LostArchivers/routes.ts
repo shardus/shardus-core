@@ -175,6 +175,12 @@ const refuteLostArchiverRoute: P2P.P2PTypes.Route<Handler> = {
     }
     const refuteMsg = req.body as SignedObject<ArchiverRefutesLostMsg>
     const target = refuteMsg.archiver
+
+    if (!crypto.verify(refuteMsg, refuteMsg.sign.owner)) {
+      res.json({ status: 'failure', message: 'invalid signature' })
+      return
+    }
+
     // to-do: check target is a string or hexstring and min length
     let record = lostArchiversMap.get(target)
     if (!record) {
