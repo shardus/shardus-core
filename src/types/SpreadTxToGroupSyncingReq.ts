@@ -25,7 +25,7 @@ export function serializeSpreadTxToGroupSyncingReq(
   root = false
 ): void {
   if (root) {
-    stream.writeUInt8(TypeIdentifierEnum.cSpreadTxToGroupSyncingReq)
+    stream.writeUInt16(TypeIdentifierEnum.cSpreadTxToGroupSyncingReq)
   }
   stream.writeUInt8(cSpreadTxToGroupSyncingReqVersion)
   stream.writeBigUInt64(BigInt(inp.timestamp))
