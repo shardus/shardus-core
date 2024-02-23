@@ -26,10 +26,11 @@ const node: ShardusTypes.Node = {
   curvePublicKey: '168fa9e1b8d07095842d0f1e829ec69bcbcfd5665bbde4f9c0ef5b540c42f94e',
   status: NodeStatus.ACTIVE,
   cycleJoined: '',
-  counterRefreshed: 0,
+  counterSelected: 0,
   id: '6b169279669234dc9c9c86a138b9aef217bf4f784d2c1593238f5dbc05c27677',
-  syncingTimestamp: Date.now(),
+  selectedTimestamp: Date.now(),
   readyTimestamp: 0,
+  syncingTimestamp: 0,
 }
 
 const defaultConfigs: ShardusTypes.StrictShardusConfiguration = SHARDUS_CONFIG

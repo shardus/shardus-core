@@ -224,7 +224,7 @@ export function getDebug() {
     const actv = record.active
     const exp = record.expired
     const desr = record.desired
-    const joind = record.joinedConsensors.map((c) => `${c.externalIp}:${c.externalPort}`)
+    const joind = record.selectedConsensors.map((c) => `${c.externalIp}:${c.externalPort}`)
     const actvd = record.activated.map((id) => {
       if (idToIpPort[id]) return idToIpPort[id]
       const node = nodes.get(id)
@@ -244,7 +244,7 @@ export function getDebug() {
     const refu = record.refuted.map((id) => (idToIpPort[id] ? idToIpPort[id] : 'x' + id.slice(0, 3)))
     const apopd = record.apoptosized.map((id) => (idToIpPort[id] ? idToIpPort[id] : 'x' + id.slice(0, 3)))
     const rfshd = record.refreshedConsensors.map(
-      (c) => `${c.externalIp}:${c.externalPort}-${c.counterRefreshed}`
+      (c) => `${c.externalIp}:${c.externalPort}-${c.counterSelected}`
     )
 
     const str = `      ${ctr}:${prev}:${rhash} { actv:${actv}, exp:${exp}, desr:${desr}, joind:[${joind.join()}], actvd:[${actvd.join()}], lost:[${lost.join()}] refu:[${refu.join()}] apop:[${apopd.join()}] rmvd:[${

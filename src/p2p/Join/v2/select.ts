@@ -113,15 +113,15 @@ export function selectNodes(maxAllowed: number): void {
  * Notifies the nodes that have been selected that they have been selected by
  * calling their `accepted` endpoints.`
  */
-export async function notifyNewestJoinedConsensors(): Promise<void> {
+export async function notifyNewestSelectedConsensors(): Promise<void> {
   return //accepted endpoint seem deprecated and always fails!
 
   //   const counter = CycleChain.getNewest().counter
 
   //   if (!Self.isActive) {
   //     if (Self.isRestartNetwork && Self.isFirst) {
-  //       nestedCountersInstance.countEvent('joinV2', `C${counter}: notifyNewestJoinedConsensors: isRestartNetwork && isFirst`)
-  //       notifyingNewestJoinedConsensors()
+  //       nestedCountersInstance.countEvent('joinV2', `C${counter}: notifyNewestSelectedConsensors: isRestartNetwork && isFirst`)
+  //       notifyNewestSelectedConsensors()
   //       // // decide if we should be in charge of notifying joining nodes
   //       // const params = {
   //       //   getOurNodeIndex: CycleChain.getNewest().mode === 'restart' ? 0 : getOurNodeIndex(),
@@ -159,16 +159,16 @@ export async function notifyNewestJoinedConsensors(): Promise<void> {
 
   //   // if so, do so
   //   if (shouldNotify) {
-  //     nestedCountersInstance.countEvent('joinV2', `C${counter}: notifyNewestJoinedConsensors: shouldNotify`)
-  //     notifyingNewestJoinedConsensors()
+  //     nestedCountersInstance.countEvent('joinV2', `C${counter}: notifyingNewestSelectedConsensors: shouldNotify`)
+  //     notifyingNewestSelectedConsensors()
   //   }
 }
 
-export async function notifyingNewestJoinedConsensors(): Promise<void> {
+export async function notifyingNewestSelectedConsensors(): Promise<void> {
   const marker = CycleChain.getCurrentCycleMarker()
   const counter = CycleChain.getNewest().counter
 
-  for (const joinedConsensor of CycleChain.newest.joinedConsensors) {
+  for (const joinedConsensor of CycleChain.newest.selectedConsensors) {
     const publicKey = joinedConsensor.publicKey
 
     // no need to notify ourselves
@@ -187,7 +187,7 @@ export async function notifyingNewestJoinedConsensors(): Promise<void> {
       .catch((e) => {
         nestedCountersInstance.countEvent(
           'joinV2',
-          `C${counter}: notifyingNewestJoinedConsensors: http post failed`
+          `C${counter}: notifyingNewestSelectedConsensors: http post failed`
         )
         console.error(`C${counter} failed to notify node ${publicKey} that it has been selected:`, e)
       })

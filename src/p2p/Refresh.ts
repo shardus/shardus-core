@@ -60,7 +60,7 @@ export function validateRecordTypes(rec: P2P.RefreshTypes.Record): string {
       joinRequestTimestamp: 'n',
       publicKey: 's',
       cycleJoined: 's',
-      counterRefreshed: 'n',
+      counterSelected: 'n',
       id: 's',
       curvePublicKey: 's',
       status: 's',
@@ -113,20 +113,20 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
     for (const refreshed of record.refreshedConsensors) {
       const node = NodeList.nodes.get(refreshed.id)
       if (node) {
-        // If it's in our node list, we update its counterRefreshed
-        // (IMPORTANT: update counterRefreshed only if its greater than ours)
-        if (record.counter > node.counterRefreshed) {
-          updated.push({ id: refreshed.id, counterRefreshed: record.counter })
+        // If it's in our node list, we update its counterSelected
+        // (IMPORTANT: update counterSelected only if its greater than ours)
+        if (record.counter > node.counterSelected) {
+          updated.push({ id: refreshed.id, counterSelected: record.counter })
         }
       } else {
         // If it's not in our node list, we add it...
         added.push(refreshed)
         // and immediately update its status to ACTIVE
-        // (IMPORTANT: update counterRefreshed to the records counter)
+        // (IMPORTANT: update counterSelected to the records counter)
         updated.push({
           id: refreshed.id,
           status: P2P.P2PTypes.NodeStatus.ACTIVE,
-          counterRefreshed: record.counter,
+          counterSelected: record.counter,
         })
       }
     }
@@ -145,10 +145,10 @@ export function sendRequests() {}
 
 function refreshConsensors() {
   /**
-   * [NOTE] We could update the counterRefreshed value here before putting
+   * [NOTE] We could update the counterSelected value here before putting
    * it into the cycle record, but we would have to make a copy of the node
    * entry to avoid mutating our node list. So instead, we update the
-   * counterRefreshed value on the parsing side.
+   * counterSelected value on the parsing side.
    */
 
   // [IMPORTANT] We need to put a copy into the cycle record, so that
@@ -156,9 +156,9 @@ function refreshConsensors() {
 
   const refreshCount = getRefreshCount()
 
-  // Return copies of the nodes with the oldest counterRefreshed
+  // Return copies of the nodes with the oldest counterSelected
   const nodesToRefresh = [...NodeList.activeByIdOrder]
-    .sort(propComparator2('counterRefreshed', 'id'))
+    .sort(propComparator2('counterSelected', 'id'))
     .splice(0, refreshCount)
     .map((node) => deepmerge({}, node))
 
@@ -210,7 +210,7 @@ export function cyclesToKeep() {
     for (const n of record.refreshedConsensors) {
       if (!removed.includes(n.id) && !seen.has(n.id)) seen.set(n.id, 1)
     }
-    for (const n of record.joinedConsensors) {
+    for (const n of record.selectedConsensors) {
       if (!removed.includes(n.id) && !seen.has(n.id)) seen.set(n.id, 1)
     }
     if (seen.size >= totalNodeCount(newest)) break

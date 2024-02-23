@@ -395,7 +395,7 @@ export function startupV2(): Promise<boolean> {
               submitStandbyRefresh(payload)
               nestedCountersInstance.countEvent('p2p', `submitted KeepInStandby request`)
             }
-          }  
+          }
           */
 
           if (isFirstRefresh) {
@@ -889,7 +889,7 @@ async function syncCycleChain(selfId: string): Promise<void> {
 async function checkNodeId(nodeMatch: (node: any) => boolean, selfId: string): Promise<void> {
   const newestCycle = CycleChain.getNewest()
 
-  let node = newestCycle.joinedConsensors.find(nodeMatch)
+  let node = newestCycle.selectedConsensors.find(nodeMatch)
 
   // for nodes joining the network in some cases the correct cycle to check is the previous one that is not in the cycle chain of the node
   // query the archiver for the latest cycles if we can't find the node in the current cycle
@@ -898,7 +898,7 @@ async function checkNodeId(nodeMatch: (node: any) => boolean, selfId: string): P
     if (logFlags.p2pNonFatal) info('Getting latest cycles from archiver check node id')
     const latestCycles = await getLatestCyclesFromArchiver(4)
     for (const cycle of latestCycles) {
-      node = cycle.joinedConsensors.find(nodeMatch)
+      node = cycle.selectedConsensors.find(nodeMatch)
       if (node) {
         break
       }
@@ -1158,8 +1158,9 @@ export function getThisNodeInfo(): P2P.P2PTypes.P2PNode {
   const address = publicKey
   const joinRequestTimestamp = utils.getTime('s')
   const activeTimestamp = 0
-  const syncingTimestamp = 0
+  const selectedTimestamp = 0
   const readyTimestamp = 0
+  const syncingTimestamp = 0
   const nodeInfo = {
     publicKey,
     externalIp,
@@ -1169,8 +1170,9 @@ export function getThisNodeInfo(): P2P.P2PTypes.P2PNode {
     address,
     joinRequestTimestamp,
     activeTimestamp,
-    syncingTimestamp,
+    selectedTimestamp,
     readyTimestamp,
+    syncingTimestamp,
   }
   if (logFlags.p2pNonFatal) info(`Node info of this node: ${JSON.stringify(nodeInfo)}`)
   return nodeInfo

@@ -9,7 +9,7 @@ import { config, crypto, shardus } from '../../Context'
 import * as CycleChain from '../../CycleChain'
 import * as Self from '../../Self'
 import rfdc from 'rfdc'
-import { executeNodeSelection, notifyNewestJoinedConsensors } from './select'
+import { executeNodeSelection, notifyNewestSelectedConsensors } from './select'
 import { attempt } from '../../Utils'
 import { submitUnjoin } from './unjoin'
 import { ResultAsync } from 'neverthrow'
@@ -45,7 +45,7 @@ export function init(): void {
       //TODO clean out the accepted route or is it still useful?
       //accepted endpoint does not return any more
       // The accepted flow is deprecated
-      // notifyNewestJoinedConsensors().catch((e) => {
+      // notifyNewestSelectedConsensors().catch((e) => {
       //   console.error('failed to notify selected nodes:', e)
       // })
     }

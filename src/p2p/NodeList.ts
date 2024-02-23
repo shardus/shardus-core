@@ -115,7 +115,7 @@ export function addNode(node: P2P.NodeListTypes.Node, caller: string) {
 
   // If selected, insert into selectedByIdOrder
   if (node.status === P2P.P2PTypes.NodeStatus.SELECTED) {
-    selectedById.set(node.id, node.counterRefreshed)
+    selectedById.set(node.id, node.counterSelected)
   }
 
   // If syncing, insert sorted by id into syncingByIdOrder
@@ -331,10 +331,10 @@ export function isNodeLeftNetworkEarly(node: P2P.NodeListTypes.Node) {
 export function isNodeRefuted(node: P2P.NodeListTypes.Node) {
   return CycleChain.newest && CycleChain.newest.refuted.includes(node.id)
 }
-export function createNode(joined: P2P.JoinTypes.JoinedConsensor) {
+export function createNode(selected: P2P.JoinTypes.SelectedConsensor) {
   const node: P2P.NodeListTypes.Node = {
-    ...joined,
-    curvePublicKey: crypto.convertPublicKeyToCurve(joined.publicKey),
+    ...selected,
+    curvePublicKey: crypto.convertPublicKeyToCurve(selected.publicKey),
     status: P2P.P2PTypes.NodeStatus.SELECTED,
   }
 
@@ -354,7 +354,7 @@ export function getDebug() {
     NODES:
       hash:                  ${crypto.hash(byJoinOrder).slice(0, 5)}
       byJoinOrder:           [${byJoinOrder
-        .map((node) => `${node.externalIp}:${node.externalPort}-${node.counterRefreshed}`)
+        .map((node) => `${node.externalIp}:${node.externalPort}-${node.counterSelected}`)
         .join()}]
       byIdOrder:             [${byIdOrder
         .map((node) => `${node.externalIp}:${node.externalPort}` + '-x' + idTrim(node.id))
@@ -434,7 +434,7 @@ export function changeNodeListInRestore(cycleStartTimestamp: number) {
   if (activeByIdOrder.length === 0) return
   // Combine activeByIdOrder to syncingByIdOrder nodelist; Clear activeByIdOrder and activeOthersByIdOrder nodelists
   for (const node of activeByIdOrder) {
-    node.syncingTimestamp = cycleStartTimestamp
+    node.selectedTimestamp = cycleStartTimestamp
     insertSorted(syncingByIdOrder, node, propComparator('id'))
   }
   activeByIdOrder = []
@@ -443,37 +443,37 @@ export function changeNodeListInRestore(cycleStartTimestamp: number) {
   for (const [, node] of nodes) {
     if (node.status === P2P.P2PTypes.NodeStatus.ACTIVE) {
       node.status = P2P.P2PTypes.NodeStatus.SYNCING
-      node.syncingTimestamp = cycleStartTimestamp
+      node.selectedTimestamp = cycleStartTimestamp
     }
   }
   for (const [, node] of byPubKey) {
     if (node.status === P2P.P2PTypes.NodeStatus.ACTIVE) {
       node.status = P2P.P2PTypes.NodeStatus.SYNCING
-      node.syncingTimestamp = cycleStartTimestamp
+      node.selectedTimestamp = cycleStartTimestamp
     }
   }
   for (const [, node] of byIpPort) {
     if (node.status === P2P.P2PTypes.NodeStatus.ACTIVE) {
       node.status = P2P.P2PTypes.NodeStatus.SYNCING
-      node.syncingTimestamp = cycleStartTimestamp
+      node.selectedTimestamp = cycleStartTimestamp
     }
   }
   for (const node of byJoinOrder) {
     if (node.status === P2P.P2PTypes.NodeStatus.ACTIVE) {
       node.status = P2P.P2PTypes.NodeStatus.SYNCING
-      node.syncingTimestamp = cycleStartTimestamp
+      node.selectedTimestamp = cycleStartTimestamp
     }
   }
   for (const node of byIdOrder) {
     if (node.status === P2P.P2PTypes.NodeStatus.ACTIVE) {
       node.status = P2P.P2PTypes.NodeStatus.SYNCING
-      node.syncingTimestamp = cycleStartTimestamp
+      node.selectedTimestamp = cycleStartTimestamp
     }
   }
   for (const node of othersByIdOrder) {
     if (node.status === P2P.P2PTypes.NodeStatus.ACTIVE) {
       node.status = P2P.P2PTypes.NodeStatus.SYNCING
-      node.syncingTimestamp = cycleStartTimestamp
+      node.selectedTimestamp = cycleStartTimestamp
     }
   }
 }

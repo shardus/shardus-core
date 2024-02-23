@@ -519,7 +519,7 @@ export function activeNodeCount(cycle: P2P.CycleCreatorTypes.CycleRecord) {
 export function showNodeCount(cycle: P2P.CycleCreatorTypes.CycleRecord) {
   /* prettier-ignore */ if (logFlags.error) warn(` syncing + joined + active - apop - rem - lost
     ${cycle.syncing} +
-    ${cycle.joinedConsensors.length} +
+    ${cycle.selectedConsensors.length} +
     ${cycle.active} +
     ${cycle.apoptosized.length} -
     ${cycle.removed.length} -
@@ -533,7 +533,7 @@ export function showNodeCount(cycle: P2P.CycleCreatorTypes.CycleRecord) {
 export function totalNodeCount(cycle: P2P.CycleCreatorTypes.CycleRecord) {
   return (
     cycle.syncing +
-    cycle.joinedConsensors.length +
+    cycle.selectedConsensors.length +
     cycle.active +
     //    cycle.activated.length -      // don't count activated because it was already counted in syncing
     -cycle.apoptosized.length +
@@ -608,14 +608,14 @@ function validateCycles(cycles: P2P.CycleCreatorTypes.CycleRecord[]) {
         return false
       }
     }
-    for (const joinedConsensor of cycleRecord.joinedConsensors) {
+    for (const joinedConsensor of cycleRecord.selectedConsensors) {
       err = validateTypes(joinedConsensor, {
         cycleJoined: 's',
-        counterRefreshed: 'n',
+        counterSelected: 'n',
         id: 's',
       })
       if (err) {
-        warn('Validation failed for cycleRecord.joinedConsensors: ' + err)
+        warn('Validation failed for cycleRecord.selectedConsensors: ' + err)
         return false
       }
     }

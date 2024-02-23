@@ -206,7 +206,7 @@ export function getTxs(): P2P.JoinTypes.Txs {
 export function validateRecordTypes(rec: P2P.JoinTypes.Record): string {
   let err = validateTypes(rec, { syncing: 'n', joinedConsensors: 'a' })
   if (err) return err
-  for (const item of rec.joinedConsensors) {
+  for (const item of rec.selectedConsensors) {
     err = validateTypes(item, {
       activeTimestamp: 'n',
       address: 's',
@@ -217,10 +217,10 @@ export function validateRecordTypes(rec: P2P.JoinTypes.Record): string {
       joinRequestTimestamp: 'n',
       publicKey: 's',
       cycleJoined: 's',
-      counterRefreshed: 'n',
+      counterSelected: 'n',
       id: 's',
     })
-    if (err) return 'in joinedConsensors array ' + err
+    if (err) return 'in selectedConsensors array ' + err
   }
   return ''
 }
@@ -301,7 +301,7 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
         }
         //check 2 cycles before we would remove this node
         if (record.start - lastStandbyTimerRefresh > maxAge - 2) {
-          
+
           if (standbyListMap.has(key) === false) {
             skipped++
             continue
@@ -310,20 +310,20 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
           // is this done? what else is needed?
           //TODO deterministic selection of a node to query if the standby node is up
           //this checked response will become a cycle TX for the next cycle.
-          
+
           const offset = getPrefixInt(key, 8)
           const numActiveNodes = NodeList.activeByIdOrder.length
           const numCheckerNodes = 1
           const queueStandbyCheck = fastIsPicked(ourIndex, numActiveNodes, numCheckerNodes, offset)
 
-          //schedule a job or us to check on 
+          //schedule a job or us to check on
           if(queueStandbyCheck){
             localStandbyCheckerJobs.add(key)
           }
 
           // should be in parseRecord then
           //WE only set this map when digesting the cycle record if this node did a proper refresh action
-          //use this cycle start time as an updated time in the mapp of standby nodes refresh 
+          //use this cycle start time as an updated time in the mapp of standby nodes refresh
           //standbyNodesRefresh.set(key, record.start)
         }
         */
@@ -421,8 +421,8 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
           }
         }
       }
-      
-      
+
+
       /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log( `join:updateRecord cycle number: ${record.counter} skipped: ${skipped} removedTTLCount: ${standbyRemoved_Age}  removed list: ${record.standbyRemove} ` )
       /* prettier-ignore */ if (logFlags.p2pNonFatal) debugDumpJoinRequestList(standbyList, `join.updateRecord: last-hashed ${record.counter}`)
       /* prettier-ignore */ if (logFlags.p2pNonFatal) debugDumpJoinRequestList( Array.from(getStandbyNodesInfoMap().values()), `join.updateRecord: standby-map ${record.counter}` )
@@ -438,7 +438,7 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
     // ... then add any standby nodes that are now allowed to join
     const selectedPublicKeys = drainSelectedPublicKeys()
     /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log('selected public keys', selectedPublicKeys)
-    record.joinedConsensors = record.joinedConsensors || []
+    record.selectedConsensors = record.selectedConsensors || []
     for (const publicKey of selectedPublicKeys) {
       const standbyInfo = getStandbyNodesInfoMap().get(publicKey)
 
@@ -448,25 +448,25 @@ export function updateRecord(txs: P2P.JoinTypes.Txs, record: P2P.CycleCreatorTyp
 
       /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log('selected standby node', standbyInfo)
 
-      // prepare information for the joinedConsensors list
+      // prepare information for the selectedConsensors list
       const { nodeInfo, cycleMarker: cycleJoined } = standbyInfo
       const id = computeNodeId(nodeInfo.publicKey, standbyInfo.cycleMarker)
-      const counterRefreshed = record.counter
+      const counterSelected = record.counter
 
-      record.joinedConsensors.push({ ...nodeInfo, cycleJoined, counterRefreshed, id })
+      record.selectedConsensors.push({ ...nodeInfo, cycleJoined, counterSelected, id })
     }
 
     /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log( `standbyRemoved_Age: ${standbyRemoved_Age} standbyRemoved_App: ${standbyRemoved_App}` )
 
-    record.joinedConsensors.sort()
+    record.selectedConsensors.sort()
   } else {
     // old protocol handling
-    record.joinedConsensors = txs.join
+    record.selectedConsensors = txs.join
       .map((joinRequest) => {
         const { nodeInfo, cycleMarker: cycleJoined } = joinRequest
         const id = computeNodeId(nodeInfo.publicKey, cycleJoined)
-        const counterRefreshed = record.counter
-        return { ...nodeInfo, cycleJoined, counterRefreshed, id }
+        const counterSelected = record.counter
+        return { ...nodeInfo, cycleJoined, counterSelected, id }
       })
       .sort()
     /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("new desired count: ", record.desired)
@@ -479,7 +479,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   const finishedSyncing = record.finishedSyncing
 
   for (const node of added) {
-    node.syncingTimestamp = record.start
+    node.selectedTimestamp = record.start
     // finally, remove the node from the standby list
 
     const publicKey = node.publicKey
@@ -540,7 +540,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
       refreshedStandbyInfo.nodeInfo.refreshedCounter = record.counter - 1
     }
   }
-  
+
   resetLastCycleStandbyRefreshRequests()
   */
   for (const refreshedPubKey of record.standbyRefresh) {

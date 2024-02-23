@@ -453,7 +453,7 @@ export function updateRecord(
     const syncingNodes = NodeList.syncingByIdOrder
     const now = Math.floor(shardusGetTime() / 1000)
     for (const syncingNode of syncingNodes) {
-      const syncTime = now - syncingNode.syncingTimestamp
+      const syncTime = now - syncingNode.selectedTimestamp
       /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log('syncTime vs maxSyncTime', syncTime, record.maxSyncTime)
       if (record.maxSyncTime && syncTime > record.maxSyncTime) {
         if (logFlags.lost) {

@@ -12,10 +12,10 @@ import * as Self from './Self'
 import { profilerInstance } from '../utils/profiler'
 import { NodeStatus } from '@shardus/types/build/src/p2p/P2PTypes'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { getSortedStandbyJoinRequests } from './Join/v2'
 import { selectNodesFromReadyList } from './Join/v2/syncFinished'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { safeStringify } from '../utils'
+import { shardusGetTime } from '../network'
 
 let syncTimes = []
 let lastCheckedCycleForSyncTimes = 0
@@ -156,6 +156,11 @@ export function updateRecord(
     const selectedNodes = selectNodesFromReadyList(_prev.mode)
     for (const node of selectedNodes) {
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:updateRecord node added to activated`)
+
+      // timestamp of when a node's syncing started message has been registered
+      // TODO confirm this is a good place to set this timestamp
+      const now = Math.floor(shardusGetTime() / 1000)
+      node.syncingTimestamp = now
       activated.push(node.id)
       activatedPublicKeys.push(node.publicKey)
     }
@@ -179,7 +184,6 @@ export function updateRecord(
   record.active = active
   record.activated = activated.sort()
   record.activatedPublicKeys = activatedPublicKeys.sort()
-  record.standby = getSortedStandbyJoinRequests().length
 
   try {
     let cycleCounter = CycleChain.newest ? CycleChain.newest.counter : 0
@@ -191,12 +195,12 @@ export function updateRecord(
         (item) => item.nodeId === node.id && item.activeTimestamp === node.activeTimestamp
       )
       if (included && included.length > 0) continue
-      const syncTime = node.activeTimestamp - node.syncingTimestamp
+      const syncTime = node.activeTimestamp - node.selectedTimestamp
 
       syncTimes.push({
         nodeId: node.id,
         activeTimestamp: node.activeTimestamp,
-        syncStartTimestamp: node.syncingTimestamp,
+        selectedTimestamp: node.selectedTimestamp,
         syncTime,
         refreshedCounter: cycleCounter,
       })
@@ -211,7 +215,7 @@ export function updateRecord(
     }
     if (syncTimes.length > 0) lastCheckedCycleForSyncTimes = syncTimes[0].refreshedCounter // updated last checked cycle
     const syncDurations = syncTimes
-      .map((syncTime) => syncTime.activeTimestamp - syncTime.syncStartTimestamp)
+      .map((syncTime) => syncTime.activeTimestamp - syncTime.selectedTimestamp)
       .sort((a, b) => a - b)
     const medianIndex = Math.floor(syncDurations.length / 2)
     const medianSyncTime = syncDurations[medianIndex]

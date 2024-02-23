@@ -5,7 +5,7 @@ import { Result } from "neverthrow";
 import * as http from '../../../http'
 import { getRandom } from "../../../utils";
 import { crypto } from "../../Context";
-import { JoinedConsensor } from "@shardus/types/build/src/p2p/JoinTypes";
+import { SelectedConsensor } from "@shardus/types/build/src/p2p/JoinTypes";
 import { SignedObject } from "@shardus/types/build/src/p2p/P2PTypes";
 import { getActiveNodesFromArchiver, getRandomAvailableArchiver } from "../../Utils";
 import * as Self from "../../Self";
@@ -81,7 +81,7 @@ export async function confirmAcceptance(offer: SignedObject<AcceptanceOffer>): P
 
   // check to see that we were included in the cycle
   const ourPublicKey = crypto.getPublicKey()
-  const included = cycle.joinedConsensors.some((joinedConsensor: JoinedConsensor) => joinedConsensor.publicKey === ourPublicKey)
+  const included = cycle.selectedConsensors.some((selected: SelectedConsensor) => selected.publicKey === ourPublicKey)
 
   // disable this flag since we're done
   alreadyCheckingAcceptance = false
