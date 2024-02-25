@@ -683,6 +683,7 @@ class Shardus extends EventEmitter {
       }
       readyPayload = Context.crypto.sign(readyPayload)
       Comms.sendGossip('gossip-sync-finished', readyPayload)
+      console.log('restore callback - gossip-sync-finished')
       this.stateManager.appFinishedSyncing = true
       this.stateManager.startProcessingCycleSummaries()
     })
