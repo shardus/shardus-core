@@ -1957,6 +1957,7 @@ class StateManager {
     this.p2p.unregisterInternal(InternalRouteEnum.binary_get_account_data_by_list)
     this.p2p.unregisterInternal(InternalRouteEnum.binary_broadcast_finalstate)
     this.p2p.unregisterInternal(InternalRouteEnum.binary_get_account_data)
+    this.p2p.unregisterInternal(InternalRouteEnum.binary_sync_trie_hashes)
     this.p2p.unregisterInternal(InternalRouteEnum.binary_compare_cert)
   }
 

@@ -18,6 +18,7 @@ export enum TypeIdentifierEnum {
   cBroadcastFinalStateReq,
   cGetAccountDataReq,
   cGetAccountDataResp,
+  cSyncTrieHashesReq,
   cCompareCertReq,
   cCompareCertResp,
   cGetTxTimestampReq,
