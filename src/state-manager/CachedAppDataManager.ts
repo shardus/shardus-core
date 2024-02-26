@@ -70,7 +70,7 @@ class CachedAppDataManager {
   }
 
   setupHandlers(): void {
-    this.p2p.registerInternal('send_cachedAppData', async (payload: CacheAppDataResponse) => {
+    this.p2p.registerInternal('send_cachedAppData', async (payload: CacheAppDataResponse, respond: (arg0: boolean) => Promise<boolean>) => {
       profilerInstance.scopedProfileSectionStart('send_cachedAppData')
       try {
         const cachedAppData = payload.cachedAppData
@@ -84,6 +84,7 @@ class CachedAppDataManager {
       } catch (e) {
         this.mainLogger.error(`Error while processing send_cacheAppData`, e)
       } finally {
+        await respond(true)
         profilerInstance.scopedProfileSectionEnd('send_cachedAppData')
       }
     })

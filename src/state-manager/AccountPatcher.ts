@@ -264,7 +264,7 @@ class AccountPatcher {
       'sync_trie_hashes',
       async (
         payload: HashTrieSyncTell,
-        _respondWrapped: unknown,
+        respond: (arg0: boolean) => Promise<boolean>,
         sender: string,
         _tracker: string,
         msgSize: number
@@ -328,6 +328,7 @@ class AccountPatcher {
             }
           }
         } finally {
+          await respond(true)
           profilerInstance.scopedProfileSectionEnd('sync_trie_hashes')
         }
       }

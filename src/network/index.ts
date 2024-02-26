@@ -175,7 +175,7 @@ export class NetworkClass extends EventEmitter {
         }
         if (!route) {
           /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug( 'Network: ' + `Unable to read request, payload of received message: ${JSON.stringify(data)}` )
-          throw new Error('Unable to read request, no route specified.')
+          throw new Error(`Unable to read request, no route specified. ${JSON.stringify(data)}`)
         }
         if (!this.internalRoutes[route]) throw new Error('Unable to handle request, invalid route.')
 

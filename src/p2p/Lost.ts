@@ -766,7 +766,7 @@ function getCheckerNode(id, cycle) {
   return activeByIdOrder[idx]
 }
 
-async function lostReportHandler(payload, response, sender) {
+async function lostReportHandler(payload, respond: (arg0: boolean) => void, sender) {
   profilerInstance.scopedProfileSectionStart('lost-report')
   try {
     let requestId = generateUUID()
@@ -824,6 +824,7 @@ async function lostReportHandler(payload, response, sender) {
     }
     // At start of Q1 of the next cycle sendRequests() will start a gossip if the node was found to be down
   } finally {
+    await respond(true)
     profilerInstance.scopedProfileSectionEnd('lost-report')
   }
 }

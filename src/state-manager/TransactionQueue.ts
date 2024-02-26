@@ -249,7 +249,7 @@ class TransactionQueue {
   setupHandlers(): void {
     this.p2p.registerInternal(
       'broadcast_state',
-      async (payload: { txid: string; stateList: Shardus.WrappedResponse[] }) => {
+      async (payload: { txid: string; stateList: Shardus.WrappedResponse[] }, respond: (arg0: boolean) => Promise<boolean>) => {
         profilerInstance.scopedProfileSectionStart('broadcast_state')
         try {
           // Save the wrappedAccountState with the rest our queue data
@@ -272,6 +272,7 @@ class TransactionQueue {
             }
           }
         } finally {
+          await respond(true)
           profilerInstance.scopedProfileSectionEnd('broadcast_state')
         }
       }
@@ -367,7 +368,7 @@ class TransactionQueue {
 
     this.p2p.registerInternal(
       'broadcast_finalstate',
-      async (payload: { txid: string; stateList: Shardus.WrappedResponse[] }) => {
+      async (payload: { txid: string; stateList: Shardus.WrappedResponse[] }, respond: (arg0: boolean) => Promise<boolean>) => {
         profilerInstance.scopedProfileSectionStart('broadcast_finalstate')
         try {
           // make sure we have it
@@ -397,6 +398,7 @@ class TransactionQueue {
             // }
           }
         } finally {
+          await respond(true)
           profilerInstance.scopedProfileSectionEnd('broadcast_finalstate')
         }
       }
