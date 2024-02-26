@@ -377,7 +377,7 @@ export function startupV2(): Promise<boolean> {
 
               submitStandbyRefresh(publicKey, latestCycle.counter)
 
-              nestedCountersInstance.countEvent('p2p', `submitted KeepInStandby request`)
+              nestedCountersInstance.countEvent('p2p', `submitted KeepInStandby request - first time`)
               /* prettier-ignore */ if (logFlags.verbose) console.log(`submitted KeepInStandby request`)
 
               cyclesElapsedSinceRefresh = 0
