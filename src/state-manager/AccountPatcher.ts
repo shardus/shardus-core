@@ -34,17 +34,29 @@ import {
   TrieAccount,
   CycleShardData,
 } from './state-manager-types'
-import { isDebugModeMiddleware, isDebugModeMiddlewareLow, isDebugModeMiddlewareMedium } from '../network/debugMiddleware'
+import {
+  isDebugModeMiddleware,
+  isDebugModeMiddlewareLow,
+  isDebugModeMiddlewareMedium,
+} from '../network/debugMiddleware'
 import { appdata_replacer, errorToStringFull, Ordering } from '../utils'
 import { Response } from 'express-serve-static-core'
 import { shardusGetTime } from '../network'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { InternalBinaryHandler } from '../types/Handler'
 import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
-import { deserializeGetAccountDataByHashesResp, GetAccountDataByHashesResp, serializeGetAccountDataByHashesResp } from '../types/GetAccountDataByHashesResp'
+import {
+  deserializeGetAccountDataByHashesResp,
+  GetAccountDataByHashesResp,
+  serializeGetAccountDataByHashesResp,
+} from '../types/GetAccountDataByHashesResp'
 import { getStreamWithTypeCheck } from '../types/Helpers'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
-import { deserializeGetAccountDataByHashesReq, GetAccountDataByHashesReq, serializeGetAccountDataByHashesReq } from '../types/GetAccountDataByHashesReq'
+import {
+  deserializeGetAccountDataByHashesReq,
+  GetAccountDataByHashesReq,
+  serializeGetAccountDataByHashesReq,
+} from '../types/GetAccountDataByHashesReq'
 import { WrappedData } from '../types/WrappedData'
 
 type Line = {
@@ -531,13 +543,17 @@ class AccountPatcher {
 
     const getAccountDataByHashesBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_get_account_data_by_hashes,
-      handler: async (payload, respond, header, sign) => {
-          profilerInstance.scopedProfileSectionStart(getAccountDataByHashesBinaryHandler.name)
-          nestedCountersInstance.countEvent('internal', InternalRouteEnum.binary_get_account_data_by_hashes)
-          const result = { accounts: [], stateTableData: [] } as GetAccountDataByHashesResp
-        try{
-
+      handler: async (payload, respond) => {
+        const route = InternalRouteEnum.binary_get_account_data_by_hashes
+        profilerInstance.scopedProfileSectionStart(route)
+        nestedCountersInstance.countEvent('internal', route)
+        const result = { accounts: [], stateTableData: [] } as GetAccountDataByHashesResp
+        try {
           const stream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cGetAccountDataByHashesReq)
+          if (!stream) {
+            return respond(result, serializeGetAccountDataByHashesResp)
+          }
+
           const req = deserializeGetAccountDataByHashesReq(stream)
 
           const queryStats = {
@@ -553,7 +569,7 @@ class AccountPatcher {
           const hashMap = new Map()
           const accountIDs = []
 
-          if(req.accounts.length > 900){
+          if (req.accounts.length > 900) {
             req.accounts = req.accounts.slice(0, 900)
           }
 
@@ -577,9 +593,9 @@ class AccountPatcher {
           const accountsToGetStateTableDataFor = []
           const accountDataFinal: WrappedData[] = []
 
-          if(accountData != null){
-            for(const wrappedAccount of accountData){
-              if(wrappedAccount == null || wrappedAccount.stateId == null || wrappedAccount.data == null){
+          if (accountData != null) {
+            for (const wrappedAccount of accountData) {
+              if (wrappedAccount == null || wrappedAccount.stateId == null || wrappedAccount.data == null) {
                 queryStats.fix2++
                 continue
               }
@@ -600,38 +616,26 @@ class AccountPatcher {
                 queryStats.skip_requestHashMismatch++
                 skippedAccounts.push({ accountID: accountId, hash: stateId })
               }
-
             }
           }
 
           if (queryStats.returned < req.accounts.length) {
-            nestedCountersInstance.countEvent('internal', `${InternalRouteEnum.binary_get_account_data_by_hashes} incomplete`)
+            nestedCountersInstance.countEvent('internal', `${route} incomplete`)
             queryStats.missingResp = true
             if (queryStats.returned === 0) {
-              nestedCountersInstance.countEvent('internal', `${InternalRouteEnum.binary_get_account_data_by_hashes} no results`)
+              nestedCountersInstance.countEvent('internal', `${route} no results`)
               queryStats.noResp = true
             }
           }
 
           this.mainLogger.debug(
-            `binary_get_account_data_by_hashes1 requests[${req.accounts.length}] :${utils.stringifyReduce(
-              req.accounts
-            )} `
+            `${route} 1 requests[${req.accounts.length}] :${utils.stringifyReduce(req.accounts)} `
           )
-          this.mainLogger.debug(
-            `binary_get_account_data_by_hashes2 skippedAccounts:${utils.stringifyReduce(skippedAccounts)} `
-          )
-          this.mainLogger.debug(
-            `binary_get_account_data_by_hashes3 returnedAccounts:${utils.stringifyReduce(returnedAccounts)} `
-          )
-          this.mainLogger.debug(
-            `binary_get_account_data_by_hashes4 queryStats:${utils.stringifyReduce(queryStats)} `
-          )
-          this.mainLogger.debug(
-            `binary_get_account_data_by_hashes4 stateTabledata:${utils.stringifyReduce(result.stateTableData)} `
-          )
+          this.mainLogger.debug(`${route} 2 skippedAccounts:${utils.stringifyReduce(skippedAccounts)} `)
+          this.mainLogger.debug(`${route} 3 returnedAccounts:${utils.stringifyReduce(returnedAccounts)} `)
+          this.mainLogger.debug(`${route} 4 queryStats:${utils.stringifyReduce(queryStats)} `)
+          this.mainLogger.debug(`${route}  stateTabledata:${utils.stringifyReduce(result.stateTableData)} `)
           result.accounts = accountDataFinal
-
         } catch (ex) {
           this.statemanager_fatal(
             `get_account_data_by_hashes-failed`,
@@ -639,12 +643,15 @@ class AccountPatcher {
           )
         } finally {
           respond(result, serializeGetAccountDataByHashesResp)
-          profilerInstance.scopedProfileSectionEnd(getAccountDataByHashesBinaryHandler.name)
+          profilerInstance.scopedProfileSectionEnd(route)
         }
-      }
+      },
     }
 
-    this.p2p.registerInternalBinary(getAccountDataByHashesBinaryHandler.name, getAccountDataByHashesBinaryHandler.handler)
+    this.p2p.registerInternalBinary(
+      getAccountDataByHashesBinaryHandler.name,
+      getAccountDataByHashesBinaryHandler.handler
+    )
 
     Context.network.registerExternalGet(
       'debug-patcher-ignore-hash-updates',
@@ -703,27 +710,31 @@ class AccountPatcher {
       }
       res.end()
     })
-    Context.network.registerExternalGet('debug-patcher-dumpTree', isDebugModeMiddlewareMedium, (_req, res) => {
-      try {
-        // this.statemanager_fatal('debug shardTrie',`temp shardTrie ${utils.stringifyReduce(this.shardTrie.layerMaps[0].values().next().value)}`)
-        // res.write(`${utils.stringifyReduce(this.shardTrie.layerMaps[0].values().next().value)}\n`)
+    Context.network.registerExternalGet(
+      'debug-patcher-dumpTree',
+      isDebugModeMiddlewareMedium,
+      (_req, res) => {
+        try {
+          // this.statemanager_fatal('debug shardTrie',`temp shardTrie ${utils.stringifyReduce(this.shardTrie.layerMaps[0].values().next().value)}`)
+          // res.write(`${utils.stringifyReduce(this.shardTrie.layerMaps[0].values().next().value)}\n`)
 
-        const trieRoot = this.shardTrie.layerMaps[0].values().next().value
+          const trieRoot = this.shardTrie.layerMaps[0].values().next().value
 
-        //strip noisy fields
-        const tempString = JSON.stringify(trieRoot, utils.debugReplacer)
-        const processedObject = JSON.parse(tempString)
+          //strip noisy fields
+          const tempString = JSON.stringify(trieRoot, utils.debugReplacer)
+          const processedObject = JSON.parse(tempString)
 
-        // use stringify to put a stable sort on the object keys (important for comparisons)
-        const finalStr = utils.stringifyReduce(processedObject)
+          // use stringify to put a stable sort on the object keys (important for comparisons)
+          const finalStr = utils.stringifyReduce(processedObject)
 
-        this.statemanager_fatal('debug shardTrie', `temp shardTrie ${finalStr}`)
-        res.write(`${finalStr}\n`)
-      } catch (e) {
-        res.write(`${e}\n`)
+          this.statemanager_fatal('debug shardTrie', `temp shardTrie ${finalStr}`)
+          res.write(`${finalStr}\n`)
+        } catch (e) {
+          res.write(`${e}\n`)
+        }
+        res.end()
       }
-      res.end()
-    })
+    )
 
     Context.network.registerExternalGet(
       'debug-patcher-dumpTree-partial',
@@ -759,58 +770,62 @@ class AccountPatcher {
       }
     )
 
-    Context.network.registerExternalGet('debug-patcher-fail-hashes', isDebugModeMiddlewareLow, (_req, res) => {
-      try {
-        const lastCycle = this.p2p.state.getLastCycle()
-        const cycle = lastCycle.counter
-        const minVotes = this.calculateMinVotes()
-        const notEnoughVotesRadix = {}
-        const outOfSyncRadix = {}
+    Context.network.registerExternalGet(
+      'debug-patcher-fail-hashes',
+      isDebugModeMiddlewareLow,
+      (_req, res) => {
+        try {
+          const lastCycle = this.p2p.state.getLastCycle()
+          const cycle = lastCycle.counter
+          const minVotes = this.calculateMinVotes()
+          const notEnoughVotesRadix = {}
+          const outOfSyncRadix = {}
 
-        const hashTrieSyncConsensus = this.hashTrieSyncConsensusByCycle.get(cycle)
+          const hashTrieSyncConsensus = this.hashTrieSyncConsensusByCycle.get(cycle)
 
-        if (!hashTrieSyncConsensus) {
-          return res.json({ error: `Unable to find hashTrieSyncConsensus for last cycle ${lastCycle}` })
-        }
-
-        for (const radix of hashTrieSyncConsensus.radixHashVotes.keys()) {
-          const votesMap = hashTrieSyncConsensus.radixHashVotes.get(radix)
-          const ourTrieNode = this.shardTrie.layerMaps[this.treeSyncDepth].get(radix)
-
-          const hasEnoughVotes = votesMap.bestVotes >= minVotes
-          const isRadixInSync = ourTrieNode ? ourTrieNode.hash === votesMap.bestHash : false
-
-          if (!hasEnoughVotes || !isRadixInSync) {
-            const kvp = []
-            for (const [key, value] of votesMap.allVotes.entries()) {
-              kvp.push({
-                id: key,
-                count: value.count,
-                nodeIDs: value.voters.map((node) => utils.makeShortHash(node.id) + ':' + node.externalPort),
-              })
-            }
-            const simpleMap = {
-              bestHash: votesMap.bestHash,
-              ourHash: ourTrieNode ? ourTrieNode.hash : '',
-              bestVotes: votesMap.bestVotes,
-              minVotes,
-              allVotes: kvp,
-            }
-            if (!hasEnoughVotes) notEnoughVotesRadix[radix] = simpleMap // eslint-disable-line security/detect-object-injection
-            if (!isRadixInSync) outOfSyncRadix[radix] = simpleMap // eslint-disable-line security/detect-object-injection
+          if (!hashTrieSyncConsensus) {
+            return res.json({ error: `Unable to find hashTrieSyncConsensus for last cycle ${lastCycle}` })
           }
+
+          for (const radix of hashTrieSyncConsensus.radixHashVotes.keys()) {
+            const votesMap = hashTrieSyncConsensus.radixHashVotes.get(radix)
+            const ourTrieNode = this.shardTrie.layerMaps[this.treeSyncDepth].get(radix)
+
+            const hasEnoughVotes = votesMap.bestVotes >= minVotes
+            const isRadixInSync = ourTrieNode ? ourTrieNode.hash === votesMap.bestHash : false
+
+            if (!hasEnoughVotes || !isRadixInSync) {
+              const kvp = []
+              for (const [key, value] of votesMap.allVotes.entries()) {
+                kvp.push({
+                  id: key,
+                  count: value.count,
+                  nodeIDs: value.voters.map((node) => utils.makeShortHash(node.id) + ':' + node.externalPort),
+                })
+              }
+              const simpleMap = {
+                bestHash: votesMap.bestHash,
+                ourHash: ourTrieNode ? ourTrieNode.hash : '',
+                bestVotes: votesMap.bestVotes,
+                minVotes,
+                allVotes: kvp,
+              }
+              if (!hasEnoughVotes) notEnoughVotesRadix[radix] = simpleMap // eslint-disable-line security/detect-object-injection
+              if (!isRadixInSync) outOfSyncRadix[radix] = simpleMap // eslint-disable-line security/detect-object-injection
+            }
+          }
+          return res.json({
+            cycle,
+            notEnoughVotesRadix,
+            outOfSyncRadix,
+          })
+        } catch (e) {
+          console.log('Error', e)
+          res.write(`${e}\n`)
         }
-        return res.json({
-          cycle,
-          notEnoughVotesRadix,
-          outOfSyncRadix,
-        })
-      } catch (e) {
-        console.log('Error', e)
-        res.write(`${e}\n`)
+        res.end()
       }
-      res.end()
-    })
+    )
 
     Context.network.registerExternalGet('get-tree-last-insync', isDebugModeMiddlewareLow, (_req, res) => {
       res.write(`${this.failedLastTrieSync === false}\n`)
@@ -883,7 +898,7 @@ class AccountPatcher {
         res.write(`trieAccount: ${JSON.stringify(trieAccount)} \n`)
         res.write(`accountHash: ${JSON.stringify(accountHash)} \n`)
         res.write(`accountHashFull: ${JSON.stringify(accountHashFull)} \n`)
-        res.write(`accountData: ${JSON.stringify(accountData,appdata_replacer)} \n\n`)
+        res.write(`accountData: ${JSON.stringify(accountData, appdata_replacer)} \n\n`)
         res.write(`tests: \n`)
         if (accountData != null && accountData.length === 1 && accountHash != null) {
           res.write(`accountData hash matches cache ${accountData[0].stateId === accountHash.h} \n`)
@@ -2876,25 +2891,17 @@ class AccountPatcher {
           ) {
             requestEntry.request.accounts = allAccounts.slice(offset, offset + accountPerRequest)
             let promise = null
-            if(this.stateManager.config.p2p.useBinarySerializedEndpoints){
-              promise = this.p2p.askBinary<
-                GetAccountDataByHashesReq,
-                GetAccountDataByHashesResp
-              >(
+            if (this.stateManager.config.p2p.useBinarySerializedEndpoints) {
+              promise = this.p2p.askBinary<GetAccountDataByHashesReq, GetAccountDataByHashesResp>(
                 requestEntry.node,
                 InternalRouteEnum.binary_get_account_data_by_hashes,
                 requestEntry.request,
                 serializeGetAccountDataByHashesReq,
                 deserializeGetAccountDataByHashesResp,
                 {}
-              );
-            }
-            else{
-              promise = this.p2p.ask(
-                requestEntry.node,
-                'get_account_data_by_hashes',
-                requestEntry.request
               )
+            } else {
+              promise = this.p2p.ask(requestEntry.node, 'get_account_data_by_hashes', requestEntry.request)
             }
             promises.push(promise)
             offset = offset + accountPerRequest
@@ -2908,25 +2915,17 @@ class AccountPatcher {
           //would it be better to resync if we have a high number of errors?  not easy to answer this.
         } else {
           let promise = null
-          if(this.stateManager.config.p2p.useBinarySerializedEndpoints){
-            promise = this.p2p.askBinary<
-              GetAccountDataByHashesReq,
-              GetAccountDataByHashesResp
-            >(
+          if (this.stateManager.config.p2p.useBinarySerializedEndpoints) {
+            promise = this.p2p.askBinary<GetAccountDataByHashesReq, GetAccountDataByHashesResp>(
               requestEntry.node,
               InternalRouteEnum.binary_get_account_data_by_hashes,
               requestEntry.request,
               serializeGetAccountDataByHashesReq,
               deserializeGetAccountDataByHashesResp,
               {}
-            );
-          }
-          else{
-            promise = this.p2p.ask(
-              requestEntry.node,
-              'get_account_data_by_hashes',
-              requestEntry.request
             )
+          } else {
+            promise = this.p2p.ask(requestEntry.node, 'get_account_data_by_hashes', requestEntry.request)
           }
           promises.push(promise)
           getAccountStats.requested = requestEntry.request.accounts.length
