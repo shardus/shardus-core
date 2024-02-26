@@ -63,7 +63,7 @@ export const getStreamWithTypeCheck = (
   const requestStream = VectorBufferStream.fromBuffer(payload)
   const requestType = requestStream.readUInt16()
   if (requestType !== typeId) {
-    /* prettier-ignore */ if (logFlags.error && logFlags.console) console.log(`Invalid request stream: expected: ${typeId} actual: ${requestType}. ${customErrorLog ? customErrorLog : ''}`)
+    /* prettier-ignore */ console.log(`Invalid request stream: expected: ${typeId} actual: ${requestType}. ${customErrorLog ? customErrorLog : ''}`)
     return null
   }
   return requestStream
