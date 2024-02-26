@@ -49,6 +49,8 @@ export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<voi
     syncArchiverList(activeNodes).andThen(([archiverList, archiverListHash]) =>
       syncStandbyNodeList(activeNodes).andThen((standbyNodeList) =>
         syncLatestCycleRecord(activeNodes).andThen((cycle) => {
+          console.log('cycle we synced: ', cycle)
+          console.log('validator list hash: ', validatorListHash)
           if (cycle.nodeListHash !== validatorListHash) {
             return errAsync(
               new Error(
@@ -70,6 +72,9 @@ export function syncV2(activeNodes: P2P.SyncTypes.ActiveNode[]): ResultAsync<voi
 
           // add validators
           NodeList.addNodes(validatorList, 'syncV2')
+          console.log('validator list: ', validatorList)
+          console.log('Nodelist by id: ', NodeList.byIdOrder)
+          console.log('Nodelist others: ', NodeList.activeOthersByIdOrder)
 
           // add archivers
           for (const archiver of archiverList) {

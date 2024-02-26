@@ -29,6 +29,7 @@ import { digestCycle, syncNewCycles } from './Sync'
 import { shardusGetTime } from '../network'
 import fs from 'fs'
 import path from 'path'
+import e from 'express'
 
 /** CONSTANTS */
 
@@ -283,9 +284,11 @@ async function cycleCreator() {
     let prevRecord = bestRecord
     if (!prevRecord) {
       warn(`cc: !prevRecord. Fetech now. ${callTag}`)
+      console.log('first try to fetch record')
       prevRecord = await fetchLatestRecord()
     }
     while (!prevRecord) {
+      console.log('inside while loop to fetch record')
       // [TODO] - when there are few nodes in the network, we may not
       //          be able to get a previous record since the number of
       //          matches for robust query may not be met. Maybe we should
@@ -737,8 +740,19 @@ function dropInvalidTxs(txs: Partial<P2P.CycleCreatorTypes.CycleTxs>) {
 async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
   try {
     const oldCounter = CycleChain.newest.counter
-    await syncNewCycles(NodeList.activeOthersByIdOrder)
+    console.log('cycle number: ', oldCounter)
+    if (CycleChain.newest.mode === 'restart') {
+      console.log('inside is restart condition')
+      console.log('length: ', NodeList.byIdOrder.length)
+      await syncNewCycles(NodeList.byIdOrder)
+    }
+    else {
+      console.log('why are we here')
+      await syncNewCycles(NodeList.activeOthersByIdOrder)
+    }
     if (CycleChain.newest.counter <= oldCounter) {
+      console.log('inside if')
+
       // We didn't actually sync
       /* prettier-ignore */ warn(`CycleCreator: fetchLatestRecord: synced record not newer CycleChain.newest.counter: ${CycleChain.newest.counter} oldCounter: ${oldCounter}`)
       fetchLatestRecordFails++
@@ -750,6 +764,9 @@ async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
       return null
     }
   } catch (err) {
+    console.log('inside catch')
+    console.log(err)
+
     warn('CycleCreator: fetchLatestRecord: syncNewCycles failed:', errorToStringFull(err))
     fetchLatestRecordFails++
     if (fetchLatestRecordFails > maxFetchLatestRecordFails) {

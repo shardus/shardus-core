@@ -255,6 +255,7 @@ type SyncNode = Partial<
 
 export async function syncNewCycles(activeNodes: SyncNode[]) {
   let newestCycle = await getNewestCycle(activeNodes)
+  console.log('newestCycle: ', newestCycle)
   info(`syncNewCycles: myNewest=${CycleChain.newest.counter} netNewest=${newestCycle.counter}`)
 
   const progressHistory = 5

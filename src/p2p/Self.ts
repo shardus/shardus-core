@@ -804,6 +804,7 @@ async function syncCycleChain(selfId: string): Promise<void> {
     try {
       if (logFlags.p2pNonFatal) info('Getting activeNodes from archiver to sync to network...')
       const activeNodes = await contactArchiver()
+      console.log('activeNodes from archiver: ', activeNodes)
 
       // Remove yourself from activeNodes if you are present in them
       const ourIdx = activeNodes.findIndex(nodeMatch)
