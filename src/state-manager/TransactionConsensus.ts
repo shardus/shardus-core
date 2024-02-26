@@ -38,12 +38,23 @@ import { robustQuery } from '../p2p/Utils'
 import { SignedObject } from '@shardus/crypto-utils'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { GetAccountDataReqSerializable, serializeGetAccountDataReq } from '../types/GetAccountDataReq'
-import {
-  GetAccountDataRespSerializable,
-  deserializeGetAccountDataResp,
-  serializeGetAccountDataResp,
-} from '../types/GetAccountDataResp'
+import { GetAccountDataRespSerializable, deserializeGetAccountDataResp } from '../types/GetAccountDataResp'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
+import { InternalBinaryHandler } from '../types/Handler'
+import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
+import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
+import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
+import {
+  deserializeGetTxTimestampResp,
+  getTxTimestampResp,
+  serializeGetTxTimestampResp,
+} from '../types/GetTxTimestampResp'
+import {
+  deserializeGetTxTimestampReq,
+  getTxTimestampReq,
+  serializeGetTxTimestampReq,
+} from '../types/GetTxTimestampReq'
 
 class TransactionConsenus {
   app: Shardus.App
@@ -217,6 +228,56 @@ class TransactionConsenus {
         /* eslint-enable security/detect-object-injection */
       }
     )
+
+    const getTxTimestampBinary: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_get_tx_timestamp,
+      handler: async (payload, respond, header) => {
+        const route = InternalRouteEnum.binary_get_tx_timestamp
+        this.profiler.scopedProfileSectionStart(route)
+        nestedCountersInstance.countEvent('internal', route)
+        profilerInstance.scopedProfileSectionStart(route, true, payload.length)
+
+        const errorHandler = (
+          errorType: RequestErrorEnum,
+          opts?: { customErrorLog?: string; customCounterSuffix?: string }
+        ): void => requestErrorHandler(route, errorType, header, opts)
+
+        let tsReceipt: Shardus.TimestampReceipt
+        try {
+          const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cGetTxTimestampReq)
+          if (!requestStream) {
+            errorHandler(RequestErrorEnum.InvalidRequest)
+            return respond(tsReceipt, serializeGetTxTimestampResp)
+          }
+
+          const readableReq = deserializeGetTxTimestampReq(requestStream)
+          // eslint-disable-next-line security/detect-object-injection
+          if (
+            this.txTimestampCache[readableReq.cycleCounter] &&
+            this.txTimestampCache[readableReq.cycleCounter][readableReq.txId]
+          ) {
+            // eslint-disable-next-line security/detect-object-injection
+            tsReceipt = this.txTimestampCache[readableReq.cycleCounter][readableReq.txId]
+            respond(tsReceipt, serializeGetTxTimestampResp)
+          } else {
+            const tsReceipt: Shardus.TimestampReceipt = this.generateTimestampReceipt(
+              readableReq.txId,
+              readableReq.cycleMarker,
+              readableReq.cycleCounter
+            )
+            respond(tsReceipt, serializeGetTxTimestampResp)
+          }
+        } catch (e) {
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
+          respond(tsReceipt, serializeGetTxTimestampResp)
+        } finally {
+          profilerInstance.scopedProfileSectionEnd(route, payload.length)
+        }
+      },
+    }
+
+    this.p2p.registerInternalBinary(getTxTimestampBinary.name, getTxTimestampBinary.handler)
 
     this.p2p.registerInternal(
       'get_confirm_or_challenge',
@@ -711,22 +772,40 @@ class TransactionConsenus {
     const cycleMarker = CycleChain.computeCycleMarker(CycleChain.newest)
     const cycleCounter = CycleChain.newest.counter
     /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug('Asking timestamp from node', homeNode.node)
+
     if (homeNode.node.id === Self.id) {
       // we generate the tx timestamp by ourselves
       return this.generateTimestampReceipt(txId, cycleMarker, cycleCounter)
     } else {
-      const timestampReceipt = await Comms.ask(homeNode.node, 'get_tx_timestamp', {
-        cycleMarker,
-        cycleCounter,
-        txId,
-        tx,
-      })
-      if (!timestampReceipt) {
-        if (logFlags.error) this.mainLogger.error('Unable to get timestamp receipt from home node')
-        return null
+      let timestampReceipt
+
+      if (this.config.p2p.useBinarySerializedEndpoints) {
+        const serialized_res = await this.p2p.askBinary<getTxTimestampReq, getTxTimestampResp>(
+          homeNode.node,
+          InternalRouteEnum.binary_get_tx_timestamp,
+          {
+            cycleMarker,
+            cycleCounter,
+            txId,
+          },
+          serializeGetTxTimestampReq,
+          deserializeGetTxTimestampResp,
+          {}
+        )
+
+        timestampReceipt = serialized_res
+      } else {
+        timestampReceipt = await Comms.ask(homeNode.node, 'get_tx_timestamp', {
+          cycleMarker,
+          cycleCounter,
+          txId,
+        })
       }
 
+      // this originiates from network/ask level, isResponse might get added at any step to this object
+      // This line will remove the isResponse property from timestampReceipt if it exists. If it doesn't exist, nothing happens, and the program continues to run without any issues.
       delete timestampReceipt.isResponse
+
       const isValid = this.crypto.verify(timestampReceipt, homeNode.node.publicKey)
       if (isValid) {
         /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`Timestamp receipt received from home node. TxId: ${txId} isValid: ${isValid}, timestampReceipt: ${JSON.stringify(timestampReceipt)}`)
