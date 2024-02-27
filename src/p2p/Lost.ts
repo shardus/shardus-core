@@ -33,6 +33,7 @@ import { ApoptosisProposalResp, deserializeApoptosisProposalResp } from '../type
 import { ApoptosisProposalReq, serializeApoptosisProposalReq } from '../types/ApoptosisProposalReq'
 import { ShardusEvent, Node } from '../shardus/shardus-types'
 import { HashTrieReq, ProxyRequest, ProxyResponse } from '../state-manager/state-manager-types'
+import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 
 /** TYPES */
 
@@ -1043,17 +1044,23 @@ async function isDownCheck(node) {
       }
     } else {
       //using the 'apoptosize' route to check if the node is up.
-      const res = await Comms.askBinary<ApoptosisProposalReq, ApoptosisProposalResp>(
-        node,
-        'apoptosize',
-        {
-          id: 'isDownCheck',
-          when: 1,
-        },
-        serializeApoptosisProposalReq,
-        deserializeApoptosisProposalResp,
-        {}
-      )
+      let res
+
+      if (config.p2p.useBinarySerializedEndpoints) {
+        res = await Comms.askBinary<ApoptosisProposalReq, ApoptosisProposalResp>(
+          node,
+          InternalRouteEnum.binary_apoptosize,
+          {
+            id: 'isDownCheck',
+            when: 1,
+          },
+          serializeApoptosisProposalReq,
+          deserializeApoptosisProposalResp,
+          {}
+        )
+      } else {
+        res = await Comms.ask(node, 'apoptosize', { id: 'isDownCheck', when: 1 })
+      }
       if (res == null) {
         /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', 'isDownCheck-down-0', 1)
         return 'down'

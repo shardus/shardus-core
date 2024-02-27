@@ -39,7 +39,7 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import { profilerInstance } from '../utils/profiler'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import * as Comms from './Comms'
-import { crypto, logger, network } from './Context'
+import { crypto, logger, network, config } from './Context'
 import { currentCycle, currentQuarter } from './CycleCreator'
 import { activeByIdOrder, byIdOrder, byPubKey, nodes } from './NodeList'
 import * as Self from './Self'
@@ -57,7 +57,6 @@ export const cycleUpdatesName = 'apoptosis'
 export const nodeDownString = 'node is down'
 export const nodeNotDownString = 'node is not down'
 
-const internalRouteName = 'apoptosize'
 const gossipRouteName = 'apoptosis'
 
 let p2pLogger
@@ -92,15 +91,91 @@ const failExternalRoute: P2P.P2PTypes.Route<Handler> = {
 // This route is expected to return "pass" or "fail" so that
 //   the exiting node can know that some other nodes have
 //   received the message and will send it to other nodes
-const apoptosisInternalRoute: P2P.P2PTypes.Route<InternalBinaryHandler<Buffer>> = {
-  name: InternalRouteEnum.apoptosize,
-  handler: (payload, response, header, sign) => {
+const apoptosisInternalRoute: P2P.P2PTypes.Route<
+  P2P.P2PTypes.InternalHandler<P2P.ApoptosisTypes.SignedApoptosisProposal>
+> = {
+  name: 'apoptosize',
+  handler: (payload, response, sender) => {
     profilerInstance.scopedProfileSectionStart('apoptosize')
+    try {
+      /* prettier-ignore */ if (logFlags.p2pNonFatal) info(`Got Apoptosis proposal: ${JSON.stringify(payload)}`)
+      let err = ''
+
+      //special control case used to get an 'ack' from the isDownCheck function on a potentially lost node
+      //this must be before the validation of the payload as it is not a valid payload
+      if (payload?.id === 'isDownCheck') {
+        /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `self-isDownCheck c:${currentCycle}`, 1)
+
+        let down_msg = nodeNotDownString
+
+        // IF we are not active or syncing then need to return fail. or not return at all?
+        if (Self.isFailed === true) {
+          down_msg = nodeDownString
+        }
+
+        response({ s: down_msg, r: 1 })
+        return
+      }
+
+      err = validateTypes(payload, { when: 'n', id: 's', sign: 'o' })
+      if (err) {
+        if (logFlags.error) warn('bad input ' + err)
+        return
+      }
+      err = validateTypes(payload.sign, { owner: 's', sig: 's' })
+      if (err) {
+        if (logFlags.error) warn('bad input sign ' + err)
+        return
+      }
+      // The when must be set to current cycle +-1 because it is being
+      //    received from the originating node
+      if (!(payload as P2P.P2PTypes.LooseObject).when) {
+        response({ s: 'fail', r: 1 })
+        return
+      }
+      const when = payload.when
+      if (when > currentCycle + 1 || when < currentCycle - 1) {
+        response({ s: 'fail', r: 2 })
+        return
+      }
+      //  check that the node which sent this is the same as the node that signed it, otherwise this is not original message so ignore it
+      if (sender === payload.id) {
+        //  if (addProposal(payload)) p2p.sendGossipIn(gossipRouteName, payload)
+        //  if (addProposal(payload)) Comms.sendGossip(gossipRouteName, payload)
+        //  Omar - we must always accept the original apoptosis message regardless of quarter and save it to gossip next cycle
+        //    but if we are in Q1 gossip it, otherwise save for Q1 of next cycle
+        if (addProposal(payload)) {
+          if (currentQuarter === 1) {
+            // if it is Q1 we can try to gossip the message now instead of waiting for Q1 of next cycle
+            Comms.sendGossip(gossipRouteName, payload)
+          }
+          response({ s: 'pass' })
+          return
+        } else {
+          if (logFlags.error) warn(`addProposal failed for payload: ${JSON.stringify(payload)}`)
+        }
+      } else {
+        if (logFlags.error) warn(`sender is not apop node: sender:${sender} apop:${payload.id}`)
+        response({ s: 'fail', r: 3 })
+      }
+    } finally {
+      profilerInstance.scopedProfileSectionEnd('apoptosize')
+    }
+  },
+}
+
+const apoptosisInternalBinaryRoute: P2P.P2PTypes.Route<InternalBinaryHandler<Buffer>> = {
+  name: InternalRouteEnum.binary_apoptosize,
+  handler: (payload, response, header, sign) => {
+    const route = InternalRouteEnum.binary_apoptosize
+    profilerInstance.scopedProfileSectionStart(route)
+    nestedCountersInstance.countEvent('internal', route)
     try {
       const requestStream = VectorBufferStream.fromBuffer(payload)
       const requestType = requestStream.readUInt16()
       if (requestType !== TypeIdentifierEnum.cApoptosisProposalReq) {
-        /* prettier-ignore */ if (logFlags.error) warn(`apoptosisInternalRoute: bad requestType: ${requestType}`)
+        /* prettier-ignore */ if (logFlags.error) warn(`${route}: bad requestType: ${requestType}`)
+        nestedCountersInstance.countEvent('internal', `${route}-invalid_request`)
         let resp: ApoptosisProposalResp = { s: 'bad request', r: 1 }
         response(resp, serializeApoptosisProposalResp)
         return
@@ -161,7 +236,7 @@ const apoptosisInternalRoute: P2P.P2PTypes.Route<InternalBinaryHandler<Buffer>> 
         return
       }
     } finally {
-      profilerInstance.scopedProfileSectionEnd('apoptosize')
+      profilerInstance.scopedProfileSectionEnd(route)
     }
   },
 }
@@ -197,8 +272,8 @@ const apoptosisGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ApoptosisTypes.Signed
 
 const routes = {
   external: [stopExternalRoute, failExternalRoute],
-  internal: [],
-  internal2: [apoptosisInternalRoute],
+  internal: [apoptosisInternalRoute],
+  internalBinary: [apoptosisInternalBinaryRoute],
   gossip: {
     //    'gossip-join': gossipJoinRoute,
     [gossipRouteName]: apoptosisGossipRoute,
@@ -222,7 +297,7 @@ export function init() {
   for (const route of routes.internal) {
     Comms.registerInternal(route.name, route.handler)
   }
-  for (const route of routes.internal2) {
+  for (const route of routes.internalBinary) {
     Comms.registerInternalBinary(route.name, route.handler)
   }
   for (const [name, handler] of Object.entries(routes.gossip)) {
@@ -312,30 +387,28 @@ export async function apoptosizeSelf(message: string) {
   // [TODO] - maybe we should shuffle this array
   const activeNodes = activeByIdOrder
   const proposal = createProposal()
-  const apopProposalReq: ApoptosisProposalReq = {
-    id: proposal.id,
-    when: proposal.when,
-  }
-  await Comms.tellBinary<ApoptosisProposalReq>(
-    activeNodes,
-    internalRouteName,
-    apopProposalReq,
-    serializeApoptosisProposalReq,
-    {}
-  )
   const qF = async (node) => {
     //  use ask instead of tell and expect the node to
     //          acknowledge it received the request by sending 'pass'
     if (node.id === Self.id) return null
     try {
-      const res = Comms.askBinary<ApoptosisProposalReq, ApoptosisProposalResp>(
-        node,
-        internalRouteName,
-        apopProposalReq,
-        serializeApoptosisProposalReq,
-        deserializeApoptosisProposalResp,
-        {}
-      )
+      let res
+      if (config.p2p.useBinarySerializedEndpoints) {
+        const apopProposalReq: ApoptosisProposalReq = {
+          id: proposal.id,
+          when: proposal.when,
+        }
+        res = Comms.askBinary<ApoptosisProposalReq, ApoptosisProposalResp>(
+          node,
+          InternalRouteEnum.binary_apoptosize,
+          apopProposalReq,
+          serializeApoptosisProposalReq,
+          deserializeApoptosisProposalResp,
+          {}
+        )
+      } else {
+        res = await Comms.ask(node, 'apoptosize', proposal)
+      }
       return res
     } catch (err) {
       /* prettier-ignore */ if (logFlags.important_as_fatal) warn(`qF: In apoptosizeSelf calling robustQuery proposal. ${message}`)

@@ -12,6 +12,7 @@ import {
   serializeApoptosisProposalResp,
 } from '../../src/types/ApoptosisProposalResp'
 import Profiler from '../../src/utils/profiler'
+import { InternalRouteEnum } from '../../src/types/enum/InternalRouteEnum'
 
 // update the public key, node id and ports to match the node you are testing
 const node: ShardusTypes.Node = {
@@ -62,7 +63,7 @@ const askBinaryTest = async (): Promise<void> => {
     }
     const resp = await Comms.askBinary<ApoptosisProposalResp, ApoptosisProposalResp>(
       node,
-      'apoptosize',
+      InternalRouteEnum.binary_apoptosize,
       obj,
       serializeApoptosisProposalResp,
       deserializeApoptosisProposalResp,
@@ -90,7 +91,7 @@ const askBinaryTest = async (): Promise<void> => {
     }
     const resp = await Comms.askBinary<ApoptosisProposalReq, ApoptosisProposalResp>(
       node,
-      'apoptosize',
+      InternalRouteEnum.binary_apoptosize,
       obj,
       serializeApoptosisProposalReq,
       deserializeApoptosisProposalResp,
@@ -147,7 +148,7 @@ const askBinaryTest = async (): Promise<void> => {
     }
     const resp = await Comms.askBinary<ApoptosisProposalReq, ApoptosisProposalResp>(
       node,
-      'apoptosize',
+      InternalRouteEnum.binary_apoptosize,
       obj,
       serializeApoptosisProposalReq,
       deserializeApoptosisProposalResp,
