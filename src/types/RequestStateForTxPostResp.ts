@@ -6,13 +6,14 @@ import {
   serializeWrappedDataResponse,
 } from './WrappedDataResponse'
 
+const cRequestStateForTxPostRespVersion = 1
+
 export type RequestStateForTxPostResp = {
   stateList: WrappedDataResponse[]
   beforeHashes: { [accountID: string]: string }
   note: string
   success: boolean
 }
-const cRequestStateForTxPostRespVersion = 1
 
 export function serializeRequestStateForTxPostResp(
   stream: VectorBufferStream,
@@ -46,10 +47,10 @@ export function deserializeRequestStateForTxPostResp(stream: VectorBufferStream)
   for (let i = 0; i < beforeHashesLength; i++) {
     const key = stream.readString()
     const value = stream.readString()
+    // eslint-disable-next-line security/detect-object-injection
     beforeHashes[key] = value
   }
   const stateListLength = stream.readUInt16()
   const stateList = Array.from({ length: stateListLength }, () => deserializeWrappedDataResponse(stream))
   return { success, note, beforeHashes, stateList }
 }
-

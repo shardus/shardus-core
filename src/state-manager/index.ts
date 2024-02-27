@@ -105,8 +105,16 @@ import {
   GetAccountQueueCountReq,
   serializeGetAccountQueueCountReq,
 } from '../types/GetAccountQueueCountReq'
-import { RequestStateForTxPostReq, serializeRequestStateForTxPostReq, deserializeRequestStateForTxPostReq } from '../types/RequestStateForTxPostReq'
-import { RequestStateForTxPostResp, serializeRequestStateForTxPostResp, deserializeRequestStateForTxPostResp } from '../types/RequestStateForTxPostResp'
+import {
+  RequestStateForTxPostReq,
+  serializeRequestStateForTxPostReq,
+  deserializeRequestStateForTxPostReq,
+} from '../types/RequestStateForTxPostReq'
+import {
+  RequestStateForTxPostResp,
+  serializeRequestStateForTxPostResp,
+  deserializeRequestStateForTxPostResp,
+} from '../types/RequestStateForTxPostResp'
 import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 
@@ -1484,11 +1492,13 @@ class StateManager {
           errorType: RequestErrorEnum,
           opts?: { customErrorLog?: string; customCounterSuffix?: string }
         ): void => requestErrorHandler(route, errorType, header, opts)
+
         try {
           const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cRequestStateForTxPostReq)
           if (!requestStream) {
             return errorHandler(RequestErrorEnum.InvalidRequest)
           }
+
           const req = deserializeRequestStateForTxPostReq(requestStream)
           const response: RequestStateForTxPostResp = {
             stateList: [],
@@ -1503,24 +1513,21 @@ class StateManager {
           }
 
           if (queueEntry == null) {
-            response.note = `failed to find queue entry: ${utils.stringifyReduce(req.txid)} ${req.timestamp} dbg:${
-              this.debugTXHistory[utils.stringifyReduce(req.txid)]
-            }`
-            await respond(response, serializeRequestStateForTxPostResp)
-            return
+            response.note = `failed to find queue entry: ${utils.stringifyReduce(req.txid)} ${
+              req.timestamp
+            } dbg:${this.debugTXHistory[utils.stringifyReduce(req.txid)]}`
+            /* prettier-ignore */ nestedCountersInstance.countEvent('stateManager', `${route} cant find queue entry`)
+            return respond(response, serializeRequestStateForTxPostResp)
           }
 
           if (queueEntry.hasValidFinalData === false) {
-            response.note = `has queue entry but not final data: ${utils.stringifyReduce(req.txid)} ${req.timestamp} dbg:${
-              this.debugTXHistory[utils.stringifyReduce(req.txid)]
-            }`
-      
-            if (logFlags.error && logFlags.verbose) { 
-              this.mainLogger.error(response.note);
-              nestedCountersInstance.countEvent('stateManager', `request_state_for_tx_post hasValidFinalData==false, tx state: ${queueEntry.state}`) 
-            }
-            await respond(response, serializeRequestStateForTxPostResp)
-            return
+            response.note = `has queue entry but not final data: ${utils.stringifyReduce(req.txid)} ${
+              req.timestamp
+            } dbg:${this.debugTXHistory[utils.stringifyReduce(req.txid)]}`
+
+            if (logFlags.error && logFlags.verbose) this.mainLogger.error(response.note)
+            /* prettier-ignore */ nestedCountersInstance.countEvent('stateManager', `${route} hasValidFinalData==false, tx state: ${queueEntry.state}`)
+            return respond(response, serializeRequestStateForTxPostResp)
           }
 
           let wrappedStates = this.useAccountWritesOnly ? {} : queueEntry.collectedData
@@ -1535,10 +1542,8 @@ class StateManager {
               writtenAccountsMap[writtenAccount.accountId] = writtenAccount.data
             }
             wrappedStates = writtenAccountsMap
-            /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`request_state_for_tx_post applyResponse.accountWrites tx:${queueEntry.logID} ts:${queueEntry.acceptedTx.timestamp} accounts: ${utils.stringifyReduce(Object.keys(wrappedStates))}  `)
+            /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`request_state_for_tx_post applyResponse.accountWrites tx:${queueEntry.logID} ts:${queueEntry.acceptedTx.timestamp} accounts: ${utils.stringifyReduce(Object.keys(wrappedStates))}`)
           }
-
-          //TODO figure out if we need to include collectedFinalData (after refactor/cleanup)
 
           if (wrappedStates != null) {
             for (const [key, accountData] of Object.entries(wrappedStates)) {
@@ -1550,9 +1555,8 @@ class StateManager {
                 response.note = `failed accountData.stateId != req.hash txid: ${utils.makeShortHash(
                   req.txid
                 )} hash:${utils.makeShortHash(accountData.stateId)}`
-                /* prettier-ignore */ if (logFlags.error && logFlags.verbose) nestedCountersInstance.countEvent('stateManager', 'request_state_for_tx_post failed accountData.stateId != req.hash txid')
-                await respond(response, serializeRequestStateForTxPostResp)
-                return
+                /* prettier-ignore */ nestedCountersInstance.countEvent('stateManager', `${route} failed accountData.stateId != req.hash txid`)
+                return respond(response, serializeRequestStateForTxPostResp)
               }
               if (accountData) {
                 response.beforeHashes[key] = queueEntry.beforeHashes[key]
@@ -1560,9 +1564,9 @@ class StateManager {
               }
             }
           }
-          nestedCountersInstance.countEvent('stateManager', 'request_state_for_tx_post success')
+          nestedCountersInstance.countEvent('stateManager', `${route} success`)
           response.success = true
-          await respond(response, serializeRequestStateForTxPostResp)
+          return respond(response, serializeRequestStateForTxPostResp)
         } catch (e) {
           if (logFlags.error) this.mainLogger.error(`${route} error: ${utils.errorToStringFull(e)}`)
           nestedCountersInstance.countEvent('internal', `${route}-exception`)
@@ -1775,7 +1779,7 @@ class StateManager {
           // we cast up the array return type because we have attached the seenInQueue memeber to the data.
           result.accountData = accountData as Shardus.WrappedDataFromQueue[]
           responseSize = await respond(result)
-        } catch(ex) {
+        } catch (ex) {
           //we dont want to delay. let the asking node know qukcly so it can try again
           responseSize = await respond(false)
         } finally {
@@ -2489,7 +2493,7 @@ class StateManager {
     if (accountIsRemote) {
       let randomConsensusNode: P2PTypes.NodeListTypes.Node
       const preCheckLimit = 5
-      for(let i=0;i< preCheckLimit; i++) {
+      for (let i = 0; i < preCheckLimit; i++) {
         randomConsensusNode = this.transactionQueue.getRandomConsensusNodeForAccount(address)
         if (randomConsensusNode == null) {
           throw new Error(`getLocalOrRemoteAccount: no consensus node found`)
@@ -2497,8 +2501,12 @@ class StateManager {
         // Node Precheck!.  this check our internal records to find a good node to talk to.
         // it is worth it to look through the list if needed.
         if (
-          this.isNodeValidForInternalMessage(randomConsensusNode.id, 'getLocalOrRemoteAccount', true, true) ===
-          false
+          this.isNodeValidForInternalMessage(
+            randomConsensusNode.id,
+            'getLocalOrRemoteAccount',
+            true,
+            true
+          ) === false
         ) {
           //we got to the end of our tries?
           if (i >= preCheckLimit - 1) {
