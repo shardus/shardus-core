@@ -30,7 +30,7 @@ export function serializeSpreadTxToGroupSyncingReq(
   stream.writeUInt8(cSpreadTxToGroupSyncingReqVersion)
   stream.writeBigUInt64(BigInt(inp.timestamp))
   stream.writeString(inp.txId)
-  stream.writeString(SerializeToJsonString(inp.keys)) 
+  stream.writeString(SerializeToJsonString(inp.keys))
   stream.writeString(SerializeToJsonString(inp.data))
   stream.writeBuffer(stateManager.app.binarySerializeObject(AppObjEnum.AppData, inp.appData))
   stream.writeString(SerializeToJsonString(inp.shardusMemoryPatterns))
@@ -46,7 +46,7 @@ export function deserializeSpreadTxToGroupSyncingReq(stream: VectorBufferStream)
     txId: stream.readString(),
     keys: DeSerializeFromJsonString(stream.readString()),
     data: DeSerializeFromJsonString(stream.readString()),
-    appData: stateManager.app.binaryDeserializeObject(AppObjEnum.AppData, stream.readBuffer()),//DeSerializeFromJsonString(stream.readString()),
+    appData: stateManager.app.binaryDeserializeObject(AppObjEnum.AppData, stream.readBuffer()),
     shardusMemoryPatterns: DeSerializeFromJsonString(stream.readString()),
   }
 }

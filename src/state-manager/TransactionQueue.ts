@@ -71,7 +71,11 @@ import {
   serializeBroadcastFinalStateReq,
 } from '../types/BroadcastFinalStateReq'
 import { verifyPayload } from '../types/ajv/Helpers'
-import { SpreadTxToGroupSyncingReq, deserializeSpreadTxToGroupSyncingReq, serializeSpreadTxToGroupSyncingReq } from '../types/SpreadTxToGroupSyncingReq'
+import {
+  SpreadTxToGroupSyncingReq,
+  deserializeSpreadTxToGroupSyncingReq,
+  serializeSpreadTxToGroupSyncingReq,
+} from '../types/SpreadTxToGroupSyncingReq'
 
 interface Receipt {
   tx: AcceptedTx
@@ -516,18 +520,16 @@ class TransactionQueue {
             return errorHandler(RequestErrorEnum.InvalidRequest)
           }
 
-          const ajvErrors = verifyPayload('SpreadTxToGroupSyncingReq', payload)
+          const req: SpreadTxToGroupSyncingReq = deserializeSpreadTxToGroupSyncingReq(requestStream)
+
+          const ajvErrors = verifyPayload('SpreadTxToGroupSyncingReq', req)
           if (ajvErrors && ajvErrors.length > 0) {
-            this.mainLogger.error(`s${route}: request validation errors: ${ajvErrors}`)
+            this.mainLogger.error(`${route}: request validation errors: ${ajvErrors}`)
             return errorHandler(RequestErrorEnum.InvalidPayload)
           }
 
-          // Deserialise the request using the deserializer helper
-          const req: SpreadTxToGroupSyncingReq = deserializeSpreadTxToGroupSyncingReq(requestStream)
-          // Business logic which should be inspired from the original handler
           const node = this.p2p.state.getNode(header.sender_id)
-          const { data: data, appData: appData } = req
-          this.handleSharedTX(data, appData, node)
+          this.handleSharedTX(req.data, req.appData, node)
         } catch (e) {
           nestedCountersInstance.countEvent('internal', `${route}-exception`)
           this.mainLogger.error(`${route}: Exception executing request: ${errorToStringFull(e)}`)
@@ -537,7 +539,10 @@ class TransactionQueue {
       },
     }
 
-    this.p2p.registerInternalBinary(spreadTxToGroupSyncingBinaryHandler.name, spreadTxToGroupSyncingBinaryHandler.handler)
+    this.p2p.registerInternalBinary(
+      spreadTxToGroupSyncingBinaryHandler.name,
+      spreadTxToGroupSyncingBinaryHandler.handler
+    )
 
     this.p2p.registerGossipHandler(
       'spread_tx_to_group',
@@ -1909,9 +1914,9 @@ class TransactionQueue {
                       this.p2p.tellBinary<SpreadTxToGroupSyncingReq>(
                         this.stateManager.currentCycleShardData.syncingNeighborsTxGroup,
                         InternalRouteEnum.binary_spread_tx_to_group_syncing,
-                        request, 
+                        request,
                         serializeSpreadTxToGroupSyncingReq,
-                        {},
+                        {}
                       )
                     } else {
                       this.p2p.tell(
@@ -1920,7 +1925,6 @@ class TransactionQueue {
                         acceptedTx
                       )
                     }
-                    
                   } else {
                     /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`routeAndQueueAcceptedTransaction: bugfix detected. avoid forwarding txs where globalModification == true ${txQueueEntry.logID}`)
                   }
