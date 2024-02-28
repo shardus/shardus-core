@@ -6,6 +6,8 @@ import * as Self from './Self'
 import { validateTypes } from '../utils'
 import { hasAlreadyEnteredProcessing } from './CycleCreator'
 import * as NodeList from './NodeList'
+import * as CycleChain from './CycleChain'
+import { getNewestCycle } from './Sync'
 
 /** STATE */
 
@@ -217,8 +219,9 @@ export function isInternalTxAllowed(): boolean {
 
 export function enterRestore(totalNodeCount: number): boolean {
   // use of baselineNodes since dealing with going into restore mode and baselineNodes is the minimum number of nodes required to go into safety, restore, and recovery mode
-  const threshold = Context.config.p2p.networkBaselineEnabled
-    ? Context.config.p2p.baselineNodes
-    : Context.config.p2p.minNodes
+  // const threshold = Context.config.p2p.networkBaselineEnabled
+  //   ? Context.config.p2p.baselineNodes
+  //   : Context.config.p2p.minNodes
+  const threshold = CycleChain.getNewest().target
   return totalNodeCount >= threshold + Context.config.p2p.extraNodesToAddInRestart
 }
