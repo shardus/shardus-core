@@ -137,7 +137,7 @@ class Storage {
           '`joined` JSON NOT NULL',
           '`joinedArchivers` JSON NOT NULL',
           '`leavingArchivers` JSON NOT NULL',
-          '`joinedConsensors` JSON NOT NULL',
+          '`selectedConsensors` JSON NOT NULL',
           '`refreshedArchivers` JSON NOT NULL',
           '`refreshedConsensors` JSON NOT NULL',
           '`activated` JSON NOT NULL',

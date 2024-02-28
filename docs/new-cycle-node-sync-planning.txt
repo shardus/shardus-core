@@ -120,7 +120,7 @@ SAMPLE CYCLES
       "publicKey": "758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3"
     }
   ],
-  "joinedConsensors": [
+  "selectedConsensors": [
     {
       "ip": "127.0.0.1",
       "port": 9001,
@@ -151,7 +151,7 @@ SAMPLE CYCLES
   "expired": 0,
   "joined": [],
   "joinedArchivers": [],
-  "joinedConsensors": [],
+  "selectedConsensors": [],
   "lost": [],
   "marker": "8bb6ed8d35d2e9edd7149b04c7f670d3ebbaef52495d85c845abdadf86c72290",
   "previous": "6c609f27e47f6efbe38082fb8a7d393a9cc9ebdf3ec36f622173d1813b2230d1",

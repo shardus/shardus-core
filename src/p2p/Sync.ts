@@ -560,7 +560,7 @@ function validateCycles(cycles: P2P.CycleCreatorTypes.CycleRecord[]) {
       joinedArchivers: 'a',
       leavingArchivers: 'a',
       syncing: 'n',
-      joinedConsensors: 'a',
+      selectedConsensors: 'a',
       active: 'n',
       activated: 'a',
       activatedPublicKeys: 'a',

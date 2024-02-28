@@ -35,7 +35,7 @@ const cycles = [
     joined: { type: SQLDataTypes.JSON, allowNull: false },
     joinedArchivers: { type: SQLDataTypes.JSON, allowNull: false },
     leavingArchivers: { type: SQLDataTypes.JSON, allowNull: false },
-    joinedConsensors: { type: SQLDataTypes.JSON, allowNull: false },
+    selectedConsensors: { type: SQLDataTypes.JSON, allowNull: false },
     refreshedArchivers: { type: SQLDataTypes.JSON, allowNull: false },
     refreshedConsensors: { type: SQLDataTypes.JSON, allowNull: false },
     activated: { type: SQLDataTypes.JSON, allowNull: false },

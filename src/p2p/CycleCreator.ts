@@ -380,12 +380,13 @@ async function cycleCreator() {
       digestCycle(prevRecord, 'cycleCreator')
     }
     //}
-    let data: P2P.CycleCreatorTypes.CycleData = undefined
     try {
       // Save the previous record to the DB
       const marker = makeCycleMarker(prevRecord)
       const certificate = makeCycleCert(marker)
       const data: P2P.CycleCreatorTypes.CycleData = { ...prevRecord, marker, certificate }
+
+      console.log('cycleCreator - Cycle Data :', data)
 
       if (lastSavedData) {
         await storage.updateCycle({ networkId: lastSavedData.networkId }, data)
@@ -1039,7 +1040,7 @@ function validateCertsRecordTypes(inp, caller) {
     expired: 'n',
     joined: 'a',
     joinedArchivers: 'a',
-    joinedConsensors: 'a',
+    selectedConsensors: 'a',
     lost: 'a',
     previous: 's',
     refreshedArchivers: 'a',

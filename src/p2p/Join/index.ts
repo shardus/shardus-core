@@ -204,7 +204,7 @@ export function getTxs(): P2P.JoinTypes.Txs {
 }
 
 export function validateRecordTypes(rec: P2P.JoinTypes.Record): string {
-  let err = validateTypes(rec, { syncing: 'n', joinedConsensors: 'a' })
+  let err = validateTypes(rec, { syncing: 'n', selectedConsensors: 'a' })
   if (err) return err
   for (const item of rec.selectedConsensors) {
     err = validateTypes(item, {

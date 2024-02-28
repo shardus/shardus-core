@@ -65,7 +65,7 @@ export function validateRecordTypes(rec: P2P.RefreshTypes.Record): string {
       curvePublicKey: 's',
       status: 's',
     })
-    if (err) return 'in joinedConsensors array ' + err
+    if (err) return 'in selectedConsensors array ' + err
   }
   return ''
 }
