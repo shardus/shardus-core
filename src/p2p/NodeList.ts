@@ -165,7 +165,7 @@ export function removeReadyNode(id: string) {
       break
     }
   }
-  /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log('Removing synced node', id, idx)
+  /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log('Removing ready node', id, idx)
   if (idx >= 0) readyByTimeAndIdOrder.splice(idx, 1)
 }
 
@@ -277,6 +277,7 @@ export function updateNode(
       }
       if (update[key] === P2P.P2PTypes.NodeStatus.READY) {
         insertSorted(readyByTimeAndIdOrder, node, propComparator2('readyTimestamp', 'id'))
+        removeSelectedNode(node.id)
         removeSyncingNode(node.id)
       }
     }
@@ -286,13 +287,14 @@ export function updateNode(
       // Add the node to active arrays, if needed
       if (update.status === P2P.P2PTypes.NodeStatus.ACTIVE) {
         insertSorted(activeByIdOrder, node, propComparator('id'))
-        // Don't add yourself to
+        // Don't add yourself to activeOthersByIdOrder
         if (node.id !== id) {
           insertSorted(activeOthersByIdOrder, node, propComparator('id'))
         }
         // remove active node from ready list
         /* prettier-ignore */ if (logFlags.verbose) console.log('updateNode: removing active node from ready list')
-        //removeSyncingNode(node.id)
+        removeSelectedNode(node.id)
+        removeSyncingNode(node.id)
         removeReadyNode(node.id)
 
         if (raiseEvents) {
