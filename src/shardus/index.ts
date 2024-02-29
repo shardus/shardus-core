@@ -1222,17 +1222,6 @@ class Shardus extends EventEmitter {
         }
       }
 
-      // Give the dapp an opportunity to do some up front work and generate
-      // appData metadata for the applied TX
-      const { status: preCrackSuccess, reason } = await this.app.txPreCrackData(tx, appData)
-      if (this.config.stateManager.checkPrecrackStatus === true && preCrackSuccess === false) {
-        return {
-          success: false,
-          reason: `PreCrack has failed. ${reason}`,
-          status: 500,
-        }
-      }
-
       const injectedTimestamp = this.app.getTimestampFromTransaction(tx, appData)
 
       const txId = this.app.calculateTxId(tx)
@@ -1274,6 +1263,17 @@ class Shardus extends EventEmitter {
         // 400 is a code for bad tx or client faulty
         validateResult.status = validateResult.status ? validateResult.status : 400
         return validateResult
+      }
+
+      // Give the dapp an opportunity to do some up front work and generate
+      // appData metadata for the applied TX
+      const { status: preCrackSuccess, reason } = await this.app.txPreCrackData(tx, appData)
+      if (this.config.stateManager.checkPrecrackStatus === true && preCrackSuccess === false) {
+        return {
+          success: false,
+          reason: `PreCrack has failed. ${reason}`,
+          status: 500,
+        }
       }
 
       // Ask App to crack open tx and return timestamp, id (hash), and keys
