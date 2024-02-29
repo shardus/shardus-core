@@ -33,7 +33,13 @@ import { ApoptosisProposalResp, deserializeApoptosisProposalResp } from '../type
 import { ApoptosisProposalReq, serializeApoptosisProposalReq } from '../types/ApoptosisProposalReq'
 import { ShardusEvent, Node } from '../shardus/shardus-types'
 import { HashTrieReq, ProxyRequest, ProxyResponse } from '../state-manager/state-manager-types'
-
+import { InternalBinaryHandler } from '../types/Handler'
+import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
+import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
+import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
+import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
+import { deserializeProxyReq, serializeProxyReq } from '../types/ProxyReq'
+import { deserializeProxyResp, serializeProxyResp, ProxyResp } from '../types/ProxyResp'
 /** TYPES */
 
 export type ScheduledLostReport<Target> = {
@@ -253,9 +259,67 @@ export function init() {
       }
     }
   )
-}
 
-// This gets called before start of Q1
+  const proxyBinaryHandler: P2P.P2PTypes.Route<InternalBinaryHandler<Buffer>> = {
+    name: InternalRouteEnum.binary_proxy,
+    handler: async (payload, response, header) => {
+      profilerInstance.scopedProfileSectionStart(InternalRouteEnum.binary_proxy, true)
+      const route = InternalRouteEnum.binary_proxy
+      nestedCountersInstance.countEvent('internal', route)
+      const errorHandler = (
+        errorType: RequestErrorEnum,
+        opts?: { customErrorLog?: string; customCounterSuffix?: string }
+      ): void => requestErrorHandler(route, errorType, header, opts)
+      let proxyRes: ProxyResp = {
+        success: false,
+        response: null,
+      }
+      try {
+        const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cProxyReq)
+        if (!requestStream) {
+          return errorHandler(RequestErrorEnum.InvalidRequest)
+        }
+        const req = deserializeProxyReq(requestStream)
+        const targetNode = nodes.get(req.nodeId)
+        if (targetNode == null) {
+          if (logFlags.error) error(`${route} targetNode is null`)
+          response(proxyRes, serializeProxyResp)
+          return
+        }
+        let res = null
+        // Uncomment below line and comment out line Comms.ask once getTrieHashesBinary is merged
+        // Do necessary imports for commented code
+        /*
+        if (req.route === 'get_trie_hashes') {
+          nestedCountersInstance.countEvent('internal', InternalRouteEnum.binary_get_trie_hashes, 1)
+          res = await Comms.askBinary<GetTrieHashesRequest, GetTrieHashesResponse>(
+            targetNode,
+            InternalRouteEnum.binary_get_trie_hashes,
+            payload.message,
+            serializeGetTrieHashesReq,
+            deserializeGetTrieHashesResp,
+            {}
+          )
+        } else {
+          res = await Comms.ask(targetNode, req.route, req.message)
+        }
+        */
+        res = await Comms.ask(targetNode, req.route, req.message)
+        proxyRes = {
+          success: true,
+          response: res,
+        }
+        response(proxyRes, serializeProxyResp)
+      } catch (e) {
+        if (logFlags.error) error(`${route} error: ${e.message}`)
+        response(proxyRes, serializeProxyResp)
+      } finally {
+        profilerInstance.scopedProfileSectionEnd(route)
+      }
+    },
+  }
+  p2p.registerInternalBinary(proxyBinaryHandler.name, proxyBinaryHandler.handler)
+}
 export function reset() {
   const lostCacheCycles = config.p2p.lostMapPruneCycles
   for (let [key, lostRecordItems] of receivedLostRecordMap) {
@@ -1029,7 +1093,22 @@ async function isDownCheck(node) {
         route: 'get_trie_hashes',
         message: hashTrieReq,
       }
-      const res = await Comms.ask(proxyNode, 'proxy', proxyRequest, true, '', 3000)
+      let res
+      if (config.p2p.useBinarySerializedEndpoints) {
+        res = await Comms.askBinary<ProxyRequest, ProxyResponse>(
+          proxyNode,
+          InternalRouteEnum.binary_proxy,
+          proxyRequest,
+          serializeProxyReq,
+          deserializeProxyResp,
+          {},
+          '',
+          true,
+          3000
+        )
+      } else {
+        res = await Comms.ask(proxyNode, 'proxy', proxyRequest, true, '', 3000)
+      }
       if (logFlags.verbose)
         info(`lost check result for node ${node.id} cycle ${currentCycle} is ${utils.stringifyReduce(res)}`)
       if (res == null || res.success === false || res.response == null || res.response.isResponse == null) {

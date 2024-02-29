@@ -1665,7 +1665,7 @@ class StateManager {
           // we cast up the array return type because we have attached the seenInQueue memeber to the data.
           result.accountData = accountData as Shardus.WrappedDataFromQueue[]
           responseSize = await respond(result)
-        } catch(ex) {
+        } catch (ex) {
           //we dont want to delay. let the asking node know qukcly so it can try again
           responseSize = await respond(false)
         } finally {
@@ -1956,6 +1956,7 @@ class StateManager {
     this.p2p.unregisterInternal(InternalRouteEnum.binary_get_account_data_by_list)
     this.p2p.unregisterInternal(InternalRouteEnum.binary_broadcast_finalstate)
     this.p2p.unregisterInternal(InternalRouteEnum.binary_get_account_data)
+    this.p2p.unregisterInternal(InternalRouteEnum.binary_proxy)
   }
 
   // //////////////////////////////////////////////////////////////////////////
@@ -2378,7 +2379,7 @@ class StateManager {
     if (accountIsRemote) {
       let randomConsensusNode: P2PTypes.NodeListTypes.Node
       const preCheckLimit = 5
-      for(let i=0;i< preCheckLimit; i++) {
+      for (let i = 0; i < preCheckLimit; i++) {
         randomConsensusNode = this.transactionQueue.getRandomConsensusNodeForAccount(address)
         if (randomConsensusNode == null) {
           throw new Error(`getLocalOrRemoteAccount: no consensus node found`)
@@ -2386,8 +2387,12 @@ class StateManager {
         // Node Precheck!.  this check our internal records to find a good node to talk to.
         // it is worth it to look through the list if needed.
         if (
-          this.isNodeValidForInternalMessage(randomConsensusNode.id, 'getLocalOrRemoteAccount', true, true) ===
-          false
+          this.isNodeValidForInternalMessage(
+            randomConsensusNode.id,
+            'getLocalOrRemoteAccount',
+            true,
+            true
+          ) === false
         ) {
           //we got to the end of our tries?
           if (i >= preCheckLimit - 1) {
