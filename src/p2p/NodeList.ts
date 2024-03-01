@@ -199,8 +199,7 @@ export function removeNode(
   idx = binarySearch(syncingByIdOrder, { id }, propComparator('id'))
   if (idx >= 0) syncingByIdOrder.splice(idx, 1)
 
-  idx = binarySearch(readyByTimeAndIdOrder, { id }, propComparator('id'))
-  if (idx >= 0) readyByTimeAndIdOrder.splice(idx, 1)
+  removeReadyNode(id)
 
   const joinRequestTimestamp = nodes.get(id).joinRequestTimestamp
   idx = binarySearch(byJoinOrder, { joinRequestTimestamp, id }, propComparator2('joinRequestTimestamp', 'id'))
