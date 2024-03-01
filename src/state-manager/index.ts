@@ -105,7 +105,10 @@ import {
   GetAccountQueueCountReq,
   serializeGetAccountQueueCountReq,
 } from '../types/GetAccountQueueCountReq'
-import { getStreamWithTypeCheck } from '../types/Helpers'
+import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
+import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
+import { RequestTxAndStateReq, deserializeRequestTxAndStateReq } from '../types/RequestTxAndStateReq'
+import { serializeRequestTxAndStateResp } from '../types/RequestTxAndStateResp'
 
 export type Callback = (...args: unknown[]) => void
 
@@ -1567,6 +1570,117 @@ class StateManager {
       }
     )
 
+    const requestTxAndStateBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
+      name: InternalRouteEnum.binary_request_tx_and_state,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      handler: async (payload, respond, header, sign) => {
+        const route = InternalRouteEnum.binary_request_tx_and_state
+        nestedCountersInstance.countEvent('internal', route)
+        this.profiler.scopedProfileSectionStart(route, false, payload.length)
+        const errorHandler = (
+          errorType: RequestErrorEnum,
+          opts?: { customErrorLog?: string; customCounterSuffix?: string }
+        ): void => requestErrorHandler(route, errorType, header, opts)
+        try {
+          const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cRequestTxAndStateReq)
+          if (!requestStream) {
+            return errorHandler(RequestErrorEnum.InvalidRequest)
+          }
+
+          const req: RequestTxAndStateReq = deserializeRequestTxAndStateReq(requestStream)
+          let response: RequestTxResp = {
+            stateList: [],
+            account_state_hash_before: {},
+            account_state_hash_after: {},
+            note: '',
+            success: false,
+          }
+
+          const txid = req.txid
+          const requestedAccountIds = req.accountIds
+
+          let queueEntry = this.transactionQueue.getQueueEntrySafe(txid)
+          if (queueEntry == null) {
+            queueEntry = this.transactionQueue.getQueueEntryArchived(txid, 'request_tx_and_state')
+          }
+
+          if (queueEntry == null) {
+            response.note = `failed to find queue entry: ${utils.stringifyReduce(txid)} dbg:${
+              this.debugTXHistory[utils.stringifyReduce(txid)]
+            }`
+
+            if (logFlags.error) this.mainLogger.error(`request_tx_and_state ${response.note}`)
+            respond(response, serializeRequestTxAndStateResp)
+            return
+          }
+
+          if (queueEntry.isInExecutionHome === false) {
+            response.note = `request_tx_and_state not in execution group: ${utils.stringifyReduce(txid)}`
+            /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(response.note)
+            respond(response, serializeRequestTxAndStateResp)
+            return
+          }
+
+          let receipt2 = this.getReceipt2(queueEntry)
+          if (receipt2 == null) {
+            response.note = `request_tx_and_state does not have valid receipt2: ${utils.stringifyReduce(
+              txid
+            )}`
+            /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(response.note)
+            respond(response, serializeRequestTxAndStateResp)
+            return
+          }
+
+          let wrappedStates = this.useAccountWritesOnly ? {} : queueEntry.collectedData
+
+          // if we have applyResponse then use it.  This is where and advanced apply() will put its transformed data
+          const writtenAccountsMap: WrappedResponses = {}
+          const applyResponse = queueEntry?.preApplyTXResult.applyResponse
+          if (
+            applyResponse != null &&
+            applyResponse.accountWrites != null &&
+            applyResponse.accountWrites.length > 0
+          ) {
+            for (const writtenAccount of applyResponse.accountWrites) {
+              writtenAccountsMap[writtenAccount.accountId] = writtenAccount.data
+            }
+            wrappedStates = writtenAccountsMap
+            /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`request_tx_and_state applyResponse.accountWrites tx:${queueEntry.logID} ts:${queueEntry.acceptedTx.timestamp} accounts: ${utils.stringifyReduce(Object.keys(wrappedStates))}  `)
+          }
+
+          //TODO figure out if we need to include collectedFinalData (after refactor/cleanup)
+
+          if (wrappedStates != null) {
+            for (let i = 0; i < receipt2.appliedVote.account_id.length; i++) {
+              let key = receipt2.appliedVote.account_id[i]
+              let accountData = wrappedStates[key]
+              if (accountData && requestedAccountIds.includes(key)) {
+                // eslint-disable-next-line security/detect-object-injection
+                response.account_state_hash_before[key] = receipt2.appliedVote.account_state_hash_before[i]
+                response.account_state_hash_after[key] = receipt2.appliedVote.account_state_hash_after[i]
+                response.stateList.push(accountData)
+              }
+            }
+          }
+          response.success = true
+          /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`request_tx_and_state success: ${queueEntry.logID}  ${response.stateList.length}  ${utils.stringify(response)}`)
+          respond(response, serializeRequestTxAndStateResp)
+        } catch (e) {
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          Context.logger
+            .getLogger('p2p')
+            .error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
+        } finally {
+          this.profiler.scopedProfileSectionEnd(route)
+        }
+      },
+    }
+
+    this.p2p.registerInternalBinary(
+      requestTxAndStateBinaryHandler.name,
+      requestTxAndStateBinaryHandler.handler
+    )
+
     // TODO STATESHARDING4 ENDPOINTS ok, I changed this to tell, but we still need to check sender!
     //this.p2p.registerGossipHandler('spread_appliedVote', async (payload, sender, tracker) => {
     this.p2p.registerInternal(
@@ -1956,6 +2070,7 @@ class StateManager {
     this.p2p.unregisterInternal(InternalRouteEnum.binary_get_account_data_by_list)
     this.p2p.unregisterInternal(InternalRouteEnum.binary_broadcast_finalstate)
     this.p2p.unregisterInternal(InternalRouteEnum.binary_get_account_data)
+    this.p2p.unregisterInternal(InternalRouteEnum.binary_request_tx_and_state)
   }
 
   // //////////////////////////////////////////////////////////////////////////

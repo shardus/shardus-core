@@ -18,4 +18,6 @@ export enum TypeIdentifierEnum {
   cBroadcastFinalStateReq,
   cGetAccountDataReq,
   cGetAccountDataResp,
+  cRequestTxAndStateReq,
+  cRequestTxAndStateResp,
 }
