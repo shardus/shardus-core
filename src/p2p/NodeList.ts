@@ -199,7 +199,12 @@ export function removeNode(
   idx = binarySearch(syncingByIdOrder, { id }, propComparator('id'))
   if (idx >= 0) syncingByIdOrder.splice(idx, 1)
 
-  removeReadyNode(id)
+  if (config.p2p.hardenNewSyncingProtocol) {
+    removeReadyNode(id)
+  } else {
+    idx = binarySearch(readyByTimeAndIdOrder, { id }, propComparator('id'))
+    if (idx >= 0) readyByTimeAndIdOrder.splice(idx, 1)
+  }
 
   const joinRequestTimestamp = nodes.get(id).joinRequestTimestamp
   idx = binarySearch(byJoinOrder, { joinRequestTimestamp, id }, propComparator2('joinRequestTimestamp', 'id'))
@@ -276,7 +281,9 @@ export function updateNode(
       }
       if (update[key] === P2P.P2PTypes.NodeStatus.READY) {
         insertSorted(readyByTimeAndIdOrder, node, propComparator2('readyTimestamp', 'id'))
-        if (selectedById.has(node.id)) removeSelectedNode(node.id) // in case we missed the sync-started gossip
+        if (config.p2p.hardenNewSyncingProtocol) {
+          if (selectedById.has(node.id)) removeSelectedNode(node.id) // in case we missed the sync-started gossip
+        }
         removeSyncingNode(node.id)
       }
     }
