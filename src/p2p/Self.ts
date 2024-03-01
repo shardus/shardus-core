@@ -29,11 +29,9 @@ import { Result } from 'neverthrow'
 const deepCopy = rfdc()
 import { isServiceMode } from '../debug'
 import { insertSyncStarted } from './Join/v2/syncStarted'
-import * as http from '../http'
-import { insertSyncFinished } from '../p2p/Join/v2/syncFinished'
-import { getStandbyNodesInfoMap } from './Join/v2'
 import { submitStandbyRefresh } from './Join/v2/standbyRefresh'
 import { getNumArchivers } from './Archivers'
+import { currentQuarter } from './CycleCreator'
 
 /** STATE */
 
@@ -192,18 +190,29 @@ export function startupV2(): Promise<boolean> {
         // Sync cycle chain from network
         await syncCycleChain(id)
 
-        // if syncCycleChain takes really long time and its not q1 anymore, wait till next cycle's q1 to send sync-started gossi[]
+        // if syncCycleChain takes really long time and its not q1 anymore, wait till next cycle's q1 to send sync-started gossip
         const currentTime = shardusGetTime()
+        nestedCountersInstance.countEvent('p2p', `current time after syncCycleChain: ${currentTime}`)
 
         const timeInCycle = currentTime/1000 - (CycleChain.getNewest()?.start + CycleChain.getNewest()?.duration)
-        console.log('time in cycle ', timeInCycle)
+        const cycleDurationMultiplier = ~~(timeInCycle / CycleChain.getNewest()?.duration) + 1
+
         if (CycleChain.getNewest() && timeInCycle > CycleChain.getNewest()?.duration / 4) {
           console.log('inside wait for q1 in sync-started')
           nestedCountersInstance.countEvent('p2p', 'quarter > 1. Waiting until Q1 of next cycle to send sync-started gossip')
           /* prettier-ignore */ if (logFlags.verbose) console.log('quarter > 1. Waiting until Q1 of next cycle to send sync-started gossip')
 
           // +5 is an arbitrary number I added so we wait 5s into q1 to send gossip
-          await new Promise(resolve => setTimeout(resolve, (CycleChain.getNewest()?.duration - timeInCycle + Context.config.p2p.cycleGossipDelayBuffer) * 1000));
+          await new Promise(resolve => setTimeout(resolve, (CycleChain.getNewest()?.duration * cycleDurationMultiplier - timeInCycle + Context.config.p2p.cycleGossipDelayBuffer) * 1000));
+        }
+
+        if (currentQuarter > 1) {
+          nestedCountersInstance.countEvent('p2p', `not in Q1 after waiting. Current quarter: ${CycleCreator.currentQuarter}`)
+          /* prettier-ignore */ if (logFlags.verbose) console.log(`not is Q1 after waiting. Current quarter: ${CycleCreator.currentQuarter}`)
+
+          await waitForQ1()
+          nestedCountersInstance.countEvent('p2p', `in Q1 after waiting. Current quarter: ${CycleCreator.currentQuarter}`)
+          /* prettier-ignore */ if (logFlags.verbose) console.log(`in Q1 after waiting. Current quarter: ${CycleCreator.currentQuarter}`)
         }
 
         let payload = {
@@ -1195,4 +1204,15 @@ function acceptedTrigger(): Promise<void> {
       resolve()
     })
   })
+}
+
+function waitForQ1(): Promise<void> {
+  return new Promise(resolve => {
+    const intervalId = setInterval(() => {
+      if (currentQuarter === 1) {
+        clearInterval(intervalId);
+        resolve();
+      }
+    }, 3000);
+  });
 }
