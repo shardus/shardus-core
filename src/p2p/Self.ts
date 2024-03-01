@@ -1206,7 +1206,7 @@ function acceptedTrigger(): Promise<void> {
   })
 }
 
-function waitForQ1(): Promise<void> {
+export function waitForQ1(): Promise<void> {
   return new Promise(resolve => {
     const intervalId = setInterval(() => {
       if (currentQuarter === 1) {
