@@ -277,7 +277,7 @@ export function updateNode(
       }
       if (update[key] === P2P.P2PTypes.NodeStatus.READY) {
         insertSorted(readyByTimeAndIdOrder, node, propComparator2('readyTimestamp', 'id'))
-        removeSelectedNode(node.id)
+        if (selectedById.has(node.id)) removeSelectedNode(node.id) // in case we missed the sync-started gossip
         removeSyncingNode(node.id)
       }
     }
@@ -293,8 +293,6 @@ export function updateNode(
         }
         // remove active node from ready list
         /* prettier-ignore */ if (logFlags.verbose) console.log('updateNode: removing active node from ready list')
-        removeSelectedNode(node.id)
-        removeSyncingNode(node.id)
         removeReadyNode(node.id)
 
         if (raiseEvents) {
