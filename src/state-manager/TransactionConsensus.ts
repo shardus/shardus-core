@@ -38,11 +38,7 @@ import { robustQuery } from '../p2p/Utils'
 import { SignedObject } from '@shardus/crypto-utils'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { GetAccountDataReqSerializable, serializeGetAccountDataReq } from '../types/GetAccountDataReq'
-import {
-  GetAccountDataRespSerializable,
-  deserializeGetAccountDataResp,
-  serializeGetAccountDataResp,
-} from '../types/GetAccountDataResp'
+import { GetAccountDataRespSerializable, deserializeGetAccountDataResp } from '../types/GetAccountDataResp'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import {
   SpreadAppliedVoteHashReq,

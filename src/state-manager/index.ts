@@ -107,7 +107,10 @@ import {
 } from '../types/GetAccountQueueCountReq'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
-import { deserializeSpreadAppliedVoteHashReq, serializeSpreadAppliedVoteHashReq } from '../types/SpreadAppliedVoteHashReq'
+import {
+  deserializeSpreadAppliedVoteHashReq,
+  serializeSpreadAppliedVoteHashReq,
+} from '../types/SpreadAppliedVoteHashReq'
 import { deserializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
 
 export type Callback = (...args: unknown[]) => void
@@ -1628,7 +1631,7 @@ class StateManager {
       }
     )
 
-    const spread_appliedVoteHashBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
+    const spreadAppliedVoteHashBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_spread_appliedVoteHash,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       handler: async (payload, respond, header, sign) => {
@@ -1639,31 +1642,26 @@ class StateManager {
           errorType: RequestErrorEnum,
           opts?: { customErrorLog?: string; customCounterSuffix?: string }
         ): void => requestErrorHandler(route, errorType, header, opts)
+
         try {
           // Type check the request
           const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cSpreadAppliedVoteHash)
           if (!requestStream) {
             return errorHandler(RequestErrorEnum.InvalidRequest)
           }
-          // (Optional) Check verification data in the header
-          // (Optional) AJV validation
-          // Deserialise the request using the deserializer helper
           const req = deserializeSpreadAppliedVoteHashReq(requestStream)
-          const queueEntry = this.transactionQueue.getQueueEntrySafe(req.txid) // , payload.timestamp)
+          const queueEntry = this.transactionQueue.getQueueEntrySafe(req.txid)
           if (queueEntry == null) {
             return
           }
           const collectedVoteHash = req as AppliedVoteHash
-          // TODO STATESHARDING4 ENDPOINTS check payload format
-          // TODO STATESHARDING4 ENDPOINTS that this message is from a valid sender (correct consenus group and valid signature)
 
           if (this.transactionConsensus.tryAppendVoteHash(queueEntry, collectedVoteHash)) {
             // Note this was sending out gossip, but since this needs to be converted to a tell function i deleted the gossip send
           }
-          
-          // Business logic which should be inspired from the original handler
         } catch (e) {
-          // Error handling
+          nestedCountersInstance.countEvent('internal', `${route}-exception`)
+          this.mainLogger.error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
         } finally {
           this.profiler.scopedProfileSectionEnd(route)
         }
@@ -1671,8 +1669,8 @@ class StateManager {
     }
 
     this.p2p.registerInternalBinary(
-      spread_appliedVoteHashBinaryHandler.name,
-      spread_appliedVoteHashBinaryHandler.handler
+      spreadAppliedVoteHashBinaryHandler.name,
+      spreadAppliedVoteHashBinaryHandler.handler
     )
 
     this.p2p.registerInternal(
@@ -1715,7 +1713,7 @@ class StateManager {
           // we cast up the array return type because we have attached the seenInQueue memeber to the data.
           result.accountData = accountData as Shardus.WrappedDataFromQueue[]
           responseSize = await respond(result)
-        } catch(ex) {
+        } catch (ex) {
           //we dont want to delay. let the asking node know qukcly so it can try again
           responseSize = await respond(false)
         } finally {
@@ -2428,7 +2426,7 @@ class StateManager {
     if (accountIsRemote) {
       let randomConsensusNode: P2PTypes.NodeListTypes.Node
       const preCheckLimit = 5
-      for(let i=0;i< preCheckLimit; i++) {
+      for (let i = 0; i < preCheckLimit; i++) {
         randomConsensusNode = this.transactionQueue.getRandomConsensusNodeForAccount(address)
         if (randomConsensusNode == null) {
           throw new Error(`getLocalOrRemoteAccount: no consensus node found`)
@@ -2436,8 +2434,12 @@ class StateManager {
         // Node Precheck!.  this check our internal records to find a good node to talk to.
         // it is worth it to look through the list if needed.
         if (
-          this.isNodeValidForInternalMessage(randomConsensusNode.id, 'getLocalOrRemoteAccount', true, true) ===
-          false
+          this.isNodeValidForInternalMessage(
+            randomConsensusNode.id,
+            'getLocalOrRemoteAccount',
+            true,
+            true
+          ) === false
         ) {
           //we got to the end of our tries?
           if (i >= preCheckLimit - 1) {

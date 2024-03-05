@@ -18,7 +18,7 @@ export function serializeSpreadAppliedVoteHashReq(
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cSpreadAppliedVoteHash)
   }
-  stream.writeUInt16(cSpreadAppliedVoteHashReqVersion)
+  stream.writeUInt8(cSpreadAppliedVoteHashReqVersion)
   stream.writeString(obj.txid)
   stream.writeString(obj.voteHash)
   if (obj.sign) {
@@ -31,7 +31,7 @@ export function serializeSpreadAppliedVoteHashReq(
 }
 
 export function deserializeSpreadAppliedVoteHashReq(stream: VectorBufferStream): SpreadAppliedVoteHashReq {
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
   if (version > cSpreadAppliedVoteHashReqVersion) {
     throw new Error('Unsupported version')
   }
