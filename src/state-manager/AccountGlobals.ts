@@ -13,7 +13,10 @@ import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
 import { InternalBinaryHandler } from '../types/Handler'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
-import { GlobalAccountReportRespSerializable, serializeGlobalAccountReportResp } from '../types/GlobalAccountReportResp'
+import {
+  GlobalAccountReportRespSerializable,
+  serializeGlobalAccountReportResp,
+} from '../types/GlobalAccountReportResp'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
 
@@ -195,11 +198,7 @@ class AccountGlobals {
 
           const toQuery: string[] = []
 
-          /* prettier-ignore */ if (logFlags.debug) console.log(
-            `Running ${route}`,
-            this.stateManager.accountSync.globalAccountsSynced,
-            this.stateManager.appFinishedSyncing
-          )
+          /* prettier-ignore */ if (logFlags.debug) console.log(`Running ${route}`, this.stateManager.accountSync.globalAccountsSynced, this.stateManager.appFinishedSyncing)
           /* prettier-ignore */ if (logFlags.debug) console.log(`Running ${route} result`, result)
           //not ready
           if (
@@ -208,6 +207,7 @@ class AccountGlobals {
           ) {
             result.ready = false
             respond(result, serializeGlobalAccountReportResp)
+            return
           }
 
           for (const key of globalAccountKeys) {
@@ -218,6 +218,7 @@ class AccountGlobals {
             nestedCountersInstance.countEvent(`sync`, `HACKFIX - forgot to return!`)
             const error = { error: 'Result not ready' } as GlobalAccountReportRespSerializable
             respond(error, serializeGlobalAccountReportResp)
+            return
           }
 
           let accountData: Shardus.WrappedData[]
@@ -227,9 +228,6 @@ class AccountGlobals {
             // TODO: if we have more than 900 keys to query in this list must split this into multiple queries!.. ok technically this will not impact liberdus but it could impact
             //       a dapp that uses sqlite
             accountData = await this.app.getAccountDataByList(toQuery)
-          } catch (e) {
-            nestedCountersInstance.countEvent('internal', `${route}-exception`)
-            this.mainLogger.error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
           } finally {
             this.stateManager.fifoUnlock('accountModification', ourLockID)
           }
@@ -250,11 +248,10 @@ class AccountGlobals {
           result.accounts.sort(utils.sort_id_Asc)
           result.combinedHash = this.crypto.hash(result)
           respond(result, serializeGlobalAccountReportResp)
-        } 
-        catch(e){
+        } catch (e) {
           nestedCountersInstance.countEvent('internal', `${route}-exception`)
           this.mainLogger.error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
-        }finally {
+        } finally {
           this.profiler.scopedProfileSectionEnd(route)
         }
       },

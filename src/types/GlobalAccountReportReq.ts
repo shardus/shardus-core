@@ -1,10 +1,10 @@
-import { stateManager } from '../p2p/Context'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
-import { AppObjEnum } from './enum/AppObjEnum'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 
-export type GlobalAccountReportReqSerializable = {}
 const cGlobalAccountReportReqVersion = 1
+
+// eslint-disable-next-line @typescript-eslint/ban-types
+export type GlobalAccountReportReqSerializable = {}
 
 export function serializeGlobalAccountReportReq(
   stream: VectorBufferStream,
