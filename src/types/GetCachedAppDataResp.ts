@@ -3,7 +3,7 @@ import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { AppObjEnum } from './enum/AppObjEnum'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 
-export type GetCachedAppDataResponse = {
+export type GetCachedAppDataResp = {
   cachedAppData?: {
     dataID: string
     appData: unknown
@@ -15,7 +15,7 @@ const cGetCachedAppDataRespVersion = 1
 
 export function serializeGetCachedAppDataResp(
   stream: VectorBufferStream,
-  response: GetCachedAppDataResponse,
+  response: GetCachedAppDataResp,
   root = false
 ): void {
   if (root) {
@@ -35,7 +35,7 @@ export function serializeGetCachedAppDataResp(
   }
 }
 
-export function deserializeGetCachedAppDataResp(stream: VectorBufferStream): GetCachedAppDataResponse {
+export function deserializeGetCachedAppDataResp(stream: VectorBufferStream): GetCachedAppDataResp {
   const version = stream.readUInt8()
   if (version > cGetCachedAppDataRespVersion) {
     throw new Error('Unsupported version in deserializeGetCachedAppDataResp')

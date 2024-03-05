@@ -32,12 +32,12 @@ import {
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { CachedAppDataSerializable } from '../types/CachedAppData'
 import {
-  GetCachedAppDataRequest,
+  GetCachedAppDataReq,
   deserializeGetCachedAppDataReq,
   serializeGetCachedAppDataReq,
 } from '../types/GetCachedAppDataReq'
 import {
-  GetCachedAppDataResponse,
+  GetCachedAppDataResp,
   deserializeGetCachedAppDataResp,
   serializeGetCachedAppDataResp,
 } from '../types/GetCachedAppDataResp'
@@ -186,7 +186,7 @@ class CachedAppDataManager {
         nestedCountersInstance.countEvent('internal', route)
         const response = {
           cachedAppData: null,
-        } as GetCachedAppDataResponse
+        } as GetCachedAppDataResp
 
         try {
           const requestStream = getStreamWithTypeCheck(payloadBuffer, TypeIdentifierEnum.cGetCachedAppDataReq)
@@ -566,7 +566,7 @@ class CachedAppDataManager {
       const message = { topic, dataId }
       let r: CachedAppData | boolean
       if (this.config.p2p.useBinarySerializedEndpoints) {
-        const resp = await this.p2p.askBinary<GetCachedAppDataRequest, GetCachedAppDataResponse>(
+        const resp = await this.p2p.askBinary<GetCachedAppDataReq, GetCachedAppDataResp>(
           randomConsensusNode,
           InternalRouteEnum.binary_get_cached_app_data,
           message,
