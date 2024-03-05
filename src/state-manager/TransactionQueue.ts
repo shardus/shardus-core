@@ -55,7 +55,6 @@ import {
   deserializeBroadcastStateReq,
   serializeBroadcastStateReq,
 } from '../types/BroadcastStateReq'
-import { AppObjEnum } from '../types/enum/AppObjEnum'
 import {
   getStreamWithTypeCheck,
   requestErrorHandler,
@@ -5631,7 +5630,7 @@ class TransactionQueue {
             {}
           )
         } else response = await Comms.ask(nodeToAsk, 'request_tx_and_state', message)
-        
+
         for (const data of response.stateList) {
           if (data == null) {
             /* prettier-ignore */

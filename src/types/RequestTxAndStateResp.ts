@@ -37,6 +37,7 @@ export function serializeRequestTxAndStateResp(
   stream.writeUInt16(beforeHashKeys.length)
   beforeHashKeys.forEach((key) => {
     stream.writeString(key)
+    // eslint-disable-next-line security/detect-object-injection
     stream.writeString(obj.account_state_hash_before[key])
   })
 
@@ -44,6 +45,7 @@ export function serializeRequestTxAndStateResp(
   stream.writeUInt16(afterHashKeys.length)
   afterHashKeys.forEach((key) => {
     stream.writeString(key)
+    // eslint-disable-next-line security/detect-object-injection
     stream.writeString(obj.account_state_hash_after[key])
   })
 
@@ -82,6 +84,7 @@ export function deserializeRequestTxAndStateResp(stream: VectorBufferStream): Re
   for (let i = 0; i < beforeHashLength; i++) {
     const key = stream.readString()
     const value = stream.readString()
+    // eslint-disable-next-line security/detect-object-injection
     result.account_state_hash_before[key] = value
   }
 
@@ -89,6 +92,7 @@ export function deserializeRequestTxAndStateResp(stream: VectorBufferStream): Re
   for (let i = 0; i < afterHashLength; i++) {
     const key = stream.readString()
     const value = stream.readString()
+    // eslint-disable-next-line security/detect-object-injection
     result.account_state_hash_after[key] = value
   }
 
