@@ -19,5 +19,5 @@ export enum TypeIdentifierEnum {
   cGetAccountDataReq,
   cGetAccountDataResp,
   cSignAppDataReq,
-  cSignAppDataResp
+  cSignAppDataResp,
 }
