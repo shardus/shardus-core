@@ -46,7 +46,7 @@ import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { deserializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
 import { getStreamWithTypeCheck } from '../types/Helpers'
 import { GetAccountDataRespSerializable, serializeGetAccountDataResp } from '../types/GetAccountDataResp'
-import { deserializeGetAccountDataReq } from '../types/GetAccountDataReq'
+import { deserializeGetAccountDataReq, verifyGetAccountDataReq } from '../types/GetAccountDataReq'
 import { GlobalAccountReportReqSerializable, serializeGlobalAccountReportReq } from '../types/GlobalAccountReportReq'
 import { GlobalAccountReportRespSerializable, deserializeGlobalAccountReportResp } from '../types/GlobalAccountReportResp'
 
