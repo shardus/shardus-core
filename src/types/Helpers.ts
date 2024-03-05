@@ -3,22 +3,36 @@ import { logFlags } from '../logger'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { WrappedReq, serializeWrappedReq } from './WrappedReq'
-import { WrappedResp, deserializeWrappedResp, serializeWrappedResp } from './WrappedResp'
+import { WrappedResp, deserializeWrappedResp, serializeWrappedResp, ResponseError } from './WrappedResp'
 import { InternalRouteEnum } from './enum/InternalRouteEnum'
 import { RequestErrorEnum } from './enum/RequestErrorEnum'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 
-export const responseSerializer = <T>(
-  data: T,
-  serializerFunc: (stream: VectorBufferStream, obj: T, root?: boolean) => void
+export const responseSerializer= <T>(
+  data?: T,
+  // this TS jedi is a trick for parameter's optionality dependent
+  serializerFunc?: T extends undefined ? undefined : (stream: VectorBufferStream, obj: T, root?: boolean) => void,
+  error?: ResponseError
 ): VectorBufferStream => {
-  const bufferInitialSize = estimateBinarySizeOfObject(data)
-  const serializedPayload = new VectorBufferStream(bufferInitialSize)
-  serializerFunc(serializedPayload, data, true)
-  const resp: WrappedResp = {
-    payload: serializedPayload.getBuffer(),
+  let resp: WrappedResp = {
+    // this'll get populated later
   }
-  const wrappedRespStream = new VectorBufferStream(3 + resp.payload.length)
+
+
+  if(data) {
+    const bufferInitialSize = estimateBinarySizeOfObject(data)
+    const serializedPayload = new VectorBufferStream(bufferInitialSize)
+    serializerFunc(serializedPayload, data, true)
+    resp.payload = serializedPayload.getBuffer()
+  }
+
+  let estimatedErrorSize = 0 
+  if (error) {
+    estimatedErrorSize = estimateBinarySizeOfObject(error)
+    resp.responseError = error
+  }
+
+  const wrappedRespStream = new VectorBufferStream(3 + resp.payload.length + estimatedErrorSize)
   serializeWrappedResp(wrappedRespStream, resp, true)
   return wrappedRespStream
 }
@@ -26,17 +40,26 @@ export const responseSerializer = <T>(
 export const responseDeserializer = <T>(
   data: VectorBufferStream,
   deserializerFunc: (stream: VectorBufferStream, root?: boolean) => T
-): T => {
+): { payload?: T, responseError?: ResponseError} => {
+  const returnObj = {
+    payload: undefined,
+    responseError: undefined
+  }
   data.position = 0
   const responseType = data.readUInt16()
   if (responseType !== TypeIdentifierEnum.cWrappedResp) {
     throw new Error(`Invalid response stream: ${responseType}`)
   }
   const wrappedResp = deserializeWrappedResp(data)
-  const payloadStream = VectorBufferStream.fromBuffer(wrappedResp.payload)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const payloadType = payloadStream.readUInt16()
-  return deserializerFunc(payloadStream)
+  let payloadStream = undefined
+  if (wrappedResp.payload) {
+    payloadStream = VectorBufferStream.fromBuffer(wrappedResp.payload)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const payloadType = payloadStream.readUInt16()
+    deserializerFunc(payloadStream)
+  }
+  returnObj.responseError = wrappedResp.responseError
+  return returnObj
 }
 
 export const requestSerializer = <T>(

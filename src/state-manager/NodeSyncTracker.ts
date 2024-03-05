@@ -575,7 +575,7 @@ export default class NodeSyncTracker implements SyncTrackerInterface {
       let r: GetAccountData3Resp | boolean
       try {
         if (stateManager.config.p2p.useBinarySerializedEndpoints) {
-          const rBin = await this.p2p.askBinary<
+          const { responsePayload } = await this.p2p.askBinary<
             GetAccountDataReqSerializable,
             GetAccountDataRespSerializable
           >(
@@ -589,8 +589,8 @@ export default class NodeSyncTracker implements SyncTrackerInterface {
             false,
             5000 + moreAskTime
           )
-          if (((rBin.errors && rBin.errors.length === 0) || !rBin.errors) && rBin.data) {
-            r = rBin as GetAccountData3Resp
+          if (((responsePayload.errors && responsePayload.errors.length === 0) || !responsePayload.errors) && responsePayload.data) {
+            r = responsePayload as GetAccountData3Resp
           }
         } else {
           r = await this.p2p.ask(

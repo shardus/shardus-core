@@ -1043,7 +1043,7 @@ async function isDownCheck(node) {
       }
     } else {
       //using the 'apoptosize' route to check if the node is up.
-      const res = await Comms.askBinary<ApoptosisProposalReq, ApoptosisProposalResp>(
+      const { responsePayload } = await Comms.askBinary<ApoptosisProposalReq, ApoptosisProposalResp>(
         node,
         'apoptosize',
         {
@@ -1054,6 +1054,7 @@ async function isDownCheck(node) {
         deserializeApoptosisProposalResp,
         {}
       )
+      const res = responsePayload
       if (res == null) {
         /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', 'isDownCheck-down-0', 1)
         return 'down'

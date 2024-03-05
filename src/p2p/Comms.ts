@@ -6,9 +6,10 @@ import { shardusGetTime } from '../network'
 import { isNodeDown, isNodeLost, isNodeUpRecent, setIsUpTs } from '../p2p/Lost'
 import { ShardusTypes } from '../shardus'
 import { Sign } from '../shardus/shardus-types'
-import { InternalBinaryHandler } from '../types/Handler'
+import { InternalBinaryHandler} from '../types/Handler'
 import { requestSerializer, responseDeserializer, responseSerializer } from '../types/Helpers'
 import { deserializeWrappedReq } from '../types/WrappedReq'
+import { ResponseError } from '../types/WrappedResp'
 import * as utils from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { cNoSizeTrack, cUninitializedSize, profilerInstance } from '../utils/profiler'
@@ -387,6 +388,7 @@ export async function ask(
   }
 }
 
+
 export async function askBinary<TReq, TResp>(
   node: ShardusTypes.Node,
   route: string,
@@ -397,7 +399,7 @@ export async function askBinary<TReq, TResp>(
   tracker = '',
   logged = false,
   extraTime = 0
-): Promise<TResp> {
+): Promise<{ responsePayload?: TResp,  responseError?: ResponseError }> {
   if (tracker === '') {
     tracker = createMsgTracker(route)
     appHeader.tracker_id = tracker
@@ -445,7 +447,10 @@ export async function askBinary<TReq, TResp>(
 
     const respStream = VectorBufferStream.fromBuffer(res)
     const deserializedResp = responseDeserializer(respStream, respDeserializerFunc)
-    return deserializedResp
+    return {
+      responsePayload: deserializedResp.payload,
+      responseError: deserializedResp.responseError,
+    }
   } catch (err) {
     error('P2P: askBinary: response extraction: ' + err)
     console.log('P2P: askBinary: response extraction: ' + err)
@@ -556,9 +561,10 @@ export function registerInternalBinary(route: string, handler: InternalBinaryHan
     const respondWrapped = async (
       response,
       serializerFunc: (stream: VectorBufferStream, obj, root?: boolean) => void,
+      responseError?: ResponseError,
       responseHeaders: AppHeader = {}
     ) => {
-      const wrappedRespStream = responseSerializer(response, serializerFunc)
+      const wrappedRespStream = responseSerializer(response, serializerFunc, responseError)
       responseHeaders.sender_id = Self.id
       responseHeaders.tracker_id = header.tracker_id
       /* prettier-ignore */ if (logFlags.verbose && logFlags.p2pNonFatal) info(`registerInternalBinary: wrapped response to send back: ${wrappedRespStream.getBuffer()} size: ${wrappedRespStream.getBufferLength()}`)

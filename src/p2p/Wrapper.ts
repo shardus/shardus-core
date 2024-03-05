@@ -19,6 +19,7 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { AppHeader } from '@shardus/net/build/src/types'
 import { InternalBinaryHandler } from '../types/Handler'
+import { ResponseError } from '../types/WrappedResp'
 
 /* p2p functions */
 
@@ -46,7 +47,7 @@ export class P2P extends EventEmitter {
     tracker?: string,
     logged?: boolean,
     extraTime?: number
-  ) => Promise<TRes>
+  ) => Promise<{ responsePayload?: TRes, responseError?: ResponseError}>
   tell: (nodes: any, route: any, message: any, logged?: boolean, tracker?: string) => Promise<number>
   tellBinary: <TReq>(
     nodes: ShardusTypes.Node[],

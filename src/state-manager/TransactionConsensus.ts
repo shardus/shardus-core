@@ -1636,7 +1636,7 @@ class TransactionConsenus {
       let result
       if (this.config.p2p.useBinarySerializedEndpoints) {
         const req = message as GetAccountDataReqSerializable
-        const rBin = await Comms.askBinary<GetAccountDataReqSerializable, GetAccountDataRespSerializable>(
+        const { responsePayload }= await Comms.askBinary<GetAccountDataReqSerializable, GetAccountDataRespSerializable>(
           node,
           InternalRouteEnum.binary_get_account_data,
           req,
@@ -1644,6 +1644,7 @@ class TransactionConsenus {
           deserializeGetAccountDataResp,
           {}
         )
+        const rBin = responsePayload
         if (((rBin.errors && rBin.errors.length === 0) || !rBin.errors) && rBin.data) {
           result = rBin as GetAccountData3Resp
         }
