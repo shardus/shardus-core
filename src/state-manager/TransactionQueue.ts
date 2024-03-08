@@ -83,6 +83,14 @@ import {
   RequestStateForTxRespSerialized,
   serializeRequestStateForTxResp,
 } from '../types/RequestStateForTxResp'
+import {
+  deserializeRequestReceiptForTxResp,
+  RequestReceiptForTxRespSerialized,
+} from '../types/RequestReceiptForTxResp'
+import {
+  RequestReceiptForTxReqSerialized,
+  serializeRequestReceiptForTxReq,
+} from '../types/RequestReceiptForTxReq'
 
 interface Receipt {
   tx: AcceptedTx
@@ -2525,7 +2533,22 @@ class TransactionQueue {
         }
 
         const message = { txid: queueEntry.acceptedTx.txId, timestamp: queueEntry.acceptedTx.timestamp }
-        const result: RequestReceiptForTxResp = await this.p2p.ask(node, 'request_receipt_for_tx', message) // not sure if we should await this.
+        let result = null
+        if (this.stateManager.config.p2p.useBinarySerializedEndpoints) {
+          result = await this.p2p.askBinary<
+            RequestReceiptForTxReqSerialized,
+            RequestReceiptForTxRespSerialized
+          >(
+            node,
+            InternalRouteEnum.binary_request_receipt_for_tx,
+            message,
+            serializeRequestReceiptForTxReq,
+            deserializeRequestReceiptForTxResp,
+            {}
+          )
+        } else {
+          result = await this.p2p.ask(node, 'request_receipt_for_tx', message) // not sure if we should await this.
+        }
 
         if (result == null) {
           if (logFlags.verbose) {
