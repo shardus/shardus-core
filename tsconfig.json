@@ -20,7 +20,8 @@
     "strictNullChecks": false,
     "noImplicitReturns": false,
     "noImplicitThis": false,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "sourceRoot": "../../"
   },
   "exclude": [
     "build",
