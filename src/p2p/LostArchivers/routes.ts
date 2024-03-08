@@ -168,17 +168,12 @@ const investigateLostArchiverRoute: Route<InternalHandler<SignedObject<Investiga
 
 const investigateLostArchiverRouteBinary: Route<InternalBinaryHandler<Buffer>> = {
   name: InternalRouteEnum.binary_lost_archiver_investigate,
-  handler: (payload, respond, header, sign) => {
+  handler: (payload, respond, header) => {
     const route = InternalRouteEnum.binary_lost_archiver_investigate
-
-    // Increment event counter
     nestedCountersInstance.countEvent('internal', route)
-
-    // Start profiling this section
     profilerInstance.scopedProfileSectionStart(route, false, payload.length)
 
     try {
-      // Ensure payload is correctly typed
       const reqStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cGetAccountDataReq)
       if (!reqStream) {
         nestedCountersInstance.countEvent('internal', `${route}-invalid_request`)
@@ -187,7 +182,6 @@ const investigateLostArchiverRouteBinary: Route<InternalBinaryHandler<Buffer>> =
 
       // Deserialize the payload
       const deserializedPayload = deserializeLostArchiverInvestigateReq(reqStream)
-      // Log the received payload for debugging purposes
       logging.info(
         `investigateLostArchiverRoute: payload: ${inspect(deserializedPayload)}, sender: ${header.sender_id}`
       )
@@ -197,7 +191,6 @@ const investigateLostArchiverRouteBinary: Route<InternalBinaryHandler<Buffer>> =
       if (!respond) throw new Error(`${route}: Missing response method`)
       if (!header.sender_id) throw new Error(`${route}: Missing sender ID`)
 
-      // Validate the deserialized payload
       const error = funcs.errorForInvestigateArchiverMsg(deserializedPayload)
       if (error) throw new Error(`${route}: Invalid payload error: ${error}, payload: ${inspect(payload)}`)
 
@@ -213,6 +206,7 @@ const investigateLostArchiverRouteBinary: Route<InternalBinaryHandler<Buffer>> =
       funcs.investigateArchiver(deserializedPayload)
     } catch (error) {
       // Log and handle any errors that occurred during the process
+      nestedCountersInstance.countEvent('internal', `${route}-exception`)
       logging.error(`${route}: Error processing request - ${error.message}`)
     } finally {
       // Ensure profiling ends correctly in all cases
@@ -288,7 +282,8 @@ const reportFakeLostArchiverRoute: P2P.P2PTypes.Route<Handler> = {
 const routes = {
   debugExternal: [reportFakeLostArchiverRoute],
   external: [refuteLostArchiverRoute],
-  internal: [investigateLostArchiverRoute, investigateLostArchiverRouteBinary],
+  internal: [investigateLostArchiverRoute],
+  internalBinary: [investigateLostArchiverRouteBinary],
   gossip: {
     'lost-archiver-up': lostArchiverUpGossip,
     'lost-archiver-down': lostArchiverDownGossip,
@@ -304,6 +299,9 @@ export function registerRoutes(): void {
   }
   for (const route of routes.internal) {
     Comms.registerInternal(route.name, route.handler)
+  }
+  for (const route of routes.internalBinary) {
+    Comms.registerInternalBinary(route.name, route.handler)
   }
   for (const [name, handler] of Object.entries(routes.gossip)) {
     Comms.registerGossipHandler(name, handler)

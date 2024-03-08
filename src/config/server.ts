@@ -105,7 +105,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     standbyListMaxRemoveApp: 100, //todo set this be 100 for production
     standbyAgeScrub: true,
     standbyVersionScrub: true,
-    standbyAgeCheck: true, //todo consider for migration 
+    standbyAgeCheck: true, //todo consider for migration
     q1DelayPercent: 0.125,
     goldenTicketEnabled: true,
     preGossipNodeCheck: true,
@@ -116,7 +116,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     lostArchiversCyclesToWait: 3,
     standbyListFastHash: false, //todo set to false and migrate
     networkBaselineEnabled: false, // feature flag to enable use of baselineNodes that's new threshold for the safety, restore, and recovery modes instead of minNodes
-    useBinarySerializedEndpoints: true,
+    useBinarySerializedEndpoints: false,
     rotationCountMultiply: 1,
     rotationCountAdd: 0,
     rotationPercentActive: 0.001, //rotate 0.1% of active nodes per cycle when in a steady processing state
@@ -128,7 +128,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     attemptJoiningWaitMultiplier: 2,
     cyclesToWaitForSyncStarted: 3,
     cyclesToRefreshEarly: 4,
-    sortSyncFinished: false
+    sortSyncFinished: false,
   },
   ip: {
     externalIp: '0.0.0.0',

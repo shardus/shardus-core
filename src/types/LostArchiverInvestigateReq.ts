@@ -21,7 +21,7 @@ export function serializeLostArchiverInvestigateReq(
   if (root) {
     stream.writeUInt16(TypeIdentifierEnum.cLostArchiverInvestigateReq)
   }
-  stream.writeUInt16(cLostArchiverInvestigateReqVersion)
+  stream.writeUInt8(cLostArchiverInvestigateReqVersion)
   stream.writeString(obj.type)
   stream.writeString(obj.target)
   stream.writeString(obj.investigator)
@@ -34,7 +34,7 @@ export function serializeLostArchiverInvestigateReq(
 export function deserializeLostArchiverInvestigateReq(
   stream: VectorBufferStream
 ): LostArchiverInvestigateReq {
-  const version = stream.readUInt16()
+  const version = stream.readUInt8()
   if (version > cLostArchiverInvestigateReqVersion) {
     throw new Error('cLostArchiverInvestigateReq version mismatch')
   }
