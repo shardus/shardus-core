@@ -106,7 +106,10 @@ import {
   serializeGetAccountQueueCountReq,
 } from '../types/GetAccountQueueCountReq'
 import { getStreamWithTypeCheck } from '../types/Helpers'
-import { RequestReceiptForTxRespSerialized, serializeRequestReceiptForTxResp } from '../types/RequestReceiptForTxResp'
+import {
+  RequestReceiptForTxRespSerialized,
+  serializeRequestReceiptForTxResp,
+} from '../types/RequestReceiptForTxResp'
 import { deserializeRequestReceiptForTxReq } from '../types/RequestReceiptForTxReq'
 
 export type Callback = (...args: unknown[]) => void
@@ -1378,16 +1381,18 @@ class StateManager {
 
     const requestReceiptForTxBinaryHandler: P2PTypes.P2PTypes.Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_request_receipt_for_tx,
-      handler: (payload, respond, header, sign)=>{
-        profilerInstance.scopedProfileSectionStart(InternalRouteEnum.binary_request_receipt_for_tx, false, payload.length)
+      handler: (payload, respond) => {
+        const route = InternalRouteEnum.binary_request_receipt_for_tx
+        profilerInstance.scopedProfileSectionStart(route, false, payload.length)
+        nestedCountersInstance.countEvent('stateManager', route)
 
         const response: RequestReceiptForTxRespSerialized = { receipt: null, note: '', success: false }
-        try{
+        try {
           const req = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cRequestReceiptForTxReq)
           const deserialized = deserializeRequestReceiptForTxReq(req)
           let queueEntry = this.transactionQueue.getQueueEntrySafe(deserialized.txid)
           if (queueEntry == null) {
-            queueEntry = this.transactionQueue.getQueueEntryArchived(deserialized.txid, 'request_receipt_for_tx')
+            queueEntry = this.transactionQueue.getQueueEntryArchived(deserialized.txid, route)
           }
 
           if (queueEntry == null) {
@@ -1395,7 +1400,7 @@ class StateManager {
               deserialized.timestamp
             } dbg:${this.debugTXHistory[utils.stringifyReduce(deserialized.txid)]}`
             respond(response, serializeRequestReceiptForTxResp)
-            return;
+            return
           }
 
           response.receipt = this.getReceipt2(queueEntry)
@@ -1407,14 +1412,13 @@ class StateManager {
             }  ${deserialized.timestamp}`
           }
           respond(response, serializeRequestReceiptForTxResp)
-        }catch(e){
-          this.mainLogger.error(`${InternalRouteEnum.binary_request_receipt_for_tx} error: ${e.message}`)
+        } catch (e) {
+          this.mainLogger.error(`${route} error: ${e.message}`)
           this.mainLogger.error(e.stack)
-        }finally{
-          profilerInstance.scopedProfileSectionEnd(InternalRouteEnum.binary_request_receipt_for_tx)
+        } finally {
+          profilerInstance.scopedProfileSectionEnd(route)
         }
-
-      }
+      },
     }
 
     this.p2p.registerInternalBinary(
@@ -1713,7 +1717,7 @@ class StateManager {
           // we cast up the array return type because we have attached the seenInQueue memeber to the data.
           result.accountData = accountData as Shardus.WrappedDataFromQueue[]
           responseSize = await respond(result)
-        } catch(ex) {
+        } catch (ex) {
           //we dont want to delay. let the asking node know qukcly so it can try again
           responseSize = await respond(false)
         } finally {
@@ -2426,7 +2430,7 @@ class StateManager {
     if (accountIsRemote) {
       let randomConsensusNode: P2PTypes.NodeListTypes.Node
       const preCheckLimit = 5
-      for(let i=0;i< preCheckLimit; i++) {
+      for (let i = 0; i < preCheckLimit; i++) {
         randomConsensusNode = this.transactionQueue.getRandomConsensusNodeForAccount(address)
         if (randomConsensusNode == null) {
           throw new Error(`getLocalOrRemoteAccount: no consensus node found`)
@@ -2434,8 +2438,12 @@ class StateManager {
         // Node Precheck!.  this check our internal records to find a good node to talk to.
         // it is worth it to look through the list if needed.
         if (
-          this.isNodeValidForInternalMessage(randomConsensusNode.id, 'getLocalOrRemoteAccount', true, true) ===
-          false
+          this.isNodeValidForInternalMessage(
+            randomConsensusNode.id,
+            'getLocalOrRemoteAccount',
+            true,
+            true
+          ) === false
         ) {
           //we got to the end of our tries?
           if (i >= preCheckLimit - 1) {
