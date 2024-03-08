@@ -131,7 +131,6 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     extraNodesToAddInRestart: 5,
     secondsToCheckForQ1: 1000, // 1 seconds in ms
     hardenNewSyncingProtocol: true,
-    sortSyncFinished: false,
   },
   ip: {
     externalIp: '0.0.0.0',
