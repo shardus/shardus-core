@@ -71,7 +71,11 @@ import {
   serializeBroadcastFinalStateReq,
 } from '../types/BroadcastFinalStateReq'
 import { deserializeRequestStateForTxReq, serializeRequestStateForTxReq } from '../types/RequestStateForTxReq'
-import { deserializeRequestStateForTxResp, RequestStateForTxRespSerialized, serializeRequestStateForTxResp } from '../types/RequestStateForTxResp'
+import {
+  deserializeRequestStateForTxResp,
+  RequestStateForTxRespSerialized,
+  serializeRequestStateForTxResp,
+} from '../types/RequestStateForTxResp'
 
 interface Receipt {
   tx: AcceptedTx
@@ -599,10 +603,11 @@ class TransactionQueue {
 
     const requestStateForTxRoute: P2PTypes.P2PTypes.Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_request_state_for_tx,
-      handler: (payload, respond, header, sign) => {
-        profilerInstance.scopedProfileSectionStart(InternalRouteEnum.binary_request_state_for_tx)
-        try{
-
+      handler: (payload, respond) => {
+        const route = InternalRouteEnum.binary_request_state_for_tx
+        profilerInstance.scopedProfileSectionStart(route)
+        nestedCountersInstance.countEvent('internal', route)
+        try {
           const response: RequestStateForTxRespSerialized = {
             stateList: [],
             beforeHashes: {},
@@ -636,24 +641,24 @@ class TransactionQueue {
             // eslint-disable-next-line security/detect-object-injection
             const data = queueEntry.originalData[key] // collectedData
             if (data) {
-              //response.stateList.push(JSON.parse(data))
               response.stateList.push(data)
             }
           }
           response.success = true
           respond(response, serializeRequestStateForTxResp)
-        }catch(e){
-          this.mainLogger.error(`${InternalRouteEnum.binary_request_state_for_tx}: Exception executing request: ${errorToStringFull(e)}`)
-        }finally{
+        } catch (e) {
+          this.mainLogger.error(
+            `${
+              InternalRouteEnum.binary_request_state_for_tx
+            }: Exception executing request: ${errorToStringFull(e)}`
+          )
+        } finally {
           profilerInstance.scopedProfileSectionEnd(InternalRouteEnum.binary_request_state_for_tx)
         }
-      }
+      },
     }
 
-    this.p2p.registerInternalBinary(
-      requestStateForTxRoute.name,
-      requestStateForTxRoute.handler
-    );
+    this.p2p.registerInternalBinary(requestStateForTxRoute.name, requestStateForTxRoute.handler)
 
     networkContext.registerExternalPost('get-tx-receipt', async (req, res) => {
       let result: { success: boolean; receipt?: ArchiverReceipt | AppliedReceipt2; reason?: string }
@@ -2296,21 +2301,18 @@ class TransactionQueue {
             txid: queueEntry.acceptedTx.txId,
             timestamp: queueEntry.acceptedTx.timestamp,
           }
-          let result: any;
-          if(this.config.p2p.useBinarySerializedEndpoints){
-            result = await this.p2p.askBinary<
-              RequestStateForTxReq,
-              RequestStateForTxRespSerialized
-            >(
+          let result
+          if (this.config.p2p.useBinarySerializedEndpoints) {
+            result = (await this.p2p.askBinary<RequestStateForTxReq, RequestStateForTxRespSerialized>(
               node,
               InternalRouteEnum.binary_request_state_for_tx,
               message,
               serializeRequestStateForTxReq,
               deserializeRequestStateForTxResp,
               {}
-            ) as RequestStateForTxRespSerialized
-          }else{
-            result = await this.p2p.ask(node, 'request_state_for_tx', message) as RequestStateForTxResp 
+            )) as RequestStateForTxRespSerialized
+          } else {
+            result = (await this.p2p.ask(node, 'request_state_for_tx', message)) as RequestStateForTxResp
           }
 
           if (result == null) {
