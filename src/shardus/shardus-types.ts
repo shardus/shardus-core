@@ -972,7 +972,7 @@ export interface ServerConfiguration {
     /**  Flag to enable detail scoped profiling **/
     enableScopedProfiling: boolean
     /**  Flag to enable writing cycle records to text file for debugging **/
-    enableCycleRecordDebugTool: boolean,
+    enableCycleRecordDebugTool: boolean
     /**  Flag to force a tx to expire **/
     forcedExpiration: boolean
   }
@@ -1105,6 +1105,11 @@ export interface ServerConfiguration {
     startInServiceMode?: boolean
     /** This flag defaults to true. If set to true, addresses marked as ir will be fetched when tx is ageing. */
     enableRIAccountsCache: boolean
+  }
+  /** Collector configuration */
+  collectorInfo: {
+    publicKey: string
+    secretKey: string
   }
 }
 

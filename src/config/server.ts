@@ -105,7 +105,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     standbyListMaxRemoveApp: 100, //todo set this be 100 for production
     standbyAgeScrub: true,
     standbyVersionScrub: true,
-    standbyAgeCheck: true, //todo consider for migration 
+    standbyAgeCheck: true, //todo consider for migration
     q1DelayPercent: 0.125,
     goldenTicketEnabled: true,
     preGossipNodeCheck: true,
@@ -130,7 +130,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     cyclesToRefreshEarly: 4,
     extraNodesToAddInRestart: 5,
     secondsToCheckForQ1: 1000, // 1 seconds in ms
-    hardenNewSyncingProtocol: true
+    hardenNewSyncingProtocol: true,
   },
   ip: {
     externalIp: '0.0.0.0',
@@ -188,7 +188,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     debugNTPErrorWindowMs: 200,
     enableScopedProfiling: true,
     enableCycleRecordDebugTool: false,
-    forcedExpiration: false
+    forcedExpiration: false,
   },
   statistics: { save: true, interval: 1 },
   loadDetection: {
@@ -248,6 +248,11 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     archiverDataSubscriptionsUpdate: false,
     startInServiceMode: false,
     enableRIAccountsCache: true,
+  },
+  collectorInfo: {
+    publicKey: 'ffdb37f5b336bcdd8d4fc5b8919aaf5c0230fb0341de7752a986cd7b255896cc',
+    secretKey:
+      '928faa899b61a15df6c532259552b9ad1cfb58dabcfef1fbd702eb561d3ad5e1ffdb37f5b336bcdd8d4fc5b8919aaf5c0230fb0341de7752a986cd7b255896cc',
   },
 }
 export default SERVER_CONFIG
