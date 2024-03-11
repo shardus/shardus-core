@@ -248,6 +248,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     archiverDataSubscriptionsUpdate: false,
     startInServiceMode: false,
     enableRIAccountsCache: true,
+    archiveMode: false,
   },
 }
 export default SERVER_CONFIG

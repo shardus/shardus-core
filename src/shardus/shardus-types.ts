@@ -1105,6 +1105,8 @@ export interface ServerConfiguration {
     startInServiceMode?: boolean
     /** This flag defaults to true. If set to true, addresses marked as ir will be fetched when tx is ageing. */
     enableRIAccountsCache: boolean
+    /** This flag defaults to false. Enable archive mode for historical data fetch from collector. */
+    archiveMode?: boolean
   }
 }
 
