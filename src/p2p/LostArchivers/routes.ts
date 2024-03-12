@@ -187,6 +187,9 @@ const refuteLostArchiverRoute: P2P.P2PTypes.Route<Handler> = {
       record = funcs.createLostArchiverRecord({ target, status: 'up', archiverRefuteMsg: refuteMsg })
       lostArchiversMap.set(target, record)
     }
+    if (record.archiverRefuteMsg && record.archiverRefuteMsg.cycle === refuteMsg.cycle) {
+      res.json({ status: 'failure', message: 'already refuted for this cycle' })
+    }
     if (record.status !== 'up') record.status = 'up'
     if (!record.archiverRefuteMsg) record.archiverRefuteMsg = refuteMsg
     res.json({ status: 'success' })
