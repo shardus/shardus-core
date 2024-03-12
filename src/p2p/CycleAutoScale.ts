@@ -68,6 +68,7 @@ const routes = {
 
 /** FUNCTIONS */
 
+/** Initializes the module, setting up the logger and desired node count. It also registers gossip handlers for scaling requests. */
 export function init() {
   p2pLogger = logger.getLogger('p2p')
   desiredCount = config.p2p.minNodes
@@ -77,6 +78,7 @@ export function init() {
   }
 }
 
+/** Resets the scaling flags and the scaling requests collector. */
 export function reset() {
   /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log( 'Resetting auto-scale module', `Cycle ${CycleCreator.currentCycle}, Quarter: ${CycleCreator.currentQuarter}`)
   scalingRequested = false
@@ -85,6 +87,7 @@ export function reset() {
   approvedScalingType = null
 }
 
+/** Returns the desired node count for the network, ensuring it's not below the minimum configured node count. */
 export function getDesiredCount(): number {
   // having trouble finding a better way to update this!
   // Check the feature flag and set the lower limit accordingly
@@ -95,6 +98,7 @@ export function getDesiredCount(): number {
   }
 }
 
+/** Creates a signed scaling request with the specified type (UP or DOWN). */
 function createScaleRequest(scaleType): P2P.CycleAutoScaleTypes.SignedScaleRequest {
   const request: P2P.CycleAutoScaleTypes.ScaleRequest = {
     nodeId: Self.id,
@@ -118,6 +122,7 @@ function createScaleRequest(scaleType): P2P.CycleAutoScaleTypes.SignedScaleReque
   return signedReq
 }
 
+/** Requests scaling of the network up or down by creating a scaling request and gossiping it to other nodes. */
 function _requestNetworkScaling(upOrDown) {
   //scalingRequested makes sure we only request scaling on our own once per cycle
   if (!Self.isActive || scalingRequested) return
@@ -137,6 +142,7 @@ function _requestNetworkScaling(upOrDown) {
   }
 }
 
+/** Requests an increase in the network size if the desired count is below the maximum node count. */
 export function requestNetworkUpsize() {
   if (getDesiredCount() >= config.p2p.maxNodes) {
     return
@@ -150,6 +156,7 @@ export function requestNetworkUpsize() {
   _requestNetworkScaling(P2P.CycleAutoScaleTypes.ScaleType.UP)
 }
 
+/** Requests a decrease in the network size if the desired count is above the minimum node count. */
 export function requestNetworkDownsize() {
   // minNodes is used in absense of load, not baselineNodes. Main idea here is to grow to desired which is essentially minNodes
   if (getDesiredCount() <= config.p2p.minNodes) {
@@ -164,11 +171,13 @@ export function requestNetworkDownsize() {
   _requestNetworkScaling(P2P.CycleAutoScaleTypes.ScaleType.DOWN)
 }
 
+/** Adds an external scaling request to the scaling requests collector. */
 function addExtScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest): boolean {
   const added = _addScalingRequest(scalingRequest)
   return added
 }
 
+/** Validates a scaling request's fields, cycle counter, scaling type, and signature. */
 function validateScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest): boolean {
   // Check existence of fields
   if (
@@ -222,11 +231,16 @@ function validateScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedSc
   return true
 }
 
-//Protocl security node:
-//note we will need the ablity to check if other nodes also meet this requirement
-//so that we can reject input from nodes that are not permitted to send a vote
-//to do that well we need to make it easy to get the index of a node by ID.
-//If the currentCycleShardData is null then we can't do this check and return false
+/**
+ * Checks if the node with the given ID can send scaling requests based on the current configuration and cycle data.
+ *
+ * Protocol security node:
+ *
+ * note we will need the ablity to check if other nodes also meet this requirement
+ * so that we can reject input from nodes that are not permitted to send a vote
+ * to do that well we need to make it easy to get the index of a node by ID.
+ * If the currentCycleShardData is null then we can't do this check and return false
+ */
 function _canThisNodeSendScaleRequests(_nodeId: string) {
   let scaleVoteLimits = config.p2p.scaleGroupLimit > 0
   if (scaleVoteLimits === false) {
@@ -252,6 +266,7 @@ function _canThisNodeSendScaleRequests(_nodeId: string) {
   return canSendGossip
 }
 
+/** Checks the collected scaling requests and updates the approved scaling type and desired node count accordingly. */
 function _checkScaling() {
   // Keep a flag if we have changed our metadata.scaling at all
   let changed = false
@@ -343,6 +358,7 @@ function _checkScaling() {
   console.log('newDesired', newDesired)
 }
 
+/** Sets the desired node count, ensuring it's within the configured limits. */
 function setDesiredCount(count: number) {
   // Always use minNodes as the lower limit to prevent scaling down below the minimum required nodes for the network.
   // This is to ensure that the network will not scale down when node count is below minNodes.
@@ -354,6 +370,7 @@ function setDesiredCount(count: number) {
   }
 }
 
+/** Sets and returns the target node count for the current cycle based on the previous cycle's record and the current network state. */
 function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): number {
   const active = NodeList.activeByIdOrder.length
   const syncing = NodeList.syncingByIdOrder.length
@@ -441,6 +458,7 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
   return targetCount
 }
 
+/** Updates the desired node count based on the current configuration. */
 export function configUpdated() {
   if (desiredCount < config.p2p.minNodes) {
     desiredCount = config.p2p.minNodes
@@ -459,9 +477,13 @@ export function queueRequest(request) {}
 
 export function sendRequests() {}
 
-//TODO please review this.  It seems we get consensus on scale up/down, but then
-//are not using the autoscaling list for the subsequent operations?
-//maybe that is ok?
+/**
+ * Returns a copy of the autoscaling requests for transaction processing.
+ *
+ * TODO please review this. It seems we get consensus on scale up/down, but then
+ * are not using the autoscaling list for the subsequent operations?
+ * maybe that is ok?
+ */
 export function getTxs(): P2P.CycleAutoScaleTypes.Txs {
   // [IMPORTANT] Must return a copy to avoid mutation
   const requestsCopy = deepmerge({}, [...Object.values(scalingRequestsCollector)])
@@ -470,12 +492,14 @@ export function getTxs(): P2P.CycleAutoScaleTypes.Txs {
   }
 }
 
+/** Validates the types of fields in a cycle record. */
 export function validateRecordTypes(rec: P2P.CycleAutoScaleTypes.Record): string {
   let err = validateTypes(rec, { desired: 'n' })
   if (err) return err
   return ''
 }
 
+/** Updates the cycle record with the results of the scaling check and resets the module. */
 export function updateRecord(
   txs: P2P.CycleAutoScaleTypes.Txs,
   record: P2P.CycleCreatorTypes.CycleRecord,
@@ -489,6 +513,7 @@ export function updateRecord(
   reset()
 }
 
+/** Parses a cycle record, returning an empty change set as the NodeList is not modified. */
 export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
   // Since we don't touch the NodeList, return an empty Change
   return {
@@ -498,6 +523,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
   }
 }
 
+/** Returns an array of scaling up requests from the scaling requests collector. */
 function getScaleUpRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
   let requests = []
   for (let [nodeId, request] of scalingRequestsCollector) {
@@ -506,6 +532,7 @@ function getScaleUpRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
   return requests
 }
 
+/** Returns an array of scaling down requests from the scaling requests collector. */
 function getScaleDownRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
   let requests = []
   for (let [nodeId, request] of scalingRequestsCollector) {
@@ -514,6 +541,7 @@ function getScaleDownRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
   return requests
 }
 
+/** Adds a scaling request to the collector based on its type. */
 function _addToScalingRequests(scalingRequest): boolean {
   switch (scalingRequest.scale) {
     case P2P.CycleAutoScaleTypes.ScaleType.UP:
@@ -557,6 +585,7 @@ function _addToScalingRequests(scalingRequest): boolean {
   }
 }
 
+/** Validates and adds a scaling request to the collector if it's valid. */
 function _addScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest): boolean {
   // Check existence of node
   if (!scalingRequest.nodeId) return false
@@ -572,7 +601,11 @@ function _addScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleR
   return added
 }
 
-//TODO: we need to consider using _waitUntilEndOfCycle to schedule voting times
+/**
+ * Waits until the end of the current cycle before proceeding.
+ *
+ * TODO: we need to consider using _waitUntilEndOfCycle to schedule voting times
+ */
 async function _waitUntilEndOfCycle() {
   const currentTime = shardusGetTime()
   const nextQ1Start = CycleCreator.nextQ1Start
