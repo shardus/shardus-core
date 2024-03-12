@@ -99,7 +99,9 @@ export function getDesiredCount(): number {
 }
 
 /** Creates a signed scaling request with the specified type (UP or DOWN). */
-function createScaleRequest(scaleType): P2P.CycleAutoScaleTypes.SignedScaleRequest {
+function createScaleRequest(
+  scaleType: P2P.CycleAutoScaleTypes.ScaleType
+): P2P.CycleAutoScaleTypes.SignedScaleRequest {
   const request: P2P.CycleAutoScaleTypes.ScaleRequest = {
     nodeId: Self.id,
     timestamp: shardusGetTime(),
@@ -123,7 +125,7 @@ function createScaleRequest(scaleType): P2P.CycleAutoScaleTypes.SignedScaleReque
 }
 
 /** Requests scaling of the network up or down by creating a scaling request and gossiping it to other nodes. */
-function _requestNetworkScaling(upOrDown) {
+function _requestNetworkScaling(upOrDown: P2P.CycleAutoScaleTypes.ScaleType) {
   //scalingRequested makes sure we only request scaling on our own once per cycle
   if (!Self.isActive || scalingRequested) return
   const signedRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest = createScaleRequest(upOrDown)
@@ -138,7 +140,7 @@ function _requestNetworkScaling(upOrDown) {
     Comms.sendGossip('scaling', signedRequest, '', null, NodeList.byIdOrder, true, 2)
     scalingRequested = true
     requestedScalingType = signedRequest.scale //only set this when our node requests scaling
-    nestedCountersInstance.countEvent('p2p', 'initiate gossip: scaling: ' + (upOrDown ? 'up' : 'down'))
+    nestedCountersInstance.countEvent('p2p', 'initiate gossip: scaling: ' + upOrDown)
   }
 }
 
@@ -208,7 +210,7 @@ function validateScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedSc
     return false
   }
   // Try to get the node who supposedly signed this request
-  let node
+  let node: P2P.NodeListTypes.Node
   try {
     node = NodeList.nodes.get(scalingRequest.nodeId)
   } catch (e) {
@@ -221,7 +223,7 @@ function validateScalingRequest(scalingRequest: P2P.CycleAutoScaleTypes.SignedSc
     return false
   }
 
-  // TODO need to verify if the node was a valid sender in the sub commitee 
+  // TODO need to verify if the node was a valid sender in the sub commitee
 
   // Return false if fails validation for signature
   if (!crypto.verify(scalingRequest, node.publicKey)) {
