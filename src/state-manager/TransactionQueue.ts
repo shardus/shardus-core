@@ -3884,10 +3884,10 @@ class TransactionQueue {
 
       const localRestartCounter = this.queueRestartCounter
 
-      const timeM = this.stateManager.queueSitTime
-      const timeM2 = timeM * 4
-      const timeM2_5 = timeM * 5
-      const timeM3 = timeM * 6
+      const timeM = this.stateManager.config.extraTimeM
+      const timeM2 = this.stateManager.config.extraTimeM2
+      const timeM2_5 = this.stateManager.config.extraTimeM2_5
+      const timeM3 = this.stateManager.config.extraTimeM3
       let currentTime = shardusGetTime()
 
       const app = this.app

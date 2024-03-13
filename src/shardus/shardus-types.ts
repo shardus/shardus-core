@@ -1106,6 +1106,12 @@ export interface ServerConfiguration {
     /** This flag defaults to true. If set to true, addresses marked as ir will be fetched when tx is ageing. */
     enableRIAccountsCache: boolean
   }
+
+  /** Configs for expiration timers */
+  extraTimeM?: number
+  extraTimeM2?: number
+  extraTimeM2_5?: number
+  extraTimeM3?: number
 }
 
 export interface LogsConfiguration {

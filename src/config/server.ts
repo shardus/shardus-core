@@ -249,5 +249,9 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     startInServiceMode: false,
     enableRIAccountsCache: true,
   },
+  extraTimeM: 6000,
+  extraTimeM2: 24000,
+  extraTimeM2_5: 30000,
+  extraTimeM3: 36000,
 }
 export default SERVER_CONFIG
