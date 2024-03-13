@@ -392,13 +392,13 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
       /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("CycleAutoScale: in processing")
       if (enterSafety(active) === false && enterRecovery(active) === false) {
         /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("CycleAutoScale: not in safety")
-        let addRem = (desired - prevRecord.target) * 0.1
+        let addRem = (desired - prevRecord.target) * config.p2p.autoScale.processingScaleAdjustmentFactor
         /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log(`addRem: ${addRem}, desired: ${desired}, prevTarget: ${prevRecord.target}`)
-        if (addRem > active * 0.01) {
-          addRem = active * 0.01
+        if (addRem > active * config.p2p.autoScale.maxIncreaseFactor) {
+          addRem = active * config.p2p.autoScale.maxIncreaseFactor
         }
-        if (addRem < 0 - active * 0.005) {
-          addRem = 0 - active * 0.005
+        if (addRem < 0 - active * config.p2p.autoScale.maxDecreaseFactor) {
+          addRem = 0 - active * config.p2p.autoScale.maxDecreaseFactor
         }
         /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log(`CycleAutoScale: prev target is ${prevRecord.target} and addRem is ${addRem}`)
         targetCount = prevRecord.target + addRem

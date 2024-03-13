@@ -853,6 +853,18 @@ export interface ServerConfiguration {
     secondsToCheckForQ1: number
     /** hardenNewSyncingProtocol upgrades to syncing protocol */
     hardenNewSyncingProtocol: boolean
+
+    /** Options for the auto-scaling module. */
+    autoScale: {
+      /** The factor used to adjust the scaling target in 'processing' mode. Represents the proportion of the difference between the desired node count and the previous target to adjust for the next cycle. */
+      processingScaleAdjustmentFactor: number
+
+      /** The maximum factor by which the target node count can increase in a single cycle in 'processing' mode. This value is used to limit the rate of network growth. */
+      maxIncreaseFactor: number
+
+      /** The maximum factor by which the target node count can decrease in a single cycle in 'processing' mode. This value is used to limit the rate of network shrinkage. */
+      maxDecreaseFactor: number
+    }
   }
   /** Server IP configuration */
   ip?: {

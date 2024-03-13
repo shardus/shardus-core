@@ -130,7 +130,12 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     cyclesToRefreshEarly: 4,
     extraNodesToAddInRestart: 5,
     secondsToCheckForQ1: 1000, // 1 seconds in ms
-    hardenNewSyncingProtocol: true
+    hardenNewSyncingProtocol: true,
+    autoScale: {
+      processingScaleAdjustmentFactor: 0.1,
+      maxIncreaseFactor: 0.01,
+      maxDecreaseFactor: 0.005,
+    }
   },
   ip: {
     externalIp: '0.0.0.0',
