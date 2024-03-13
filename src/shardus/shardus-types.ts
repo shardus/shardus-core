@@ -864,6 +864,27 @@ export interface ServerConfiguration {
 
       /** The maximum factor by which the target node count can decrease in a single cycle in 'processing' mode. This value is used to limit the rate of network shrinkage. */
       maxDecreaseFactor: number
+
+      /** The factor used to calculate the number of nodes to add when the network is in 'forming' mode and the active node count is less than the desired count. */
+      formingScaleUpFactor: number
+
+      /** The minimum number of nodes to add when scaling up in 'forming' mode, regardless of the calculated value based on the formingScaleUpFactor. */
+      formingMinScaleUp: number
+
+      /** The factor used to calculate the number of nodes to subtract when the network is in 'forming' mode and the active node count is greater than the desired count. */
+      formingScaleDownFactor: number
+
+      /** The minimum number of nodes to subtract when scaling down in 'forming' mode, regardless of the calculated value based on the formingScaleDownFactor. */
+      formingMinScaleDown: number
+
+      /** The factor used to calculate the number of nodes to add when the network is in 'restart' mode and the active node count is less than the desired count. */
+      restartScaleUpFactor: number
+
+      /** The minimum number of nodes to add when scaling up in 'restart' mode, regardless of the calculated value based on the restartScaleUpFactor. */
+      restartMinScaleUp: number
+
+      /** The number of nodes to scale up by when this is the first node in the network. */
+      targetCountWhenFirst: number
     }
   }
   /** Server IP configuration */

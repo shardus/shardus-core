@@ -135,6 +135,13 @@ const SERVER_CONFIG: StrictServerConfiguration = {
       processingScaleAdjustmentFactor: 0.1,
       maxIncreaseFactor: 0.01,
       maxDecreaseFactor: 0.005,
+      formingScaleUpFactor: 0.5,
+      formingMinScaleUp: 7,
+      formingScaleDownFactor: 0.3,
+      formingMinScaleDown: 1,
+      restartScaleUpFactor: 0.5,
+      restartMinScaleUp: 7,
+      targetCountWhenFirst: 7,
     }
   },
   ip: {
