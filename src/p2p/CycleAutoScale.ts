@@ -475,7 +475,7 @@ export function configUpdated() {
   // }
 }
 
-export function queueRequest(request) {}
+export function queueRequest() {}
 
 export function sendRequests() {}
 
@@ -503,7 +503,7 @@ export function validateRecordTypes(rec: P2P.CycleAutoScaleTypes.Record): string
 
 /** Updates the cycle record with the results of the scaling check and resets the module. */
 export function updateRecord(
-  txs: P2P.CycleAutoScaleTypes.Txs,
+  _txs: P2P.CycleAutoScaleTypes.Txs,
   record: P2P.CycleCreatorTypes.CycleRecord,
   prevRecord: P2P.CycleCreatorTypes.CycleRecord
 ) {
@@ -516,7 +516,7 @@ export function updateRecord(
 }
 
 /** Parses a cycle record, returning an empty change set as the NodeList is not modified. */
-export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
+export function parseRecord(_record: P2P.CycleCreatorTypes.CycleRecord): P2P.CycleParserTypes.Change {
   // Since we don't touch the NodeList, return an empty Change
   return {
     added: [],
@@ -528,7 +528,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): P2P.Cycl
 /** Returns an array of scaling up requests from the scaling requests collector. */
 function getScaleUpRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
   let requests = []
-  for (let [nodeId, request] of scalingRequestsCollector) {
+  for (let [_nodeId, request] of scalingRequestsCollector) {
     if (request.scale === P2P.CycleAutoScaleTypes.ScaleType.UP) requests.push(request)
   }
   return requests
