@@ -332,7 +332,7 @@ function _checkScaling() {
 
   lastScalingType = approvedScalingType
   // At this point, we have changed our scaling type flag (approvedScalingType)
-  let newDesired
+  let newDesired: number
   switch (approvedScalingType) {
     case P2P.CycleAutoScaleTypes.ScaleType.UP:
       newDesired = CycleChain.newest.desired + config.p2p.amountToGrow
@@ -537,14 +537,14 @@ function getScaleUpRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
 /** Returns an array of scaling down requests from the scaling requests collector. */
 function getScaleDownRequests(): P2P.CycleAutoScaleTypes.SignedScaleRequest[] {
   let requests = []
-  for (let [nodeId, request] of scalingRequestsCollector) {
+  for (let [_nodeId, request] of scalingRequestsCollector) {
     if (request.scale === P2P.CycleAutoScaleTypes.ScaleType.DOWN) requests.push(request)
   }
   return requests
 }
 
 /** Adds a scaling request to the collector based on its type. */
-function _addToScalingRequests(scalingRequest): boolean {
+function _addToScalingRequests(scalingRequest: P2P.CycleAutoScaleTypes.SignedScaleRequest): boolean {
   switch (scalingRequest.scale) {
     case P2P.CycleAutoScaleTypes.ScaleType.UP:
       // This was blocking other votes from comming in.. need to check this in _requestNetworkScaling
@@ -614,7 +614,7 @@ async function _waitUntilEndOfCycle() {
   if (logFlags.p2pNonFatal) info(`Current time is: ${currentTime}`)
   if (logFlags.p2pNonFatal) info(`Next cycle will start at: ${nextQ1Start}`)
 
-  let timeToWait
+  let timeToWait: number
   if (currentTime < nextQ1Start) {
     timeToWait = nextQ1Start - currentTime + config.p2p.queryDelay * 1000
   } else {
@@ -624,17 +624,17 @@ async function _waitUntilEndOfCycle() {
   await sleep(timeToWait)
 }
 
-function info(...msg) {
+function info(...msg: unknown[]) {
   const entry = `CycleAutoScale: ${msg.join(' ')}`
   p2pLogger.info(entry)
 }
 
-function warn(...msg) {
+function warn(...msg: unknown[]) {
   const entry = `CycleAutoScale: ${msg.join(' ')}`
   p2pLogger.warn(entry)
 }
 
-function error(...msg) {
+function error(...msg: unknown[]) {
   const entry = `CycleAutoScale: ${msg.join(' ')}`
   p2pLogger.error(entry)
 }
