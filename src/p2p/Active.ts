@@ -83,7 +83,9 @@ const routes = {
 let p2pLogger: Logger
 
 let activeRequests: Map<P2P.NodeListTypes.Node['publicKey'], P2P.ActiveTypes.SignedActiveRequest>
+let finishedSyncingRequests: Map<P2P.NodeListTypes.Node['publicKey'], P2P.ActiveTypes.SignedFinishedSyncingRequest>
 let queuedRequest: P2P.ActiveTypes.ActiveRequest
+let queuedFinishedSyncingRequest: P2P.ActiveTypes.SignedFinishedSyncingRequest
 let neverGoActive = false
 
 /** FUNCTIONS */
@@ -113,10 +115,12 @@ export function init() {
 
 export function reset() {
   activeRequests = new Map()
+  finishedSyncingRequests = new Map()
 }
 
 export function getTxs(): P2P.ActiveTypes.Txs {
   return {
+    finishedSyncing: [...finishedSyncingRequests.values()],
     active: [...activeRequests.values()],
   }
 }
@@ -139,7 +143,8 @@ export function validateRecordTypes(rec: P2P.ActiveTypes.Record): string {
 
 export function dropInvalidTxs(txs: P2P.ActiveTypes.Txs): P2P.ActiveTypes.Txs {
   const active = txs.active.filter((request) => validateActiveRequest(request))
-  return { active }
+  const finishedSyncing = txs.finishedSyncing.filter((request) => validateFinishedSyncingRequest(request))
+  return { active, finishedSyncing }
 }
 
 export function updateRecord(
@@ -280,10 +285,25 @@ export function sendRequests() {
       clearTimeout(activeTimeout)
     })
   }
+  // send queued finished syncing requests
+  if (queuedFinishedSyncingRequest) {
+    if (logFlags.important_as_fatal) info(`Gossiping finished syncing request: ${JSON.stringify(queuedFinishedSyncingRequest)}`)
+    nestedCountersInstance.countEvent('p2p', `p2p:sendRequests Gossiping finished syncing request`)
+
+    if (addFinishedSyncingTx(queuedFinishedSyncingRequest) === false) {
+      /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:sendRequests failed to add our own finished syncing request`)
+    }
+    Comms.sendGossip('gossip-finished-syncing', queuedFinishedSyncingRequest, '', null, NodeList.byIdOrder, true)
+    queuedFinishedSyncingRequest = undefined
+  }
 }
 
 export function queueRequest(request: P2P.ActiveTypes.ActiveRequest) {
   queuedRequest = request
+}
+
+export function queueFinishedSyncingRequest(request: P2P.ActiveTypes.SignedFinishedSyncingRequest) {
+  queuedFinishedSyncingRequest = request
 }
 
 /** Module Functions */
@@ -294,6 +314,12 @@ export function requestActive() {
   queueRequest(request)
 }
 
+export function requestFinishedSyncing() {
+  // Create a finished syncing request and queue it to be sent
+  const request = createFinishedSyncingRequest()
+  queueFinishedSyncingRequest(request)
+}
+
 function createActiveRequest(): P2P.ActiveTypes.ActiveRequest {
   const request = {
     nodeId: Self.id,
@@ -301,6 +327,15 @@ function createActiveRequest(): P2P.ActiveTypes.ActiveRequest {
     timestamp: utils.getTime(),
   }
   return request
+}
+
+function createFinishedSyncingRequest(): P2P.ActiveTypes.SignedFinishedSyncingRequest {
+  const request = {
+    nodeId: Self.id,
+    status: 'finishedSyncing',
+    timestamp: utils.getTime(),
+  }
+  return crypto.sign(request)
 }
 
 function addActiveTx(request: P2P.ActiveTypes.SignedActiveRequest) {
@@ -315,6 +350,21 @@ function addActiveTx(request: P2P.ActiveTypes.SignedActiveRequest) {
   }
 
   activeRequests.set(request.sign.owner, request)
+  return true
+}
+
+export function addFinishedSyncingTx(request: P2P.ActiveTypes.SignedFinishedSyncingRequest) {
+  if (!request) {
+    return false
+  }
+  if (!validateFinishedSyncingRequest(request)) {
+    return false
+  }
+  if (finishedSyncingRequests.has(request.sign.owner)) {
+    return false
+  }
+
+  finishedSyncingRequests.set(request.sign.owner, request)
   return true
 }
 
@@ -340,6 +390,28 @@ function validateActiveRequest(request: P2P.ActiveTypes.SignedActiveRequest) {
     }
     // [TODO] Discuss and implement more active request validation
   }
+  return true
+}
+
+function validateFinishedSyncingRequest(request: P2P.ActiveTypes.SignedFinishedSyncingRequest) {
+  const node = NodeList.nodes.get(request.nodeId)
+  if (!node) {
+    /* prettier-ignore */ if(logFlags.important_as_error) warn(`validateFinishedSyncingRequest: node not found, nodeId: ${request.nodeId}`)
+    /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:validateFinishedSyncingRequest node not found`)
+    return false
+  }
+  if (!crypto.verify(request, node.publicKey)) {
+    /* prettier-ignore */ if(logFlags.important_as_error) warn(`validateFinishedSyncingRequest: bad signature, request: ${JSON.stringify(request)} ${request.nodeId}`)
+    /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:validateFinishedSyncingRequest bad signature`)
+    return false
+  }
+    // Do not accept finished syncing request if node is already active
+    const existing = NodeList.nodes.get(request.nodeId)
+    if (existing && existing.status === NodeStatus.ACTIVE) {
+      /* prettier-ignore */ if(logFlags.important_as_error) warn(`validateFinishedSyncingRequest: already active , nodeId: ${request.nodeId}`)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:validateFinishedSyncingRequest already active`)
+      return false
+    }
   return true
 }
 
