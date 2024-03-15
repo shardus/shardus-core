@@ -136,15 +136,50 @@ const lostArchiverDownGossip: GossipHandler<SignedObject<ArchiverDownMsg>, Node[
 
   // check args
   if (!payload) throw new Error(`lostArchiverDownGossip: missing payload`)
-  if (!sender) throw new Error(`lostArchiverDownGossip: missing sender`)
-  if (!tracker) throw new Error(`lostArchiverDownGossip: missing tracker`)
-  const error = funcs.errorForArchiverDownMsg(payload)
-  if (error) {
-    logging.warn(`lostArchiverDownGossip: invalid payload error: ${error}, payload: ${inspect(payload)}`)
+
+  // Validate payload structure and types
+  let err = validateTypes(payload, {
+    type: 's',
+    investigateMsg: 'o',
+    cycle: 's',
+    sign: 'o',
+  })
+  if (err) {
+    logging.warn(`lostArchiverDownGossip: invalid payload structure or type: ${err}`)
     return
   }
 
-  const downMsg = payload as SignedObject<ArchiverDownMsg>
+  // Further validation for the 'sign' object structure
+  err = validateTypes(payload.sign, {
+    owner: 's',
+    sig: 's',
+  })
+  if (err) {
+    logging.warn(`lostArchiverDownGossip: invalid payload.sign structure or type: ${err}`)
+    return
+  }
+
+  // Check Signer Known
+  const signer = NodeList.byPubKey.get(payload.sign.owner)
+  if (!signer) {
+    logging.warn('lostArchiverDownGossip: Got down message from unknown node')
+    return
+  }
+
+  // Verify Sender as Original Signer
+  const isOrig = signer.id === sender
+  if (!isOrig) {
+    logging.warn('lostArchiverDownGossip: Sender is not the original signer')
+    return
+  }
+
+  // Only accept original txs in quarter 1
+  if (isOrig && currentQuarter > 1) {
+    logging.warn(`lostArchiverDownGossip: Rejecting message as it's not Q1 and sender is original signer`)
+    return
+  }
+
+  const downMsg = payload
   const target = downMsg.investigateMsg.target
   // to-do: check target is a string or hexstring and min length
   let record = lostArchiversMap.get(target)
