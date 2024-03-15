@@ -20,6 +20,8 @@ import { inspect } from 'util'
 import { byIdOrder } from '../NodeList'
 import { isDebugModeMiddleware } from '../../network/debugMiddleware'
 import { archivers, getArchiverWithPublicKey } from '../Archivers'
+import { validateTypes } from '../../utils'
+import * as NodeList from '../NodeList'
 
 /** Gossip */
 
@@ -47,6 +49,47 @@ const lostArchiverUpGossip: GossipHandler<SignedObject<ArchiverUpMsg>, Node['id'
   const error = funcs.errorForArchiverUpMsg(payload)
   if (error) {
     logging.warn(`lostArchiverUpGossip: invalid payload error: ${error}, payload: ${inspect(payload)}`)
+    return
+  }
+
+  // Validate Types for the entire payload, now using the specific types from LostArchiverTypes.d.ts
+  let err = validateTypes(payload, {
+    type: 's',
+    downMsg: 'o',
+    refuteMsg: 'o',
+    cycle: 's',
+    sign: 'o',
+  })
+  if (err) {
+    logging.warn(`lostArchiverUpGossip: bad input ${err}`)
+    return
+  }
+
+  // Validate Payload.sign Structure
+  err = validateTypes(payload.sign, { owner: 's', sig: 's' })
+  if (err) {
+    logging.warn(`lostArchiverUpGossip: bad input sign ${err}`)
+    return
+  }
+
+ // Check Signer Known and determine if the sender is the original sender
+  const signerPublicKey = payload.sign.owner
+  const signer = NodeList.byPubKey.get(signerPublicKey)
+  if (!signer) {
+    logging.warn(`lostArchiverUpGossip: Signer with public key ${signerPublicKey} is not known`)
+    return
+  }
+  const isOrig = signer.id === sender // Adjust this line based on your actual data structure
+
+  // Only accept original messages in quarter 1
+  if (isOrig && currentQuarter > 1) {
+    logging.warn(`lostArchiverUpGossip: Original message received outside of Q1, currentQuarter: ${currentQuarter}`)
+    return
+  }
+
+  // Do not forward gossip (non-original messages) after quarter 2
+  if (!isOrig && currentQuarter > 2) {
+    logging.warn(`lostArchiverUpGossip: Not forwarding non-original message received after Q2, currentQuarter: ${currentQuarter}`)
     return
   }
 
