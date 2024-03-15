@@ -3559,17 +3559,20 @@ class TransactionQueue {
         const consensusListSize = accountHomeNode.consensusNodeForOurNodeFull.length
         const edgeListSize = accountHomeNode.edgeNodes.length
         const pachedListSize = accountHomeNode.patchedOnNodes.length
+        const redundancyFactor = configContext.stateManager.finalDataTellRedundancyFactor || 1
 
         // must add one to each lookup index!
         const indicies = ShardFunctions.debugFastStableCorrespondingIndicies(
           ourSendingGroupSize,
           consensusListSize,
-          ourLocalExecutionSetIndex + 1
+          ourLocalExecutionSetIndex + 1,
+          redundancyFactor
         )
         const edgeIndicies = ShardFunctions.debugFastStableCorrespondingIndicies(
           ourSendingGroupSize,
           edgeListSize,
-          ourLocalExecutionSetIndex + 1
+          ourLocalExecutionSetIndex + 1,
+          redundancyFactor
         )
 
         let patchIndicies = []
@@ -3577,7 +3580,8 @@ class TransactionQueue {
           patchIndicies = ShardFunctions.debugFastStableCorrespondingIndicies(
             ourSendingGroupSize,
             pachedListSize,
-            ourLocalExecutionSetIndex + 1
+            ourLocalExecutionSetIndex + 1,
+            redundancyFactor
           )
         }
 

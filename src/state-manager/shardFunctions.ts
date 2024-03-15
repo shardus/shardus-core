@@ -1928,11 +1928,12 @@ class ShardFunctions {
   static debugFastStableCorrespondingIndicies(
     fromListSize: number,
     toListSize: number,
-    fromListIndex: number
+    fromListIndex: number,
+    redundancyFactor = 1
   ): number[] {
     let results = [] as number[]
     try {
-      results = ShardFunctions.fastStableCorrespondingIndicies(fromListSize, toListSize, fromListIndex)
+      results = ShardFunctions.fastStableCorrespondingIndicies(fromListSize, toListSize, fromListIndex, redundancyFactor)
     } catch (ex) {
       throw new Error(
         `stack overflow fastStableCorrespondingIndicies( ${fromListSize},  ${toListSize}, ${fromListIndex} )`
@@ -1949,11 +1950,13 @@ class ShardFunctions {
    * @param {number} fromListSize
    * @param {number} toListSize
    * @param {number} fromListIndex
+   * @param redundancyFactor
    */
   static fastStableCorrespondingIndicies(
     fromListSize: number,
     toListSize: number,
-    fromListIndex: number
+    fromListIndex: number,
+    redundancyFactor = 1
   ): number[] {
     const results = [] as number[]
     if (fromListSize >= toListSize) {
@@ -1961,10 +1964,20 @@ class ShardFunctions {
       if (value === 0) {
         value = 1
       }
-      results.push(value)
+      // Calculate the range based on the redundancy factor
+      let range = Math.round(toListSize / fromListSize)
+      range *= redundancyFactor
+      const start = Math.max(1, value - range)
+      const stop = Math.min(toListSize, value + range)
+      // Push all indices in the range to the results array
+      for (let i = start; i <= stop; i++) {
+        results.push(i)
+      }
     } else {
       const targetIndex = Math.round(fromListIndex * (toListSize / fromListSize))
-      const range = Math.round(toListSize / fromListSize)
+      let range = Math.round(toListSize / fromListSize)
+      // Increase the range by the redundancy factor
+      range *= redundancyFactor
       const start = Math.max(1, targetIndex - range)
       const stop = Math.min(toListSize, targetIndex + range)
       for (let i = start; i <= stop; i++) {

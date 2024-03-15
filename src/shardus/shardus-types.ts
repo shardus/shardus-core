@@ -1088,6 +1088,8 @@ export interface ServerConfiguration {
     integrityCheckBeforeChallenge: boolean
     // Should the protocol consier a precrack failure as a failed transaction
     checkPrecrackStatus: boolean
+    // Redundancy factor use in tellCorrespondingNodesFinalData()
+    finalDataTellRedundancyFactor: number
   }
   /** Options for sharding calculations */
   sharding?: {
