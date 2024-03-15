@@ -4,7 +4,7 @@ import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
 import * as Apoptosis from '../p2p/Apoptosis'
 import * as Archivers from '../p2p/Archivers'
-import { P2PModuleContext as P2P, network as networkContext } from '../p2p/Context'
+import { P2PModuleContext as P2P, config, network as networkContext } from '../p2p/Context'
 import * as CycleChain from '../p2p/CycleChain'
 import { nodes, potentiallyRemoved } from '../p2p/NodeList'
 import * as Shardus from '../shardus/shardus-types'
@@ -3559,7 +3559,7 @@ class TransactionQueue {
         const consensusListSize = accountHomeNode.consensusNodeForOurNodeFull.length
         const edgeListSize = accountHomeNode.edgeNodes.length
         const pachedListSize = accountHomeNode.patchedOnNodes.length
-        const redundancyFactor = configContext.stateManager.finalDataTellRedundancyFactor || 1
+        const redundancyFactor = config.stateManager.finalDataTellRedundancyFactor || 1
 
         // must add one to each lookup index!
         const indicies = ShardFunctions.debugFastStableCorrespondingIndicies(
