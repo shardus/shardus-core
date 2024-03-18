@@ -2577,7 +2577,7 @@ class StateManager {
         const message: RequestAccountQueueCounts = { accountIds: [address] }
         let r: QueueCountsResponse | false
 
-        if (this.config.p2p.useBinarySerializedEndpoints) {
+        if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.getAccountQueueCountBinary) {
           const serialized_res = await this.p2p.askBinary<GetAccountQueueCountReq, GetAccountQueueCountResp>(
             randomConsensusNode,
             InternalRouteEnum.binary_get_account_queue_count,
@@ -2721,7 +2721,10 @@ class StateManager {
 
       let r: GetAccountDataWithQueueHintsResp
 
-      if (this.config.p2p.useBinarySerializedEndpoints) {
+      if (
+        this.config.p2p.useBinarySerializedEndpoints &&
+        this.config.p2p.getAccountDataWithQueueHintsBinary
+      ) {
         try{
           const serialized_res = await this.p2p.askBinary<
             GetAccountDataWithQueueHintsReqSerializable,
@@ -2837,7 +2840,7 @@ class StateManager {
 
     const message = { accountIds: [address] }
     let result: GetAccountDataWithQueueHintsResp
-    if (this.config.p2p.useBinarySerializedEndpoints) {
+    if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.getAccountDataWithQueueHintsBinary) {
       const serialized_res = await this.p2p.askBinary<
         GetAccountDataWithQueueHintsReqSerializable,
         GetAccountDataWithQueueHintsRespSerializable
