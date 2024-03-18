@@ -19,23 +19,37 @@ let newStandbyRefreshRequests: Map<publickey, KeepInStandby> = new Map()
 export async function submitStandbyRefresh(publicKey: string, cycleNumber: number): Promise<Result<void, Error>> {
   const archiver = getRandomAvailableArchiver()
   try {
-    const activeNodesResult = await getActiveNodesFromArchiver(archiver)
+    const activeNodesResult = await getActiveNodesFromArchiver(archiver);
     if (activeNodesResult.isErr()) {
-      throw Error(`couldn't get active nodes: ${activeNodesResult.error}`)
+      throw Error(`couldn't get active nodes: ${activeNodesResult.error}`);
     }
-    const activeNodes = activeNodesResult.value
-    const node = utils.getRandom(activeNodes.nodeList, 1)[0]
+    const activeNodes = activeNodesResult.value;
+    const maxRetries = 3;
+    let attempts = 0;
 
-    let payload = {
-      publicKey: publicKey,
-      cycleNumber: cycleNumber
+    while (attempts < maxRetries) {
+      try {
+        const node = utils.getRandom(activeNodes.nodeList, 1)[0];
+        let payload = {
+          publicKey: publicKey,
+          cycleNumber: cycleNumber,
+        };
+        payload = crypto.sign(payload);
+
+        await http.post(`${node.ip}:${node.port}/standby-refresh`, payload);
+        return ok(void 0); // Success, exit the function
+      } catch (e) {
+        console.error(`Attempt ${attempts + 1} failed: ${e}`);
+        attempts++;
+        // Optionally, you can implement a delay here before the next retry
+      }
     }
-    payload = crypto.sign(payload)
 
-    await http.post(`${node.ip}:${node.port}/standby-refresh`, payload)
-    return ok(void 0)
+    // If the code reaches this point, all retries have failed
+    throw Error('All attempts to post standbyRefresh request failed');
   } catch (e) {
-    throw Error(`submitStandbyRefresh: Error posting standbyRefresh request: ${e}`)
+    // This catch block will handle errors from getActiveNodesFromArchiver and if all retries fail
+    throw Error(`submitStandbyRefresh: Error posting standbyRefresh request: ${e}`);
   }
 }
 
