@@ -828,6 +828,7 @@ export interface ServerConfiguration {
     networkBaselineEnabled: boolean
     useBinarySerializedEndpoints: boolean
     useCombinedTellBinary: boolean
+    useCombinedTellNonBinary: boolean
     /** in rotaiton mode, use this multiplier to change the amount we want to add*/
     rotationCountMultiply: number
     /** in roation mode use this value to change the amount of nodes to add, by adding this amount to the near final calculation*/

@@ -235,27 +235,52 @@ export class NetworkClass extends EventEmitter {
       /* prettier-ignore */ if (logFlags.net_verbose) console.log("returning tell because the node list is empty for route:" , route)
       return
     }
-    for (const node of nodes) {
-      /* prettier-ignore */ if (logFlags.playback && alreadyLogged === false) this.logger.playbackLog('self', node, 'InternalTell', route, id, message)
+    if (config.p2p.useCombinedTellNonBinary) {
+      const ports = []
+      const addresses = []
       const requestId = generateUUID()
-      /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Initiating tell request with requestId: ${requestId}`)
-      /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
-      /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`route: ${route} ${subRoute}, message: ${message} requestId: ${requestId}`)
-      this.InternalTellCounter++
-      const promise = this.sn.send(node.internalPort, node.internalIp, data)
-      promise.catch((err) => {
-        /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell) on ${route} ${subRoute}: ${formatErrorMessage(err)}` )
+      for (const node of nodes) {
+        /* prettier-ignore */ if (logFlags.playback && alreadyLogged === false) this.logger.playbackLog('self', node, 'InternalTell', route, id, message)
+        const requestId = generateUUID()
+        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Initiating tell request with useCombinedTellNonBinary enabled on requestId: ${requestId}`)
+        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
+        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`route: ${route} ${subRoute}, message: ${message} requestId: ${requestId}`)
+        this.InternalTellCounter++
+        ports.push(node.internalPort)
+        addresses.push(node.internalIp)
+      }
+
+      try {
+        await this.sn.multisend(ports, addresses, data)
+      } catch (err) {
         let errorGroup = ('' + err).slice(0, 20)
-        nestedCountersInstance.countEvent('network', `error2-tell ${route} ${subRoute}`)
-        this.emit('error', node, requestId, 'tell', errorGroup, route, subRoute)
-      })
-      promises.push(promise)
-    }
-    try {
-      await Promise.all(promises)
-    } catch (err) {
-      nestedCountersInstance.countEvent('network', `error-tell ${route} ${subRoute}`)
-      /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell-err) on ${route} ${subRoute}: ${formatErrorMessage(err)}`)
+        nestedCountersInstance.countEvent('network', `error2-tellBinary ${route}`)
+        this.emit('error', nodes, requestId, 'tellBinary', errorGroup, route)
+        /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tellBinary) on ${route}: ${formatErrorMessage(err)}`)
+      }
+    } else {
+      for (const node of nodes) {
+        /* prettier-ignore */ if (logFlags.playback && alreadyLogged === false) this.logger.playbackLog('self', node, 'InternalTell', route, id, message)
+        const requestId = generateUUID()
+        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Initiating tell request with with useCombinedTellNonBinary disabled on requestId: ${requestId}`)
+        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
+        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`route: ${route} ${subRoute}, message: ${message} requestId: ${requestId}`)
+        this.InternalTellCounter++
+        const promise = this.sn.send(node.internalPort, node.internalIp, data)
+        promise.catch((err) => {
+          /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell) on ${route} ${subRoute}: ${formatErrorMessage(err)}` )
+          let errorGroup = ('' + err).slice(0, 20)
+          nestedCountersInstance.countEvent('network', `error2-tell ${route} ${subRoute}`)
+          this.emit('error', node, requestId, 'tell', errorGroup, route, subRoute)
+        })
+        promises.push(promise)
+      }
+      try {
+        await Promise.all(promises)
+      } catch (err) {
+        nestedCountersInstance.countEvent('network', `error-tell ${route} ${subRoute}`)
+        /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell-err) on ${route} ${subRoute}: ${formatErrorMessage(err)}`)
+      }
     }
   }
 
@@ -269,7 +294,7 @@ export class NetworkClass extends EventEmitter {
   ) {
     const data = { route, payload: message }
     const promises = []
-    
+
     if (!nodes || nodes.length == 0) {
       /* prettier-ignore */ if (logFlags.net_verbose) console.log("returning from tellBinary because the node list is empty for route:" , route)
       return
