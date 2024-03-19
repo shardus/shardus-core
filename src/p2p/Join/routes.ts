@@ -376,7 +376,7 @@ const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P
       })
 
       if (err) {
-        /* prettier-ignore */ if (logFlags.error) warn(`gossipJoinRoute: bad input ${err}`)
+        /* prettier-ignore */ if (logFlags.error) warn(`gossip-join-reject: bad input ${err}`)
         return
       }
 
@@ -387,12 +387,12 @@ const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P
       })
 
       if (err) {
-        /* prettier-ignore */ if (logFlags.error) warn(`gossipJoinRoute: bad input sign ${err}`)
+        /* prettier-ignore */ if (logFlags.error) warn(`gossip-join-reject: bad input sign ${err}`)
         return
       }
       const signer = NodeList.byPubKey.get(payload.sign.owner)
       if (!signer) {
-        /* prettier-ignore */ if (logFlags.error) warn('gossip-join-reject: Got join request from unknown node')
+        /* prettier-ignore */ if (logFlags.error) warn('gossip-join: Got join request from unknown node')
       }
 
       const isOrig = signer.id === sender
@@ -464,7 +464,7 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<
 
   const signer = NodeList.byPubKey.get(payload.sign.owner)
   if (!signer) {
-    /* prettier-ignore */ if (logFlags.error) warn('join-gossip-reject: Got join request from unknown node')
+    /* prettier-ignore */ if (logFlags.error) warn('join-gossip: Got join request from unknown node')
   }
 
   const isOrig = signer.id === sender
@@ -552,8 +552,7 @@ const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<UnjoinRequest, P2P.NodeLi
 
   const signer = NodeList.byPubKey.get(payload.sign.owner)
   if (!signer) {
-    /* prettier-ignore */ if (logFlags.error) warn('gossip-unjoin-reject: Got unjoin-request from unknown node')
-    return
+    /* prettier-ignore */ if (logFlags.error) warn('gossip-unjoin: Got unjoin-request from unknown node')
   }
 
   const isOrig = signer.id === sender
@@ -595,7 +594,7 @@ const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler<SyncStarted, P2P.NodeLi
 
     const signer = NodeList.byPubKey.get(payload.sign.owner)
     if (!signer) {
-      /* prettier-ignore */ if (logFlags.error) warn('sync-started-reject: Got sync-started from unknown node')
+      /* prettier-ignore */ if (logFlags.error) warn('sync-started: Got sync-started from unknown node')
     }
 
     const isOrig = signer.id === sender
@@ -648,9 +647,9 @@ const gossipSyncFinishedRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.Finished
 
     // Validate payload structure and types
     let err = utils.validateTypes(payload, {
-      nodeId: 's', 
-      cycleNumber: 'n', 
-      sign: 'o', 
+      nodeId: 's',
+      cycleNumber: 'n',
+      sign: 'o',
     })
 
     if (err) {
@@ -661,8 +660,8 @@ const gossipSyncFinishedRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.Finished
     // Further validation for the 'sign' object structure if present
     if (payload.sign) {
       err = utils.validateTypes(payload.sign, {
-        owner: 's', 
-        sig: 's', 
+        owner: 's',
+        sig: 's',
       })
 
       if (err) {
@@ -673,7 +672,7 @@ const gossipSyncFinishedRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.Finished
 
     const signer = NodeList.byPubKey.get(payload.sign.owner)
     if (!signer) {
-      /* prettier-ignore */ if (logFlags.error) warn('sync-finished-reject: Got sync-finished from unknown node')
+      /* prettier-ignore */ if (logFlags.error) warn('sync-finished: Got sync-finished from unknown node')
     }
 
     const isOrig = signer.id === sender
@@ -681,6 +680,12 @@ const gossipSyncFinishedRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.Finished
     // Only accept original txs in quarter 1
     if (isOrig && CycleCreator.currentQuarter > 1) {
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `sync-finished-reject: CycleCreator.currentQuarter > 1 ${CycleCreator.currentQuarter}`)
+      return
+    }
+
+    // Do not forward gossip after quarter 2
+    if (!isOrig && CycleCreator.currentQuarter > 2) {
+      /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `gossipSyncFinished rejected: CycleCreator.currentQuarter > 2 ${CycleCreator.currentQuarter}`)
       return
     }
 
@@ -745,24 +750,26 @@ const gossipStandbyRefresh: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.KeepInStand
       }
     }
 
-    const signer = NodeList.byPubKey.get(payload.sign.owner)
-    if (!signer) {
-      /* prettier-ignore */ if (logFlags.error) warn('standby-refresh-reject: Got standby-refresh from unknown node')
-    }
+    // TODO: [] BUI - commented out since the signer isn't part of network and wouldn't be found on the NodeList and wouldn't be gossiping to standby nodes, correct?
+    // also sig validation is done in addStandbyRefresh
+    // const signer = NodeList.byPubKey.get(payload.sign.owner)
+    // if (!signer) {
+    //   /* prettier-ignore */ if (logFlags.error) warn('standby-refresh-reject: Got standby-refresh from unknown node')
+    // }
 
-    const isOrig = signer.id === sender
+    // const isOrig = signer.id === sender
 
-    // Only accept original txs in quarter 1
-    if (isOrig && CycleCreator.currentQuarter > 1) {
-      /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `standby-refresh-reject: CycleCreator.currentQuarter > 1 ${CycleCreator.currentQuarter}`)
-      return
-    }
+    // // Only accept original txs in quarter 1
+    // if (isOrig && CycleCreator.currentQuarter > 1) {
+    //   /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `standby-refresh-reject: CycleCreator.currentQuarter > 1 ${CycleCreator.currentQuarter}`)
+    //   return
+    // }
 
-    // Do not forward gossip after quarter 2
-    if (!isOrig && CycleCreator.currentQuarter > 2) {
-      /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `standby-refresh-reject: CycleCreator.currentQuarter > 2 ${CycleCreator.currentQuarter}`)
-      return
-    }
+    // // Do not forward gossip after quarter 2
+    // if (!isOrig && CycleCreator.currentQuarter > 2) {
+    //   /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `standby-refresh-reject: CycleCreator.currentQuarter > 2 ${CycleCreator.currentQuarter}`)
+    //   return
+    // }
 
     const added = addStandbyRefresh(payload)
     /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `standby-refresh validation success: ${added.success}`)
