@@ -621,9 +621,9 @@ export function testFailChance(
   const rand = Math.random()
   if (failChance > rand) {
     if (debugName != null) {
-      if (verboseRequired === false || logFlags.verbose) {
-        this.logger.playbackLogNote(`dbg_fail_${debugName}`, key, message)
-      }
+      // if (verboseRequired === false || logFlags.verbose) {
+      //   this.logger.playbackLogNote(`dbg_fail_${debugName}`, key, message)
+      // }
       nestedCountersInstance.countEvent('dbg_fail_', debugName ?? 'unknown')
     }
     return true
