@@ -226,7 +226,6 @@ const standbyRefreshRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'POST',
   name: 'standby-refresh',
   handler: async (req, res) => {
-
     // check if we should ignore this request for debugging purposes
     if (config.debug.ignoreStandbyRefreshChance > 0) {
       // if we should ignore this request, sleep for 1.1 seconds since timeout is 1 second
@@ -247,7 +246,6 @@ const standbyRefreshRoute: P2P.P2PTypes.Route<Handler> = {
       res.status(400).send()
     }
 
-    console.log('before queue')
     queueStandbyRefreshRequest(standbyRefreshPubKey)
     return res.status(200).send()
   },
