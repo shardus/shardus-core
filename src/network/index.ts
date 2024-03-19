@@ -242,29 +242,30 @@ export class NetworkClass extends EventEmitter {
       for (const node of nodes) {
         /* prettier-ignore */ if (logFlags.playback && alreadyLogged === false) this.logger.playbackLog('self', node, 'InternalTell', route, id, message)
         const requestId = generateUUID()
-        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Initiating tell request with useCombinedTellNonBinary enabled on requestId: ${requestId}`)
-        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
-        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`route: ${route} ${subRoute}, message: ${message} requestId: ${requestId}`)
+         mainLogger.info(`Initiating tell request with useCombinedTellNonBinary enabled on requestId: ${requestId}`)
+         mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
+         mainLogger.info(`route: ${route} ${subRoute}, message: ${message} requestId: ${requestId}`)
         this.InternalTellCounter++
         ports.push(node.internalPort)
         addresses.push(node.internalIp)
+        console.log("The list of addresses and ports", ports, addresses)
       }
 
       try {
-        await this.sn.multisend(ports, addresses, data)
+        await this.sn.multiSend(ports, addresses, data)
       } catch (err) {
         let errorGroup = ('' + err).slice(0, 20)
-        nestedCountersInstance.countEvent('network', `error2-tellBinary ${route}`)
-        this.emit('error', nodes, requestId, 'tellBinary', errorGroup, route)
-        /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tellBinary) on ${route}: ${formatErrorMessage(err)}`)
+        nestedCountersInstance.countEvent('network', `error2-tell-multiSend ${route}`)
+        this.emit('error', nodes, requestId, 'tell-multiSend', errorGroup, route)
+        /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell-multiSend) on ${route}: ${formatErrorMessage(err)}`)
       }
     } else {
       for (const node of nodes) {
         /* prettier-ignore */ if (logFlags.playback && alreadyLogged === false) this.logger.playbackLog('self', node, 'InternalTell', route, id, message)
         const requestId = generateUUID()
-        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Initiating tell request with with useCombinedTellNonBinary disabled on requestId: ${requestId}`)
-        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
-        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`route: ${route} ${subRoute}, message: ${message} requestId: ${requestId}`)
+        mainLogger.info(`Initiating tell request with with useCombinedTellNonBinary disabled on requestId: ${requestId}`)
+        mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
+        mainLogger.info(`route: ${route} ${subRoute}, message: ${message} requestId: ${requestId}`)
         this.InternalTellCounter++
         const promise = this.sn.send(node.internalPort, node.internalIp, data)
         promise.catch((err) => {
