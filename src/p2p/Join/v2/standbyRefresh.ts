@@ -26,10 +26,19 @@ export async function submitStandbyRefresh(publicKey: string, cycleNumber: numbe
     const activeNodes = activeNodesResult.value;
     const maxRetries = 3;
     let attempts = 0;
+    const queriedNodesPKs = []
 
     while (attempts < maxRetries) {
       try {
-        const node = utils.getRandom(activeNodes.nodeList, 1)[0];
+        let node;
+        let pickNodeAttempts = 5
+        do {
+          if (pickNodeAttempts === 0) throw Error('submitStandbyRefresh: No active nodes to query');
+          node = utils.getRandom(activeNodes.nodeList, 1)[0];
+          pickNodeAttempts--
+        } while(queriedNodesPKs.includes(node.publicKey));
+        queriedNodesPKs.push(node.publicKey);
+
         let payload = {
           publicKey: publicKey,
           cycleNumber: cycleNumber,
@@ -41,7 +50,6 @@ export async function submitStandbyRefresh(publicKey: string, cycleNumber: numbe
       } catch (e) {
         console.error(`Attempt ${attempts + 1} failed: ${e}`);
         attempts++;
-        // Optionally, you can implement a delay here before the next retry
       }
     }
 

@@ -230,7 +230,7 @@ const standbyRefreshRoute: P2P.P2PTypes.Route<Handler> = {
     if (config.debug.ignoreStandbyRefreshChance > 0) {
       // if we should ignore this request, sleep for 1.1 seconds since timeout is 1 second
       if (testFailChance(config.debug.ignoreStandbyRefreshChance, 'standby-refresh', '', '', false))
-        await utils.sleep(1100)
+        await utils.sleep(1500)
     }
 
     const standbyRefreshRequest = req.body
