@@ -2628,7 +2628,8 @@ class StateManager {
       canThrowException?: boolean
     } = { useRICache: false, canThrowException: false }
   ): Promise<Shardus.WrappedDataFromQueue | null> {
-    console.log('It begins')
+    const myId = `${Date.now()}${address.slice(0, 5)}`
+    console.log('It begins ', myId)
     let wrappedAccount: Shardus.WrappedDataFromQueue | null = null
     if (!isServiceMode()) {
       console.log('not in service mode')
@@ -2676,7 +2677,7 @@ class StateManager {
     }
 
     if (accountIsRemote) {
-      console.log('We are remote')
+      console.log('We are remote ', myId)
       let randomConsensusNode: P2PTypes.NodeListTypes.Node
       const preCheckLimit = 5
       for (let i = 0; i < preCheckLimit; i++) {
@@ -2719,7 +2720,7 @@ class StateManager {
         this.config.p2p.useBinarySerializedEndpoints &&
         this.config.p2p.getAccountDataWithQueueHintsBinary
       ) {
-        console.log('Using binary')
+        console.log('Using binary ', myId)
         try {
           const serialized_res = await this.p2p.askBinary<
             GetAccountDataWithQueueHintsReqSerializable,
@@ -2734,7 +2735,7 @@ class StateManager {
           )
           r = serialized_res as GetAccountDataWithQueueHintsResp
         } catch (er) {
-          console.log('Error in askBinary: ', er)
+          console.log(myId, ' Error in askBinary: ', er)
           if (logFlags.verbose) this.mainLogger.error('askBinary', er)
           if (opts.canThrowException) {
             throw er
@@ -2762,7 +2763,7 @@ class StateManager {
         console.log(wrappedAccount)
         return wrappedAccount
       } else {
-        console.log('Result was not found: ', result)
+        console.log(`Result was not found ${myId}: ${result}`)
         //these cases probably should throw an error to, but dont wont to over prescribe the format yet
         //if the remote node has a major breakdown it should return false
         if (result == null) {
