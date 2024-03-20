@@ -137,13 +137,11 @@ class ShardFunctions {
       return wrappableParitionRange
     }
 
-    const x = partitionRadius
-    const n = homePartition
-    wrappableParitionRange.x = x // for debug
-    wrappableParitionRange.n = n
+    wrappableParitionRange.x = partitionRadius // for debug
+    wrappableParitionRange.n = homePartition
 
-    wrappableParitionRange.partitionStart = n - x
-    wrappableParitionRange.partitionEnd = n + x
+    wrappableParitionRange.partitionStart = homePartition - partitionRadius
+    wrappableParitionRange.partitionEnd = homePartition + partitionRadius
 
     ShardFunctions.calculatePartitionRangeInternal(shardGlobals, wrappableParitionRange, partitionRadius)
 
@@ -541,8 +539,6 @@ class ShardFunctions {
     if (nodeShardData.extendedData) {
       return
     }
-    const useCombinedCalculation = true
-    const checkNewCalculation = false // to make sure new calculation produce same nodelist as old calculation
 
     nodeShardData.extendedData = true
     if (nodeShardData.storedPartitions == null) {
@@ -562,57 +558,21 @@ class ShardFunctions {
     // const exclude = [nodeShardData.node.id]
     // const excludeNodeArray = [nodeShardData.node]
 
-    // let temp = ShardFunctions.getNodesThatCoverPartitionRaw(shardGlobals, nodeShardDataMap, nodeShardData.homePartition, exclude, activeNodes)
-    // //temp validation that the functions above are equal
-    // let diffA = ShardFunctions.subtractNodeLists(temp, nodeShardData.nodeThatStoreOurParition)
-    // let diffB = ShardFunctions.subtractNodeLists(nodeShardData.nodeThatStoreOurParition, temp)
-    // if(diffA.length > 0){
-    //   throw new Error( `diffA ${diffA.length}`)
-    // }
-    // if(diffB.length > 0){
-    //   throw new Error( `diffB ${diffB.length}`)
-    // }
-
-    // nodeShardData.nodeThatStoreOurParition = ShardFunctions.getNodesThatCoverRange(shardGlobals, nodeShardData.storedPartitions.homeRange.low, nodeShardData.storedPartitions.homeRange.high, exclude, activeNodes)
-
     // check if node is active because there are many calculations that are invalid or wrong if you try to compute them with a node that is not active in the network.
     // This is because consenus calcualtions are based on distance to other active nodes.
     if (nodeIsActive) {
-      if (useCombinedCalculation) {
-        const combinedNodes = ShardFunctions.getCombinedNodeLists(
-          shardGlobals,
-          nodeShardData,
-          nodeShardDataMap,
-          activeNodes
-        )
-        // Inbuilt, Direct updates to avoid creating new objects or arrays unless necessary
-        Object.assign(nodeShardData, {
-          consensusNodeForOurNode: combinedNodes.consensusNodeForOurNode,
-          consensusNodeForOurNodeFull: combinedNodes.consensusNodeForOurNodeFull,
-          nodeThatStoreOurParition: combinedNodes.nodeThatStoreOurPartition,
-          nodeThatStoreOurParitionFull: combinedNodes.nodeThatStoreOurPartitionFull,
-          edgeNodes: combinedNodes.edgeNodes,
-        })
-      } else {
-        nodeShardData.nodeThatStoreOurParition = ShardFunctions.getNodesThatCoverHomePartition(
-          shardGlobals,
-          nodeShardData,
-          nodeShardDataMap,
-          activeNodes
-        )
-        nodeShardData.consensusNodeForOurNode = ShardFunctions.getNeigborNodesInRange(
-          nodeShardData.ourNodeIndex,
-          shardGlobals.consensusRadius,
-          [nodeShardData.node.id], //exclude
-          activeNodes
-        )
-        nodeShardData.consensusNodeForOurNodeFull = ShardFunctions.getNeigborNodesInRange(
-          nodeShardData.ourNodeIndex,
-          shardGlobals.consensusRadius,
-          [],
-          activeNodes
-        )
-      }
+      nodeShardData.consensusNodeForOurNode = []
+      nodeShardData.consensusNodeForOurNodeFull = []
+      nodeShardData.nodeThatStoreOurParition = []
+      nodeShardData.nodeThatStoreOurParitionFull = []
+      nodeShardData.edgeNodes = []
+
+      ShardFunctions.getCombinedNodeLists(
+        shardGlobals,
+        nodeShardData,
+        activeNodes
+      )
+
       // calcuate partition range for consensus
       // note we must use consensusNodeForOurNodeFull because consensusNodeForOurNode is not our node,
       //     but our node could be at the front or back of the not wrapped list of nodes.
@@ -640,12 +600,13 @@ class ShardFunctions {
       const { consensusStartPartition, consensusEndPartition, node } = nodeShardData
       const numPartitions = shardGlobals.numPartitions
       const nodeId = node.id // Precomputed to avoid repetitive access
-      const updateRange = (start, end) => {
+      const updateRange = (start, end): void => {
         for (let i = start; i <= end; i++) {
           const shardPartitionData = partitionShardDataMap.get(i)
           if (!shardPartitionData) {
             throw new Error(`computeExtendedNodePartitionData: shardPartitionData==null at partition ${i}`)
           }
+          // eslint-disable-next-line security/detect-object-injection
           shardPartitionData.coveredBy[nodeId] = node // Direct assignment
         }
       }
@@ -658,113 +619,6 @@ class ShardFunctions {
         updateRange(consensusStartPartition, numPartitions - 1)
       }
 
-      if (!useCombinedCalculation) {
-        // this list is a temporary list that counts as 2c range.  Stored nodes are the merged max of 2c range (2r on each side) and node in the 2c partition range
-        nodeShardData.c2NodeForOurNode = ShardFunctions.getNeigborNodesInRange(
-          nodeShardData.ourNodeIndex,
-          2 * shardGlobals.consensusRadius,
-          [nodeShardData.node.id], //exclude
-          activeNodes
-        )
-        const [results, extras] = ShardFunctions.mergeNodeLists(
-          nodeShardData.nodeThatStoreOurParition,
-          nodeShardData.c2NodeForOurNode
-        )
-        nodeShardData.nodeThatStoreOurParitionFull = results
-        nodeShardData.outOfDefaultRangeNodes = extras
-        nodeShardData.edgeNodes = ShardFunctions.subtractNodeLists(
-          nodeShardData.nodeThatStoreOurParitionFull,
-          nodeShardData.consensusNodeForOurNode
-        )
-        nodeShardData.edgeNodes = ShardFunctions.subtractNodeLists(nodeShardData.edgeNodes, [
-          nodeShardData.node,
-        ]) // remove ourself!
-      }
-
-      if (checkNewCalculation) {
-        // COMPARE COMBINED LIST and Original calculations
-        const combinedNodes = ShardFunctions.getCombinedNodeLists(
-          shardGlobals,
-          nodeShardData,
-          nodeShardDataMap,
-          activeNodes
-        )
-        const diffA1 = ShardFunctions.subtractNodeLists(
-          nodeShardData.nodeThatStoreOurParition,
-          combinedNodes.nodeThatStoreOurPartition
-        )
-        const diffA2 = ShardFunctions.subtractNodeLists(
-          combinedNodes.nodeThatStoreOurPartition,
-          nodeShardData.nodeThatStoreOurParition
-        )
-
-        const diffB1 = ShardFunctions.subtractNodeLists(
-          combinedNodes.consensusNodeForOurNode,
-          nodeShardData.consensusNodeForOurNode
-        )
-        const diffB2 = ShardFunctions.subtractNodeLists(
-          nodeShardData.consensusNodeForOurNode,
-          combinedNodes.consensusNodeForOurNode
-        )
-
-        const diffC1 = ShardFunctions.subtractNodeLists(
-          combinedNodes.consensusNodeForOurNodeFull,
-          nodeShardData.consensusNodeForOurNodeFull
-        )
-        const diffC2 = ShardFunctions.subtractNodeLists(
-          nodeShardData.consensusNodeForOurNodeFull,
-          combinedNodes.consensusNodeForOurNodeFull
-        )
-
-        const diffD1 = ShardFunctions.subtractNodeLists(combinedNodes.edgeNodes, nodeShardData.edgeNodes)
-        const diffD2 = ShardFunctions.subtractNodeLists(nodeShardData.edgeNodes, combinedNodes.edgeNodes)
-
-        console.log('diffA1', diffA1)
-        console.log('diffA2', diffA2)
-        console.log('diffB1', diffB1)
-        console.log('diffB2', diffB2)
-        console.log('diffC1', diffC1)
-        console.log('diffC2', diffC2)
-        console.log('diffD1', diffD1)
-        console.log('diffD2', diffD2)
-        if (diffA1.length > 0) throw new Error('Different calculation')
-        if (diffA2.length > 0) throw new Error('Different calculation')
-        if (diffB1.length > 0) throw new Error('Different calculation')
-        if (diffB2.length > 0) throw new Error('Different calculation')
-        if (diffC1.length > 0) throw new Error('Different calculation')
-        if (diffC2.length > 0) throw new Error('Different calculation')
-        if (diffD1.length > 0) throw new Error('Different calculation')
-        if (diffD2.length > 0) throw new Error('Different calculation')
-      }
-
-      const extras = [] // TODO: remove "extras" check if possible
-      if (extras.length > 0) {
-        //ShardFunctions.dilateNeighborCoverage(shardGlobals, nodeShardDataMap, partitionShardDataMap, activeNodes, nodeShardData, extras)
-        //can get rid of some of the above merge logic if this never shows up in testing
-        let message = 'computeExtendedNodePartitionData: failed'
-        try {
-          const list1 = nodeShardData.nodeThatStoreOurParition.map((n) => n.id.substring(0, 5))
-          const list2 = nodeShardData.nodeThatStoreOurParition.map((n) => n.id.substring(0, 5))
-          const extraLists = extras.map((n) => n.id.substring(0, 5))
-          message = `computeExtendedNodePartitionData: should never have extras. node:${nodeShardData.node.id.substring(
-            0,
-            5
-          )} ${stringify({
-            list1,
-            list2,
-            extraLists,
-          })}`
-        } catch (ex) {
-          this.fatalLogger.fatal(
-            'computeExtendedNodePartitionData: ' + ex.name + ': ' + ex.message + ' at ' + ex.stack
-          )
-        }
-        if (ShardFunctions.fatalLogger) {
-          ShardFunctions.fatalLogger.fatal(message)
-        }
-
-        // throw new Error(message)
-      }
       nodeShardData.edgeNodes.sort(ShardFunctions.nodeSortAsc)
       nodeShardData.consensusNodeForOurNodeFull.sort(ShardFunctions.nodeSortAsc)
       nodeShardData.nodeThatStoreOurParitionFull.sort(ShardFunctions.nodeSortAsc)
@@ -781,13 +635,12 @@ class ShardFunctions {
       ]) // remove ourself!
 
       nodeShardData.edgeNodes.sort(ShardFunctions.nodeSortAsc)
-      nodeShardData.consensusNodeForOurNodeFull.sort(ShardFunctions.nodeSortAsc)
       nodeShardData.nodeThatStoreOurParitionFull.sort(ShardFunctions.nodeSortAsc)
     }
 
     // storedBy
     // Helper function to update the map
-    const updateMap = (start: number, end: number) => {
+    const updateMap = (start: number, end: number): void => {
       for (let i = start; i <= end; i++) {
         const shardPartitionData = partitionShardDataMap.get(i)
         if (shardPartitionData == null) {
@@ -1465,14 +1318,8 @@ class ShardFunctions {
   static getCombinedNodeLists(
     shardGlobals: ShardGlobals,
     thisNode: NodeShardData,
-    nodeShardDataMap: NodeShardDataMap,
     activeNodes: Shardus.Node[]
-  ): Record<string, P2P.NodeListTypes.Node[]> {
-    const consensusNodeForOurNode = [] as Shardus.Node[]
-    const consensusNodeForOurNodeFull = [] as Shardus.Node[]
-    const nodeThatStoreOurPartition = [] as Shardus.Node[]
-    const nodeThatStoreOurPartitionFull = [] as Shardus.Node[]
-    const edgeNodes = [] as Shardus.Node[]
+  ): void {
     const homePartition = thisNode.homePartition
 
     let partition =
@@ -1495,39 +1342,24 @@ class ShardFunctions {
       const node = activeNodes[partition]
 
       if (node == thisNode.node) {
-        nodeThatStoreOurPartitionFull.push(node)
-        consensusNodeForOurNodeFull.push(node)
+        thisNode.nodeThatStoreOurParitionFull.push(node)
+        thisNode.consensusNodeForOurNodeFull.push(node)
         continue
       }
 
       if (ShardFunctions.testInRange(partition, thisNode.storedPartitions)) {
-        nodeThatStoreOurPartition.push(node)
-        nodeThatStoreOurPartitionFull.push(node)
+        thisNode.nodeThatStoreOurParition.push(node)
+        thisNode.nodeThatStoreOurParitionFull.push(node)
         isInPartitionRange = true
       }
       if (ShardFunctions.testInRange(partition, thisNode.consensusPartitions)) {
-        consensusNodeForOurNode.push(node)
-        consensusNodeForOurNodeFull.push(node)
+        thisNode.consensusNodeForOurNode.push(node)
+        thisNode.consensusNodeForOurNodeFull.push(node)
         isInConsensusRange = true
       }
       if (isInPartitionRange && !isInConsensusRange) {
-        edgeNodes.push(node)
+        thisNode.edgeNodes.push(node)
       }
-    }
-    // console.log('Running getCombinedNodeList', shardGlobals, thisNode, nodeShardDataMap, edgeNodes)
-    // console.log('Home Partition', thisNode.homePartition)
-    // console.log(
-    //   'nodeThatStoreOurPartition',
-    //   nodeThatStoreOurPartition.map((node) => {
-    //     return nodeShardDataMap.get(node.id).ourNodeIndex
-    //   })
-    // )
-    return {
-      nodeThatStoreOurPartition,
-      nodeThatStoreOurPartitionFull,
-      consensusNodeForOurNode,
-      consensusNodeForOurNodeFull,
-      edgeNodes,
     }
   }
 
