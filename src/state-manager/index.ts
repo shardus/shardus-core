@@ -2264,8 +2264,8 @@ class StateManager {
     this.p2p.unregisterInternal('get_trie_accountHashes')
     this.p2p.unregisterInternal('get_account_data_by_hashes')
 
-    for (const binary_endpoint of Object.values(InternalRouteEnum)){
-    this.p2p.unregisterInternal(binary_endpoint)
+    for (const binary_endpoint of Object.values(InternalRouteEnum)) {
+      this.p2p.unregisterInternal(binary_endpoint)
     }
   }
 
@@ -2628,8 +2628,10 @@ class StateManager {
       canThrowException?: boolean
     } = { useRICache: false, canThrowException: false }
   ): Promise<Shardus.WrappedDataFromQueue | null> {
+    console.log('It begins')
     let wrappedAccount: Shardus.WrappedDataFromQueue | null = null
     if (!isServiceMode()) {
+      console.log('not in service mode')
       if (this.currentCycleShardData == null) {
         await this.waitForShardData()
       }
@@ -2644,6 +2646,7 @@ class StateManager {
       const riCacheResult = await this.app.getCachedRIAccountData([address])
       if (riCacheResult != null) {
         if (riCacheResult.length > 0) {
+          console.log('RI Cache hit for ' + address)
           nestedCountersInstance.countEvent('stateManager', 'getLocalOrRemoteAccount: RI cache hit')
           if (logFlags.verbose) this.mainLogger.debug(`getLocalOrRemoteAccount: RI cache hit for ${address}`)
           wrappedAccount = riCacheResult[0] as Shardus.WrappedDataFromQueue
@@ -2673,11 +2676,13 @@ class StateManager {
     }
 
     if (accountIsRemote) {
+      console.log('We are remote')
       let randomConsensusNode: P2PTypes.NodeListTypes.Node
       const preCheckLimit = 5
       for (let i = 0; i < preCheckLimit; i++) {
         randomConsensusNode = this.transactionQueue.getRandomConsensusNodeForAccount(address)
         if (randomConsensusNode == null) {
+          console.log("We didn't find any consensus node")
           throw new Error(`getLocalOrRemoteAccount: no consensus node found`)
         }
         // Node Precheck!.  this check our internal records to find a good node to talk to.
@@ -2692,6 +2697,9 @@ class StateManager {
         ) {
           //we got to the end of our tries?
           if (i >= preCheckLimit - 1) {
+            console.log(
+              'No node good enough. getLocalOrRemoteAccount: isNodeValidForInternalMessage failed, no retry'
+            )
             /* prettier-ignore */ if (logFlags.verbose) this.getAccountFailDump(address, 'getLocalOrRemoteAccount: isNodeValidForInternalMessage failed, no retry')
             //return null   ....better to throw an error
             if (opts.canThrowException)
@@ -2711,7 +2719,8 @@ class StateManager {
         this.config.p2p.useBinarySerializedEndpoints &&
         this.config.p2p.getAccountDataWithQueueHintsBinary
       ) {
-        try{
+        console.log('Using binary')
+        try {
           const serialized_res = await this.p2p.askBinary<
             GetAccountDataWithQueueHintsReqSerializable,
             GetAccountDataWithQueueHintsRespSerializable
@@ -2724,7 +2733,8 @@ class StateManager {
             {}
           )
           r = serialized_res as GetAccountDataWithQueueHintsResp
-        } catch (er){
+        } catch (er) {
+          console.log('Error in askBinary: ', er)
           if (logFlags.verbose) this.mainLogger.error('askBinary', er)
           if (opts.canThrowException) {
             throw er
@@ -2737,18 +2747,22 @@ class StateManager {
       }
 
       if (!r) {
+        console.log("We didn't get any response. Ask Fail r === false")
         if (logFlags.error) this.mainLogger.error('ASK FAIL getLocalOrRemoteAccount r === false')
         if (opts.canThrowException) throw new Error(`getLocalOrRemoteAccount: remote node had an exception`)
       }
 
       const result = r as GetAccountDataWithQueueHintsResp
       if (result != null && result.accountData != null && result.accountData.length > 0) {
+        console.log("We got the response. Let's see what we got")
         wrappedAccount = result.accountData[0]
         if (wrappedAccount == null) {
           if (logFlags.verbose) this.getAccountFailDump(address, 'remote result.accountData[0] == null')
         }
+        console.log(wrappedAccount)
         return wrappedAccount
       } else {
+        console.log('Result was not found: ', result)
         //these cases probably should throw an error to, but dont wont to over prescribe the format yet
         //if the remote node has a major breakdown it should return false
         if (result == null) {
@@ -2760,6 +2774,7 @@ class StateManager {
         }
       }
     } else {
+      console.log('We are local')
       // we are local!
       const accountData = await this.app.getAccountDataByList([address])
       if (accountData != null) {
@@ -2791,6 +2806,7 @@ class StateManager {
       }
       return wrappedAccount
     }
+    console.log('Reached at the bottom')
     return null
   }
 
