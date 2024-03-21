@@ -50,7 +50,6 @@
   "dependencies": {
     "@hapi/sntp": "3.1.1",
     "@mapbox/node-pre-gyp": "1.0.10",
-    "@shardus/core": "../shardus-core",
     "@shardus/crypto-utils": "4.1.3",
     "@shardus/net": "1.3.10",
     "@shardus/types": "1.2.11",
