@@ -20,13 +20,14 @@ function _normalizeUrl(url: string) {
   return normalized
 }
 
-async function _get(host, logIndex, timeout = 1000) {
+async function _get(host, logIndex, timeout = 1000): Promise<any> {
   try {
-    const res = await got.get(host, {
-      timeout: timeout, //  Omar - setting this to 1 sec
-      retry: 0, // Omar - setting this to 0.
-      json: true,
-    })
+    const res = await got
+      .get(host, {
+        timeout: timeout, //  Omar - setting this to 1 sec
+        retry: 0, // Omar - setting this to 0.
+      })
+      .json()
     return res
   } catch (error) {
     if (logFlags.playback === false && logFlags.verbose === false) {
@@ -65,14 +66,15 @@ async function get<T>(url: string, getResponseObj = false, timeout = 1000): Prom
   return res.body
 }
 
-async function _post(host, payload, logIndex, timeout = 1000) {
+async function _post(host, payload, logIndex, timeout = 1000): Promise<any> {
   try {
-    const res = await got.post(host, {
-      timeout: timeout, // Omar - set this to 1 sec
-      retry: 0, // Omar - set this to 0
-      json: true,
-      body: payload,
-    })
+    const res = await got
+      .post(host, {
+        timeout: timeout, // Omar - set this to 1 sec
+        retry: 0, // Omar - set this to 0
+        body: payload,
+      })
+      .json()
 
     //if (getResponseObj) return res
     //return res.body
