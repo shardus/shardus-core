@@ -2778,6 +2778,7 @@ class StateManager {
       console.log('We are local')
       // we are local!
       const accountData = await this.app.getAccountDataByList([address])
+      console.log(`The result for ${myId} is `, accountData)
       if (accountData != null) {
         for (const wrappedAccountEntry of accountData) {
           // We are going to add in new data here, which upgrades the account wrapper to a new type.
