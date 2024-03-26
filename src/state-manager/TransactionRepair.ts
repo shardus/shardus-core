@@ -135,7 +135,10 @@ class TransactionRepair {
           alternates: string[]
         }
       } = {}
-      const appliedVote = queueEntry.appliedReceiptForRepair2.appliedVote
+      const appliedVote = queueEntry?.appliedReceiptForRepair2?.appliedVote
+      if(!appliedVote) {
+        return
+      }
 
       const voters = queueEntry.appliedReceiptForRepair2.signatures
       //shuffle the array
