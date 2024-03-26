@@ -137,6 +137,7 @@ class TransactionRepair {
       } = {}
       const appliedVote = queueEntry?.appliedReceiptForRepair2?.appliedVote
       if(!appliedVote) {
+        /* prettier-ignore */  if (logFlags.debug) this.mainLogger.debug(`appliedVote is undefined for queueEntry: ${JSON.stringify(queueEntry)}`)
         return
       }
 
