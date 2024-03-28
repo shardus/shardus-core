@@ -148,7 +148,7 @@ export function getSortedStandbyJoinRequests(): JoinRequest[] {
 export function computeNewStandbyListHash(): hexstring {
   if (config.p2p.standbyListFastHash) {
     //this field must be udpated as it is used by other functions
-    lastHashedList = clone(getSortedStandbyJoinRequests())
+    lastHashedList = Array.from(getSortedStandbyJoinRequests())
     //sort hashes by value.  could sort by ID, but this is a bit faster
 
     const hashes = Array.from(standbyNodesInfoHashes.values())
@@ -158,9 +158,9 @@ export function computeNewStandbyListHash(): hexstring {
   }
 
   // set the lastHashedList to the current list by pubkey, then hash.
-  // deep cloning is necessary as standby node information may be mutated by
-  // reference.
-  lastHashedList = clone(getSortedStandbyJoinRequests())
+  // shallow copy would do as there are no nested object operations on standbyNodesInfo 
+  // except for deleting and adding JoinRequest objects
+  lastHashedList = Array.from(getSortedStandbyJoinRequests())
   const hash = crypto.hash(lastHashedList)
 
   if (logFlags.verbose) {
