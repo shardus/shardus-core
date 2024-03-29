@@ -767,7 +767,7 @@ class TransactionQueue {
             result = { success: false, reason: 'Invalid Signature.' }
           }
         }
-        res.json(JSON.parse(utils.cryptoStringify(result)))
+        res.send(utils.safeStringify(result))
       } catch (e) {
         console.log('Error caught in /get-tx-receipt: ', e)
         res.send(utils.safeStringify(result = { success: false, reason: e }))
