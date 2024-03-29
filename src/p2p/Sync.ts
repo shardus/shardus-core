@@ -68,7 +68,7 @@ const cyclesRoute: P2P.P2PTypes.Route<Handler> = {
       const end = req.body.end
       // const cycles = p2p.state.getCycles(start, end)
       const cycles = CycleChain.getCycleChain(start, end)
-      res.json(cycles)
+      res.send(safeStringify(cycles))
     } catch (e) {
       warn('sync-cycles', e)
     } finally {
