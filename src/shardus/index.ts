@@ -1847,7 +1847,7 @@ class Shardus extends EventEmitter {
       if (req.query.set) {
         this.debugForeverLoopsEnabled = req.query.set === 'true'
       }
-      res.json(`debugForeverLoopsEnabled: ${this.debugForeverLoopsEnabled}`)
+      res.send(utils.safeStringify(`debugForeverLoopsEnabled: ${this.debugForeverLoopsEnabled}`))
     })
   }
 
