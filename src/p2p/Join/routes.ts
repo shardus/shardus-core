@@ -230,11 +230,13 @@ const standbyRefreshRoute: P2P.P2PTypes.Route<Handler> = {
     let err = utils.validateTypes(req, { body: 'o' })
     if (err) {
       warn('/standby-refresh bad req ' + err)
+      // use res.send(safeStringify({ })) if returning an object
       res.json()
     }
     err = utils.validateTypes(standbyRefreshRequest, { publicKey: 's', cycleNumber: 'n', sign: 'o' })
     if (err) {
       warn('/standby-refresh bad standby refresh request ' + err)
+      // use res.send(safeStringify({ })) if returning an object
       res.json()
     }
 
@@ -256,11 +258,13 @@ const joinedV2Route: P2P.P2PTypes.Route<Handler> = {
     let err = utils.validateTypes(req, { params: 'o' })
     if (err) {
       warn('joined/:publicKey bad req ' + err)
+      // use res.send(safeStringify({ })) if returning an object
       res.json()
     }
     err = utils.validateTypes(req.params, { publicKey: 's' })
     if (err) {
       warn('joined/:publicKey bad req.params ' + err)
+      // use res.send(safeStringify({ })) if returning an object
       res.json()
     }
     const publicKey = req.params.publicKey
@@ -277,11 +281,13 @@ const joinedRoute: P2P.P2PTypes.Route<Handler> = {
     let err = utils.validateTypes(req, { params: 'o' })
     if (err) {
       warn('joined/:publicKey bad req ' + err)
+      // use res.send(safeStringify({ })) if returning an object
       res.json()
     }
     err = utils.validateTypes(req.params, { publicKey: 's' })
     if (err) {
       warn('joined/:publicKey bad req.params ' + err)
+      // use res.send(safeStringify({ })) if returning an object
       res.json()
     }
     const publicKey = req.params.publicKey

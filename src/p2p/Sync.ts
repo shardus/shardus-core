@@ -55,12 +55,14 @@ const cyclesRoute: P2P.P2PTypes.Route<Handler> = {
       let err = validateTypes(req, { body: 'o' })
       if (err) {
         warn('sync-cycles bad req ' + err)
+        // use res.send(safeStringify({ })) if returning an object
         res.json([])
         return
       }
       err = validateTypes(req.body, { start: 'n?', end: 'n?' })
       if (err) {
         warn('sync-cycles bad req.body ' + err)
+        // use res.send(safeStringify({ })) if returning an object
         res.json([])
         return
       }
