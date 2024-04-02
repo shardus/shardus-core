@@ -317,7 +317,7 @@ class TransactionConsenus {
             queueEntry = this.stateManager.transactionQueue.getQueueEntryArchived(
               txId,
               'get_confirm_or_challenge'
-              ) 
+              )
           }
 
           if (queueEntry == null) {
@@ -1524,7 +1524,7 @@ class TransactionConsenus {
 
             if (this.stateManager.consensusLog) {
               this.mainLogger.debug(
-                `tryProduceReceipt: ${queueEntry.logID} robustConfirmOrChallenge: ${utils.stringifyReduce(
+                `tryProduceReceipt: ${queueEntry.logID} got result robustConfirmOrChallenge: ${utils.stringifyReduce(
                   robustConfirmOrChallenge
                 )}`
               )
@@ -1567,6 +1567,8 @@ class TransactionConsenus {
               queueEntry.appliedReceipt2 = robustReceipt2
               return robustReceipt
             }
+            // mark that we have a robust confirmation, should not expire the tx
+            queueEntry.hasRobustConfirmation = true
 
             // Received another confirm receipt. Compare ranks
             let bestNodeFromRobustQuery: Shardus.NodeWithRank
@@ -1620,7 +1622,7 @@ class TransactionConsenus {
             } else {
               if (this.stateManager.consensusLog) {
                 this.mainLogger.debug(
-                  `tryProducedReceipt: ${queueEntry.logID} robust challenge result is NOT better. Using our best received confirmation`
+                  `tryProducedReceipt: ${queueEntry.logID} robust confirmation result is NOT better. Using our best received confirmation`
                 )
               }
               queueEntry.appliedReceipt = appliedReceipt
@@ -1867,7 +1869,7 @@ class TransactionConsenus {
       }
 
       const redundancy = 3
-      const maxRetry = 5
+      const maxRetry = 10
       const {
         topResult: response,
         isRobustResult,

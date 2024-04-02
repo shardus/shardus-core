@@ -356,7 +356,7 @@ class AccountPatcher {
           updatedAccounts
         )
         if (logFlags.debug) this.mainLogger.debug(`update_too_old_account_data: ${updatedAccounts.length} updated, ${failedHashes.length} failed`)
-        nestedCountersInstance.countEvent('accountPatcher', `update_too_old_account_data:${updatedAccounts.length} updated`)
+        nestedCountersInstance.countEvent('accountPatcher', `update_too_old_account_data:${updatedAccounts.length} updated, accountId: ${utils.makeShortHash(accountID)}, cycle: ${this.stateManager.currentCycleShardData.cycleNumber}`)
         if (failedHashes.length > 0) nestedCountersInstance.countEvent('accountPatcher', `update_too_old_account_data:${failedHashes.length} failed`)
         let success = false
         if (updatedAccounts.length > 0 && failedHashes.length === 0) {
@@ -1863,7 +1863,7 @@ class AccountPatcher {
         const bestVote = votes.allVotes.get(votes.bestHash)
         const potentialNodes = bestVote.voters
         //shuffle array of potential helpers
-        //utils.shuffleArray(potentialNodes) //leaving non random to catch issues in testing.
+        utils.shuffleArray(potentialNodes) //leaving non random to catch issues in testing.
         const node = potentialNodes[0]
         coverageMap.set(radixHash, { firstChoice: node, fullList: potentialNodes, refuted: new Set() })
         //let count = nodeUsage.get(node.id)
@@ -2274,6 +2274,8 @@ class AccountPatcher {
    */
   async findBadAccounts(cycle: number): Promise<BadAccountsInfo> {
     let badAccounts: AccountIDAndHash[] = []
+    let accountsTheyNeedToRepair: AccountIDAndHash[] = []
+    let accountsWeNeedToRepair: AccountIDAndHash[] = []
     const hashesPerLevel: number[] = Array(this.treeMaxDepth + 1).fill(0)
     const checkedKeysPerLevel = Array(this.treeMaxDepth)
     const badHashesPerLevel: number[] = Array(this.treeMaxDepth + 1).fill(0)
@@ -2424,6 +2426,13 @@ class AccountPatcher {
       badLayerMap = this.shardTrie.layerMaps[level] // eslint-disable-line security/detect-object-injection
       const childrenToDiff = await this.getChildrenOf(toFix, cycle)
 
+      if (childrenToDiff == null) {
+        nestedCountersInstance.countEvent(`accountPatcher`, `findBadAccounts childrenToDiff == null for radixes: ${JSON.stringify(toFix)}, cycle: ${cycle}`, 1)
+      }
+      if (childrenToDiff.length === 0) {
+        nestedCountersInstance.countEvent(`accountPatcher`, `findBadAccounts childrenToDiff.length = 0 for radixes: ${JSON.stringify(toFix)}, cycle: ${cycle}`, 1)
+      }
+
       toFix = this.diffConsenus(childrenToDiff, badLayerMap)
 
       stats.subHashesTested += toFix.length
@@ -2454,15 +2463,26 @@ class AccountPatcher {
 
       const badTreeNode = badLayerMap.get(radixAndChildHash.radix)
       if (badTreeNode != null) {
-        const accMap = new Map()
+        const localAccountsMap = new Map()
+        const remoteAccountsMap = new Map()
         if (badTreeNode.accounts != null) {
           for (let i = 0; i < badTreeNode.accounts.length; i++) {
-            accMap.set(badTreeNode.accounts[i].accountID, badTreeNode.accounts[i]) // eslint-disable-line security/detect-object-injection
+            localAccountsMap.set(badTreeNode.accounts[i].accountID, badTreeNode.accounts[i]) // eslint-disable-line security/detect-object-injection
           }
+        }
+        for (let account of radixAndChildHash.childAccounts) {
+          remoteAccountsMap.set(account.accountID, account)
+        }
+        if (radixAndChildHash.childAccounts.length > localAccountsMap.size) {
+          nestedCountersInstance.countEvent(`accountPatcher`, `remote trie node has more accounts, radix: ${radixAndChildHash.radix}`)
+        } else if (radixAndChildHash.childAccounts.length < localAccountsMap.size) {
+          nestedCountersInstance.countEvent(`accountPatcher`, `remote trie node has less accounts than local trie node, radix: ${radixAndChildHash.radix}`)
+        } else if (radixAndChildHash.childAccounts.length === localAccountsMap.size) {
+          nestedCountersInstance.countEvent(`accountPatcher`, `remote trie node has same number of accounts as local trie node, radix: ${radixAndChildHash.radix}`)
         }
         for (let i = 0; i < radixAndChildHash.childAccounts.length; i++) {
           const potentalGoodAcc = radixAndChildHash.childAccounts[i] // eslint-disable-line security/detect-object-injection
-          const potentalBadAcc = accMap.get(potentalGoodAcc.accountID)
+          const potentalBadAcc = localAccountsMap.get(potentalGoodAcc.accountID)
 
           //check if our cache value has matching hash already.  The trie can lag behind.
           //  todo would be nice to find a way to reduce this, possibly by better control of syncing ranges.
@@ -2513,9 +2533,19 @@ class AccountPatcher {
             badAccounts.push(potentalGoodAcc)
           }
         }
+        for (let i = 0; i < badTreeNode.accounts.length; i++) {
+          const localAccount = badTreeNode.accounts[i] // eslint-disable-line security/detect-object-injection
+          const remoteAccount = remoteAccountsMap.get(localAccount.accountID)
+          if (remoteAccount == null) {
+            accountsTheyNeedToRepair.push(localAccount)
+          }
+        }
       } else {
         badAccounts = badAccounts.concat(radixAndChildHash.childAccounts)
       }
+    }
+    if (accountsTheyNeedToRepair.length > 0) {
+      nestedCountersInstance.countEvent(`accountPatcher`, `accountsTheyNeedToRepair`, accountsTheyNeedToRepair.length)
     }
     return {
       badAccounts,
@@ -2526,6 +2556,7 @@ class AccountPatcher {
       accountHashesChecked,
       stats,
       extraBadKeys,
+      accountsTheyNeedToRepair
     }
   }
 
@@ -2918,7 +2949,10 @@ class AccountPatcher {
       /* prettier-ignore */ nestedCountersInstance.countEvent(`accountPatcher`, `accountHashesChecked c:${cycle}`, results.accountHashesChecked)
 
       if (logFlags.debug) {
-        this.mainLogger.debug(`badAccounts cycle: ${cycle}, total: ${results.badAccounts.length}, accounts: ${JSON.stringify(results.badAccounts)}`)
+        this.mainLogger.debug(`badAccounts cycle: ${cycle}, ourBadAccounts: ${results.badAccounts.length}, ourBadAccounts: ${JSON.stringify(results.badAccounts)}`)
+        if (results.accountsTheyNeedToRepair.length > 0) {
+          this.mainLogger.debug(`badAccounts cycle: ${cycle}, accountsTheyNeedToRepair: ${results.accountsTheyNeedToRepair.length}, accountsTheyNeedToRepair: ${JSON.stringify(results.accountsTheyNeedToRepair)}`)
+        }
       }
 
       if (this.config.mode === 'debug' && this.config.debug.haltOnDataOOS) {
@@ -2970,8 +3004,6 @@ class AccountPatcher {
         tsFix2: 0,
         tsFix3: 0,
       }
-
-
 
       let tooOldAccountsMap : Map<string, TooOldAccountRecord> = new Map()
       let wrappedDataList = repairDataResponse.wrappedDataList
@@ -3120,8 +3152,10 @@ class AccountPatcher {
             updatedAccountData: updatedAccountData
           }
           await this.p2p.tell([tooOldRecord.node], 'update_too_old_account_data', accountDataRequest)
-          nestedCountersInstance.countEvent('accountPatcher', `too_old_account repair requested c:${cycle}`)
-          if (logFlags.debug) this.mainLogger.debug(`too_old_account repair requested: ${accountId}, ${tooOldRecord.node.id}`)
+          let shortAccountId = utils.makeShortHash(accountId)
+          let shortNodeId = utils.makeShortHash(tooOldRecord.node.id)
+          nestedCountersInstance.countEvent('accountPatcher', `too_old_account repair requested. account: ${shortAccountId}, node: ${shortNodeId} c:${cycle}:`)
+          if (logFlags.debug) this.mainLogger.debug(`too_old_account repair requested: account: ${shortAccountId}, node: ${shortNodeId}`)
         }
       }
 
@@ -3802,6 +3836,7 @@ type BadAccountsInfo = {
   accountHashesChecked: number
   stats: BadAccountStats
   extraBadKeys: string[]
+  accountsTheyNeedToRepair: AccountIDAndHash[]
 }
 
 export default AccountPatcher
