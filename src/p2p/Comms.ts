@@ -17,6 +17,7 @@ import { config, crypto, logger, network } from './Context'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
 import * as CycleChain from './CycleChain'
+import * as Shardus from '../shardus/shardus-types'
 
 /** ROUTES */
 
@@ -756,7 +757,8 @@ export async function sendGossip(
   payload,
   tracker = '',
   sender = null,
-  inpNodes = NodeList.byIdOrder, // Joining nodes need gossip too; we don't send to ourself
+  inpNodes: Shardus.Node[] | Shardus.NodeWithRank[] = NodeList.byIdOrder, // Joining nodes need gossip too; we don't
+  // send to ourself
   isOrigin = false,
   factor = -1
 ) {
