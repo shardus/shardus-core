@@ -2207,6 +2207,11 @@ class TransactionQueue {
     if (queueEntry.dataCollected === queueEntry.uniqueKeys.length) {
       //  queueEntry.tx Keys.allKeys.length
       queueEntry.hasAll = true
+      if (logFlags.debug || this.stateManager.consensusLog) {
+        this.mainLogger.debug(
+          `queueEntryAddData hasAll: true for txId ${queueEntry.acceptedTx.txId} at timestamp: ${shardusGetTime()}`
+        )
+      }
     }
 
     if (data.localCache) {
