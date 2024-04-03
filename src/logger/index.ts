@@ -96,6 +96,8 @@ export type LogFlags = {
   net_rust: boolean //controls net logging rust code  all or nothing
   dapp_verbose: boolean //the dapp using this library will read this flag and log more info if true
   profiling_verbose: boolean
+
+  lost: boolean // extra logging for the lost system
 }
 
 export let logFlags: LogFlags = {
@@ -126,6 +128,7 @@ export let logFlags: LogFlags = {
   net_stats: false,
   dapp_verbose: false,
   profiling_verbose: false,
+  lost: false,
 }
 
 class Logger {
