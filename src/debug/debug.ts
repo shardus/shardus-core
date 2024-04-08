@@ -97,16 +97,25 @@ class Debug {
     })
     this.network.registerExternalGet('debug-network-delay', isDebugModeMiddleware, (req, res) => {
       try {
-        const delay = req.query.delay && typeof req.query.delay === "string" ? parseInt(req.query.delay) * 1000 : 120 * 1000
-        this.network.setDebugNetworkDelay(delay)
+        const maxDelay = req.query.max && typeof req.query.max === 'string' ? parseInt(req.query.max) : 0
+        const minDelay = req.query.min && typeof req.query.min === 'string' ? parseInt(req.query.min) : 0
+        if (maxDelay === 0 && minDelay === 0) return res.send({ success: false, error: 'Invalid delay' })
+        if (maxDelay < minDelay)
+          return res.send({ success: false, error: 'Max delay must be greater than min delay' })
+        if (minDelay > maxDelay)
+          return res.send({ success: false, error: 'Min delay must be less than max delay' })
+        this.network.setDebugNetworkDelay(maxDelay, minDelay)
+        return res.send({ success: true })
       } catch (e) {
         return res.send({ success: false, error: e.message })
       }
-      return res.send({ success: true })
     })
     this.network.registerExternalGet('debug-forcedExpiration', isDebugModeMiddleware, (req, res) => {
       try {
-        const forcedExpiration = req.query.forcedExpiration && typeof req.query.forcedExpiration === "string" ? req.query.forcedExpiration === 'true' : false
+        const forcedExpiration =
+          req.query.forcedExpiration && typeof req.query.forcedExpiration === 'string'
+            ? req.query.forcedExpiration === 'true'
+            : false
         Context.config.debug.forcedExpiration = forcedExpiration
         nestedCountersInstance.countEvent('debug', `forcedExpiration set to ${forcedExpiration}`)
       } catch (e) {

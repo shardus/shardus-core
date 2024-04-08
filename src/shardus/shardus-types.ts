@@ -977,8 +977,10 @@ export interface ServerConfiguration {
     startInFatalsLogMode?: boolean
     /** starts the node in error mode, use endpoints to turn back on default logs */
     startInErrorLogMode?: boolean
-    /** fake network delay in ms */
-    fakeNetworkDelay?: number
+    /** max fake network delay in ms */
+    fakeNetworkDelayMax?: number
+    /** min fake network delay in ms */
+    fakeNetworkDelayMin?: number
     /** disable snapshots */
     disableSnapshots?: boolean
     /** disable txCoverage report */

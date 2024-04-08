@@ -61,7 +61,8 @@ export class NetworkClass extends EventEmitter {
   signingSecretKeyHex: string
   shardusCryptoHashKey: string
   externalCatchAll: any
-  debugNetworkDelay: number
+  debugNetworkDelayMax: number
+  debugNetworkDelayMin: number
   statisticsInstance: any
   customStringifier?: (val: any) => string
   useLruCacheForSocketMgmt: boolean
@@ -86,12 +87,16 @@ export class NetworkClass extends EventEmitter {
 
     this.InternalTellCounter = 1
     this.InternalAskCounter = 1
-    this.debugNetworkDelay = 0
+    this.debugNetworkDelayMax = 0
+    this.debugNetworkDelayMin = 0
     this.statisticsInstance = null
     ntpOffsetMs = 0
 
-    if (config && config.debug && config.debug.fakeNetworkDelay) {
-      this.debugNetworkDelay = config.debug.fakeNetworkDelay
+    if (config && config.debug && config.debug.fakeNetworkDelayMax) {
+      this.debugNetworkDelayMax = config.debug.fakeNetworkDelayMax
+    }
+    if (config && config.debug && config.debug.fakeNetworkDelayMin) {
+      this.debugNetworkDelayMin = config.debug.fakeNetworkDelayMin
     }
 
     nestedCountersInstance.countEvent('network', 'init')
@@ -101,8 +106,9 @@ export class NetworkClass extends EventEmitter {
     this.shardusCryptoHashKey = config.crypto.hashKey
   }
 
-  setDebugNetworkDelay(delay: number) {
-    this.debugNetworkDelay = delay
+  setDebugNetworkDelay(max: number, min: number) {
+    this.debugNetworkDelayMax = max
+    this.debugNetworkDelayMin = min
   }
 
   setStatisticsInstance(statistics) {
@@ -174,10 +180,9 @@ export class NetworkClass extends EventEmitter {
           return
         }
 
-        if(!route && data.error) {
-          if (logFlags.debug)
-            this.mainLogger.debug('Received a hang prevention dummy payload')
-          return;
+        if (!route && data.error) {
+          if (logFlags.debug) this.mainLogger.debug('Received a hang prevention dummy payload')
+          return
         }
 
         if (!route) {
@@ -186,8 +191,12 @@ export class NetworkClass extends EventEmitter {
         }
         if (!this.internalRoutes[route]) throw new Error('Unable to handle request, invalid route.')
 
-        if (this.debugNetworkDelay > 0) {
-          await utils.sleep(this.debugNetworkDelay)
+        if (this.debugNetworkDelayMin > 0) {
+          // generate a random delay between min and max
+          const delay =
+            Math.floor(Math.random() * (this.debugNetworkDelayMax - this.debugNetworkDelayMin + 1)) +
+            this.debugNetworkDelayMin
+          await utils.sleep(delay)
         }
         profilerInstance.profileSectionStart('net-internl')
         profilerInstance.profileSectionStart(`net-internl-${route}`)
@@ -276,7 +285,7 @@ export class NetworkClass extends EventEmitter {
   ) {
     const data = { route, payload: message }
     const promises = []
-    
+
     if (!nodes || nodes.length == 0) {
       /* prettier-ignore */ if (logFlags.net_verbose) console.log("returning from tellBinary because the node list is empty for route:" , route)
       return
@@ -343,8 +352,12 @@ export class NetworkClass extends EventEmitter {
       /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`route: ${route}, message: ${message} requestId: ${requestId}`)
 
       try {
-        if (this.debugNetworkDelay > 0) {
-          await utils.sleep(this.debugNetworkDelay)
+        if (this.debugNetworkDelayMin > 0) {
+          // generate a random delay between min and max
+          const delay =
+            Math.floor(Math.random() * (this.debugNetworkDelayMax - this.debugNetworkDelayMin + 1)) +
+            this.debugNetworkDelayMin
+          await utils.sleep(delay)
         }
         profilerInstance.profileSectionStart('net-ask')
         profilerInstance.profileSectionStart(`net-ask-${route}`)
@@ -404,8 +417,12 @@ export class NetworkClass extends EventEmitter {
       /* prettier-ignore */ if (logFlags.net_verbose) this.mainLogger.info(`askBinary: route: ${route}, message: ${message} requestId: ${requestId}`)
 
       try {
-        if (this.debugNetworkDelay > 0) {
-          await utils.sleep(this.debugNetworkDelay)
+        if (this.debugNetworkDelayMin > 0) {
+          // generate a random delay between min and max
+          const delay =
+            Math.floor(Math.random() * (this.debugNetworkDelayMax - this.debugNetworkDelayMin + 1)) +
+            this.debugNetworkDelayMin
+          await utils.sleep(delay)
         }
         profilerInstance.profileSectionStart('net-askBinary')
         profilerInstance.profileSectionStart(`net-askBinary-${route}`)
