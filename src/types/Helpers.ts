@@ -94,7 +94,7 @@ export const requestErrorHandler = (
   if (opts?.customCounterSuffix) {
     counter += `_${opts.customCounterSuffix}`
   }
-  nestedCountersInstance.countEvent('internal', counter)
+  nestedCountersInstance.countEvent('internal-error', counter)
 }
 
 function estimateBinarySizeOfObject(obj): number {
