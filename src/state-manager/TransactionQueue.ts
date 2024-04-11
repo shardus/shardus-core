@@ -2441,6 +2441,9 @@ class TransactionQueue {
     if (queueEntry.hasAll === false || queueEntry.gossipedCompleteData) {
       return
     }
+    if (configContext.stateManager.gossipCompleteData === false) {
+      return
+    }
     const dataToGossip: WrappedResponses = {}
     const stateList: Shardus.WrappedResponse[] = []
     for (const accountId in queueEntry.collectedData) {
