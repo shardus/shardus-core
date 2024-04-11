@@ -2830,6 +2830,10 @@ class Shardus extends EventEmitter {
     this.statistics.countEvent(category, name, count, message)
   }
 
+  setMemoryLimit(topic: string, mazSize: number) {
+    this.stateManager.cachedAppDataManager.setMemoryLimit(topic, mazSize)
+  }
+
   async getAppDataSignatures(
     type: string,
     hash: string,

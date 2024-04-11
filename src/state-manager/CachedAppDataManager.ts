@@ -11,7 +11,12 @@ import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { InternalBinaryHandler } from '../types/Handler'
-import { getStreamWithTypeCheck, requestErrorHandler, verificationDataCombiner } from '../types/Helpers'
+import {
+  estimateBinarySizeOfObject,
+  getStreamWithTypeCheck,
+  requestErrorHandler,
+  verificationDataCombiner,
+} from '../types/Helpers'
 import {
   deserializeSendCachedAppDataReq,
   SendCachedAppDataReq,
@@ -165,15 +170,17 @@ class CachedAppDataManager {
           const { topic, dataId } = payload
           const foundCachedAppData = this.getCachedItem(topic, dataId)
           if (foundCachedAppData == null) {
-          this.mainLogger.error(`cachedAppData: Cannot find cached data for topic: ${topic}, dataId: ${dataId}`)
-          /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: Cannot find cached data for topic: ${topic}, dataId: ${dataId}`)
+            this.mainLogger.error(
+              `cachedAppData: Cannot find cached data for topic: ${topic}, dataId: ${dataId}`
+            )
+            /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: Cannot find cached data for topic: ${topic}, dataId: ${dataId}`)
           }
           await respond(foundCachedAppData)
           profilerInstance.scopedProfileSectionEnd('get_cached_app_data')
           return
         } catch (e) {
-        this.mainLogger.error(`cachedAppData: Error while processing get_cachedAppData`, e)
-        /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: Error while processing get_cachedAppData`, e)
+          this.mainLogger.error(`cachedAppData: Error while processing get_cachedAppData`, e)
+          /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: Error while processing get_cachedAppData`, e)
         } finally {
           profilerInstance.scopedProfileSectionEnd('get_cached_app_data')
         }
@@ -227,6 +234,9 @@ class CachedAppDataManager {
       maxCacheElements,
       cacheAppDataMap: new Map(),
       cachedAppDataArray: [],
+      currentCacheSize: 0,
+      // default cache limit
+      cacheSizeLimit: Number.MAX_VALUE,
     }
     if (this.cacheTopicMap.has(topic)) return false
     this.cacheTopicMap.set(topic, cacheTopic)
@@ -247,6 +257,7 @@ class CachedAppDataManager {
       let count = 0
       const { maxCycleAge, maxCacheElements } = cacheTopic
       const prunedCachedAppDataArray = []
+      let newCacheSizeAfterPrune = 0
       for (const cachedAppData of reversed(cacheTopic.cachedAppDataArray)) {
         count += 1
         const cycleAge = this.stateManager.currentCycleShardData.cycleNumber - cachedAppData.cycle
@@ -258,9 +269,11 @@ class CachedAppDataManager {
           cacheTopic.cacheAppDataMap.delete(cachedAppData.dataID)
         } else {
           prunedCachedAppDataArray.push(cachedAppData)
+          newCacheSizeAfterPrune += estimateBinarySizeOfObject(cachedAppData)
         }
       }
       cacheTopic.cachedAppDataArray = prunedCachedAppDataArray.reverse()
+      cacheTopic.currentCacheSize = newCacheSizeAfterPrune
       /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug( `cachedAppData: Updated cached array size: ${cacheTopic.cachedAppDataArray.length}, cacheMapSize: ${cacheTopic.cacheAppDataMap.size}` )
       /* prettier-ignore */ if(logFlags.shardedCache) console.log(( `cachedAppData: Updated cached array size: ${cacheTopic.cachedAppDataArray.length}, cacheMapSize: ${cacheTopic.cacheAppDataMap.size}` ))
     }
@@ -275,15 +288,33 @@ class CachedAppDataManager {
     const cacheTopic: CacheTopic = this.cacheTopicMap.get(topic)
     if (!cacheTopic) {
       // not safe to log such a large object in prod. commented out:
-      /* prettier-ignore */ if(logFlags.shardedCache) this.statemanager_fatal( 'insertCachedItem', `Topic ${topic} is not registered yet.`)// ${JSON.stringify(this.cacheTopicMap)}` )
+      /* prettier-ignore */ if(logFlags.shardedCache) this.statemanager_fatal( 'insertCachedItem', `Topic ${topic} is not registered yet.`) // ${JSON.stringify(this.cacheTopicMap)}` )
       return
     }
-    if (!cacheTopic.cacheAppDataMap.has(dataID)) {
 
+    if (!cacheTopic.cacheAppDataMap.has(dataID)) {
+      const dataSize = estimateBinarySizeOfObject(cachedAppData)
+      // cache size per topic is at max by default
+      if (cacheTopic.currentCacheSize + dataSize > cacheTopic.cacheSizeLimit) {
+        /* prettier-ignore */ if(logFlags.shardedCache) this.statemanager_fatal( 'insertCachedItem', `Topic ${topic} is at max memory limit`)
+        return
+      }
       /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: insert cache app data`, dataID, Date.now())
       cacheTopic.cacheAppDataMap.set(dataID, cachedAppData)
       cacheTopic.cachedAppDataArray.push(cachedAppData)
+      cacheTopic.currentCacheSize += dataSize
     }
+  }
+
+  setMemoryLimit(topic: string, sizeLimit: number) {
+    const cacheTopic: CacheTopic = this.cacheTopicMap.get(topic)
+    if (!cacheTopic) {
+      // not safe to log such a large object in prod. commented out:
+      /* prettier-ignore */ if(logFlags.shardedCache) this.statemanager_fatal( 'setMemoryLimit', `Topic ${topic} is not registered yet.`) // ${JSON.stringify(this.cacheTopicMap)}` )
+      return
+    }
+
+    cacheTopic.cacheSizeLimit = sizeLimit
   }
 
   async sendCorrespondingCachedAppData(
@@ -347,7 +378,6 @@ class CachedAppDataManager {
 
           /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: sendCorrespondingCachedAppData hasKey=false: ${utils.stringifyReduce(remoteHomeNode.nodeThatStoreOurParitionFull.map((v) => v.id))}`);
           /* prettier-ignore */ if(logFlags.shardedCache) console.log(`sendCorrespondingCachedAppData hasKey=false: full: ${utils.stringifyReduce(remoteHomeNode.nodeThatStoreOurParitionFull)}`);
-
         }
         /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`cachedAppData: sendCorrespondingCachedAppData hasKey=false  key: ${utils.stringifyReduce(key)}`);
         /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: sendCorrespondingCachedAppData hasKey=false  key: ${utils.stringifyReduce(key)}`);
@@ -533,7 +563,7 @@ class CachedAppDataManager {
       const validNodeRetries = 5
       let randomConsensusNode = null
 
-      for(let i=0; i<validNodeRetries; i++){
+      for (let i = 0; i < validNodeRetries; i++) {
         const nodeCheck = this.stateManager.transactionQueue.getRandomConsensusNodeForAccount(address)
         if (nodeCheck == null) {
           throw new Error('getLocalOrRemoteAccount: no consensus node found')
@@ -547,9 +577,9 @@ class CachedAppDataManager {
         }
       }
 
-      if(randomConsensusNode == null){
+      if (randomConsensusNode == null) {
         //we did not find a valid node
-        /* prettier-ignore */if (logFlags.verbose) this.stateManager.getAccountFailDump(address, "getLocalOrRemoteCachedAppData: isNodeValidForInternalMessage failed, no retry");
+        /* prettier-ignore */ if (logFlags.verbose) this.stateManager.getAccountFailDump(address, "getLocalOrRemoteCachedAppData: isNodeValidForInternalMessage failed, no retry");
         nestedCountersInstance.countEvent('cached-app-data', 'No valid node found to ask')
         return null
       }
@@ -571,7 +601,8 @@ class CachedAppDataManager {
       }
 
       if (r === false) {
-        if (logFlags.error) this.mainLogger.error(`cachedAppData: ASK FAIL getLocalOrRemoteCachedAppData r === false`)
+        if (logFlags.error)
+          this.mainLogger.error(`cachedAppData: ASK FAIL getLocalOrRemoteCachedAppData r === false`)
         nestedCountersInstance.countEvent('cached-app-data', 'result is false')
         return null
       }
@@ -582,8 +613,9 @@ class CachedAppDataManager {
         return result
       } else {
         nestedCountersInstance.countEvent('cached-app-data', 'Remote Data: miss')
-        if (logFlags.verbose) this.stateManager.getAccountFailDump(address, 'remote request missing data: result == null')
-        /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: remote result failed: ${JSON.stringify(r)}`)  //todo dont check in
+        if (logFlags.verbose)
+          this.stateManager.getAccountFailDump(address, 'remote request missing data: result == null')
+        /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: remote result failed: ${JSON.stringify(r)}`) //todo dont check in
       }
     } else {
       // we are local!
