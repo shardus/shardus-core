@@ -367,7 +367,7 @@ function setAndGetTargetCount(prevRecord: P2P.CycleCreatorTypes.CycleRecord): nu
       if (active != desired) {
         if (active < desired) {
           /* prettier-ignore */ if (logFlags && logFlags.verbose) console.log("CycleAutoScale: entered active < desired")
-          let add = ~~(0.5 * active)
+          let add = ~~(3 * active)
           if (add < 7) {
             add = 7
           }
