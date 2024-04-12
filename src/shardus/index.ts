@@ -1286,7 +1286,7 @@ class Shardus extends EventEmitter {
         if (injectedTimestamp === -1) {
           /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log('Dapp request to generate a new timestmap for the tx')
         }
-        timestampReceipt = await this.stateManager.transactionConsensus.askTxnTimestampFromNode(tx, txId)
+        timestampReceipt = await this.stateManager.transactionConsensus.askTxnTimestampFromNode(txId)
         /* prettier-ignore */ if (logFlags.p2pNonFatal && logFlags.console) console.log('Network generated a' +
           ' timestamp', txId, timestampReceipt)
       }
