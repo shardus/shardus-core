@@ -690,7 +690,7 @@ export function isNodeValidForInternalMessage(
     return false
   }
 
-  const isOutOfRotationBounds = isNodeOutOfRotationBounds(node.id)
+  const isOutOfRotationBounds = checkNodesRotationBounds && isNodeOutOfRotationBounds(node.id)
   if (isOutOfRotationBounds) {
     return false
   }

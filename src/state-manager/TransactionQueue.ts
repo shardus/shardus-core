@@ -6354,13 +6354,15 @@ class TransactionQueue {
     // remove excluded consensus nodes
     const filteredConsensusGroup = consenusGroup.filter((node) => excludeNodeIds.indexOf(node.id) === -1)
 
-    let maxRetry = 5
-    let potentialNode = filteredConsensusGroup[Math.floor(Math.random() * filteredConsensusGroup.length)]
-    const isOutOfRotationBounds = isNodeOutOfRotationBounds(potentialNode.id)
-    while (isOutOfRotationBounds && maxRetry > 0) {
+    let maxRetry = 5;
+    let potentialNode: Shardus.Node
+    let isOutOfRotationBounds: boolean
+    do {
       potentialNode = filteredConsensusGroup[Math.floor(Math.random() * filteredConsensusGroup.length)]
+      isOutOfRotationBounds = isNodeOutOfRotationBounds(potentialNode.id)
       maxRetry--
-    }
+    } while (isOutOfRotationBounds && maxRetry > 0)
+
     return potentialNode
   }
 
