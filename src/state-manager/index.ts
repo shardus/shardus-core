@@ -2881,7 +2881,6 @@ class StateManager {
           )
         }
         if (logFlags.verbose) this.mainLogger.error('ASK FAIL getRemoteAccount exception:', er)
-        nestedCountersInstance.countEvent('getRemoteAccount', `askBinary exception: ${er?.message}`)
       }
     } else {
       result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
