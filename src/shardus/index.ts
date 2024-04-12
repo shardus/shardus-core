@@ -1626,6 +1626,10 @@ class Shardus extends EventEmitter {
     return this.stateManager.isNodeInDistance(hash, nodeId, distance)
   }
 
+  isNodeInsync(): boolean {
+    return !this.stateManager.accountPatcher.failedLastTrieSync
+  }
+
   // USED BY SIMPLECOINAPP
   createApplyResponse(txId, txTimestamp) {
     const replyObject = {
