@@ -2340,16 +2340,6 @@ class TransactionConsenus {
       if (this.produceBadVote) {
         ourVote.transaction_result = !ourVote.transaction_result
       }
-
-      console.log(`[gold-logs] createAndShareVote: queueEntry: ${JSON.stringify(queueEntry)}`)
-      console.log(
-        `[gold-logs] createAndShareVote: preApplyTXResult: ${JSON.stringify(queueEntry?.preApplyTXResult)}`
-      )
-      console.log(
-        `[gold-logs] createAndShareVote: applyResponse: ${JSON.stringify(
-          queueEntry?.preApplyTXResult?.applyResponse
-        )}`
-      )
       console.log(
         `[gold-logs] createAndShareVote: appReceiptDataHash: ${JSON.stringify(
           queueEntry?.preApplyTXResult?.applyResponse.appReceiptDataHash

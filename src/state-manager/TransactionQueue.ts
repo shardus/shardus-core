@@ -775,7 +775,7 @@ class TransactionQueue {
         res.send(utils.safeStringify(result))
       } catch (e) {
         console.log('Error caught in /get-tx-receipt: ', e)
-        res.send(utils.safeStringify(result = { success: false, reason: e }))
+        res.send(utils.safeStringify((result = { success: false, reason: e })))
       }
     })
   }
@@ -1315,7 +1315,9 @@ class TransactionQueue {
       }
 
       if (logFlags.verbose) {
-        this.mainLogger.debug(`commitConsensedTransaction ${queueEntry.logID}  savedSomething: ${savedSomething}`)
+        this.mainLogger.debug(
+          `commitConsensedTransaction ${queueEntry.logID}  savedSomething: ${savedSomething}`
+        )
         this.mainLogger.debug(
           `commitConsensedTransaction  accountData[${accountDataList.length}]: ${utils.stringifyReduce(
             accountDataList
@@ -4517,25 +4519,49 @@ class TransactionQueue {
           const hasSeenConfirmation = queueEntry.receivedBestConfirmation != null
 
           // seen vote but we are past timeM3 + voteSeenExpirationTime
-          if (txAge > timeM3 + configContext.stateManager.confirmationSeenExpirationTime && hasSeenVote && hasSeenConfirmation) {
+          if (
+            txAge > timeM3 + configContext.stateManager.confirmationSeenExpirationTime &&
+            hasSeenVote &&
+            hasSeenConfirmation
+          ) {
             nestedCountersInstance.countEvent('txExpired', `> timeM3 + confirmSeenExpirationTime`)
-            this.setTXExpired(queueEntry, currentIndex, 'txAge > timeM3 + confirmSeenExpirationTime general case has' +
-              ' vote and confirmation but fail' +
-              ' to' +
-              ' commit the tx')
+            this.setTXExpired(
+              queueEntry,
+              currentIndex,
+              'txAge > timeM3 + confirmSeenExpirationTime general case has' +
+                ' vote and confirmation but fail' +
+                ' to' +
+                ' commit the tx'
+            )
             continue
-          } else if (txAge > timeM3 + configContext.stateManager.voteSeenExpirationTime && hasSeenVote && !hasSeenConfirmation) {
+          } else if (
+            txAge > timeM3 + configContext.stateManager.voteSeenExpirationTime &&
+            hasSeenVote &&
+            !hasSeenConfirmation
+          ) {
             nestedCountersInstance.countEvent('txExpired', `> timeM3 + voteSeenExpirationTime`)
-            this.mainLogger.error(`${queueEntry.logID} txAge > timeM3 + voteSeenExpirationTime general case has vote but fail to generate receipt`)
-            this.setTXExpired(queueEntry, currentIndex, 'txAge > timeM3 + voteSeenExpirationTime general case has vote but fail' +
-              ' to' +
-              ' commit the tx')
+            this.mainLogger.error(
+              `${queueEntry.logID} txAge > timeM3 + voteSeenExpirationTime general case has vote but fail to generate receipt`
+            )
+            this.setTXExpired(
+              queueEntry,
+              currentIndex,
+              'txAge > timeM3 + voteSeenExpirationTime general case has vote but fail' +
+                ' to' +
+                ' commit the tx'
+            )
             continue
           } else if (txAge > timeM3 + configContext.stateManager.noVoteSeenExpirationTime && !hasSeenVote) {
             // seen no vote but past timeM3 + noVoteSeenExpirationTime
             nestedCountersInstance.countEvent('txExpired', `> timeM3 + noVoteSeenExpirationTime`)
-            this.mainLogger.error(`${queueEntry.logID} txAge > timeM3 + noVoteSeenExpirationTime general case. no vote seen`)
-            this.setTXExpired(queueEntry, currentIndex, 'txAge > timeM3 + noVoteSeenExpirationTime general case. no vote seen')
+            this.mainLogger.error(
+              `${queueEntry.logID} txAge > timeM3 + noVoteSeenExpirationTime general case. no vote seen`
+            )
+            this.setTXExpired(
+              queueEntry,
+              currentIndex,
+              'txAge > timeM3 + noVoteSeenExpirationTime general case. no vote seen'
+            )
             continue
           }
 
@@ -4626,14 +4652,22 @@ class TransactionQueue {
           }
 
           // Have a hard cap where we ALMOST expire but NOT remove TXs from queue after time > M3
-          if (txAge > timeM3 + extraTime && queueEntry.isInExecutionHome && queueEntry.almostExpired == null) {
+          if (
+            txAge > timeM3 + extraTime &&
+            queueEntry.isInExecutionHome &&
+            queueEntry.almostExpired == null
+          ) {
             const hasVoted = queueEntry.ourVote != null
             const receivedVote = queueEntry.receivedBestVote != null
             if (!receivedVote && !hasVoted && queueEntry.almostExpired == null) {
               this.statemanager_fatal(
                 `setTxAlmostExpired > M3. general case`,
                 `setTxAlmostExpired txAge > timeM3 general case ` +
-                `txid: ${shortID} state: ${queueEntry.state} hasAll:${queueEntry.hasAll} applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} age:${txAge}  hasReceipt:${hasReceipt} matchingReceipt:${matchingReceipt} isInExecutionHome:${isInExecutionHome} hasVote: ${queueEntry.receivedBestVote != null}`
+                  `txid: ${shortID} state: ${queueEntry.state} hasAll:${
+                    queueEntry.hasAll
+                  } applyReceipt:${hasApplyReceipt} recievedAppliedReceipt:${hasReceivedApplyReceipt} age:${txAge}  hasReceipt:${hasReceipt} matchingReceipt:${matchingReceipt} isInExecutionHome:${isInExecutionHome} hasVote: ${
+                    queueEntry.receivedBestVote != null
+                  }`
               )
               /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `setTxAlmostExpired ${queueEntry.txGroupDebug} txExpired 3 requestingReceiptFailed  ${utils.stringifyReduce(queueEntry.acceptedTx)} ${queueEntry.didWakeup}`)
               //if (logFlags.playback) this.logger.playbackLogNote('txExpired', `${shortID}`, `${queueEntry.txGroupDebug} queueEntry.recievedAppliedReceipt 3 requestingReceiptFailed: ${utils.stringifyReduce(queueEntry.recievedAppliedReceipt)}`)
@@ -4641,11 +4675,15 @@ class TransactionQueue {
               /* prettier-ignore */ nestedCountersInstance.countEvent('txExpired', `setTxAlmostExpired > M3. general case state:${queueEntry.state} hasAll:${queueEntry.hasAll} globalMod:${queueEntry.globalModification} hasReceipt:${hasReceipt} matchingReceipt:${matchingReceipt} isInExecutionHome:${isInExecutionHome} hasVote: ${queueEntry.receivedBestVote != null}`)
               /* prettier-ignore */ nestedCountersInstance.countEvent('txExpired', `setTxAlmostExpired > M3. general case sieveT:${queueEntry.txSieveTime} extraTime:${extraTime}`)
 
-              nestedCountersInstance.countEvent('txExpired', 'set to almostExpired because we have not voted' +
-                ' or received' +
-                ' a' +
-                ' vote')
-              this.setTxAlmostExpired(queueEntry, currentIndex, 'm3 general: almostExpired not voted or received vote')
+              nestedCountersInstance.countEvent(
+                'txExpired',
+                'set to almostExpired because we have not voted' + ' or received' + ' a' + ' vote'
+              )
+              this.setTxAlmostExpired(
+                queueEntry,
+                currentIndex,
+                'm3 general: almostExpired not voted or received vote'
+              )
             }
             // continue
           }
@@ -4913,7 +4951,7 @@ class TransactionQueue {
                   } else {
                     txResult = await this.preApplyTransaction(queueEntry)
                     console.log(
-                      `[gold-logs] txResult preApplyTransaction: ${JSON.stringify(txResult, null, 2)}`
+                      `[gold-logs] txResult preApplyTransaction: ${utils.SerializeToJsonString(txResult)}`
                     )
                   }
 
