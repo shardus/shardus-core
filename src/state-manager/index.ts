@@ -121,6 +121,7 @@ import {
   serializeRequestReceiptForTxResp,
 } from '../types/RequestReceiptForTxResp'
 import { deserializeRequestReceiptForTxReq } from '../types/RequestReceiptForTxReq'
+import { BadRequest, InternalError, ResponseError, serializeResponseError } from '../types/ResponseError'
 
 export type Callback = (...args: unknown[]) => void
 
@@ -2017,14 +2018,12 @@ class StateManager {
           if (!requestStream) {
             // implement error handling
             nestedCountersInstance.countEvent('internal', `${route}-invalid_request`)
-            respond({ accountData }, serializeGetAccountDataWithQueueHintsResp)
-            return
+            return respond(BadRequest(`${route} invalid request`), serializeResponseError)
           }
           const req = deserializeGetAccountDataWithQueueHintsReq(requestStream)
           if (utils.isValidShardusAddress(req.accountIds) === false) {
             nestedCountersInstance.countEvent('internal', `${route}-invalid_account_ids`)
-            respond({ accountData }, serializeGetAccountDataWithQueueHintsResp)
-            return
+            return respond(BadRequest(`${route} invalid account_ids`), serializeResponseError)
           }
           let ourLockID = -1
           try {
@@ -2055,7 +2054,7 @@ class StateManager {
         } catch (e) {
           if (logFlags.error) this.mainLogger.error(`${route} error: ${utils.errorToStringFull(e)}`)
           nestedCountersInstance.countEvent('internal', `${route}-exception`)
-          respond({ accountData: null }, serializeGetAccountDataWithQueueHintsResp)
+          return respond(InternalError(`${route} exception executing request`), serializeResponseError)
         } finally {
           profilerInstance.scopedProfileSectionEnd(route, payload.length)
         }
@@ -2755,6 +2754,11 @@ class StateManager {
           )
           r = serialized_res as GetAccountDataWithQueueHintsResp
         } catch (er) {
+          if (er instanceof ResponseError && logFlags.error) {
+            this.mainLogger.error(
+              `ASK FAIL getLocalOrRemoteAccount exception: ResponseError encountered. Code: ${er.Code}, AppCode: ${er.AppCode}, Message: ${er.Message}`
+            )
+          }
           if (logFlags.verbose) this.mainLogger.error('askBinary', er)
           if (opts.canThrowException) {
             throw er
@@ -2857,18 +2861,28 @@ class StateManager {
     const message = { accountIds: [address] }
     let result: GetAccountDataWithQueueHintsResp
     if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.getAccountDataWithQueueHintsBinary) {
-      const serialized_res = await this.p2p.askBinary<
-        GetAccountDataWithQueueHintsReqSerializable,
-        GetAccountDataWithQueueHintsRespSerializable
-      >(
-        homeNode.node,
-        InternalRouteEnum.binary_get_account_data_with_queue_hints,
-        message,
-        serializeGetAccountDataWithQueueHintsReq,
-        deserializeGetAccountDataWithQueueHintsResp,
-        {}
-      )
-      result = serialized_res as GetAccountDataWithQueueHintsResp
+      try {
+        const serialized_res = await this.p2p.askBinary<
+          GetAccountDataWithQueueHintsReqSerializable,
+          GetAccountDataWithQueueHintsRespSerializable
+        >(
+          homeNode.node,
+          InternalRouteEnum.binary_get_account_data_with_queue_hints,
+          message,
+          serializeGetAccountDataWithQueueHintsReq,
+          deserializeGetAccountDataWithQueueHintsResp,
+          {}
+        )
+        result = serialized_res as GetAccountDataWithQueueHintsResp
+      } catch (er) {
+        if (er instanceof ResponseError && logFlags.error) {
+          this.mainLogger.error(
+            `ASK FAIL getRemoteAccount exception: ResponseError encountered. Code: ${er.Code}, AppCode: ${er.AppCode}, Message: ${er.Message}`
+          )
+        }
+        if (logFlags.verbose) this.mainLogger.error('ASK FAIL getRemoteAccount exception:', er)
+        nestedCountersInstance.countEvent('getRemoteAccount', `askBinary exception: ${er?.message}`)
+      }
     } else {
       result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
     }
