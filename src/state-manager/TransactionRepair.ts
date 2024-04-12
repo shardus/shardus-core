@@ -60,6 +60,7 @@ class TransactionRepair {
   }
 
   async repairToMatchReceipt(queueEntry: QueueEntry): Promise<void> {
+    console.log('repairToMatchReceipt', queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp, queueEntry.isInExecutionHome)
     if (this.stateManager.currentCycleShardData == null) {
       return
     }
@@ -829,12 +830,12 @@ class TransactionRepair {
 
         queueEntry.hasValidFinalData = true
 
-        // console.log(
-        //   'REPAIR FINISHED isInExecutionHome',
-        //   queueEntry.acceptedTx.txId,
-        //   queueEntry.isInExecutionHome
-        // )
-        // console.log('REPAIR FINISHED', queueEntry.acceptedTx.txId, queueEntry)
+        console.log(
+          'REPAIR FINISHED isInExecutionHome',
+          queueEntry.acceptedTx.txId,
+          queueEntry.isInExecutionHome
+        )
+        console.dir(queueEntry.preApplyTXResult, { depth: null})
         if (queueEntry.isInExecutionHome === true) {
           if (queueEntry.preApplyTXResult && queueEntry.preApplyTXResult.applyResponse) {
             // Temp solution to forward the receipt to the subscribed archivers although it has to be repaired
@@ -847,9 +848,10 @@ class TransactionRepair {
               if (
                 queueEntry.ourVoteHash === this.crypto.hash(queueEntry.appliedReceiptForRepair2.appliedVote)
               ) {
-                if (this.config.p2p.experimentalSnapshot)
+                if (this.config.p2p.experimentalSnapshot) {
                   console.log('repair commit', queueEntry.acceptedTx.txId, queueEntry.acceptedTx.timestamp)
                   this.stateManager.transactionQueue.addReceiptToForward(queueEntry, 'repair')
+                }
               }
           }
         }
