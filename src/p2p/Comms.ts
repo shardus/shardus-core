@@ -490,7 +490,7 @@ export async function askBinary<TReq, TResp>(
     return deserializedResp
   } catch (err) {
     error('P2P: askBinary: response extraction: ' + err)
-    console.log('P2P: askBinary: response extraction: ' + err)
+    console.log(`[gold-logs] P2P: askBinary response extraction route: ${route} error: ${err}`)
     throw err
   }
 }

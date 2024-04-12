@@ -516,6 +516,7 @@ class TransactionConsenus {
               ? queueEntry.receivedBestVoteHash
               : this.calculateVoteHash(queueEntry.receivedBestVote),
           }
+          console.log('appliedVote', appliedVote)
           respond(appliedVote, serializeGetAppliedVoteResp)
         } catch (e) {
           nestedCountersInstance.countEvent('internal', `${route}-exception`)
@@ -2340,6 +2341,20 @@ class TransactionConsenus {
         ourVote.transaction_result = !ourVote.transaction_result
       }
 
+      console.log(`[gold-logs] createAndShareVote: queueEntry: ${JSON.stringify(queueEntry)}`)
+      console.log(
+        `[gold-logs] createAndShareVote: preApplyTXResult: ${JSON.stringify(queueEntry?.preApplyTXResult)}`
+      )
+      console.log(
+        `[gold-logs] createAndShareVote: applyResponse: ${JSON.stringify(
+          queueEntry?.preApplyTXResult?.applyResponse
+        )}`
+      )
+      console.log(
+        `[gold-logs] createAndShareVote: appReceiptDataHash: ${JSON.stringify(
+          queueEntry?.preApplyTXResult?.applyResponse.appReceiptDataHash
+        )}`
+      )
       ourVote.app_data_hash = queueEntry?.preApplyTXResult?.applyResponse.appReceiptDataHash
 
       if (queueEntry.debugFail_voteFlip === true) {

@@ -4912,6 +4912,9 @@ class TransactionQueue {
                     }
                   } else {
                     txResult = await this.preApplyTransaction(queueEntry)
+                    console.log(
+                      `[gold-logs] txResult preApplyTransaction: ${JSON.stringify(txResult, null, 2)}`
+                    )
                   }
 
                   /* prettier-ignore */ this.setDebugLastAwaitedCall('this.stateManager.transactionQueue.preApplyTransaction(queueEntry)', DebugComplete.Completed)
