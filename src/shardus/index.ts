@@ -1253,6 +1253,15 @@ class Shardus extends EventEmitter {
       let appData: any = inputAppData ?? {}
 
       const internalTx = this.app.isInternalTx(tx)
+
+      // EVM tx submitted as internal
+      if (internalTx && tx.raw) {
+        return { 
+          success: false,
+          reason: 'Bad request',         
+          status: 400
+        }
+      }
       if (internalTx && !isInternalTxAllowed()) {
         return {
           success: false,
