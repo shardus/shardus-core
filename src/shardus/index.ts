@@ -1255,7 +1255,10 @@ class Shardus extends EventEmitter {
       const internalTx = this.app.isInternalTx(tx)
 
       // EVM tx submitted as internal
-      if (internalTx && tx.raw) {
+      type ObjectAlias = object
+      interface OpaqueTransaction extends ObjectAlias {}
+      let tx: OpaqueTransaction
+      if (internalTx && (tx as any).raw) {
         return { 
           success: false,
           reason: 'Bad request',         
