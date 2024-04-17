@@ -2592,6 +2592,7 @@ class StateManager {
         let r: QueueCountsResponse | false
 
         if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.getAccountQueueCountBinary) {
+          console.log(`[debug] binary_get_account_queue_count req: ${stringify(message)}`)
           const serialized_res = await this.p2p.askBinary<GetAccountQueueCountReq, GetAccountQueueCountResp>(
             randomConsensusNode,
             InternalRouteEnum.binary_get_account_queue_count,
@@ -2601,6 +2602,7 @@ class StateManager {
             {}
           )
           r = serialized_res as QueueCountsResponse
+          console.log(`[debug] binary_get_account_queue_count res: ${stringify(r)}`)
         } else {
           r = await this.p2p.ask(randomConsensusNode, 'get_account_queue_count', message)
         }
@@ -2617,16 +2619,16 @@ class StateManager {
             account = result.accounts[0]
           }
           success = true
-          /* prettier-ignore */ if (logFlags.verbose) console.log(`queue counts response: ${count} address:${utils.stringifyReduce(address)}`)
+          /* prettier-ignore */ console.log(`[debug] queue counts response: ${count} address:${utils.stringifyReduce(address)}`)
         } else {
           if (result == null) {
-            /* prettier-ignore */ if (logFlags.verbose) this.getAccountFailDump(address, 'remote request missing data 2: result == null')
+            /* prettier-ignore */ this.getAccountFailDump(address, 'remote request missing data 2: result == null')
           } else if (result.counts == null) {
-            /* prettier-ignore */ if (logFlags.verbose) this.getAccountFailDump(address, 'remote request missing data 2: result.counts == null ' + utils.stringifyReduce(result))
+            /* prettier-ignore */ this.getAccountFailDump(address, 'remote request missing data 2: result.counts == null ' + utils.stringifyReduce(result))
           } else if (result.counts.length <= 0) {
-            /* prettier-ignore */ if (logFlags.verbose) this.getAccountFailDump(address, 'remote request missing data 2: result.counts.length <= 0 ' + utils.stringifyReduce(result))
+            /* prettier-ignore */ this.getAccountFailDump(address, 'remote request missing data 2: result.counts.length <= 0 ' + utils.stringifyReduce(result))
           }
-          /* prettier-ignore */ if (logFlags.verbose) console.log(`queue counts failed: ${utils.stringifyReduce(result)} address:${utils.stringifyReduce(address)}`)
+          /* prettier-ignore */ console.log(`[debug] queue counts failed: ${utils.stringifyReduce(result)} address:${utils.stringifyReduce(address)}`)
         }
       }
     } else {
@@ -2640,7 +2642,7 @@ class StateManager {
           account = currentAccountData.data
         }
       }
-      /* prettier-ignore */ if (logFlags.verbose) console.log(`queue counts local: ${count} address:${utils.stringifyReduce(address)}`)
+      /* prettier-ignore */ console.log(`[debug] queue counts local: ${count} address:${utils.stringifyReduce(address)}`)
     }
 
     return { count, committingAppData, account }
