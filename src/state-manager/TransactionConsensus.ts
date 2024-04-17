@@ -1668,7 +1668,7 @@ class TransactionConsenus {
               'consensus',
               'tryProduceReceipt waitedEnough: true. no confirm or challenge received'
             )
-            console.log(`BLUE: ${queueEntry.logID} waited enough but no confirm or challenge received`)
+            console.log(`BLUE: ${queueEntry.logID} waited enough but no confirm or challenge received.`)
             return null
           }
         } else {
