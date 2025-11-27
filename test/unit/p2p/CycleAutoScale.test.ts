@@ -70,11 +70,11 @@ import { getOurNodeIndex } from '../../../src/p2p/Utils'
 import { shardusGetTime } from '../../../src/network'
 import { sleep, validateTypes, fastIsPicked } from '../../../src/utils'
 import { logFlags } from '../../../src/logger'
-import { P2P } from '@shardeum-foundation/lib-types'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { P2P } from '@shardus/types'
+import { Utils } from '@shardus/types'
 
 // Mock Utils.safeStringify
-jest.mock('@shardeum-foundation/lib-types', () => ({
+jest.mock('@shardus/types', () => ({
   P2P: {
     CycleAutoScaleTypes: {
       ScaleType: {

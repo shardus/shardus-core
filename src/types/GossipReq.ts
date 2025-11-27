@@ -1,4 +1,4 @@
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 

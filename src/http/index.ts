@@ -1,6 +1,6 @@
 import { parse as parseUrl } from 'url'
 import { logFlags } from '../logger'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { stringifyReduceLimit } from '../utils'
 import { customGot } from '../http/customHttpFunctions'
 

@@ -95,7 +95,7 @@ jest.mock('../../../../src/p2p/ProblemNodeHandler', () => ({
   getProblematicNodes: jest.fn(() => []),
 }))
 
-jest.mock('@shardeum-foundation/lib-types', () => ({
+jest.mock('@shardus/types', () => ({
   P2P: {
     CycleCreatorTypes: {},
     RotationTypes: {},
@@ -118,7 +118,7 @@ import * as CycleCreator from '../../../../src/p2p/CycleCreator'
 import * as CycleChain from '../../../../src/p2p/CycleChain'
 import { logFlags } from '../../../../src/logger'
 import { getProblematicNodes } from '../../../../src/p2p/ProblemNodeHandler'
-import { P2P, Utils } from '@shardeum-foundation/lib-types'
+import { P2P, Utils } from '@shardus/types'
 
 // Create mock Self object
 const mockSelf = {

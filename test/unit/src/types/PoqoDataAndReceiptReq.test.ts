@@ -6,14 +6,14 @@ import {
 } from '@src/types/PoqoDataAndReceiptReq'
 import { TypeIdentifierEnum } from '@src/types/enum/TypeIdentifierEnum'
 import { serializeSignedReceipt, deserializeSignedReceipt } from '@src/types/SignedReceipt'
-import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { Utils as StringUtils } from '@shardus/types'
 
 jest.mock('@src/types/SignedReceipt', () => ({
   serializeSignedReceipt: jest.fn(),
   deserializeSignedReceipt: jest.fn(),
 }))
 
-jest.mock('@shardeum-foundation/lib-types', () => ({
+jest.mock('@shardus/types', () => ({
   Utils: {
     safeStringify: jest.fn(),
     safeJsonParse: jest.fn(),

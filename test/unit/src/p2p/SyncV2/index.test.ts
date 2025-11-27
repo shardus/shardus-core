@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals'
 import { errAsync, okAsync } from 'neverthrow'
-import { P2P } from '@shardeum-foundation/lib-types'
+import { P2P } from '@shardus/types'
 import * as SyncV2 from '../../../../../src/p2p/SyncV2/index'
 
 // Mock all dependencies

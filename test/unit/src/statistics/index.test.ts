@@ -8,7 +8,7 @@ import fs from 'fs'
 import { Readable } from 'stream'
 
 // Mock crypto library first to avoid native dependencies
-jest.mock('@shardeum-foundation/lib-crypto-utils', () => ({
+jest.mock('@shardus/crypto-utils', () => ({
   init: jest.fn(),
   setCustomStringifier: jest.fn(),
   generateKeypair: jest.fn(),

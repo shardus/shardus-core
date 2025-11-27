@@ -7,7 +7,7 @@ import { isDebugModeMiddleware, isDebugModeMiddlewareMedium } from '../network/d
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { logFlags } from '../logger'
 import * as ProblemNodeHandler from '../p2p/ProblemNodeHandler'
-import { Node } from '@shardeum-foundation/lib-types/build/src/p2p/NodeListTypes'
+import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
 import { nodes } from '../p2p/NodeList'
 import * as CycleChain from '../p2p/CycleChain'
 import * as NodeList from '../p2p/NodeList'

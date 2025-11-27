@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals'
-import { P2P } from '@shardeum-foundation/lib-types'
+import { P2P } from '@shardus/types'
 import * as Refresh from '../../../../src/p2p/Refresh'
 
 // Mock dependencies

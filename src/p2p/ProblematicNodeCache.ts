@@ -1,4 +1,4 @@
-import { P2P } from '@shardeum-foundation/lib-types'
+import { P2P } from '@shardus/types'
 import * as zlib from 'zlib'
 
 export interface NodeMetrics {

@@ -7,7 +7,7 @@ import * as http from '../http'
 import * as Shardus from '../shardus/shardus-types'
 import { profilerInstance } from '../utils/profiler'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 const log4jsExtend = require('log4js-extend')
 import { parse as parseUrl } from 'url'
 import {

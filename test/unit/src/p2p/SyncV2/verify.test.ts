@@ -4,10 +4,10 @@ import {
   verifyCycleRecord,
   verifyTxList,
 } from '../../../../../src/p2p/SyncV2/verify'
-import { P2P, hexstring } from '@shardeum-foundation/lib-types'
+import { P2P, hexstring } from '@shardus/types'
 import { crypto } from '../../../../../src/p2p/Context'
 import { makeCycleMarker } from '../../../../../src/p2p/CycleCreator'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { logFlags } from '../../../../../src/logger'
 
 jest.mock('../../../../../src/p2p/Context', () => ({

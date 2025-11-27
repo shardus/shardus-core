@@ -1,4 +1,4 @@
-import { StateManager as StateManagerTypes } from '@shardeum-foundation/lib-types'
+import { StateManager as StateManagerTypes } from '@shardus/types'
 import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
 
@@ -36,7 +36,7 @@ import * as http from '../http'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { GetAccountDataByListResp, serializeGetAccountDataByListResp } from '../types/GetAccountDataByListResp'
 import { InternalBinaryHandler } from '../types/Handler'
-import { Route } from '@shardeum-foundation/lib-types/build/src/p2p/P2PTypes'
+import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { deserializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
 import { getStreamWithTypeCheck } from '../types/Helpers'
@@ -48,7 +48,7 @@ import {
   deserializeGlobalAccountReportResp,
 } from '../types/GlobalAccountReportResp'
 import { BadRequest, InternalError, serializeResponseError } from '../types/ResponseError'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 
 const REDUNDANCY = 3

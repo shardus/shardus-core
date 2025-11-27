@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 
 // Mock dependencies first
-jest.mock('@shardeum-foundation/lib-crypto-utils', () => ({
+jest.mock('@shardus/crypto-utils', () => ({
   init: jest.fn(),
   setCustomStringifier: jest.fn(),
   generateKeypair: jest.fn(),
@@ -145,7 +145,7 @@ jest.mock('../../../../src/network/debugMiddleware', () => ({
   isDebugModeMiddleware: jest.fn((req, res, next) => next()),
 }))
 
-jest.mock('@shardeum-foundation/lib-types', () => ({
+jest.mock('@shardus/types', () => ({
   Utils: {
     safeStringify: jest.fn((obj) => JSON.stringify(obj)),
   },
@@ -179,8 +179,8 @@ import * as JoinV2 from '../../../../src/p2p/Join/v2'
 import { selectNodesFromReadyList } from '../../../../src/p2p/Join/v2/syncFinished'
 import { nodeListFromStates } from '../../../../src/p2p/Join'
 import { checkGossipPayload } from '../../../../src/utils/GossipValidation'
-import { P2P } from '@shardeum-foundation/lib-types'
-import { NodeStatus } from '@shardeum-foundation/lib-types/build/src/p2p/P2PTypes'
+import { P2P } from '@shardus/types'
+import { NodeStatus } from '@shardus/types/build/src/p2p/P2PTypes'
 import * as utils from '../../../../src/utils'
 
 describe('Active', () => {

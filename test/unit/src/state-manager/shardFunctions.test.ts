@@ -3,7 +3,7 @@ import ShardFunctions, {
   partitionInWrappingRange,
   findHomeNode,
 } from '../../../../src/state-manager/shardFunctions'
-import { StateManager, P2P } from '@shardeum-foundation/lib-types'
+import { StateManager, P2P } from '@shardus/types'
 import * as Shardus from '../../../../src/shardus/shardus-types'
 
 type ShardGlobals = StateManager.shardFunctionTypes.ShardGlobals

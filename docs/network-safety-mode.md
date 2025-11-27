@@ -49,7 +49,7 @@ The existing safety mode implementation is inside the module `shardus-global-ser
   -In `isReadyToJoin()` add the mode argument
     - This function gets called by Shardus when trying to join the network and should say not ready to join until certificates needed are present
 
-- On Shardeum-Server
+- On Shardus-Server
   - `isReadyToJoin()` and `validateJoinRequest()`, mode argument should be added to both functions
     - then logic for when in processing mode, require `stakeCert` and in other modes require `adminCert`
 

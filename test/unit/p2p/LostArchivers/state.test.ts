@@ -1,11 +1,11 @@
-import { publicKey } from '@shardeum-foundation/lib-types'
-import { SignedObject } from '@shardeum-foundation/lib-types/build/src/p2p/P2PTypes'
+import { publicKey } from '@shardus/types'
+import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
 import {
   ArchiverDownMsg,
   ArchiverRefutesLostMsg,
   ArchiverUpMsg,
   InvestigateArchiverMsg,
-} from '@shardeum-foundation/lib-types/build/src/p2p/LostArchiverTypes'
+} from '@shardus/types/build/src/p2p/LostArchiverTypes'
 import { lostArchiversMap, LostArchiverRecord } from '../../../../src/p2p/LostArchivers/state'
 
 describe('LostArchivers state', () => {

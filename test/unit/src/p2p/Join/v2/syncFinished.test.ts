@@ -6,8 +6,8 @@ import { config } from '../../../../../../src/p2p/Context'
 import { nestedCountersInstance } from '../../../../../../src/utils/nestedCounters'
 import { logFlags } from '../../../../../../src/logger'
 import * as Self from '../../../../../../src/p2p/Self'
-import { FinishedSyncingRequest } from '@shardeum-foundation/lib-types/build/src/p2p/JoinTypes'
-import { P2P } from '@shardeum-foundation/lib-types'
+import { FinishedSyncingRequest } from '@shardus/types/build/src/p2p/JoinTypes'
+import { P2P } from '@shardus/types'
 
 // Mock dependencies
 jest.mock('../../../../../../src/p2p/NodeList')

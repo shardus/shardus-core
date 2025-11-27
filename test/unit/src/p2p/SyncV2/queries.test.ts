@@ -1,4 +1,4 @@
-import { hexstring, P2P } from '@shardeum-foundation/lib-types'
+import { hexstring, P2P } from '@shardus/types'
 import { errAsync, okAsync, ResultAsync } from 'neverthrow'
 import { Logger } from 'log4js'
 

@@ -7,7 +7,7 @@ The foundational technology upon which all Shardus applications are built
 You can install Shardus Core via npm:
 
 ```sh
-npm i @shardeum-foundation/core
+npm i @shardus/core
 ```
 
 ## Installing and Building Locally
@@ -40,7 +40,7 @@ Additionally, you can link this project from another project using the following
 {
   ...
   "dependencies": {
-    "@shardeum-foundation/core": "../shardus-core"
+    "@shardus/core": "../shardus-core"
   },
   ...
 }

@@ -57,8 +57,8 @@ jest.mock('../../../../src/types/Helpers', () => ({
 }))
 
 // Mock lib-types Uint8ArrayWriter
-jest.mock('@shardeum-foundation/lib-types', () => {
-  const original = jest.requireActual('@shardeum-foundation/lib-types')
+jest.mock('@shardus/types', () => {
+  const original = jest.requireActual('@shardus/types')
   return {
     ...(original || {}),
     Uint8ArrayWriter: jest.fn().mockImplementation(function (size) {
@@ -101,7 +101,7 @@ jest.mock('../../../../src/state-manager')
 jest.mock('../../../../src/crypto')
 jest.mock('../../../../src/p2p/Context')
 
-import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
+import { P2P as P2PTypes } from '@shardus/types'
 import CachedAppDataManager from '../../../../src/state-manager/CachedAppDataManager'
 import StateManager from '../../../../src/state-manager'
 import Crypto from '../../../../src/crypto'

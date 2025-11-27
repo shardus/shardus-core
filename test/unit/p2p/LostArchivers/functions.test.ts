@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { publicKey } from '@shardeum-foundation/lib-types'
-import { CycleMarker } from '@shardeum-foundation/lib-types/build/src/p2p/CycleCreatorTypes'
+import { publicKey } from '@shardus/types'
+import { CycleMarker } from '@shardus/types/build/src/p2p/CycleCreatorTypes'
 import {
   ArchiverDownMsg,
   ArchiverRefutesLostMsg,
   ArchiverUpMsg,
   InvestigateArchiverMsg,
-} from '@shardeum-foundation/lib-types/build/src/p2p/LostArchiverTypes'
-import { Node } from '@shardeum-foundation/lib-types/build/src/p2p/NodeListTypes'
-import { SignedObject } from '@shardeum-foundation/lib-types/build/src/p2p/P2PTypes'
+} from '@shardus/types/build/src/p2p/LostArchiverTypes'
+import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
+import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
 import { InternalRouteEnum } from '../../../../src/types/enum/InternalRouteEnum'
 
 // Mocks

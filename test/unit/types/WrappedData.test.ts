@@ -6,7 +6,7 @@ import {
 } from '../../../src/types/WrappedData'
 import { VectorBufferStream } from '../../../src/utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from '../../../src/types/enum/TypeIdentifierEnum'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { AppObjEnum } from '../../../src/types/enum/AppObjEnum'
 
 // Mock the stateManager

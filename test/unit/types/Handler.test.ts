@@ -1,5 +1,5 @@
 import { InternalBinaryHandler } from '../../../src/types/Handler'
-import { AppHeader } from '@shardeum-foundation/lib-net/build/src/types'
+import { AppHeader } from '@shardus/net/build/src/types'
 import { Sign } from '../../../src/shardus/shardus-types'
 import { VectorBufferStream } from '../../../src/utils/serialization/VectorBufferStream'
 

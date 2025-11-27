@@ -31,10 +31,10 @@ import {
   getPrefixInt,
   testFailChance,
 } from '../../../../src/utils/functions/general'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { nestedCountersInstance } from '../../../../src/utils/nestedCounters'
 
-jest.mock('@shardeum-foundation/lib-types')
+jest.mock('@shardus/types')
 jest.mock('../../../../src/utils/nestedCounters')
 
 const mockUtils = Utils as jest.Mocked<typeof Utils>

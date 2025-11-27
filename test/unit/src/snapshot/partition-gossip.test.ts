@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import { P2P } from '@shardeum-foundation/lib-types'
+import { P2P } from '@shardus/types'
 import {
   Collector,
   Message,
@@ -12,7 +12,7 @@ import {
   cleanOld,
 } from '../../../../src/snapshot/partition-gossip'
 import { CycleShardData } from '../../../../src/state-manager/state-manager-types'
-import { ShardInfo } from '@shardeum-foundation/lib-types/build/src/state-manager/shardFunctionTypes'
+import { ShardInfo } from '@shardus/types/build/src/state-manager/shardFunctionTypes'
 import * as Comm from '../../../../src/p2p/Comms'
 import * as NodeList from '../../../../src/p2p/NodeList'
 import { logFlags } from '../../../../src/logger'

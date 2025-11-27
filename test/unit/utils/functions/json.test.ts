@@ -1,10 +1,10 @@
 import { readJSON, readJSONDir } from '../../../../src/utils/functions/json'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import * as fs from 'fs'
 import * as path from 'path'
 
 jest.mock('fs')
-jest.mock('@shardeum-foundation/lib-types')
+jest.mock('@shardus/types')
 
 const mockFs = fs as jest.Mocked<typeof fs>
 const mockUtils = Utils as jest.Mocked<typeof Utils>

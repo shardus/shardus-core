@@ -60,7 +60,7 @@ jest.mock('../../../../src/p2p/Context', () => ({
 
 // Now import after mocks are set up
 import ArchiverSyncTracker from '../../../../src/state-manager/ArchiverSyncTracker'
-import { StateManager as StateManagerTypes } from '@shardeum-foundation/lib-types'
+import { StateManager as StateManagerTypes } from '@shardus/types'
 import * as Shardus from '../../../../src/shardus/shardus-types'
 import { GlobalAccountReportResp, GetAccountData3Resp } from '../../../../src/state-manager/state-manager-types'
 import { nestedCountersInstance } from '../../../../src/utils/nestedCounters'

@@ -1,4 +1,4 @@
-import { JoinRequest } from '@shardeum-foundation/lib-types/build/src/p2p/JoinTypes'
+import { JoinRequest } from '@shardus/types/build/src/p2p/JoinTypes'
 import * as JoinV2 from '../../../../../../src/p2p/Join/v2/index'
 import * as Self from '../../../../../../src/p2p/Self'
 import * as CycleChain from '../../../../../../src/p2p/CycleChain'

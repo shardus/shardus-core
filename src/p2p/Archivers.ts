@@ -1,4 +1,4 @@
-import { hexstring, P2P, publicKey, StateManager } from '@shardeum-foundation/lib-types'
+import { hexstring, P2P, publicKey, StateManager } from '@shardus/types'
 import deepmerge from 'deepmerge'
 import * as http from '../http'
 import { logFlags } from '../logger'
@@ -17,16 +17,16 @@ import * as NodeList from './NodeList'
 import Timeout = NodeJS.Timeout
 import { apoptosizeSelf } from './Apoptosis'
 import { randomInt } from 'crypto'
-import { CycleRecord } from '@shardeum-foundation/lib-types/build/src/p2p/CycleCreatorTypes'
-import { StateMetaData } from '@shardeum-foundation/lib-types/build/src/p2p/SnapshotTypes'
-import { DataRequest, JoinedArchiver } from '@shardeum-foundation/lib-types/build/src/p2p/ArchiversTypes'
+import { CycleRecord } from '@shardus/types/build/src/p2p/CycleCreatorTypes'
+import { StateMetaData } from '@shardus/types/build/src/p2p/SnapshotTypes'
+import { DataRequest, JoinedArchiver } from '@shardus/types/build/src/p2p/ArchiversTypes'
 import * as CycleChain from './CycleChain'
 import rfdc from 'rfdc'
 import { shardusGetTime } from '../network'
 import { reportLostArchiver } from '../p2p/LostArchivers/functions'
-import { ActiveNode } from '@shardeum-foundation/lib-types/build/src/p2p/SyncTypes'
+import { ActiveNode } from '@shardus/types/build/src/p2p/SyncTypes'
 import { Result, ResultAsync } from 'neverthrow'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { DevSecurityLevel } from '../shardus/shardus-types'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
@@ -62,7 +62,6 @@ export enum DataRequestTypes {
   UNSUBSCRIBE = 'UNSUBSCRIBE',
 }
 
-// This is to check if the new archiver data subscriptions feature is activated in shardeum v1.1.3
 // We can remove later after v1.1.3 upgrade
 export let archiverDataSubscriptionsUpdateFeatureActivated = false
 

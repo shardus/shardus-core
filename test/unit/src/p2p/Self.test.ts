@@ -1,4 +1,4 @@
-import { P2P } from '@shardeum-foundation/lib-types'
+import { P2P } from '@shardus/types'
 import * as Context from '../../../../src/p2p/Context'
 import * as network from '../../../../src/network'
 import * as Comms from '../../../../src/p2p/Comms'

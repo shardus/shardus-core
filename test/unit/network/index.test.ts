@@ -29,7 +29,7 @@ const NatAPIMock = jest.fn(() => mockNatClient)
 jest.mock('@hapi/sntp', () => ({
   time: jest.fn().mockResolvedValue({ t: 1000 }),
 }))
-jest.mock('@shardeum-foundation/lib-net', () => ({
+jest.mock('@shardus/net', () => ({
   Sn: mockSnConstructor,
 }))
 jest.mock('express')
@@ -181,7 +181,7 @@ import {
 } from '../../../src/network'
 import * as Shardus from '../../../src/shardus/shardus-types'
 import { config, logger as contextLogger } from '../../../src/p2p/Context'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 
 // Import mocked modules for type definitions
 import Sntp from '@hapi/sntp'

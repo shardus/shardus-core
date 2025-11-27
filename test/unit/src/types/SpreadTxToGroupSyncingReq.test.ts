@@ -6,7 +6,7 @@ import {
 } from '@src/types/SpreadTxToGroupSyncingReq'
 import { TypeIdentifierEnum } from '@src/types/enum/TypeIdentifierEnum'
 import { AppObjEnum } from '@src/shardus/shardus-types'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 
 // Mock the Context module
 jest.mock('@src/p2p/Context', () => ({
@@ -19,7 +19,7 @@ jest.mock('@src/p2p/Context', () => ({
 }))
 
 // Mock Utils
-jest.mock('@shardeum-foundation/lib-types', () => ({
+jest.mock('@shardus/types', () => ({
   Utils: {
     safeStringify: jest.fn(),
     safeJsonParse: jest.fn(),

@@ -1,8 +1,8 @@
-import * as crypto from '@shardeum-foundation/lib-crypto-utils'
+import * as crypto from '@shardus/crypto-utils'
 import { ChildProcess } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 
 // Mock all dependencies before importing
 const mockCryptoLib = {
@@ -22,7 +22,7 @@ const mockCryptoLib = {
   sign: jest.fn(),
   verify: jest.fn(),
 }
-jest.mock('@shardeum-foundation/lib-crypto-utils', () => mockCryptoLib)
+jest.mock('@shardus/crypto-utils', () => mockCryptoLib)
 jest.mock('child_process')
 jest.mock('fs')
 jest.mock('path')
@@ -33,7 +33,7 @@ jest.mock('../../../../src/storage', () => ({
   get: jest.fn(),
   close: jest.fn(),
 }))
-jest.mock('@shardeum-foundation/lib-types')
+jest.mock('@shardus/types')
 jest.mock('sqlite3', () => ({
   Database: jest.fn(),
 }))

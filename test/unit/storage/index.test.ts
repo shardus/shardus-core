@@ -36,7 +36,7 @@ jest.mock('../../../src/utils/nestedCounters', () => ({
 jest.mock('../../../src/network', () => ({
   shardusGetTime: jest.fn().mockReturnValue(1234567890),
 }))
-jest.mock('@shardeum-foundation/lib-types', () => ({
+jest.mock('@shardus/types', () => ({
   Utils: {
     safeStringify: jest.fn().mockImplementation((obj) => JSON.stringify(obj)),
     safeJsonParse: jest.fn().mockImplementation((str) => {
@@ -76,7 +76,7 @@ import { Op } from '../../../src/storage/utils/sqlOpertors'
 import { config } from '../../../src/p2p/Context'
 import { nestedCountersInstance } from '../../../src/utils/nestedCounters'
 import * as network from '../../../src/network'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 
 describe('Storage', () => {
   let storage: Storage

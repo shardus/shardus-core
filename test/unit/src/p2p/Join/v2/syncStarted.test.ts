@@ -1,6 +1,6 @@
 import * as syncStarted from '../../../../../../src/p2p/Join/v2/syncStarted'
-import { StartedSyncingRequest } from '@shardeum-foundation/lib-types/build/src/p2p/JoinTypes'
-import { SignedObject } from '@shardeum-foundation/lib-types/build/src/p2p/P2PTypes'
+import { StartedSyncingRequest } from '@shardus/types/build/src/p2p/JoinTypes'
+import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
 
 // Mock all dependencies at the top level
 jest.mock('../../../../../../src/logger', () => ({

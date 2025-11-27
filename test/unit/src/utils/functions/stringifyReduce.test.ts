@@ -1,4 +1,4 @@
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import {
   stringifyReduce,
   stringifyReduceLimit,
@@ -11,7 +11,7 @@ import {
 } from '../../../../../src/utils/functions/stringifyReduce'
 import { makeShortHash } from '../../../../../src/utils'
 
-jest.mock('@shardeum-foundation/lib-types', () => ({
+jest.mock('@shardus/types', () => ({
   Utils: {
     safeStringify: jest.fn().mockImplementation((val) => JSON.stringify(val)),
   },
@@ -56,7 +56,7 @@ beforeEach(() => {
     return x
   })
 
-  const { Utils } = require('@shardeum-foundation/lib-types')
+  const { Utils } = require('@shardus/types')
   Utils.safeStringify.mockImplementation((val) => JSON.stringify(val))
 })
 

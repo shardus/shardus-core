@@ -30,7 +30,7 @@ jest.mock('../../../../src/utils', () => ({
 }))
 
 // Mock lib-types
-jest.mock('@shardeum-foundation/lib-types', () => ({
+jest.mock('@shardus/types', () => ({
   Utils: {
     safeStringify: mockSafeStringify,
   },

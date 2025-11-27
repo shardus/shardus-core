@@ -13,7 +13,7 @@ jest.mock('sqlite3', () => {
   }
 })
 
-jest.mock('@shardeum-foundation/lib-crypto-utils', () => ({
+jest.mock('@shardus/crypto-utils', () => ({
   init: jest.fn(),
   hash: jest.fn(),
   sign: jest.fn(),
@@ -80,7 +80,7 @@ jest.mock('../../../../src/types/ajv/Helpers')
 
 // Import after mocks
 import * as Sync from '../../../../src/p2p/Sync'
-import { P2P } from '@shardeum-foundation/lib-types'
+import { P2P } from '@shardus/types'
 import * as Context from '../../../../src/p2p/Context'
 import { logFlags } from '../../../../src/logger'
 

@@ -1,4 +1,4 @@
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { VectorBufferStream } from '@src/utils/serialization/VectorBufferStream'
 import {
   MakeReceiptReq,
@@ -10,7 +10,7 @@ import { TypeIdentifierEnum } from '@src/types/enum/TypeIdentifierEnum'
 import { verifyPayload } from '@src/types/ajv/Helpers'
 import { AJVSchemaEnum } from '@src/types/enum/AJVSchemaEnum'
 
-jest.mock('@shardeum-foundation/lib-types')
+jest.mock('@shardus/types')
 jest.mock('@src/types/ajv/Helpers')
 
 describe('MakeReceipReq', () => {

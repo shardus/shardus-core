@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is Shardus Core (`@shardeum-foundation/core`), the foundational technology for building distributed/sharded blockchain applications. It implements a sophisticated consensus system with P2P networking, state management, and transaction processing capabilities.
+This is Shardus Core (`@shardus/core`), the foundational technology for building distributed/sharded blockchain applications. It implements a sophisticated consensus system with P2P networking, state management, and transaction processing capabilities.
 
 ## Development Commands
 
@@ -44,7 +44,7 @@ This is Shardus Core (`@shardeum-foundation/core`), the foundational technology 
 
 3. **Cryptography** (`src/crypto/`)
    - Proof of Work (POW) generation for network operations
-   - Integration with `@shardeum-foundation/lib-crypto-utils`
+   - Integration with `@shardus/crypto-utils`
 
 4. **Storage** (`src/storage/`)
    - SQLite3 and Better-SQLite3 support for persistent storage

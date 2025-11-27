@@ -20,11 +20,11 @@ import {
 } from '../../../../src/network/debugMiddleware'
 import * as debugModule from '../../../../src/debug'
 import * as Context from '../../../../src/p2p/Context'
-import * as crypto from '@shardeum-foundation/lib-crypto-utils'
+import * as crypto from '@shardus/crypto-utils'
 import { DevSecurityLevel } from '../../../../src/shardus/shardus-types'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { contactArchiver, getStatusHistoryCopy } from '../../../../src/p2p/Self'
-import { NodeStatus } from '@shardeum-foundation/lib-types/build/src/p2p/P2PTypes'
+import { NodeStatus } from '@shardus/types/build/src/p2p/P2PTypes'
 import { getNewestCycle } from '../../../../src/p2p/Sync'
 
 // Define proper types for the mocks
@@ -51,7 +51,7 @@ jest.mock('../../../../src/p2p/Context', () => ({
   setDefaultConfigs: jest.fn(),
 }))
 
-jest.mock('@shardeum-foundation/lib-crypto-utils', () => ({
+jest.mock('@shardus/crypto-utils', () => ({
   hash: jest.fn(),
 }))
 
@@ -68,7 +68,7 @@ jest.mock('../../../../src/utils/nestedCounters', () => ({
   },
 }))
 
-jest.mock('@shardeum-foundation/lib-types', () => ({
+jest.mock('@shardus/types', () => ({
   Utils: {
     safeStringify: jest.fn(),
     safeJsonParse: jest.fn(),

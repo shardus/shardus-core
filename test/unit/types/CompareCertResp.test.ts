@@ -6,7 +6,7 @@ import {
 } from '../../../src/types/CompareCertResp'
 import { VectorBufferStream } from '../../../src/utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from '../../../src/types/enum/TypeIdentifierEnum'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import * as ajvHelpers from '../../../src/types/ajv/Helpers'
 import { AJVSchemaEnum } from '../../../src/types/enum/AJVSchemaEnum'
 

@@ -1,5 +1,5 @@
 import * as Context from '../p2p/Context'
-import { P2P as P2PTypes, StateManager as StateManagerTypes } from '@shardeum-foundation/lib-types'
+import { P2P as P2PTypes, StateManager as StateManagerTypes } from '@shardus/types'
 import StateManager from '.'
 import Crypto from '../crypto'
 import Logger, { logFlags } from '../logger'
@@ -12,9 +12,9 @@ import * as Shardus from '../shardus/shardus-types'
 import Storage from '../storage'
 import * as utils from '../utils'
 import { getCorrespondingNodes, verifyCorrespondingSender } from '../utils/fastAggregatedCorrespondingTell'
-import { Signature, SignedObject } from '@shardeum-foundation/lib-crypto-utils'
+import { Signature, SignedObject } from '@shardus/crypto-utils'
 import { errorToStringFull, inRangeOfCurrentTime, withTimeout, XOR } from '../utils'
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import * as Self from '../p2p/Self'
 import * as Comms from '../p2p/Comms'
 import { nestedCountersInstance } from '../utils/nestedCounters'
@@ -45,7 +45,7 @@ import {
   RequestFinalDataResp,
 } from './state-manager-types'
 import { isInternalTxAllowed, networkMode } from '../p2p/Modes'
-import { Node } from '@shardeum-foundation/lib-types/build/src/p2p/NodeListTypes'
+import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
 import { Logger as L4jsLogger } from 'log4js'
 import { getNetworkTimeOffset, ipInfo, shardusGetTime } from '../network'
 import { InternalBinaryHandler } from '../types/Handler'
@@ -7394,7 +7394,6 @@ class TransactionQueue {
                   /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`shrd_awaitFinalData_passed : ${queueEntry.logID} skipped:${skipped}`)
 
                   //TODO vote order should be in apply response order!
-                  //This matters for certain daps only.  No longer important to shardeum
                   const rawAccounts = []
                   const accountRecords: Shardus.WrappedData[] = []
                   /* eslint-disable security/detect-object-injection */

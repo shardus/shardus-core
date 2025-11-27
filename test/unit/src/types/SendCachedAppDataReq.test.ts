@@ -1,4 +1,4 @@
-import { Utils } from '@shardeum-foundation/lib-types'
+import { Utils } from '@shardus/types'
 import { VectorBufferStream } from '../../../../src'
 import { initAjvSchemas, verifyPayload } from '../../../../src/types/ajv/Helpers'
 import { AppObjEnum } from '../../../../src/types/enum/AppObjEnum'

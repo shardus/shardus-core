@@ -1,5 +1,5 @@
-import { P2P } from '@shardeum-foundation/lib-types'
-import { JoinRequest } from '@shardeum-foundation/lib-types/build/src/p2p/JoinTypes'
+import { P2P } from '@shardus/types'
+import { JoinRequest } from '@shardus/types/build/src/p2p/JoinTypes'
 import { AppObjEnum } from '../types/enum/AppObjEnum'
 export type Node = P2P.NodeListTypes.Node
 export type Cycle = P2P.CycleCreatorTypes.CycleRecord
@@ -355,7 +355,7 @@ export interface App {
   dataSummaryInit?: (blob: any, accountData: any) => void
   dataSummaryUpdate?: (blob: any, accountDataBefore: any, accountDataAfter: any) => void
   txSummaryUpdate?: (blob: any, tx: any, wrappedStates: any) => void
-  // use of minNodes instead of baselineNodes here do to minNodes used when not in processing mode (check shardeum-server condition where used)
+  // use of minNodes instead of baselineNodes here do to minNodes used when not in processing mode
   validateJoinRequest?: (
     data: any,
     mode: P2P.ModesTypes.Record['mode'] | null,
@@ -1445,9 +1445,7 @@ export interface ServerConfiguration {
   features?: {
     /** Generic flag for the dapp to enable/disable certain features. Todo: replace this with something less hardcoded **/
     dappFeature1enabled: boolean
-    /** Enabled at shardeum v1.1.3. Fixes homeNode check for TX group changes: https://gitlab.com/shardus/global/shardus-global-server/-/merge_requests/268 */
     fixHomeNodeCheckForTXGroupChanges?: boolean
-    /** To enable at shardeum v1.1.3 */
     archiverDataSubscriptionsUpdate?: boolean
     startInServiceMode?: boolean
     /** This flag defaults to true. If set to true, addresses marked as ir will be fetched when tx is ageing. */

@@ -1,4 +1,4 @@
-import { P2P } from '@shardeum-foundation/lib-types'
+import { P2P } from '@shardus/types'
 import * as Archivers from '../../../../src/p2p/Archivers'
 
 // Set up p2pLogger immediately after import to ensure it's available for all tests
@@ -164,8 +164,8 @@ jest.mock('../../../../src/http', () => ({
   post: jest.fn(),
 }))
 
-jest.mock('@shardeum-foundation/lib-types', () => {
-  const actualModule = jest.requireActual('@shardeum-foundation/lib-types')
+jest.mock('@shardus/types', () => {
+  const actualModule = jest.requireActual('@shardus/types')
   return {
     ...actualModule,
     Utils: {

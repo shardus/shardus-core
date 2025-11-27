@@ -3,7 +3,7 @@ import * as SyncV2 from '../../../../src/p2p/SyncV2'
 import * as ProblemNodeHandler from '../../../../src/p2p/ProblemNodeHandler'
 import * as CycleChain from '../../../../src/p2p/CycleChain'
 import * as Context from '../../../../src/p2p/Context'
-import { P2P } from '@shardeum-foundation/lib-types'
+import { P2P } from '@shardus/types'
 
 // Mock modules
 jest.mock('../../../../src/p2p/ProblemNodeHandler', () => ({

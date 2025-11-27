@@ -1,6 +1,6 @@
 import { warn } from 'console'
-import { JoinRequest } from '@shardeum-foundation/lib-types/build/src/p2p/JoinTypes'
-import { P2P } from '@shardeum-foundation/lib-types'
+import { JoinRequest } from '@shardus/types/build/src/p2p/JoinTypes'
+import { P2P } from '@shardus/types'
 import * as NodeList from '../p2p/NodeList'
 import * as CycleCreator from '../p2p/CycleCreator'
 import { nestedCountersInstance } from '../utils/nestedCounters'
