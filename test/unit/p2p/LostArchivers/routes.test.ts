@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import {
   ArchiverDownMsg,
   ArchiverRefutesLostMsg,
   ArchiverUpMsg,
   InvestigateArchiverMsg,
-} from '@shardus/types/build/src/p2p/LostArchiverTypes'
-import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
-import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
+} from '@shardus/lib-types/build/src/p2p/LostArchiverTypes'
+import { Node } from '@shardus/lib-types/build/src/p2p/NodeListTypes'
+import { SignedObject } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { Request, Response } from 'express'
 import { InternalRouteEnum } from '../../../../src/types/enum/InternalRouteEnum'
 import { TypeIdentifierEnum } from '../../../../src/types/enum/TypeIdentifierEnum'

@@ -1,4 +1,4 @@
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 jest.mock('../../../../src/p2p/Context', () => ({
   stateManager: {

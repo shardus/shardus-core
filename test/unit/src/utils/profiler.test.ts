@@ -105,7 +105,7 @@ jest.mock('../../../../src/network', () => ({
   getNetworkTimeOffset: jest.fn().mockReturnValue(0),
 }))
 
-jest.mock('@shardus/types', () => ({
+jest.mock('@shardus/lib-types', () => ({
   Utils: {
     safeStringify: jest.fn().mockReturnValue('{"mocked":"json"}'),
   },

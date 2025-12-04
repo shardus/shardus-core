@@ -1,6 +1,6 @@
 import { Node } from '../../../../../src/shardus/shardus-types'
 import { removeNodesByID } from '../../../../../src/utils/functions/nodes'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 
 describe('removeNodesByID', () => {
   // Create sample nodes for testing

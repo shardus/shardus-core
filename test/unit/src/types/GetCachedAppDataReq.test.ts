@@ -1,4 +1,4 @@
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { initAjvSchemas } from '../../../../src/types/ajv/Helpers'
 import {
   deserializeGetCachedAppDataReq,

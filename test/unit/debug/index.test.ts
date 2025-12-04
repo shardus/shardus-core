@@ -1,5 +1,5 @@
 // Mock native modules and dependencies before importing the module under test
-jest.mock('@shardus/net', () => ({
+jest.mock('@shardus/lib-net', () => ({
   // Mock the native module
 }))
 

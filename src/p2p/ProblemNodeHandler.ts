@@ -1,4 +1,4 @@
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import * as NodeList from './NodeList'
 import { config, logger } from './Context'
 import { ProblematicNodeCache } from './ProblematicNodeCache'

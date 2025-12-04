@@ -1,4 +1,4 @@
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { serializeGossipReq, deserializeGossipReq, GossipReqBinary } from '../../../src/types/GossipReq'
 import { VectorBufferStream } from '../../../src/utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from '../../../src/types/enum/TypeIdentifierEnum'

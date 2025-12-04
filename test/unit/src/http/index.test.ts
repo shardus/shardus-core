@@ -1,5 +1,5 @@
 // Mock all dependencies to avoid complex import chains
-jest.mock('@shardus/types', () => ({
+jest.mock('@shardus/lib-types', () => ({
   Utils: {
     safeJsonParse: jest.fn((str) => JSON.parse(str)),
     safeStringify: jest.fn((obj) => JSON.stringify(obj)),

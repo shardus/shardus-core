@@ -2,7 +2,7 @@ import ArchiverDataSourceHelper from '../../../../src/state-manager/ArchiverData
 import { nestedCountersInstance } from '../../../../src/utils/nestedCounters'
 import { logFlags } from '../../../../src/logger'
 import * as utils from '../../../../src/utils'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 
 jest.mock('../../../../src/utils/nestedCounters', () => ({
   nestedCountersInstance: {

@@ -31,7 +31,7 @@ import * as syncFinished from '../../../../../src/p2p/Join/v2/syncFinished'
 import * as unjoin from '../../../../../src/p2p/Join/v2/unjoin'
 import * as syncStarted from '../../../../../src/p2p/Join/v2/syncStarted'
 import * as standbyRefresh from '../../../../../src/p2p/Join/v2/standbyRefresh'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import { Response } from 'express'
 import { EventEmitter } from 'events'
 
@@ -117,8 +117,8 @@ import {
   JoinRequest,
   SignedUnjoinRequest,
   StartedSyncingRequest,
-} from '@shardus/types/build/src/p2p/JoinTypes'
-import { Utils } from '@shardus/types'
+} from '@shardus/lib-types/build/src/p2p/JoinTypes'
+import { Utils } from '@shardus/lib-types'
 import { testFailChance } from '../../../../../src/utils'
 
 const mockedConfig = config as jest.Mocked<typeof config>

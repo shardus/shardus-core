@@ -1,13 +1,13 @@
-import { publicKey } from '@shardus/types'
-import { CycleMarker } from '@shardus/types/build/src/p2p/CycleCreatorTypes'
+import { publicKey } from '@shardus/lib-types'
+import { CycleMarker } from '@shardus/lib-types/build/src/p2p/CycleCreatorTypes'
 import {
   ArchiverDownMsg,
   ArchiverRefutesLostMsg,
   ArchiverUpMsg,
   InvestigateArchiverMsg,
-} from '@shardus/types/build/src/p2p/LostArchiverTypes'
-import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
-import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
+} from '@shardus/lib-types/build/src/p2p/LostArchiverTypes'
+import { Node } from '@shardus/lib-types/build/src/p2p/NodeListTypes'
+import { SignedObject } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import * as http from '../../http'
 import * as CycleChain from '../../p2p/CycleChain'
 import * as Archivers from '../Archivers'
@@ -26,7 +26,7 @@ import { shardusGetTime } from '../../network'
 import { LostArchiverInvestigateReq, serializeLostArchiverInvestigateReq } from '../../types/LostArchiverInvestigateReq'
 import { InternalRouteEnum } from '../../types/enum/InternalRouteEnum'
 import { tellBinary } from '../Comms'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { fireAndForget } from '../../utils/functions/promises'
 
 /** Lost Archivers Functions */

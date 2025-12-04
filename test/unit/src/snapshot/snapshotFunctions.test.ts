@@ -17,14 +17,14 @@ import {
   downloadDataFromNode,
   convertMapToObj,
 } from '../../../../src/snapshot/snapshotFunctions'
-import { P2P, StateManager } from '@shardus/types'
+import { P2P, StateManager } from '@shardus/lib-types'
 import * as Context from '../../../../src/p2p/Context'
 import * as NodeList from '../../../../src/p2p/NodeList'
 import * as Self from '../../../../src/p2p/Self'
 import ShardFunctions from '../../../../src/state-manager/shardFunctions'
 import { safetyModeVals, snapshotLogger } from '../../../../src/snapshot/index'
 import { NetworkClass } from '../../../../src/network'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import got from 'got'
 import zlib from 'zlib'
 import stream from 'stream'

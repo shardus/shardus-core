@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import * as LostArchivers from '../../../../../src/p2p/LostArchivers/index'
 
 // Mock dependencies

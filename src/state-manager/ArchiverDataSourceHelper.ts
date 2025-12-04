@@ -1,7 +1,7 @@
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { logFlags } from '../logger'
 import StateManager from '.'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import * as utils from '../utils'
 
 /**

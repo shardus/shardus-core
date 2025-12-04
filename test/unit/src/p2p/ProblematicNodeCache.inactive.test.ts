@@ -1,5 +1,5 @@
 import { ProblematicNodeCache } from '../../../../src/p2p/ProblematicNodeCache'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 
 describe('ProblematicNodeCache - Inactive Node Filtering', () => {
   let cache: ProblematicNodeCache

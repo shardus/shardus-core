@@ -44,7 +44,7 @@ This is Shardus Core (`@shardus/core`), the foundational technology for building
 
 3. **Cryptography** (`src/crypto/`)
    - Proof of Work (POW) generation for network operations
-   - Integration with `@shardus/crypto-utils`
+   - Integration with `@shardus/lib-crypto-utils`
 
 4. **Storage** (`src/storage/`)
    - SQLite3 and Better-SQLite3 support for persistent storage

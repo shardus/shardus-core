@@ -2,7 +2,7 @@ import path from 'path'
 import { Readable } from 'stream'
 
 // Mock crypto module first to avoid sodium-native issues
-jest.mock('@shardus/crypto-utils', () => ({
+jest.mock('@shardus/lib-crypto-utils', () => ({
   init: jest.fn(),
   setCustomStringifier: jest.fn(),
   generateKeypair: jest.fn(),

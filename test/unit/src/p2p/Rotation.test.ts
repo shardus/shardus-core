@@ -19,7 +19,7 @@ const mockContext = {
   setDefaultConfigs: jest.fn(),
 }
 
-jest.mock('@shardus/types')
+jest.mock('@shardus/lib-types')
 jest.mock('../../../../src/utils')
 jest.mock('../../../../src/p2p/Comms')
 jest.mock('../../../../src/p2p/Context', () => mockContext)

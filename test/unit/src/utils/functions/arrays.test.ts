@@ -1,4 +1,4 @@
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import { nodeListFromStates } from '../../../../../src/p2p/Join'
 import {
   linearInsertSorted,

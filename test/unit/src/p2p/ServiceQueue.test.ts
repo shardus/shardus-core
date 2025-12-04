@@ -1,4 +1,4 @@
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import { EventEmitter } from 'events'
 import { Logger } from 'log4js'
 

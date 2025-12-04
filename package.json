@@ -58,9 +58,9 @@
     "access": "public"
   },
   "dependencies": {
-    "@shardus/crypto-utils": "4.3.2",
-    "@shardus/net": "1.6.1",
-    "@shardus/types": "1.4.2",
+    "@shardus/lib-crypto-utils": "4.3.3",
+    "@shardus/lib-net": "1.6.2",
+    "@shardus/lib-types": "1.4.4",
     "@hapi/sntp": "3.1.1",
     "@mapbox/node-pre-gyp": "1.0.10",
     "@types/better-sqlite3": "7.6.3",

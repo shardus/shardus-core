@@ -57,7 +57,7 @@ jest.mock('../../../../src/network', () => ({
 
 // Import CycleChain after mocks are set up
 import * as CycleChain from '../../../../src/p2p/CycleChain'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 
 // Initialize CycleChain immediately after import to set up logger
 CycleChain.init()

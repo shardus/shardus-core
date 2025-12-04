@@ -1,6 +1,6 @@
 import * as CycleParser from '../../../../src/p2p/CycleParser'
 import * as CycleCreator from '../../../../src/p2p/CycleCreator'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import { reversed } from '../../../../src/utils'
 
 // Mock dependencies

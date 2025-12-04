@@ -1,8 +1,8 @@
 import { ok, err } from 'neverthrow'
-import { JoinRequest, StandbyRefreshRequest } from '@shardus/types/build/src/p2p/JoinTypes'
-import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
-import { ActiveNode } from '@shardus/types/build/src/p2p/SyncTypes'
-import { P2P } from '@shardus/types'
+import { JoinRequest, StandbyRefreshRequest } from '@shardus/lib-types/build/src/p2p/JoinTypes'
+import { SignedObject } from '@shardus/lib-types/build/src/p2p/P2PTypes'
+import { ActiveNode } from '@shardus/lib-types/build/src/p2p/SyncTypes'
+import { P2P } from '@shardus/lib-types'
 import {
   submitStandbyRefresh,
   addStandbyRefresh,

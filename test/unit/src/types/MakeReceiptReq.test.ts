@@ -2,7 +2,7 @@ import { serializeMakeReceiptReq, deserializeMakeReceiptReq, MakeReceiptReq } fr
 import { VectorBufferStream } from '../../../../src/utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from '../../../../src/types/enum/TypeIdentifierEnum'
 import { initAjvSchemas } from '../../../../src/types/ajv/Helpers'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 describe('MakeReceiptReq Tests', () => {
   beforeAll(() => {

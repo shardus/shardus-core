@@ -1,4 +1,4 @@
-import { AppHeader } from '@shardus/net/build/src/types'
+import { AppHeader } from '@shardus/lib-net/build/src/types'
 import { VectorBufferStream } from '../../../../src/utils/serialization/VectorBufferStream'
 import {
   estimateBinarySizeOfObject,

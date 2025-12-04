@@ -25,7 +25,7 @@ jest.mock('../../../src/utils', () => ({
   stringifyReduce: jest.fn((obj) => JSON.stringify(obj)),
 }))
 
-jest.mock('@shardus/types', () => ({
+jest.mock('@shardus/lib-types', () => ({
   Utils: {
     safeStringify: jest.fn().mockImplementation((obj) => JSON.stringify(obj)),
     safeJsonParse: jest.fn().mockImplementation((str) => JSON.parse(str)),
@@ -60,7 +60,7 @@ jest.mock('../../../src/state-manager/AccountCache', () => {
 
 import PartitionStats from '../../../src/state-manager/PartitionStats'
 import { CycleShardData } from '../../../src/state-manager/state-manager-types'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 describe('PartitionStats', () => {
   let partitionStats: PartitionStats
@@ -76,7 +76,7 @@ describe('PartitionStats', () => {
     jest.clearAllMocks()
 
     // Re-setup the mock implementations that get cleared
-    const Utils = require('@shardus/types').Utils
+    const Utils = require('@shardus/lib-types').Utils
     Utils.safeStringify.mockImplementation((obj) => JSON.stringify(obj))
     Utils.safeJsonParse.mockImplementation((str) => JSON.parse(str))
 

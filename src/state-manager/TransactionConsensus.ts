@@ -1,5 +1,5 @@
-import { CycleRecord } from '@shardus/types/build/src/p2p/CycleCreatorTypes'
-import { P2P as P2PTypes } from '@shardus/types'
+import { CycleRecord } from '@shardus/lib-types/build/src/p2p/CycleCreatorTypes'
+import { P2P as P2PTypes } from '@shardus/lib-types'
 import { Logger as log4jLogger } from 'log4js'
 import StateManager from '.'
 import Crypto from '../crypto'
@@ -34,13 +34,13 @@ import {
 } from './state-manager-types'
 import { shardusGetTime } from '../network'
 import { robustQuery } from '../p2p/Utils'
-import { SignedObject } from '@shardus/crypto-utils'
+import { SignedObject } from '@shardus/lib-crypto-utils'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
 import { GetAccountDataReqSerializable, serializeGetAccountDataReq } from '../types/GetAccountDataReq'
 import { GetAccountDataRespSerializable, deserializeGetAccountDataResp } from '../types/GetAccountDataResp'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { InternalBinaryHandler } from '../types/Handler'
-import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { Route } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
@@ -54,7 +54,7 @@ import { GetAppliedVoteReq, serializeGetAppliedVoteReq } from '../types/GetAppli
 import { GetAppliedVoteResp, deserializeGetAppliedVoteResp } from '../types/GetAppliedVoteResp'
 import { BadRequest, serializeResponseError } from '../types/ResponseError'
 import { randomUUID } from 'crypto'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import {
   PoqoSendReceiptReq,
   deserializePoqoSendReceiptReq,

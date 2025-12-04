@@ -56,7 +56,7 @@ jest.mock('../../../../src/p2p/Context', () => ({
   crypto: {},
 }))
 
-jest.mock('@shardus/types', () => ({
+jest.mock('@shardus/lib-types', () => ({
   P2P: {
     NodeListTypes: {},
     CycleCreatorTypes: {},

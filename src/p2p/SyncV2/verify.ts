@@ -3,12 +3,12 @@
  * given hashes.
  */
 
-import { P2P, hexstring } from '@shardus/types'
+import { P2P, hexstring } from '@shardus/lib-types'
 import { err, ok, Result } from 'neverthrow'
 import { HashableObject } from '../../crypto'
 import { crypto } from '../Context'
 import { makeCycleMarker } from '../CycleCreator'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { p2pLogger } from './queries'
 import { logFlags } from '../../logger'
 

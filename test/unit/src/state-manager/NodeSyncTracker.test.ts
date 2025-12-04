@@ -4,7 +4,7 @@ import * as utils from '../../../../src/utils'
 import { shardusGetTime } from '../../../../src/network'
 import { ResponseError } from '../../../../src/types/ResponseError'
 import { ResponseErrorEnum } from '../../../../src/types/enum/ResponseErrorEnum'
-import { StateManager as StateManagerTypes } from '@shardus/types'
+import { StateManager as StateManagerTypes } from '@shardus/lib-types'
 import * as Shardus from '../../../../src/shardus/shardus-types'
 import { logFlags } from '../../../../src/logger'
 

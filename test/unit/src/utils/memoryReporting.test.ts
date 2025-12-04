@@ -7,7 +7,7 @@ import { spawn } from 'child_process'
 // Global mocks
 global.console.log = jest.fn()
 
-jest.mock('@shardus/crypto-utils', () => ({
+jest.mock('@shardus/lib-crypto-utils', () => ({
   init: jest.fn(),
   setCustomStringifier: jest.fn(),
   generateKeypair: jest.fn(),
@@ -27,7 +27,7 @@ jest.mock('sqlite3', () => ({
 }))
 
 // Mock P2P module first to avoid initialization issues
-jest.mock('@shardus/types/build/src/p2p/P2PTypes', () => ({
+jest.mock('@shardus/lib-types/build/src/p2p/P2PTypes', () => ({
   P2PTypes: {
     NodeStatus: {
       INITIALIZING: 'initializing',
@@ -114,7 +114,7 @@ jest.mock('../../../../src/network', () => ({
   shardusGetTime: jest.fn(() => Date.now()),
 }))
 
-jest.mock('@shardus/types', () => ({
+jest.mock('@shardus/lib-types', () => ({
   Utils: {
     safeStringify: jest.fn((obj) => JSON.stringify(obj)),
   },
@@ -128,7 +128,7 @@ import * as CycleCreator from '../../../../src/p2p/CycleCreator'
 import * as NodeList from '../../../../src/p2p/NodeList'
 import { nestedCountersInstance } from '../../../../src/utils/nestedCounters'
 import { getLastNTPObject, getNetworkTimeOffset, shardusGetTime } from '../../../../src/network'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 const mockedOs = os as jest.Mocked<typeof os>
 const mockedSpawn = spawn as jest.MockedFunction<typeof spawn>

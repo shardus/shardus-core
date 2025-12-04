@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals'
 import { err, ok } from 'neverthrow'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 
 // Mock external dependencies
 jest.mock('../../../../../../src/p2p/Context', () => ({

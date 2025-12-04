@@ -3,7 +3,7 @@
  * available for other nodes to query.
  */
 
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import { Handler } from 'express'
 import * as CycleChain from '../CycleChain'
 import { cycles } from '../CycleChain'
@@ -16,7 +16,7 @@ import * as ServiceQueue from '../ServiceQueue'
 import { profilerInstance } from '../../utils/profiler'
 import { logFlags } from '../../logger'
 import { jsonHttpResWithSize } from '../../utils'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { registerCycleMonitoringRoutes } from './cycle-monitoring-routes'
 
 /** An endpoint that returns the latest node list hash. */

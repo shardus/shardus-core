@@ -1,6 +1,6 @@
 import TransactionRepair from '../../../../src/state-manager/TransactionRepair'
 import * as Shardus from '../../../../src/shardus/shardus-types'
-import { StateManager as StateManagerTypes } from '@shardus/types'
+import { StateManager as StateManagerTypes } from '@shardus/lib-types'
 import {
   QueueEntry,
   AccountHashCache,

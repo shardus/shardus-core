@@ -1,4 +1,4 @@
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { stateManager } from '../p2p/Context'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { AppObjEnum } from './enum/AppObjEnum'

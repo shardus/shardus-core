@@ -1,5 +1,5 @@
 import * as SafetyMode from '../../../../src/p2p/SafetyMode'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 
 jest.mock('../../../../src/snapshot', () => ({
   safetyModeVals: {

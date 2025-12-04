@@ -5,7 +5,7 @@
 
 import * as CycleChain from '../CycleChain'
 import { MAX_CYCLES_TO_KEEP } from '../CycleCreator'
-import * as crypto from '@shardus/crypto-utils'
+import * as crypto from '@shardus/lib-crypto-utils'
 import { nestedCountersInstance } from '../../utils/nestedCounters'
 import { isDebugModeMiddlewareHigh } from '../../network/debugMiddleware'
 import { Request, Response } from 'express'

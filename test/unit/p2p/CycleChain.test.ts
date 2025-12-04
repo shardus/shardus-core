@@ -1,5 +1,5 @@
 import * as CycleChain from '../../../src/p2p/CycleChain'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import * as Context from '../../../src/p2p/Context'
 import * as NodeList from '../../../src/p2p/NodeList'
 import { nestedCountersInstance } from '../../../src/utils/nestedCounters'
