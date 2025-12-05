@@ -1,6 +1,6 @@
 import Log4js from 'log4js'
 import Sqlite3 from 'better-sqlite3'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import * as Shardus from '../shardus/shardus-types'
 import Profiler from '../utils/profiler'
 import fs from 'fs'
@@ -171,12 +171,7 @@ class BetterSqlite3Storage {
     return await this.all<T>(queryString, valueArray)
   }
 
-  _update(
-    table: ModelData,
-    values: GenericObject,
-    where: GenericObject,
-    opts: OperationOptions
-  ): Promise<unknown> {
+  _update(table: ModelData, values: GenericObject, where: GenericObject, opts: OperationOptions): Promise<unknown> {
     let queryString = table.updateString
 
     const valueParams = this.params2Array(values, table)

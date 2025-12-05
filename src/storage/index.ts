@@ -16,9 +16,9 @@ import P2PApoptosis = require('../p2p/Apoptosis')
 import { config } from '../p2p/Context'
 import { ColumnDescription } from './utils/schemaDefintions'
 import { Op } from './utils/sqlOpertors'
-import { nestedCountersInstance } from "../utils/nestedCounters";
-import { shardusGetTime } from "../network";
-import { Utils } from '@shardus/types'
+import { nestedCountersInstance } from '../utils/nestedCounters'
+import { shardusGetTime } from '../network'
+import { Utils } from '@shardus/lib-types'
 
 /** A type alias to avoid both `any` and having to spell this type out any time
  * we want to use it. */
@@ -90,13 +90,7 @@ class Storage {
     // this.storage = new SequelizeStorage(models, config, logger, baseDir, this.profiler)
 
     // this.storage = new BetterSqlite3Storage(models, config, logger, baseDir, this.profiler)
-    this.storage = new Sqlite3Storage(
-      models as [string, ModelAttributes][],
-      config,
-      logger,
-      baseDir,
-      this.profiler
-    )
+    this.storage = new Sqlite3Storage(models as [string, ModelAttributes][], config, logger, baseDir, this.profiler)
     this.serverConfig = serverConfig
     this.stateManager = null
   }
@@ -665,7 +659,10 @@ class Storage {
           Utils.safeStringify(accountStates)
       )
       nestedCountersInstance.countEvent('addAccountStates', `addAccountStates fail and apop self. ${shardusGetTime()}`)
-      this.stateManager.initApoptosisAndQuitSyncing('addAccountStates')
+      this.stateManager.initApoptosisAndQuitSyncing(
+        'addAccountStates',
+        'Node stopped due to database failure during addAccountStates.'
+      )
     }
   }
 

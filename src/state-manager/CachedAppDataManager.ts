@@ -1,5 +1,5 @@
-import { StateManager as StateManagerTypes, P2P as P2PTypes } from '@shardus/types'
-import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { StateManager as StateManagerTypes, P2P as P2PTypes } from '@shardus/lib-types'
+import { Route } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { Logger as Log4jsLogger } from 'log4js'
 import StateManager from '.'
 import Crypto from '../crypto'
@@ -46,9 +46,10 @@ import {
   deserializeGetCachedAppDataResp,
   serializeGetCachedAppDataResp,
 } from '../types/GetCachedAppDataResp'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { getCorrespondingNodes, verifyCorrespondingSender } from '../utils/fastAggregatedCorrespondingTell'
 import * as NodeList from '../p2p/NodeList'
+import { fireAndForget } from '../utils/functions/promises'
 
 class CachedAppDataManager {
   app: Shardus.App
@@ -145,8 +146,13 @@ class CachedAppDataManager {
             return errorHandler(RequestErrorEnum.InvalidRequest)
           }
 
-          if(this.config.p2p.useFactCorrespondingTell) {
-            const isValidSender = this.factValidateCorrespondingCachedAppDataSender(cachedAppData.dataID, header.sender_id, req.executionShardKey, req.txId)
+          if (this.config.p2p.useFactCorrespondingTell) {
+            const isValidSender = this.factValidateCorrespondingCachedAppDataSender(
+              cachedAppData.dataID,
+              header.sender_id,
+              req.executionShardKey,
+              req.txId
+            )
             if (isValidSender === false) {
               /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`send_cachedAppData invalid sender ${header.sender_id} for data: ${cachedAppData.dataID}`)
               return
@@ -270,8 +276,8 @@ class CachedAppDataManager {
         const cycleAge = this.stateManager.currentCycleShardData.cycleNumber - cachedAppData.cycle
 
         if (cycleAge > maxCycleAge || count > maxCacheElements) {
-          /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug( `cachedAppData: Deleting dataId ${cachedAppData.dataID} from cache map. cycleAge: ${cycleAge}, count: ${count}` )
-          /* prettier-ignore */ if(logFlags.shardedCache) console.log( `cachedAppData: Deleting dataId ${cachedAppData.dataID} from cache map. cycleAge: ${cycleAge}, count: ${count}` )
+          /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`cachedAppData: Deleting dataId ${cachedAppData.dataID} from cache map. cycleAge: ${cycleAge}, count: ${count}`)
+          /* prettier-ignore */ if (logFlags.shardedCache) console.log(`cachedAppData: Deleting dataId ${cachedAppData.dataID} from cache map. cycleAge: ${cycleAge}, count: ${count}`)
 
           cacheTopic.cacheAppDataMap.delete(cachedAppData.dataID)
         } else {
@@ -279,8 +285,8 @@ class CachedAppDataManager {
         }
       }
       cacheTopic.cachedAppDataArray = prunedCachedAppDataArray.reverse()
-      /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug( `cachedAppData: Updated cached array size: ${cacheTopic.cachedAppDataArray.length}, cacheMapSize: ${cacheTopic.cacheAppDataMap.size}` )
-      /* prettier-ignore */ if(logFlags.shardedCache) console.log(( `cachedAppData: Updated cached array size: ${cacheTopic.cachedAppDataArray.length}, cacheMapSize: ${cacheTopic.cacheAppDataMap.size}` ))
+      /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`cachedAppData: Updated cached array size: ${cacheTopic.cachedAppDataArray.length}, cacheMapSize: ${cacheTopic.cacheAppDataMap.size}`)
+      /* prettier-ignore */ if (logFlags.shardedCache) console.log((`cachedAppData: Updated cached array size: ${cacheTopic.cachedAppDataArray.length}, cacheMapSize: ${cacheTopic.cacheAppDataMap.size}`))
     }
   }
 
@@ -293,22 +299,22 @@ class CachedAppDataManager {
     const cacheTopic: CacheTopic = this.cacheTopicMap.get(topic)
     if (!cacheTopic) {
       // not safe to log such a large object in prod. commented out:
-      /* prettier-ignore */ if(logFlags.shardedCache) this.statemanager_fatal( 'insertCachedItem', `Topic ${topic} is not registered yet.`) // ${JSON.stringify(this.cacheTopicMap)}` )
+      /* prettier-ignore */ if (logFlags.shardedCache) this.statemanager_fatal('insertCachedItem', `Topic ${topic} is not registered yet.`) // ${JSON.stringify(this.cacheTopicMap)}` )
       return
     }
 
     if (!cacheTopic.cacheAppDataMap.has(dataID)) {
       if (cacheTopic.maxCacheElements < cacheTopic.cachedAppDataArray.length + 1) {
-        /* prettier-ignore */ if(logFlags.shardedCache) this.statemanager_fatal( 'insertCachedItem', `Topic ${topic} is at max cache count limit`)
+        /* prettier-ignore */ if (logFlags.shardedCache) this.statemanager_fatal('insertCachedItem', `Topic ${topic} is at max cache count limit`)
         return
       }
       const dataSize = estimateBinarySizeOfObject(cachedAppData)
       // cache size per topic is at max by default
       if (dataSize > cacheTopic.maxItemSize) {
-        /* prettier-ignore */ if(logFlags.shardedCache) this.statemanager_fatal( 'insertCachedItem', `Topic ${topic} is at max size limit`)
+        /* prettier-ignore */ if (logFlags.shardedCache) this.statemanager_fatal('insertCachedItem', `Topic ${topic} is at max size limit`)
         return
       }
-      /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: insert cache app data`, dataID, Date.now())
+      /* prettier-ignore */ if (logFlags.shardedCache) console.log(`cachedAppData: insert cache app data`, dataID, Date.now())
       cacheTopic.cacheAppDataMap.set(dataID, cachedAppData)
       cacheTopic.cachedAppDataArray.push(cachedAppData)
     }
@@ -318,37 +324,53 @@ class CachedAppDataManager {
     const cacheTopic: CacheTopic = this.cacheTopicMap.get(topic)
     if (!cacheTopic) {
       // not safe to log such a large object in prod. commented out:
-      /* prettier-ignore */ if(logFlags.shardedCache) this.statemanager_fatal( 'setMemoryLimit', `Topic ${topic} is not registered yet.`) // ${JSON.stringify(this.cacheTopicMap)}` )
+      /* prettier-ignore */ if (logFlags.shardedCache) this.statemanager_fatal('setMemoryLimit', `Topic ${topic} is not registered yet.`) // ${JSON.stringify(this.cacheTopicMap)}` )
       return
     }
 
     cacheTopic.maxItemSize = maxItemSize
   }
 
-  factValidateCorrespondingCachedAppDataSender(dataID: string, senderNodeId: string, executionShardKey : string, txId: string) {
+  factValidateCorrespondingCachedAppDataSender(
+    dataID: string,
+    senderNodeId: string,
+    executionShardKey: string,
+    txId: string
+  ) {
     const senderGroup = this.stateManager.transactionQueue.getConsenusGroupForAccount(executionShardKey)
     const senderNode = NodeList.nodes.get(senderNodeId)
     const logID = utils.stringifyReduce(txId)
     if (senderNode === null) {
-      /* prettier-ignore */ if(logFlags.error) this.mainLogger.error(`factValidateCorrespondingCachedAppDataSender: logId: ${logID} sender node is null`)
-      nestedCountersInstance.countEvent('stateManager', 'factValidateCorrespondingCachedAppDataSender: sender node is null')
+      /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`factValidateCorrespondingCachedAppDataSender: logId: ${logID} sender node is null`)
+      nestedCountersInstance.countEvent(
+        'stateManager',
+        'factValidateCorrespondingCachedAppDataSender: sender node is null'
+      )
       return false
     }
     const senderIsInExecutionGroup = senderGroup.some((node) => node.id === senderNodeId)
     if (senderIsInExecutionGroup === false) {
-      /* prettier-ignore */ if(logFlags.error) this.mainLogger.error(`factValidateCorrespondingCachedAppDataSender: logId: ${logID} sender is not in the execution group sender:${senderNodeId}`)
-      nestedCountersInstance.countEvent('stateManager', 'factValidateCorrespondingCachedAppDataSender: sender is not in the execution group')
+      /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`factValidateCorrespondingCachedAppDataSender: logId: ${logID} sender is not in the execution group sender:${senderNodeId}`)
+      nestedCountersInstance.countEvent(
+        'stateManager',
+        'factValidateCorrespondingCachedAppDataSender: sender is not in the execution group'
+      )
       return false
     }
 
     const targetGroup = this.stateManager.transactionQueue.getConsenusGroupForAccount(dataID)
-    const allNodes = Array.from(new Set([...senderGroup, ...targetGroup])).sort((a, b) => a.id.localeCompare(b.id));
+    const allNodes = Array.from(new Set([...senderGroup, ...targetGroup])).sort((a, b) => a.id.localeCompare(b.id))
     const senderIndexInTxGroup = allNodes.findIndex((node) => node.id === senderNodeId)
-    const ourIndexInTxGroup = allNodes.findIndex((node) => node.id === this.stateManager.currentCycleShardData.nodeShardData.node.id)
+    const ourIndexInTxGroup = allNodes.findIndex(
+      (node) => node.id === this.stateManager.currentCycleShardData.nodeShardData.node.id
+    )
     const senderGroupSize = senderGroup.length
     const targetGroupSize = targetGroup.length
-    const {startIndex: targetStartIndex, endIndex: targetEndIndex} = 
-      this.stateManager.transactionQueue.getStartAndEndIndexOfTargetGroup(targetGroup.map(node => node.id), allNodes)
+    const { startIndex: targetStartIndex, endIndex: targetEndIndex } =
+      this.stateManager.transactionQueue.getStartAndEndIndexOfTargetGroup(
+        targetGroup.map((node) => node.id),
+        allNodes
+      )
     const globalOffset = parseInt(txId.slice(-4), 16)
 
     // check if it is a FACT sender
@@ -360,13 +382,18 @@ class CachedAppDataManager {
       senderGroupSize,
       targetStartIndex,
       targetEndIndex,
-      allNodes.length
+      allNodes.length,
+      false,
+      `cachedAppData ${logID}`
     )
 
     // it is not a FACT corresponding node
     if (isValidFactSender === false) {
-      /* prettier-ignore */ if(logFlags.error) this.mainLogger.error(`factValidateCorrespondingCachedAppDataSender: logId: logId: ${logID} sender is not a valid sender isValidSender:  ${isValidFactSender}`);
-      nestedCountersInstance.countEvent('stateManager', 'factValidateCorrespondingCachedAppDataSender: sender is not a valid sender or a neighbour node')
+      /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`factValidateCorrespondingCachedAppDataSender: logId: logId: ${logID} sender is not a valid sender isValidSender:  ${isValidFactSender}`);
+      nestedCountersInstance.countEvent(
+        'stateManager',
+        'factValidateCorrespondingCachedAppDataSender: sender is not a valid sender or a neighbour node'
+      )
       return false
     }
     return true
@@ -396,14 +423,16 @@ class CachedAppDataManager {
 
     const senderGroup = this.stateManager.transactionQueue.getConsenusGroupForAccount(queueEntry.executionShardKey)
     const targetGroup = this.stateManager.transactionQueue.getConsenusGroupForAccount(dataID)
-    const allNodes = Array.from(new Set([...senderGroup, ...targetGroup])).sort((a, b) => a.id.localeCompare(b.id));
+    const allNodes = Array.from(new Set([...senderGroup, ...targetGroup])).sort((a, b) => a.id.localeCompare(b.id))
     const senderIndexInTxGroup = allNodes.findIndex((node) => node.id === ourNodeData.node.id)
     const senderGroupSize = senderGroup.length
     const targetGroupSize = targetGroup.length
-    const {startIndex: targetStartIndex, endIndex: targetEndIndex} = 
-      this.stateManager.transactionQueue.getStartAndEndIndexOfTargetGroup(targetGroup.map(node => node.id), allNodes)
+    const { startIndex: targetStartIndex, endIndex: targetEndIndex } =
+      this.stateManager.transactionQueue.getStartAndEndIndexOfTargetGroup(
+        targetGroup.map((node) => node.id),
+        allNodes
+      )
     const globalOffset = parseInt(txId.slice(-4), 16)
-
 
     const correspondingIndices = getCorrespondingNodes(
       senderIndexInTxGroup,
@@ -436,7 +465,7 @@ class CachedAppDataManager {
       if (correspondingNodes.length === 1 && correspondingNodes[0].id === ourNodeData.node.id) {
         const existingCachedAppData = this.getCachedItem(topic, dataID)
         if (existingCachedAppData) {
-          /* prettier-ignore */ if(logFlags.shardedCache) console.log(`We have already processed this cached data`, existingCachedAppData)
+          /* prettier-ignore */ if (logFlags.shardedCache) console.log(`We have already processed this cached data`, existingCachedAppData)
           return
         }
         this.insertCachedItem(topic, dataID, appData, cycle)
@@ -453,23 +482,24 @@ class CachedAppDataManager {
       if (filteredNodes.length === 0) {
         /* prettier-ignore */
         if (logFlags.error) this.mainLogger.error("cachedAppData: factSendCorrespondingCachedAppData: filterValidNodesForInternalMessage no valid nodes left to try");
-        /* prettier-ignore */ if(logFlags.shardedCache) console.log("cachedAppData: factSendCorrespondingCachedAppData: filterValidNodesForInternalMessage no valid nodes left to try");
+        /* prettier-ignore */ if (logFlags.shardedCache) console.log("cachedAppData: factSendCorrespondingCachedAppData: filterValidNodesForInternalMessage no valid nodes left to try");
         return null
       }
       const filteredCorrespondingAccNodes = filteredNodes
 
       // if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.sendCachedAppDataBinary) {
-        if(logFlags.shardedCache) console.log(`cachedAddData: factSendCorrespondingCachedAppData sending ${dataID}`)
-        const sendCacheAppDataReq: SendCachedAppDataReq = {
-          topic,
-          txId,
-          executionShardKey: queueEntry.executionShardKey,
-          cachedAppData: {
-            dataID: message.cachedAppData.dataID,
-            appData: message.cachedAppData.appData,
-            cycle: message.cachedAppData.cycle,
-          },
-        }
+      if (logFlags.shardedCache) console.log(`cachedAddData: factSendCorrespondingCachedAppData sending ${dataID}`)
+      const sendCacheAppDataReq: SendCachedAppDataReq = {
+        topic,
+        txId,
+        executionShardKey: queueEntry.executionShardKey,
+        cachedAppData: {
+          dataID: message.cachedAppData.dataID,
+          appData: message.cachedAppData.appData,
+          cycle: message.cachedAppData.cycle,
+        },
+      }
+      fireAndForget(() =>
         this.p2p.tellBinary<SendCachedAppDataReq>(
           filteredCorrespondingAccNodes,
           InternalRouteEnum.binary_send_cachedAppData,
@@ -477,7 +507,8 @@ class CachedAppDataManager {
           serializeSendCachedAppDataReq,
           {}
         )
-        // return
+      )
+      // return
       // }
 
       // this.p2p.tell(filteredCorrespondingAccNodes, 'send_cachedAppData', message)
@@ -543,11 +574,11 @@ class CachedAppDataManager {
           /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`cachedAppData: sendCorrespondingCachedAppData hasKey=false: ${utils.stringifyReduce(remoteHomeNode.nodeThatStoreOurParitionFull.map((v) => v.id))}`);
           /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`sendCorrespondingCachedAppData hasKey=false: full: ${utils.stringifyReduce(remoteHomeNode.nodeThatStoreOurParitionFull)}`);
 
-          /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: sendCorrespondingCachedAppData hasKey=false: ${utils.stringifyReduce(remoteHomeNode.nodeThatStoreOurParitionFull.map((v) => v.id))}`);
-          /* prettier-ignore */ if(logFlags.shardedCache) console.log(`sendCorrespondingCachedAppData hasKey=false: full: ${utils.stringifyReduce(remoteHomeNode.nodeThatStoreOurParitionFull)}`);
+          /* prettier-ignore */ if (logFlags.shardedCache) console.log(`cachedAppData: sendCorrespondingCachedAppData hasKey=false: ${utils.stringifyReduce(remoteHomeNode.nodeThatStoreOurParitionFull.map((v) => v.id))}`);
+          /* prettier-ignore */ if (logFlags.shardedCache) console.log(`sendCorrespondingCachedAppData hasKey=false: full: ${utils.stringifyReduce(remoteHomeNode.nodeThatStoreOurParitionFull)}`);
         }
         /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`cachedAppData: sendCorrespondingCachedAppData hasKey=false  key: ${utils.stringifyReduce(key)}`);
-        /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: sendCorrespondingCachedAppData hasKey=false  key: ${utils.stringifyReduce(key)}`);
+        /* prettier-ignore */ if (logFlags.shardedCache) console.log(`cachedAppData: sendCorrespondingCachedAppData hasKey=false  key: ${utils.stringifyReduce(key)}`);
       }
 
       if (hasKey) {
@@ -640,8 +671,8 @@ class CachedAppDataManager {
             }
           }
 
-          /* prettier-ignore */ if (logFlags.playback && logFlags.verbose) this.logger.playbackLogNote( 'sendCorrespondingCachedAppData', dataID, `cachedAppData: sendCorrespondingCachedAppData nodesToSendTo:${ Object.keys(nodesToSendTo).length } doOnceNodeAccPair:${doOnceNodeAccPair.size} indices:${Utils.safeStringify( indices )} edgeIndicies:${Utils.safeStringify(edgeIndices)} patchIndicies:${Utils.safeStringify( patchIndices )}  doOnceNodeAccPair: ${Utils.safeStringify([ ...doOnceNodeAccPair.keys(), ])} ourLocalConsensusIndex:${ourLocalConsensusIndex} ourSendingGroupSize:${ourSendingGroupSize} targetEdgeGroupSize:${targetEdgeGroupSize} targetEdgeGroupSize:${targetEdgeGroupSize} patchedListSize:${patchedListSize}` )
-          /* prettier-ignore */ if(logFlags.shardedCache) console.log( 'sendCorrespondingCachedAppData', dataID, `cachedAppData: sendCorrespondingCachedAppData nodesToSendTo:${ Object.keys(nodesToSendTo).length } doOnceNodeAccPair:${doOnceNodeAccPair.size} indices:${Utils.safeStringify( indices )} edgeIndicies:${Utils.safeStringify(edgeIndices)} patchIndicies:${Utils.safeStringify( patchIndices )}  doOnceNodeAccPair: ${Utils.safeStringify([ ...doOnceNodeAccPair.keys(), ])} ourLocalConsensusIndex:${ourLocalConsensusIndex} ourSendingGroupSize:${ourSendingGroupSize} targetEdgeGroupSize:${targetEdgeGroupSize} targetEdgeGroupSize:${targetEdgeGroupSize} patchedListSize:${patchedListSize}` )
+          /* prettier-ignore */ if (logFlags.playback && logFlags.verbose) this.logger.playbackLogNote('sendCorrespondingCachedAppData', dataID, `cachedAppData: sendCorrespondingCachedAppData nodesToSendTo:${Object.keys(nodesToSendTo).length} doOnceNodeAccPair:${doOnceNodeAccPair.size} indices:${Utils.safeStringify(indices)} edgeIndicies:${Utils.safeStringify(edgeIndices)} patchIndicies:${Utils.safeStringify(patchIndices)}  doOnceNodeAccPair: ${Utils.safeStringify([...doOnceNodeAccPair.keys(),])} ourLocalConsensusIndex:${ourLocalConsensusIndex} ourSendingGroupSize:${ourSendingGroupSize} targetEdgeGroupSize:${targetEdgeGroupSize} targetEdgeGroupSize:${targetEdgeGroupSize} patchedListSize:${patchedListSize}`)
+          /* prettier-ignore */ if (logFlags.shardedCache) console.log('sendCorrespondingCachedAppData', dataID, `cachedAppData: sendCorrespondingCachedAppData nodesToSendTo:${Object.keys(nodesToSendTo).length} doOnceNodeAccPair:${doOnceNodeAccPair.size} indices:${Utils.safeStringify(indices)} edgeIndicies:${Utils.safeStringify(edgeIndices)} patchIndicies:${Utils.safeStringify(patchIndices)}  doOnceNodeAccPair: ${Utils.safeStringify([...doOnceNodeAccPair.keys(),])} ourLocalConsensusIndex:${ourLocalConsensusIndex} ourSendingGroupSize:${ourSendingGroupSize} targetEdgeGroupSize:${targetEdgeGroupSize} targetEdgeGroupSize:${targetEdgeGroupSize} patchedListSize:${patchedListSize}`)
 
           if (correspondingAccNodes.length > 0) {
             const remoteRelation = ShardFunctions.getNodeRelation(
@@ -654,7 +685,7 @@ class CachedAppDataManager {
             )
             /* prettier-ignore */
             if (logFlags.playback) this.logger.playbackLogNote("shrd_sendCorrespondingCachedAppData", `${dataID}`, `cachedAppData: remoteRel: ${remoteRelation} localRel: ${localRelation} qId: ${dataID} AccountBeingShared: ${utils.makeShortHash(key)} EdgeNodes:${utils.stringifyReduce(edgeNodeIds)} ConsensusNodes${utils.stringifyReduce(consensusNodeIds)}`);
-            /* prettier-ignore */ if(logFlags.shardedCache) console.log("shrd_sendCorrespondingCachedAppData", `${dataID}`, `cachedAppData: remoteRel: ${remoteRelation} localRel: ${localRelation} qId: ${dataID} AccountBeingShared: ${utils.makeShortHash(key)} EdgeNodes:${utils.stringifyReduce(edgeNodeIds)} ConsensusNodes${utils.stringifyReduce(consensusNodeIds)}`);
+            /* prettier-ignore */ if (logFlags.shardedCache) console.log("shrd_sendCorrespondingCachedAppData", `${dataID}`, `cachedAppData: remoteRel: ${remoteRelation} localRel: ${localRelation} qId: ${dataID} AccountBeingShared: ${utils.makeShortHash(key)} EdgeNodes:${utils.stringifyReduce(edgeNodeIds)} ConsensusNodes${utils.stringifyReduce(consensusNodeIds)}`);
 
             // Filter nodes before we send tell()
             const filteredNodes = this.stateManager.filterValidNodesForInternalMessage(
@@ -666,22 +697,23 @@ class CachedAppDataManager {
             if (filteredNodes.length === 0) {
               /* prettier-ignore */
               if (logFlags.error) this.mainLogger.error("cachedAppData: tellCorrespondingNodes: filterValidNodesForInternalMessage no valid nodes left to try");
-              /* prettier-ignore */ if(logFlags.shardedCache) console.log("cachedAppData: tellCorrespondingNodes: filterValidNodesForInternalMessage no valid nodes left to try");
+              /* prettier-ignore */ if (logFlags.shardedCache) console.log("cachedAppData: tellCorrespondingNodes: filterValidNodesForInternalMessage no valid nodes left to try");
               return null
             }
             const filteredCorrespondingAccNodes = filteredNodes
 
             // if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.sendCachedAppDataBinary) {
-              const sendCacheAppDataReq: SendCachedAppDataReq = {
-                topic,
-                txId,
-                executionShardKey: queueEntry.executionShardKey,
-                cachedAppData: {
-                  dataID: message.cachedAppData.dataID,
-                  appData: message.cachedAppData.appData,
-                  cycle: message.cachedAppData.cycle,
-                },
-              }
+            const sendCacheAppDataReq: SendCachedAppDataReq = {
+              topic,
+              txId,
+              executionShardKey: queueEntry.executionShardKey,
+              cachedAppData: {
+                dataID: message.cachedAppData.dataID,
+                appData: message.cachedAppData.appData,
+                cycle: message.cachedAppData.cycle,
+              },
+            }
+            fireAndForget(() =>
               this.p2p.tellBinary<SendCachedAppDataReq>(
                 filteredCorrespondingAccNodes,
                 InternalRouteEnum.binary_send_cachedAppData,
@@ -689,7 +721,8 @@ class CachedAppDataManager {
                 serializeSendCachedAppDataReq,
                 {}
               )
-              // return
+            )
+            // return
             // }
 
             // this.p2p.tell(filteredCorrespondingAccNodes, 'send_cachedAppData', message)
@@ -739,7 +772,7 @@ class CachedAppDataManager {
         }
         // Node Precheck!
         /* prettier-ignore */
-        if ( this.stateManager.isNodeValidForInternalMessage( nodeCheck.id, 'getLocalOrRemoteCachedAppData', true, true, true ) === true ) {
+        if (this.stateManager.isNodeValidForInternalMessage(nodeCheck.id, 'getLocalOrRemoteCachedAppData', true, true, true) === true) {
           //this node is valid for use
           randomConsensusNode = nodeCheck
           break;
@@ -757,15 +790,15 @@ class CachedAppDataManager {
       let r: CachedAppData | boolean
       try {
         // if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.getCachedAppDataBinary) {
-          const resp = await this.p2p.askBinary<GetCachedAppDataReq, GetCachedAppDataResp>(
-            randomConsensusNode,
-            InternalRouteEnum.binary_get_cached_app_data,
-            message,
-            serializeGetCachedAppDataReq,
-            deserializeGetCachedAppDataResp,
-            {}
-          )
-          r = resp?.cachedAppData ?? false
+        const resp = await this.p2p.askBinary<GetCachedAppDataReq, GetCachedAppDataResp>(
+          randomConsensusNode,
+          InternalRouteEnum.binary_get_cached_app_data,
+          message,
+          serializeGetCachedAppDataReq,
+          deserializeGetCachedAppDataResp,
+          {}
+        )
+        r = resp?.cachedAppData ?? false
         // } else {
         //   r = await this.p2p.ask(randomConsensusNode, 'get_cached_app_data', message)
         // }
@@ -776,8 +809,7 @@ class CachedAppDataManager {
       }
 
       if (r === false) {
-        if (logFlags.error)
-          this.mainLogger.error(`cachedAppData: ASK FAIL getLocalOrRemoteCachedAppData r === false`)
+        if (logFlags.error) this.mainLogger.error(`cachedAppData: ASK FAIL getLocalOrRemoteCachedAppData r === false`)
         nestedCountersInstance.countEvent('cached-app-data', 'result is false')
         return null
       }
@@ -790,7 +822,7 @@ class CachedAppDataManager {
         nestedCountersInstance.countEvent('cached-app-data', 'Remote Data: miss')
         if (logFlags.verbose)
           this.stateManager.getAccountFailDump(address, 'remote request missing data: result == null')
-        /* prettier-ignore */ if(logFlags.shardedCache) console.log(`cachedAppData: remote result failed: ${Utils.safeStringify(r)}`) //todo dont check in
+        /* prettier-ignore */ if (logFlags.shardedCache) console.log(`cachedAppData: remote result failed: ${Utils.safeStringify(r)}`) //todo dont check in
       }
     } else {
       // we are local!

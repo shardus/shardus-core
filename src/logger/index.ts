@@ -7,9 +7,8 @@ import * as http from '../http'
 import * as Shardus from '../shardus/shardus-types'
 import { profilerInstance } from '../utils/profiler'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 const log4jsExtend = require('log4js-extend')
-import got from 'got'
 import { parse as parseUrl } from 'url'
 import {
   isDebugModeMiddleware,
@@ -20,6 +19,8 @@ import { isDebugMode } from '../debug'
 import { shardusGetTime } from '../network'
 import { config } from '../p2p/Context'
 import path from 'path'
+import { customGot } from '../http/customHttpFunctions'
+
 interface Logger {
   baseDir: string
   config: Shardus.StrictLogsConfiguration
@@ -27,6 +28,8 @@ interface Logger {
   log4Conf: log4js.Configuration
 
   _playbackLogger: any
+
+  _mainLogger: any
 
   _seenAddresses: any
   _shortStrings: any
@@ -114,6 +117,16 @@ export type LogFlags = {
   txCancel: boolean // extra logging for TXs that get canceled
 
   getLocalOrRemote: boolean // special logging for getLocalOrRemote
+
+  verboseNestedCounters: boolean // extra logging for nested counters
+
+  node_rotation_debug: boolean // extra logging for node rotation math
+
+  p2pSyncDebug: boolean // extra logging for debugging sync issues
+
+  p2pExtraHeavyLogs: boolean // extra heavy logs to use with caution
+
+  fact: boolean // FACT algorithm logging for debugging and monitoring
 }
 
 export let logFlags: LogFlags = {
@@ -153,6 +166,16 @@ export let logFlags: LogFlags = {
   txCancel: false,
 
   getLocalOrRemote: false,
+
+  verboseNestedCounters: false,
+
+  node_rotation_debug: false,
+
+  p2pSyncDebug: false,
+
+  p2pExtraHeavyLogs: false,
+
+  fact: false, // FACT algorithm logging - disabled by default
 }
 
 const filePath1 = path.join(process.cwd(), 'data-logs', 'cycleRecords1.txt')
@@ -182,8 +205,32 @@ class Logger {
     const conf = this.log4Conf
     for (const key in conf.appenders) {
       const appender = conf.appenders[key]
-      if (appender.type !== 'file') continue
+      if (appender.type !== 'file' && appender.type !== 'dateFile') continue
       appender.filename = `${this.logDir}/${key}.log`
+    }
+  }
+
+  // Map token types to absolute module paths (for custom appenders)
+  _mapCustomAppenderTypes() {
+    const conf = this.log4Conf
+    if (!conf?.appenders) return
+    for (const key in conf.appenders) {
+      const appender: any = conf.appenders[key]
+      if (!appender || typeof appender.type !== 'string') continue
+      if (appender.type === 'custom-size-time' || appender.type === 'dateFileWithSize') {
+        // Resolve to compiled JS appender beside this file at runtime
+        // build/src/logger/index.js -> build/src/logger/appenders/dateFileWithSize.js
+        const modulePath = path.resolve(__dirname, 'appenders', 'dateFileWithSize.js')
+        appender.type = modulePath
+        // ensure filename present for our appender to compute base name
+        if (!appender.filename) {
+          appender.filename = `${this.logDir}/${key}.log`
+        }
+        // default pattern if not supplied
+        if (!appender.pattern) {
+          appender.pattern = 'yyyy-MM-dd-HH-mm-ss'
+        }
+      }
     }
   }
 
@@ -213,10 +260,12 @@ class Logger {
     this.log4Conf = config.options
     log4jsExtend(log4js)
     this._addFileNamesToAppenders()
+    this._mapCustomAppenderTypes()
     this._configureLogs()
     this.getLogger('main').info('Logger initialized.')
 
     this._playbackLogger = this.getLogger('playback')
+    this._mainLogger = this.getLogger('main')
 
     this.setupLogControlValues()
 
@@ -326,9 +375,7 @@ class Logger {
       )
     }
     if (logFlags.playback_debug) {
-      this._playbackLogger.debug(
-        `\t${ts}\t${this._playbackOwner}\t${from}\t${to}\t${type}\t${endpoint}\t${id}`
-      )
+      this._playbackLogger.debug(`\t${ts}\t${this._playbackOwner}\t${from}\t${to}\t${type}\t${endpoint}\t${id}`)
     }
   }
   playbackLogState(newState, id, desc) {
@@ -442,63 +489,51 @@ class Logger {
       }
       res.end()
     })
-    Context.network.registerExternalGet(
-      'debug-cycle-recording-enable',
-      isDebugModeMiddlewareMedium,
-      (req, res) => {
-        const enable = req.query.enable
-        if (enable === 'true') {
-          config.debug.localEnableCycleRecordDebugTool = true
-        } else if (enable === 'false') {
-          config.debug.localEnableCycleRecordDebugTool = false
+    Context.network.registerExternalGet('debug-cycle-recording-enable', isDebugModeMiddlewareMedium, (req, res) => {
+      const enable = req.query.enable
+      if (enable === 'true') {
+        config.debug.localEnableCycleRecordDebugTool = true
+      } else if (enable === 'false') {
+        config.debug.localEnableCycleRecordDebugTool = false
+      }
+      res.write(`localEnableCycleRecordDebugTool = ${config.debug.localEnableCycleRecordDebugTool}`)
+      res.end()
+    })
+    Context.network.registerExternalGet('debug-cycle-recording-clear', isDebugModeMiddlewareMedium, (req, res) => {
+      fs.unlink(filePath1, (err) => {
+        if (err) {
+          console.error(`Failed to delete ${filePath1}: ${err.message}`)
+        } else {
+          console.log(`${filePath1} was deleted successfully.`)
         }
-        res.write(`localEnableCycleRecordDebugTool = ${config.debug.localEnableCycleRecordDebugTool}`)
-        res.end()
-      }
-    )
-    Context.network.registerExternalGet(
-      'debug-cycle-recording-clear',
-      isDebugModeMiddlewareMedium,
-      (req, res) => {
-        fs.unlink(filePath1, (err) => {
+
+        // Attempt to delete the second file after the first completion
+        fs.unlink(filePath2, (err) => {
           if (err) {
-            console.error(`Failed to delete ${filePath1}: ${err.message}`)
+            console.error(`Failed to delete ${filePath2}: ${err.message}`)
           } else {
-            console.log(`${filePath1} was deleted successfully.`)
+            console.log(`${filePath2} was deleted successfully.`)
           }
-
-          // Attempt to delete the second file after the first completion
-          fs.unlink(filePath2, (err) => {
-            if (err) {
-              console.error(`Failed to delete ${filePath2}: ${err.message}`)
-            } else {
-              console.log(`${filePath2} was deleted successfully.`)
-            }
-            // End the response after attempting to delete both files
-            res.end('Cycle recording data cleared.')
-          })
+          // End the response after attempting to delete both files
+          res.end('Cycle recording data cleared.')
         })
-      }
-    )
-    Context.network.registerExternalGet(
-      'debug-cycle-recording-download',
-      isDebugModeMiddlewareMedium,
-      (req, res) => {
-        // Use async read for non-blocking operation
-        fs.readFile(filePath1, 'utf8', (err, data) => {
-          if (err) {
-            // Handle error (e.g., file not found)
-            console.error('Error reading file:', err)
-            res.status(500).json({ error: 'Error reading file' })
-            return
-          }
+      })
+    })
+    Context.network.registerExternalGet('debug-cycle-recording-download', isDebugModeMiddlewareMedium, (req, res) => {
+      // Use async read for non-blocking operation
+      fs.readFile(filePath1, 'utf8', (err, data) => {
+        if (err) {
+          // Handle error (e.g., file not found)
+          console.error('Error reading file:', err)
+          res.status(500).json({ error: 'Error reading file' })
+          return
+        }
 
-          // Return data from filePath1 only
-          res.setHeader('Content-Type', 'text/plain')
-          res.json({ response: true, data: data })
-        })
-      }
-    )
+        // Return data from filePath1 only
+        res.setHeader('Content-Type', 'text/plain')
+        res.json({ response: true, data: data })
+      })
+    })
     Context.network.registerExternalGet('debug-clearlog', isDebugModeMiddlewareMedium, async (req, res) => {
       const requestedFileName = req?.query?.file
       let filesToClear = []
@@ -577,7 +612,7 @@ class Logger {
     let normalized = this._normalizeUrl(url)
     let host = parseUrl(normalized, true)
     try {
-      await got.get(host.href, {
+      await customGot().get(host.href, {
         timeout: 1000,
         retry: 0,
         throwHttpErrors: false,
@@ -591,7 +626,7 @@ class Logger {
     let normalized = this._normalizeUrl(url)
     let host = parseUrl(normalized, true)
     try {
-      const res = await got.get(host.href, {
+      const res = await customGot().get(host.href, {
         timeout: 7000,
         retry: 0,
         throwHttpErrors: false,
@@ -673,6 +708,29 @@ class Logger {
     this.backupLogFlags = utils.deepCopy(logFlags)
 
     console.log(`base logFlags: ` + Utils.safeStringify(logFlags))
+  }
+
+  mainLog(level, key: string, message: string): void {
+    //initially this will just go to a main log but we could but this in
+    //a json blob with the key and send it to a different logging service
+    this._mainLogger[level](key + ' ' + message)
+  }
+
+  mainLog_debug(key: string, message: string): void {
+    //note will change the key to be an array later and remove the DBG prefix
+    this.mainLog('debug', 'DBG_' + key, message)
+  }
+
+  combine(...args: any[]): string {
+    return args
+      .map((arg) => {
+        if (typeof arg === 'object') {
+          return Utils.safeStringify(arg)
+        } else {
+          return String(arg)
+        }
+      })
+      .join(' ')
   }
 }
 

@@ -14,7 +14,7 @@ import {
 import * as NodeList from '../p2p/NodeList'
 import { spawn } from 'child_process'
 import { getLastNTPObject, getNetworkTimeOffset, shardusGetTime } from '../network'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 type CounterMap = Map<string, CounterNode>
 interface CounterNode {

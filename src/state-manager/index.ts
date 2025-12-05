@@ -1,7 +1,7 @@
 import * as ShardusTypes from '../shardus/shardus-types'
 import Shardus from '../shardus'
 
-import { StateManager as StateManagerTypes, P2P as P2PTypes } from '@shardus/types'
+import { StateManager as StateManagerTypes, P2P as P2PTypes } from '@shardus/lib-types'
 
 import { isNodeDown, isNodeLost, isNodeUpRecent } from '../p2p/Lost'
 
@@ -10,7 +10,7 @@ import ShardFunctions from './shardFunctions'
 import EventEmitter from 'events'
 import * as utils from '../utils'
 
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 // not sure about this.
 import Profiler, { cUninitializedSize, profilerInstance } from '../utils/profiler'
@@ -72,17 +72,17 @@ import {
   QueueCountsResult,
   TimestampRemoveRequest,
   SignedReceipt,
-  Proposal
+  Proposal,
 } from './state-manager-types'
 import { isDebugModeMiddleware, isDebugModeMiddlewareLow } from '../network/debugMiddleware'
-import { ReceiptMapResult } from '@shardus/types/build/src/state-manager/StateManagerTypes'
+import { ReceiptMapResult } from '@shardus/lib-types/build/src/state-manager/StateManagerTypes'
 import { Logger as Log4jsLogger } from 'log4js'
 import { timingSafeEqual } from 'crypto'
 import { shardusGetTime } from '../network'
 import { isServiceMode } from '../debug'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { InternalBinaryHandler } from '../types/Handler'
-import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { Route } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import {
@@ -107,21 +107,16 @@ import {
   serializeGetAccountQueueCountReq,
 } from '../types/GetAccountQueueCountReq'
 import { deserializeRequestStateForTxPostReq } from '../types/RequestStateForTxPostReq'
-import {
-  RequestStateForTxPostResp,
-  serializeRequestStateForTxPostResp,
-} from '../types/RequestStateForTxPostResp'
+import { RequestStateForTxPostResp, serializeRequestStateForTxPostResp } from '../types/RequestStateForTxPostResp'
 import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { deserializeSpreadAppliedVoteHashReq } from '../types/SpreadAppliedVoteHashReq'
 import { RequestTxAndStateReq, deserializeRequestTxAndStateReq } from '../types/RequestTxAndStateReq'
 import { serializeRequestTxAndStateResp } from '../types/RequestTxAndStateResp'
-import {
-  RequestReceiptForTxRespSerialized,
-  serializeRequestReceiptForTxResp,
-} from '../types/RequestReceiptForTxResp'
+import { RequestReceiptForTxRespSerialized, serializeRequestReceiptForTxResp } from '../types/RequestReceiptForTxResp'
 import { deserializeRequestReceiptForTxReq } from '../types/RequestReceiptForTxReq'
 import { BadRequest, InternalError, ResponseError, serializeResponseError } from '../types/ResponseError'
+import { fireAndForget } from '../utils/functions/promises'
 
 export type Callback = (...args: unknown[]) => void
 
@@ -333,16 +328,7 @@ class StateManager {
 
     this.transactionRepair = new TransactionRepair(this, profiler, app, logger, storage, p2p, crypto, config)
 
-    this.transactionConsensus = new TransactionConsenus(
-      this,
-      profiler,
-      app,
-      logger,
-      storage,
-      p2p,
-      crypto,
-      config
-    )
+    this.transactionConsensus = new TransactionConsenus(this, profiler, app, logger, storage, p2p, crypto, config)
     this.partitionObjects = new PartitionObjects(this, profiler, app, logger, storage, p2p, crypto, config)
     this.depricated = new Deprecated(this, profiler, app, logger, storage, p2p, crypto, config)
     this.accountPatcher = new AccountPatcher(this, profiler, app, logger, p2p, crypto, config)
@@ -591,6 +577,7 @@ class StateManager {
     cycleShardData.nodeShardDataMap = new Map()
     cycleShardData.parititionShardDataMap = new Map()
     cycleShardData.nodes = this.getNodesForCycleShard(mode)
+    cycleShardData.activeFoundationNodes = activeByIdOrder.filter((node) => node.foundationNode)
     cycleShardData.cycleNumber = cycleNumber
     cycleShardData.partitionsToSkip = new Map()
     cycleShardData.hasCompleteData = false
@@ -600,7 +587,7 @@ class StateManager {
     } else {
       const change = activeByIdOrder.length - this.lastActiveCount
       if (change != 0) {
-        /* prettier-ignore */ nestedCountersInstance.countEvent('networkSize',`cyc:${cycleNumber} active:${activeByIdOrder.length} change:${change}`)
+        /* prettier-ignore */ nestedCountersInstance.countEvent('networkSize', `cyc:${cycleNumber} active:${activeByIdOrder.length} change:${change}`)
       }
       this.lastActiveCount = activeByIdOrder.length
     }
@@ -748,10 +735,7 @@ class StateManager {
     )
     cycleShardData.ourConsensusPartitions = partitions
 
-    const partitions2 = ShardFunctions.getStoredPartitionList(
-      cycleShardData.shardGlobals,
-      cycleShardData.nodeShardData
-    )
+    const partitions2 = ShardFunctions.getStoredPartitionList(cycleShardData.shardGlobals, cycleShardData.nodeShardData)
     cycleShardData.ourStoredPartitions = partitions2
 
     this.profiler.profileSectionEnd('updateShardValues_getPartitionLists')
@@ -759,7 +743,7 @@ class StateManager {
     // this will be a huge log.
     // Temp disable for log size
     // /* prettier-ignore */ if (logFlags.playback ) this.logger.playbackLogNote('shrd_sync_cycleData', `${cycleNumber}`, ` cycleShardData: cycle:${cycleNumber} data: ${utils.stringifyReduce(cycleShardData)}`)
-    /* prettier-ignore */ if (logFlags.playback ) this.logger.playbackLogNote('shrd_sync_cycleData', `${cycleNumber}`, ` cycleShardData: cycle:${this.currentCycleShardData.cycleNumber} `)
+    /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_cycleData', `${cycleNumber}`, ` cycleShardData: cycle:${this.currentCycleShardData.cycleNumber} `)
 
     this.lastActiveNodeCount = cycleShardData.nodes.length
 
@@ -955,17 +939,23 @@ class StateManager {
     this.accountSync.syncStatement.syncSeconds =
       (this.accountSync.syncStatement.syncEndTime - this.accountSync.syncStatement.syncStartTime) / 1000
 
-    /* prettier-ignore */ nestedCountersInstance.countEvent('sync', `sync comlete numCycles: ${this.accountSync.syncStatement.numCycles} start:${this.accountSync.syncStatement.cycleStarted} end:${this.accountSync.syncStatement.cycleEnded}`)
+    const transitionDelay = this.config.stateManager.syncToProcessingDelay || 500
+    /* prettier-ignore */ nestedCountersInstance.countEvent('sync', `sync comlete numCycles: ${this.accountSync.syncStatement.numCycles} start:${this.accountSync.syncStatement.cycleStarted} end:${this.accountSync.syncStatement.cycleEnded} numAccounts: ${this.accountSync.syncStatement.numAccounts}`)
     if (this.accountSync.syncStatement.internalFlag === true) {
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_syncStatement', ` `, `${utils.stringifyReduce(this.accountSync.syncStatement)}`)
       this.accountSync.syncStatmentIsComplete()
-      /* prettier-ignore */ this.statemanager_fatal( 'shrd_sync_syncStatement-startCatchUpQueue', `${utils.stringifyReduce(this.accountSync.syncStatement)}` )
+      /* prettier-ignore */ this.statemanager_fatal('shrd_sync_syncStatement-startCatchUpQueue', `${utils.stringifyReduce(this.accountSync.syncStatement)}`)
       /* prettier-ignore */ this.mainLogger.debug(`DATASYNC: syncStatement-startCatchUpQueue c:${this.currentCycleShardData.cycleNumber} ${utils.stringifyReduce(this.accountSync.syncStatement)}`)
+
+      /* prettier-ignore */ this.mainLogger.debug(`DATASYNC: Delaying transaction queue start by ${transitionDelay}ms after sync completion`)
     } else {
       this.accountSync.syncStatement.internalFlag = true
     }
+    // Add transition delay to prevent race condition during sync-to-processing transition
 
-    this.tryStartTransactionProcessingQueue()
+    setTimeout(() => {
+      this.tryStartTransactionProcessingQueue()
+    }, transitionDelay)
 
     if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_mainphaseComplete', ` `, `  `)
   }
@@ -1241,7 +1231,7 @@ class StateManager {
     /* prettier-ignore */ this.transactionQueue.setDebugLastAwaitedCallInner('ths.app.setAccountData')
     await this.app.setAccountData(accountsToAdd)
     /* prettier-ignore */ this.transactionQueue.setDebugLastAwaitedCallInner('ths.app.setAccountData', DebugComplete.Completed)
-    this.transactionQueue.processNonceQueue(wrappedAccountsToAdd)
+    fireAndForget(() => this.transactionQueue.processNonceQueue(wrappedAccountsToAdd))
     return failedHashes
   }
 
@@ -1258,10 +1248,7 @@ class StateManager {
   _registerListener(emitter: EventEmitter, event: string, callback: Callback) {
     // eslint-disable-next-line security/detect-object-injection
     if (this._listeners[event]) {
-      this.statemanager_fatal(
-        `_registerListener_dupes`,
-        'State Manager can only register one listener per event!'
-      )
+      this.statemanager_fatal(`_registerListener_dupes`, 'State Manager can only register one listener per event!')
       return
     }
     emitter.on(event, callback)
@@ -1456,10 +1443,7 @@ class StateManager {
       },
     }
 
-    this.p2p.registerInternalBinary(
-      requestReceiptForTxBinaryHandler.name,
-      requestReceiptForTxBinaryHandler.handler
-    )
+    this.p2p.registerInternalBinary(requestReceiptForTxBinaryHandler.name, requestReceiptForTxBinaryHandler.handler)
 
     // this.p2p.registerInternal(
     //   'request_state_for_tx_post',
@@ -1611,11 +1595,7 @@ class StateManager {
           // app.getRelevantData(accountId, tx) -> wrappedAccountState  for local accounts
           let wrappedStates = this.useAccountWritesOnly ? {} : queueEntry.collectedData
           const applyResponse = queueEntry?.preApplyTXResult.applyResponse
-          if (
-            applyResponse != null &&
-            applyResponse.accountWrites != null &&
-            applyResponse.accountWrites.length > 0
-          ) {
+          if (applyResponse != null && applyResponse.accountWrites != null && applyResponse.accountWrites.length > 0) {
             const writtenAccountsMap: WrappedResponses = {}
             for (const writtenAccount of applyResponse.accountWrites) {
               writtenAccountsMap[writtenAccount.accountId] = writtenAccount.data
@@ -1649,20 +1629,14 @@ class StateManager {
         } catch (e) {
           if (logFlags.error) this.mainLogger.error(`${route} error: ${utils.errorToStringFull(e)}`)
           nestedCountersInstance.countEvent('internal', `${route}-exception`)
-          respond(
-            { stateList: [], beforeHashes: {}, note: '', success: false },
-            serializeRequestStateForTxPostResp
-          )
+          respond({ stateList: [], beforeHashes: {}, note: '', success: false }, serializeRequestStateForTxPostResp)
         } finally {
           profilerInstance.scopedProfileSectionEnd(route, payload.length)
         }
       },
     }
 
-    this.p2p.registerInternalBinary(
-      requestStateForTxPostBinaryHandler.name,
-      requestStateForTxPostBinaryHandler.handler
-    )
+    this.p2p.registerInternalBinary(requestStateForTxPostBinaryHandler.name, requestStateForTxPostBinaryHandler.handler)
 
     // Comms.registerInternal(
     //   'request_tx_and_state',
@@ -1778,7 +1752,7 @@ class StateManager {
           account_state_hash_after: {},
           note: '',
           success: false,
-          appReceiptData: null
+          appReceiptData: null,
         }
         try {
           const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cRequestTxAndStateReq)
@@ -1828,11 +1802,7 @@ class StateManager {
           // if we have applyResponse then use it.  This is where and advanced apply() will put its transformed data
           const writtenAccountsMap: WrappedResponses = {}
           const applyResponse = queueEntry?.preApplyTXResult.applyResponse
-          if (
-            applyResponse != null &&
-            applyResponse.accountWrites != null &&
-            applyResponse.accountWrites.length > 0
-          ) {
+          if (applyResponse != null && applyResponse.accountWrites != null && applyResponse.accountWrites.length > 0) {
             for (const writtenAccount of applyResponse.accountWrites) {
               writtenAccountsMap[writtenAccount.accountId] = writtenAccount.data
             }
@@ -1934,10 +1904,7 @@ class StateManager {
           for (const accountId of requestedAccountIds) {
             const beforeState = queueEntry.collectedData[accountId]
             const index = receipt2.proposal.accountIDs.indexOf(accountId)
-            if (
-              beforeState &&
-              beforeState.stateId === receipt2.proposal.beforeStateHashes[index]
-            ) {
+            if (beforeState && beforeState.stateId === receipt2.proposal.beforeStateHashes[index]) {
               response.stateList.push(queueEntry.collectedData[accountId])
             } else {
               response.note = `has bad beforeStateAccount: ${utils.stringifyReduce(txid)} dbg:${
@@ -1961,10 +1928,7 @@ class StateManager {
       },
     }
 
-    this.p2p.registerInternalBinary(
-      requestTxAndStateBinaryHandler.name,
-      requestTxAndStateBinaryHandler.handler
-    )
+    this.p2p.registerInternalBinary(requestTxAndStateBinaryHandler.name, requestTxAndStateBinaryHandler.handler)
 
     this.p2p.registerInternalBinary(
       requestTxAndStateBeforeBinaryHandler.name,
@@ -2032,48 +1996,48 @@ class StateManager {
     //   }
     // )
 
-    const spreadAppliedVoteHashBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
-      name: InternalRouteEnum.binary_spread_appliedVoteHash,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      handler: async (payload, respond, header, sign) => {
-        const route = InternalRouteEnum.binary_spread_appliedVoteHash
-        nestedCountersInstance.countEvent('internal', route)
-        this.profiler.scopedProfileSectionStart(route, false, payload.length)
-        const errorHandler = (
-          errorType: RequestErrorEnum,
-          opts?: { customErrorLog?: string; customCounterSuffix?: string }
-        ): void => requestErrorHandler(route, errorType, header, opts)
+    // const spreadAppliedVoteHashBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
+    //   name: InternalRouteEnum.binary_spread_appliedVoteHash,
+    //   // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    //   handler: async (payload, respond, header, sign) => {
+    //     const route = InternalRouteEnum.binary_spread_appliedVoteHash
+    //     nestedCountersInstance.countEvent('internal', route)
+    //     this.profiler.scopedProfileSectionStart(route, false, payload.length)
+    //     const errorHandler = (
+    //       errorType: RequestErrorEnum,
+    //       opts?: { customErrorLog?: string; customCounterSuffix?: string }
+    //     ): void => requestErrorHandler(route, errorType, header, opts)
 
-        try {
-          // Type check the request
-          const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cSpreadAppliedVoteHash)
-          if (!requestStream) {
-            return errorHandler(RequestErrorEnum.InvalidRequest)
-          }
-          const req = deserializeSpreadAppliedVoteHashReq(requestStream)
-          const queueEntry = this.transactionQueue.getQueueEntrySafe(req.txid)
-          if (queueEntry == null) {
-            /* prettier-ignore */ nestedCountersInstance.countEvent('internal', `${route}-no_queue_entry`)
-            return
-          }
-          const collectedVoteHash = req as AppliedVoteHash
+    //     try {
+    //       // Type check the request
+    //       const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cSpreadAppliedVoteHash)
+    //       if (!requestStream) {
+    //         return errorHandler(RequestErrorEnum.InvalidRequest)
+    //       }
+    //       const req = deserializeSpreadAppliedVoteHashReq(requestStream)
+    //       const queueEntry = this.transactionQueue.getQueueEntrySafe(req.txid)
+    //       if (queueEntry == null) {
+    //         /* prettier-ignore */ nestedCountersInstance.countEvent('internal', `${route}-no_queue_entry`)
+    //         return
+    //       }
+    //       const collectedVoteHash = req as AppliedVoteHash
 
-          if (this.transactionConsensus.tryAppendVoteHash(queueEntry, collectedVoteHash)) {
-            // Note this was sending out gossip, but since this needs to be converted to a tell function i deleted the gossip send
-          }
-        } catch (e) {
-          nestedCountersInstance.countEvent('internal', `${route}-exception`)
-          /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
-        } finally {
-          this.profiler.scopedProfileSectionEnd(route)
-        }
-      },
-    }
+    //       if (this.transactionConsensus.tryAppendVoteHash(queueEntry, collectedVoteHash)) {
+    //         // Note this was sending out gossip, but since this needs to be converted to a tell function i deleted the gossip send
+    //       }
+    //     } catch (e) {
+    //       nestedCountersInstance.countEvent('internal', `${route}-exception`)
+    //       this.mainLogger.error(`${route}: Exception executing request: ${utils.errorToStringFull(e)}`)
+    //     } finally {
+    //       this.profiler.scopedProfileSectionEnd(route)
+    //     }
+    //   },
+    // }
 
-    this.p2p.registerInternalBinary(
-      spreadAppliedVoteHashBinaryHandler.name,
-      spreadAppliedVoteHashBinaryHandler.handler
-    )
+    // this.p2p.registerInternalBinary(
+    //   spreadAppliedVoteHashBinaryHandler.name,
+    //   spreadAppliedVoteHashBinaryHandler.handler
+    // )
 
     // this.p2p.registerInternal(
     //   'get_account_data_with_queue_hints',
@@ -2133,16 +2097,18 @@ class StateManager {
 
         try {
           let accountData = null
-          const requestStream = getStreamWithTypeCheck(
-            payload,
-            TypeIdentifierEnum.cGetAccountDataWithQueueHintsReq
-          )
+          const requestStream = getStreamWithTypeCheck(payload, TypeIdentifierEnum.cGetAccountDataWithQueueHintsReq)
           if (!requestStream) {
             // implement error handling
             nestedCountersInstance.countEvent('internal', `${route}-invalid_request`)
             return respond(BadRequest(`${route} invalid request`), serializeResponseError)
           }
           const req = deserializeGetAccountDataWithQueueHintsReq(requestStream)
+          const MAX_ACCOUNTS = this.config.stateManager.accountBucketSize
+          if (req.accountIds.length > MAX_ACCOUNTS) {
+            nestedCountersInstance.countEvent('internal', `${route}-too_many_accounts`)
+            return respond(BadRequest(`${route} too many accounts requested`), serializeResponseError)
+          }
           if (utils.isValidShardusAddress(req.accountIds) === false) {
             nestedCountersInstance.countEvent('internal', `${route}-invalid_account_ids`)
             return respond(BadRequest(`${route} invalid account_ids`), serializeResponseError)
@@ -2174,9 +2140,10 @@ class StateManager {
           }
           respond(resp, serializeGetAccountDataWithQueueHintsResp)
         } catch (e) {
-          if (logFlags.error || logFlags.getLocalOrRemote) this.mainLogger.error(`${route} error: ${utils.errorToStringFull(e)}`)
+          if (logFlags.error || logFlags.getLocalOrRemote)
+            this.mainLogger.error(`${route} error: ${utils.errorToStringFull(e)}`)
           nestedCountersInstance.countEvent('internal', `${route}-exception`)
-          nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `handler: ${e.message} `)  
+          nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `handler: ${e.message} `)
           return respond(InternalError(`${route} exception executing request`), serializeResponseError)
         } finally {
           profilerInstance.scopedProfileSectionEnd(route, payload.length)
@@ -2275,10 +2242,7 @@ class StateManager {
       },
     }
 
-    this.p2p.registerInternalBinary(
-      binaryGetAccountQueueCountHandler.name,
-      binaryGetAccountQueueCountHandler.handler
-    )
+    this.p2p.registerInternalBinary(binaryGetAccountQueueCountHandler.name, binaryGetAccountQueueCountHandler.handler)
 
     Context.network.registerExternalGet('debug_stats', isDebugModeMiddleware, (_req, res) => {
       const cycle = this.currentCycleShardData.cycleNumber - 1
@@ -2484,7 +2448,7 @@ class StateManager {
       return
     }
     if (!this.transactionQueue.transactionProcessingQueueRunning) {
-      this.transactionQueue.processTransactions()
+      fireAndForget(() => this.transactionQueue.processTransactions())
     }
   }
 
@@ -2503,7 +2467,7 @@ class StateManager {
     if (this.accountSync.syncStatement.internalFlag === true) {
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_syncStatement', ` `, `${utils.stringifyReduce(this.accountSync.syncStatement)}`)
       this.accountSync.syncStatmentIsComplete()
-      /* prettier-ignore */ this.statemanager_fatal( 'shrd_sync_syncStatement-firstTimeQueueAwait', `${utils.stringifyReduce(this.accountSync.syncStatement)}` )
+      /* prettier-ignore */ this.statemanager_fatal('shrd_sync_syncStatement-firstTimeQueueAwait', `${utils.stringifyReduce(this.accountSync.syncStatement)}`)
       /* prettier-ignore */ this.mainLogger.debug(`DATASYNC: syncStatement-firstTimeQueueAwait c:${this.currentCycleShardData.cycleNumber} ${utils.stringifyReduce(this.accountSync.syncStatement)}`)
     } else {
       this.accountSync.syncStatement.internalFlag = true
@@ -2762,18 +2726,15 @@ class StateManager {
 
         try {
           // if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.getAccountQueueCountBinary) {
-            const serialized_res = await this.p2p.askBinary<
-              GetAccountQueueCountReq,
-              GetAccountQueueCountResp
-            >(
-              randomConsensusNode,
-              InternalRouteEnum.binary_get_account_queue_count,
-              message,
-              serializeGetAccountQueueCountReq,
-              deserializeGetAccountQueueCountResp,
-              {}
-            )
-            r = serialized_res as QueueCountsResponse
+          const serialized_res = await this.p2p.askBinary<GetAccountQueueCountReq, GetAccountQueueCountResp>(
+            randomConsensusNode,
+            InternalRouteEnum.binary_get_account_queue_count,
+            message,
+            serializeGetAccountQueueCountReq,
+            deserializeGetAccountQueueCountResp,
+            {}
+          )
+          r = serialized_res as QueueCountsResponse
           // } else {
           //   r = await this.p2p.ask(randomConsensusNode, 'get_account_queue_count', message)
           // }
@@ -2870,7 +2831,7 @@ class StateManager {
 
     // hack to say we have all the data
     if (!isServiceMode()) {
-      if ( this.currentCycleShardData.nodes.length <= this.currentCycleShardData.shardGlobals.consensusRadius ) {
+      if (this.currentCycleShardData.nodes.length <= this.currentCycleShardData.shardGlobals.consensusRadius) {
         accountIsRemote = false
       }
     }
@@ -2884,21 +2845,29 @@ class StateManager {
       for (let i = 0; i < preCheckLimit; i++) {
         randomConsensusNode = this.transactionQueue.getRandomConsensusNodeForAccount(address)
         if (randomConsensusNode == null) {
-          nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `precheck: no consensus node found`)  
+          nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `precheck: no consensus node found`)
           throw new Error(`getLocalOrRemoteAccount: no consensus node found`)
         }
         // Node Precheck!.  this check our internal records to find a good node to talk to.
         // it is worth it to look through the list if needed.
-        if ( this.isNodeValidForInternalMessage( randomConsensusNode.id, 'getLocalOrRemoteAccount', true, true, true, true ) === false ) {
+        if (
+          this.isNodeValidForInternalMessage(
+            randomConsensusNode.id,
+            'getLocalOrRemoteAccount',
+            true,
+            true,
+            true,
+            true
+          ) === false
+        ) {
           //we got to the end of our tries?
           if (i >= preCheckLimit - 1) {
             /* prettier-ignore */ if (logFlags.verbose || logFlags.getLocalOrRemote) this.getAccountFailDump(address, 'getLocalOrRemoteAccount: isNodeValidForInternalMessage failed, no retry')
             //return null   ....better to throw an error
-            if (opts.canThrowException){
-              nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `precheck: out of nodes to try`)              
+            if (opts.canThrowException) {
+              nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `precheck: out of nodes to try`)
               throw new Error(`getLocalOrRemoteAccount: no consensus nodes worth asking`)
-            }
-            else return null
+            } else return null
           }
         } else {
           break
@@ -2913,38 +2882,39 @@ class StateManager {
       //   this.config.p2p.useBinarySerializedEndpoints &&
       //   this.config.p2p.getAccountDataWithQueueHintsBinary
       // ) {
-        try {
-          const serialized_res = await this.p2p.askBinary<
-            GetAccountDataWithQueueHintsReqSerializable,
-            GetAccountDataWithQueueHintsRespSerializable
-          >(
-            randomConsensusNode,
-            InternalRouteEnum.binary_get_account_data_with_queue_hints,
-            message,
-            serializeGetAccountDataWithQueueHintsReq,
-            deserializeGetAccountDataWithQueueHintsResp,
-            {}
+      try {
+        const serialized_res = await this.p2p.askBinary<
+          GetAccountDataWithQueueHintsReqSerializable,
+          GetAccountDataWithQueueHintsRespSerializable
+        >(
+          randomConsensusNode,
+          InternalRouteEnum.binary_get_account_data_with_queue_hints,
+          message,
+          serializeGetAccountDataWithQueueHintsReq,
+          deserializeGetAccountDataWithQueueHintsResp,
+          {}
+        )
+        r = serialized_res as GetAccountDataWithQueueHintsResp
+      } catch (er) {
+        if (er instanceof ResponseError && logFlags.error) {
+          this.mainLogger.error(
+            `ASK FAIL getLocalOrRemoteAccount exception: ResponseError encountered. Code: ${er.Code}, AppCode: ${er.AppCode}, Message: ${er.Message}`
           )
-          r = serialized_res as GetAccountDataWithQueueHintsResp
-        } catch (er) {
-          if (er instanceof ResponseError && logFlags.error) {
-            this.mainLogger.error(
-              `ASK FAIL getLocalOrRemoteAccount exception: ResponseError encountered. Code: ${er.Code}, AppCode: ${er.AppCode}, Message: ${er.Message}`
-            )
-          }
-          if (logFlags.verbose || logFlags.getLocalOrRemote) this.mainLogger.error('askBinary', er)
-          if (opts.canThrowException) {
-            throw er
-          } else {
-            nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `askBinary ex: ${er?.message}`)
-          }
         }
+        if (logFlags.verbose || logFlags.getLocalOrRemote) this.mainLogger.error('askBinary', er)
+        if (opts.canThrowException) {
+          throw er
+        } else {
+          nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `askBinary ex: ${er?.message}`)
+        }
+      }
       // } else {
-        // r = await this.p2p.ask(randomConsensusNode, 'get_account_data_with_queue_hints', message)
+      // r = await this.p2p.ask(randomConsensusNode, 'get_account_data_with_queue_hints', message)
       // }
 
       if (!r) {
-        if (logFlags.error || logFlags.getLocalOrRemote) this.mainLogger.error('ASK FAIL getLocalOrRemoteAccount r === false')
+        if (logFlags.error || logFlags.getLocalOrRemote)
+          this.mainLogger.error('ASK FAIL getLocalOrRemoteAccount r === false')
         if (opts.canThrowException) throw new Error(`getLocalOrRemoteAccount: remote node had an exception`)
       }
 
@@ -2952,7 +2922,8 @@ class StateManager {
       if (result != null && result.accountData != null && result.accountData.length > 0) {
         wrappedAccount = result.accountData[0]
         if (wrappedAccount == null) {
-          if (logFlags.verbose || logFlags.getLocalOrRemote) this.getAccountFailDump(address, 'remote result.accountData[0] == null')
+          if (logFlags.verbose || logFlags.getLocalOrRemote)
+            this.getAccountFailDump(address, 'remote result.accountData[0] == null')
           nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `remote result.accountData[0] == null`)
         }
         return wrappedAccount
@@ -2968,7 +2939,6 @@ class StateManager {
         } else if (result.accountData.length <= 0) {
           /* prettier-ignore */ if (logFlags.verbose || logFlags.getLocalOrRemote) this.getAccountFailDump(address, 'remote request missing data: result.accountData.length <= 0 ' + utils.stringifyReduce(result))
           nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `remote else.. result.accountData.length <= 0 `)
-
         }
       }
     } else {
@@ -2991,7 +2961,8 @@ class StateManager {
       } else {
         //this should probably throw as we expect a [] for the real empty case
         //avoiding too many changes
-        if (logFlags.verbose || logFlags.getLocalOrRemote) this.getAccountFailDump(address, 'getAccountDataByList() returned null')
+        if (logFlags.verbose || logFlags.getLocalOrRemote)
+          this.getAccountFailDump(address, 'getAccountDataByList() returned null')
         nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `localload: getAccountDataByList() returned null`)
         return null
       }
@@ -3002,7 +2973,10 @@ class StateManager {
       }
       if (accountData.length > 1 || accountData.length == 0) {
         /* prettier-ignore */ if (logFlags.verbose || logFlags.getLocalOrRemote) this.getAccountFailDump(address, `getAccountDataByList() returned wrong element count: ${accountData}`)
-        nestedCountersInstance.countEvent('getLocalOrRemoteAccount', `localload: getAccountDataByList() returned wrong element count`)
+        nestedCountersInstance.countEvent(
+          'getLocalOrRemoteAccount',
+          `localload: getAccountDataByList() returned wrong element count`
+        )
       }
       return wrappedAccount
     }
@@ -3042,30 +3016,29 @@ class StateManager {
     const message = { accountIds: [address] }
     let result: GetAccountDataWithQueueHintsResp
     // if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.getAccountDataWithQueueHintsBinary) {
-      try {
-        const serialized_res = await this.p2p.askBinary<
-          GetAccountDataWithQueueHintsReqSerializable,
-          GetAccountDataWithQueueHintsRespSerializable
-        >(
-          homeNode.node,
-          InternalRouteEnum.binary_get_account_data_with_queue_hints,
-          message,
-          serializeGetAccountDataWithQueueHintsReq,
-          deserializeGetAccountDataWithQueueHintsResp,
-          {}
+    try {
+      const serialized_res = await this.p2p.askBinary<
+        GetAccountDataWithQueueHintsReqSerializable,
+        GetAccountDataWithQueueHintsRespSerializable
+      >(
+        homeNode.node,
+        InternalRouteEnum.binary_get_account_data_with_queue_hints,
+        message,
+        serializeGetAccountDataWithQueueHintsReq,
+        deserializeGetAccountDataWithQueueHintsResp,
+        {}
+      )
+      result = serialized_res as GetAccountDataWithQueueHintsResp
+    } catch (er) {
+      if (er instanceof ResponseError && logFlags.error) {
+        this.mainLogger.error(
+          `ASK FAIL getRemoteAccount exception: ResponseError encountered. Code: ${er.Code}, AppCode: ${er.AppCode}, Message: ${er.Message}`
         )
-        result = serialized_res as GetAccountDataWithQueueHintsResp
-      } catch (er) {
-        if (er instanceof ResponseError && logFlags.error) {
-          this.mainLogger.error(
-            `ASK FAIL getRemoteAccount exception: ResponseError encountered. Code: ${er.Code}, AppCode: ${er.AppCode}, Message: ${er.Message}`
-          )
-        }
-        else if (logFlags.verbose) this.mainLogger.error('ASK FAIL getRemoteAccount exception:', er)
-        return null
-      }
+      } else if (logFlags.verbose) this.mainLogger.error('ASK FAIL getRemoteAccount exception:', er)
+      return null
+    }
     // } else {
-      // result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
+    // result = await this.p2p.ask(homeNode.node, 'get_account_data_with_queue_hints', message)
     // }
 
     if (!result) {
@@ -3121,7 +3094,10 @@ class StateManager {
 
   checkCycleShardData(tag: string): boolean {
     if (this.currentCycleShardData == null) {
-      nestedCountersInstance.countEvent('stateManager', `checkCycleShardData: currentCycleShardData == null for eventType ${tag}`)
+      nestedCountersInstance.countEvent(
+        'stateManager',
+        `checkCycleShardData: currentCycleShardData == null for eventType ${tag}`
+      )
       this.mainLogger.error(`checkCycleShardData: currentCycleShardData == null for eventType ${tag}`)
       return false
     }
@@ -3298,7 +3274,7 @@ class StateManager {
         /* prettier-ignore */ this.transactionQueue.setDebugLastAwaitedCallInner('this.app.updateAccountFull', DebugComplete.Completed)
       }
       savedSomething = true
-      this.transactionQueue.processNonceQueue([wrappedData])
+      fireAndForget(() => this.transactionQueue.processNonceQueue([wrappedData]))
     }
 
     return savedSomething
@@ -3309,11 +3285,7 @@ class StateManager {
    * originally this only recorder results if we were not repairing but it turns out we need to update our copies any time we apply state.
    * with the update we will calculate the cycle based on timestamp rather than using the last current cycle counter
    */
-  async updateAccountsCopyTable(
-    accountDataList: ShardusTypes.AccountData[],
-    _repairing: boolean,
-    txTimestamp: number
-  ) {
+  async updateAccountsCopyTable(accountDataList: ShardusTypes.AccountData[], _repairing: boolean, txTimestamp: number) {
     let cycleNumber = -1
 
     const timePlusSettle = txTimestamp + this.syncSettleTime //tx timestamp + settle time to determine what cycle to save in
@@ -3475,10 +3447,7 @@ class StateManager {
     if (thisFifo.waitingList.length > 0 || thisFifo.queueLocked) {
       thisFifo.waitingList.push(entry)
       // wait till we are at the front of the queue, and the queue is not locked
-      while (
-        (thisFifo.waitingList.length > 0 && thisFifo.waitingList[0]?.id !== ourID) ||
-        thisFifo.queueLocked
-      ) {
+      while ((thisFifo.waitingList.length > 0 && thisFifo.waitingList[0]?.id !== ourID) || thisFifo.queueLocked) {
         // todo perf optimization to reduce the amount of times we have to sleep (attempt to come out of sleep at close to the right time)
         let sleepEstimate = ourID - thisFifo.lastServed
         if (sleepEstimate < 1) {
@@ -3885,7 +3854,7 @@ class StateManager {
           this.profiler.profileSectionStart('stateManager_cycle_q1_start_processPreviousCycleSummaries')
           if (this.processCycleSummaries) {
             // not certain if we want await
-            this.processPreviousCycleSummaries()
+            fireAndForget(() => this.processPreviousCycleSummaries())
           }
           this.profiler.profileSectionEnd('stateManager_cycle_q1_start_processPreviousCycleSummaries')
         }
@@ -3977,23 +3946,22 @@ class StateManager {
     // build partition hashes from previous full cycle
     if (this.feature_partitionHashes === true) {
       if (cycleShardValues && cycleShardValues.ourNode.status === 'active') {
-        this.profiler.profileSectionStart(
-          'stateManager_processPreviousCycleSummaries_buildPartitionHashesForNode'
-        )
-        this.accountCache.processCacheUpdates(cycleShardValues)
+        //do not patch in restore mode
+        if (cycle.mode != 'restore') {
+          this.profiler.profileSectionStart('stateManager_processPreviousCycleSummaries_buildPartitionHashesForNode')
+          this.accountCache.processCacheUpdates(cycleShardValues)
 
-        this.profiler.profileSectionEnd(
-          'stateManager_processPreviousCycleSummaries_buildPartitionHashesForNode'
-        )
+          this.profiler.profileSectionEnd('stateManager_processPreviousCycleSummaries_buildPartitionHashesForNode')
 
-        this.profiler.profileSectionStart('stateManager_updatePartitionReport_updateTrie')
-        //Note: the main work is happening in accountCache.buildPartitionHashesForNode, this just
-        // uses that data to create our old report structure for reporting to the monitor-server
-        // this.partitionObjects.updatePartitionReport(cycleShardValues, mainHashResults) //this needs to go away along all of partitionObjects I think
-        //this is used in the reporter and account dump, but these features cant scale to hundreds of nodes.
-        //
-        this.accountPatcher.updateTrieAndBroadCast(lastCycle.counter)
-        this.profiler.profileSectionEnd('stateManager_updatePartitionReport_updateTrie')
+          this.profiler.profileSectionStart('stateManager_updatePartitionReport_updateTrie')
+          //Note: the main work is happening in accountCache.buildPartitionHashesForNode, this just
+          // uses that data to create our old report structure for reporting to the monitor-server
+          // this.partitionObjects.updatePartitionReport(cycleShardValues, mainHashResults) //this needs to go away along all of partitionObjects I think
+          //this is used in the reporter and account dump, but these features cant scale to hundreds of nodes.
+          //
+          this.accountPatcher.updateTrieAndBroadCast(lastCycle.counter)
+          this.profiler.profileSectionEnd('stateManager_updatePartitionReport_updateTrie')
+        }
       }
     }
 
@@ -4038,11 +4006,16 @@ class StateManager {
     }
 
     await utils.sleep(10000) //wait 10 seconds
-    try {
-      await this.accountPatcher.testAndPatchAccounts(lastCycle.counter)
-    } catch (e) {
-      this.statemanager_fatal('processPreviousCycleSummaries', `testAndPatchAccounts ${e.message}`)
-      nestedCountersInstance.countEvent('processPreviousCycleSummaries', `testAndPatchAccounts fail with exception: ${e.message}`)
+    if (cycle.mode != 'restore') {
+      try {
+        await this.accountPatcher.testAndPatchAccounts(lastCycle.counter)
+      } catch (e) {
+        this.statemanager_fatal('processPreviousCycleSummaries', `testAndPatchAccounts ${e.message}`)
+        nestedCountersInstance.countEvent(
+          'processPreviousCycleSummaries',
+          `testAndPatchAccounts fail with exception: ${e.message}`
+        )
+      }
     }
   }
 
@@ -4050,7 +4023,7 @@ class StateManager {
    * initApoptosisAndQuitSyncing
    * stop syncing and init apoptosis
    */
-  initApoptosisAndQuitSyncing(logMsg: string) {
+  initApoptosisAndQuitSyncing(logMsg: string, userFriendlyMessage?: string) {
     const log = `initApoptosisAndQuitSyncing ${utils.getTime('s')}  ${logMsg}`
     if (logFlags.console) console.log(log)
     if (logFlags.error) this.mainLogger.error(log)
@@ -4060,7 +4033,8 @@ class StateManager {
 
     this.accountSync.failAndDontRestartSync()
     this.p2p.initApoptosis(
-      'Apoptosis being initialized by `p2p.initApoptosis` within initApoptosisAndQuitSyncing() at src/state-manager/index.ts'
+      'Apoptosis being initialized by `p2p.initApoptosis` within initApoptosisAndQuitSyncing() at src/state-manager/index.ts',
+      userFriendlyMessage
     )
   }
 
@@ -4221,9 +4195,7 @@ class StateManager {
     }
   }
 
-  generateReceiptMapResults(
-    lastCycle: ShardusTypes.Cycle
-  ): StateManagerTypes.StateManagerTypes.ReceiptMapResult[] {
+  generateReceiptMapResults(lastCycle: ShardusTypes.Cycle): StateManagerTypes.StateManagerTypes.ReceiptMapResult[] {
     const results: StateManagerTypes.StateManagerTypes.ReceiptMapResult[] = []
 
     const cycleToSave = lastCycle.counter
@@ -4256,7 +4228,7 @@ class StateManager {
 
         if (receipt == null) {
           //check  && queueEntry.globalModification === false because global accounts will not get a receipt, should this change?
-          /* prettier-ignore */ if(logFlags.error && queueEntry.globalModification === false) this.mainLogger.error(`generateReceiptMapResults found entry in with no receipt in newAcceptedTxQueue. ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
+          /* prettier-ignore */ if (logFlags.error && queueEntry.globalModification === false) this.mainLogger.error(`generateReceiptMapResults found entry in with no receipt in newAcceptedTxQueue. ${utils.stringifyReduce(queueEntry.acceptedTx)}`)
         } else {
           queueEntriesToSave.push(queueEntry)
         }
@@ -4276,7 +4248,7 @@ class StateManager {
           //check  && queueEntry.globalModification === false
           //we dont expect expired TXs to have a receipt.  this should reduce log spam
           if (queueEntry.state != 'expired') {
-            /* prettier-ignore */ if(logFlags.error && queueEntry.globalModification === false) this.mainLogger.error(`generateReceiptMapResults found entry in with no receipt in archivedQueueEntries. ${utils.stringifyReduce(queueEntry.acceptedTx)} state:${queueEntry.state}`)
+            /* prettier-ignore */ if (logFlags.error && queueEntry.globalModification === false) this.mainLogger.error(`generateReceiptMapResults found entry in with no receipt in archivedQueueEntries. ${utils.stringifyReduce(queueEntry.acceptedTx)} state:${queueEntry.state}`)
           }
         } else {
           queueEntriesToSave.push(queueEntry)
@@ -4289,7 +4261,7 @@ class StateManager {
     for (const queueEntry of queueEntriesToSave) {
       const accountData: ShardusTypes.WrappedResponse[] = queueEntry?.preApplyTXResult?.applyResponse?.accountData
       if (accountData == null) {
-        /* prettier-ignore */ nestedCountersInstance.countRareEvent('generateReceiptMapResults' , `accountData==null tests: ${queueEntry?.preApplyTXResult == null} ${queueEntry?.preApplyTXResult?.applyResponse == null} ${queueEntry?.preApplyTXResult?.applyResponse?.accountData == null}` )
+        /* prettier-ignore */ nestedCountersInstance.countRareEvent('generateReceiptMapResults', `accountData==null tests: ${queueEntry?.preApplyTXResult == null} ${queueEntry?.preApplyTXResult?.applyResponse == null} ${queueEntry?.preApplyTXResult?.applyResponse?.accountData == null}`)
       }
       // delete the localCache
       if (accountData != null) {
@@ -4446,9 +4418,7 @@ class StateManager {
           continue
         } else {
           if (logErrors)
-            this.mainLogger.debug(
-              `isNodeUpRecentOverride: ${age} no recent TX, but this is not a fail conditions`
-            )
+            this.mainLogger.debug(`isNodeUpRecentOverride: ${age} no recent TX, but this is not a fail conditions`)
         }
       }
 
@@ -4505,12 +4475,16 @@ class StateManager {
     //   return
     // }
     if (acceptedTx.data.timestampReceipt == null) {
-      this.mainLogger.error(`askToRemoveTimestampCache queueEntry.acceptedTx.data.timestampReceipt == null ${utils.stringifyReduce(acceptedTx)}`)
+      this.mainLogger.error(
+        `askToRemoveTimestampCache queueEntry.acceptedTx.data.timestampReceipt == null ${utils.stringifyReduce(
+          acceptedTx
+        )}`
+      )
       return
     }
     const cycleCounter = acceptedTx.data.timestampReceipt.cycleCounter
     // attach challenge receipt to payload
-    const payload: TimestampRemoveRequest = {txId: acceptedTx.txId, signedReceipt, cycleCounter}
+    const payload: TimestampRemoveRequest = { txId: acceptedTx.txId, signedReceipt, cycleCounter }
     try {
       await this.p2p.tell([homeNode.node], 'remove_timestamp_cache', payload) //deprecated
     } catch (e) {

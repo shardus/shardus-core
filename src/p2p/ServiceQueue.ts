@@ -1,21 +1,26 @@
 import { Logger } from 'log4js'
 import { logger, config, crypto, network, shardus } from './Context'
 import * as CycleChain from './CycleChain'
-import { P2P, Utils } from '@shardus/types'
+import { P2P, Utils } from '@shardus/lib-types'
 import { OpaqueTransaction, ShardusEvent } from '../shardus/shardus-types'
 import { stringifyReduce, validateTypes } from '../utils'
 import * as Comms from './Comms'
 import { profilerInstance } from '../utils/profiler'
 import * as Self from './Self'
-import { currentCycle, currentQuarter } from './CycleCreator'
+import { currentCycle, currentQuarter, q1SendRequests } from './CycleCreator'
 import { logFlags } from '../logger'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { getFromArchiver } from './Archivers'
 import { Result } from 'neverthrow'
 import { getRandomAvailableArchiver } from './Utils'
-import { isDebugModeMiddleware } from '../network/debugMiddleware'
+import { isDebugModeMiddleware, stripQueryParams } from '../network/debugMiddleware'
 import { nodeListFromStates } from './Join'
 import * as Nodelist from './NodeList'
+import { ensureKeySecurity, getDevPublicKeys } from '../debug'
+import { DevSecurityLevel } from '../shardus/shardus-types'
+import { SignedObject } from '@shardus/lib-types/build/src/p2p/P2PTypes'
+import { timingSafeEqual } from 'crypto'
+import { fireAndForget } from '../utils/functions/promises'
 
 /** STATE */
 
@@ -35,6 +40,7 @@ const removeProposals: P2P.ServiceQueueTypes.SignedRemoveNetworkTx[] = []
 const beforeAddVerifier = new Map<string, (txEntry: P2P.ServiceQueueTypes.AddNetworkTx) => Promise<boolean>>()
 const applyVerifier = new Map<string, (txEntry: P2P.ServiceQueueTypes.AddNetworkTx) => Promise<boolean>>()
 const tryCounts = new Map<string, number>()
+const debugDropNGTs = []
 
 /** ROUTES */
 
@@ -76,7 +82,7 @@ const addTxGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ServiceQueueTypes.SignedA
 
     if (!crypto.verify(payload, payload.sign.owner)) {
       if (logFlags.console) console.log(`addTxGossipRoute(): signature invalid`, payload.sign.owner)
-      /* prettier-ignore */ nestedCountersInstance.countEvent('serviceQueue.ts', `addTxGossipRoute(): signature invalid`)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('serviceQueue', `addTxGossipRoute(): signature invalid`)
       return
     }
 
@@ -88,17 +94,19 @@ const addTxGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ServiceQueueTypes.SignedA
         addTxCopy.txData = txDataWithoutSign
         txAdd.push(addTxCopy)
 
-        Comms.sendGossip(
-          'gossip-addtx',
-          payload,
-          tracker,
-          Self.id,
-          nodeListFromStates([
-            P2P.P2PTypes.NodeStatus.ACTIVE,
-            P2P.P2PTypes.NodeStatus.READY,
-            P2P.P2PTypes.NodeStatus.SYNCING,
-          ]),
-          false
+        fireAndForget(() =>
+          Comms.sendGossip(
+            'gossip-addtx',
+            payload,
+            tracker,
+            Self.id,
+            nodeListFromStates([
+              P2P.P2PTypes.NodeStatus.ACTIVE,
+              P2P.P2PTypes.NodeStatus.READY,
+              P2P.P2PTypes.NodeStatus.SYNCING,
+            ]),
+            false
+          )
         ) // use Self.id so we don't gossip to ourself
       }
     }
@@ -151,7 +159,7 @@ const removeTxGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ServiceQueueTypes.Sign
 
     if (!crypto.verify(payload, payload.sign.owner)) {
       if (logFlags.console) console.log(`removeTxGossipRoute(): signature invalid`, payload.sign.owner)
-      /* prettier-ignore */ nestedCountersInstance.countEvent('serviceQueue.ts', `removeTxGossipRoute(): signature invalid`)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('serviceQueue', `removeTxGossipRoute(): signature invalid`)
       return
     }
     const { sign, ...unsignedRemoveNetworkTx } = payload
@@ -160,23 +168,78 @@ const removeTxGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ServiceQueueTypes.Sign
       if (!txRemove.some((entry) => entry.txHash === payload.txHash)) {
         txRemove.push(unsignedRemoveNetworkTx)
 
-        Comms.sendGossip(
-          'gossip-removetx',
-          payload,
-          tracker,
-          Self.id,
-          nodeListFromStates([
-            P2P.P2PTypes.NodeStatus.ACTIVE,
-            P2P.P2PTypes.NodeStatus.READY,
-            P2P.P2PTypes.NodeStatus.SYNCING,
-          ]),
-          false
+        fireAndForget(() =>
+          Comms.sendGossip(
+            'gossip-removetx',
+            payload,
+            tracker,
+            Self.id,
+            nodeListFromStates([
+              P2P.P2PTypes.NodeStatus.ACTIVE,
+              P2P.P2PTypes.NodeStatus.READY,
+              P2P.P2PTypes.NodeStatus.SYNCING,
+            ]),
+            false
+          )
         ) // use Self.id so we don't gossip to ourself
       }
     }
   } finally {
     profilerInstance.scopedProfileSectionEnd('serviceQueue - removeTx')
   }
+}
+
+const debugDropNGTGossipRoute: P2P.P2PTypes.GossipHandler<any> = async (payload, sender, tracker) => {
+  profilerInstance.scopedProfileSectionStart('serviceQueue - debugDropNGT')
+
+  if (payload.txHash == null) {
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) error('debug-drop-network-tx: txHash not provided')
+    return
+  }
+  if ([1, 2].includes(currentQuarter) === false) {
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('debug-drop-network-tx: Got request after quarter 2')
+    return
+  }
+  const index = txList.findIndex((entry) => entry.hash === payload.txHash)
+  if (index === -1) {
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('debug-drop-network-tx: txHash not found')
+    return
+  }
+  if (txRemove.some((entry) => entry.txHash === payload.txHash)) {
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) info('debug-drop-network-tx: txHash already exists in txRemove')
+    return
+  }
+  const cycle = CycleChain.newest
+  const verificationResult = verifyDebugDropNGT(payload, cycle)
+  if (verificationResult.success === false) {
+    if (logFlags.important_as_error) console.log(`debug-drop-ngt - ${verificationResult.message}`)
+    nestedCountersInstance.countEvent(
+      'serviceQueue',
+      `debug-drop-ngt - verification of debug drop NGT payload failed: ${verificationResult.message}`
+    )
+    return
+  }
+  const unsignedRemoveNetworkTx = {
+    txHash: payload.txHash,
+    cycle: verificationResult.cycle,
+  }
+
+  txRemove.push(unsignedRemoveNetworkTx)
+
+  fireAndForget(() =>
+    Comms.sendGossip(
+      'debug-drop-ngt',
+      payload,
+      tracker,
+      Self.id,
+      nodeListFromStates([
+        P2P.P2PTypes.NodeStatus.ACTIVE,
+        P2P.P2PTypes.NodeStatus.READY,
+        P2P.P2PTypes.NodeStatus.SYNCING,
+      ]),
+      false
+    )
+  ) // use Self.id so we don't gossip to ourself
 }
 
 const routes = {
@@ -186,6 +249,7 @@ const routes = {
   gossip: {
     ['gossip-addtx']: addTxGossipRoute,
     ['gossip-removetx']: removeTxGossipRoute,
+    ['debug-drop-ngt']: debugDropNGTGossipRoute,
   },
 }
 
@@ -221,8 +285,26 @@ export function init(): void {
       res.send({ status: 'fail', error: 'txHash not found' })
       return
     }
-    txList.splice(index, 1)
-    res.send({ status: 'ok' })
+    if (config.p2p.dropNGTByGossipEnabled) {
+      const reqParamsDropNGT = {
+        txHash,
+        url: req.originalUrl,
+        sigCounter: req.query.sig_counter,
+        pubKeys: req.query.nodePubkeys,
+        sig: req.query.sig,
+        owner: '',
+      }
+      const verificationResult = verifyDebugDropNGT(reqParamsDropNGT, CycleChain.newest)
+      if (verificationResult.success === false) {
+        res.send({ status: 'fail', error: verificationResult.message })
+        return
+      }
+      debugDropNGTs.push({ ...reqParamsDropNGT, cycle: verificationResult.cycle })
+      res.json({ status: 'ok', message: verificationResult.message })
+    } else {
+      txList.splice(index, 1)
+      res.send({ status: 'ok' })
+    }
   })
 
   network.registerExternalGet('debug-clear-network-txlist', isDebugModeMiddleware, (req, res) => {
@@ -231,12 +313,12 @@ export function init(): void {
   })
 
   network.registerExternalGet('debug-network-txcount', isDebugModeMiddleware, (req, res) => {
-    const copy = txList.map(entry => ({
+    const copy = txList.map((entry) => ({
       ...entry,
-      count: tryCounts.get(entry.hash) || 0
-    }));
-    res.send({ status: 'ok', tryCounts: copy });
-  });
+      count: tryCounts.get(entry.hash) || 0,
+    }))
+    res.send({ status: 'ok', tryCounts: copy })
+  })
 }
 
 export function reset(): void {
@@ -391,17 +473,19 @@ export function sendRequests(): void {
     }
 
     /* prettier-ignore */ if (config.debug.verboseNestedCounters) nestedCountersInstance.countEvent(`gossip-addtx`, `gossip send - ${add.hash}`)
-    Comms.sendGossip(
-      'gossip-addtx',
-      add,
-      '',
-      Self.id,
-      nodeListFromStates([
-        P2P.P2PTypes.NodeStatus.ACTIVE,
-        P2P.P2PTypes.NodeStatus.READY,
-        P2P.P2PTypes.NodeStatus.SYNCING,
-      ]),
-      true
+    fireAndForget(() =>
+      Comms.sendGossip(
+        'gossip-addtx',
+        add,
+        '',
+        Self.id,
+        nodeListFromStates([
+          P2P.P2PTypes.NodeStatus.ACTIVE,
+          P2P.P2PTypes.NodeStatus.READY,
+          P2P.P2PTypes.NodeStatus.SYNCING,
+        ]),
+        true
+      )
     )
   }
 
@@ -416,9 +500,38 @@ export function sendRequests(): void {
       }
 
       /* prettier-ignore */ if (config.debug.verboseNestedCounters) nestedCountersInstance.countEvent(`gossip-removetx`, `gossip send - ${remove.txHash}`)
+      fireAndForget(() =>
+        Comms.sendGossip(
+          'gossip-removetx',
+          remove,
+          '',
+          Self.id,
+          nodeListFromStates([
+            P2P.P2PTypes.NodeStatus.ACTIVE,
+            P2P.P2PTypes.NodeStatus.READY,
+            P2P.P2PTypes.NodeStatus.SYNCING,
+          ]),
+          true
+        )
+      )
+    }
+  }
+  addProposals.length = 0
+  removeProposals.length = 0
+
+  for (const dropNGTInfo of debugDropNGTs) {
+    const unsignedRemoveNetworkTx = {
+      txHash: dropNGTInfo.txHash,
+      cycle: dropNGTInfo.cycle,
+    }
+    txRemove.push(unsignedRemoveNetworkTx)
+
+    delete dropNGTInfo.cycle
+
+    fireAndForget(() =>
       Comms.sendGossip(
-        'gossip-removetx',
-        remove,
+        'debug-drop-ngt',
+        dropNGTInfo,
         '',
         Self.id,
         nodeListFromStates([
@@ -428,13 +541,21 @@ export function sendRequests(): void {
         ]),
         true
       )
-    }
+    )
   }
-  addProposals.length = 0
-  removeProposals.length = 0
+  debugDropNGTs.length = 0
 }
 
 /** Module Functions */
+
+export function containsTx(txHash: string): boolean {
+  return txList.some((entry) => entry.hash === txHash)
+}
+
+export function containsTxData(txData: OpaqueTransaction): boolean {
+  const hash = crypto.hash(txData)
+  return containsTx(hash)
+}
 
 export function registerShutdownHandler(
   type: string,
@@ -475,14 +596,12 @@ export async function addNetworkTx(
     priority,
     subQueueKey,
   } as P2P.ServiceQueueTypes.AddNetworkTx
-  if (await _addNetworkTx(networkTx)){
+  if (await _addNetworkTx(networkTx)) {
     makeAddNetworkTxProposals(networkTx)
   }
 }
 
-export function getLatestNetworkTxEntryForSubqueueKey(
-  subqueueKey: string
-): P2P.ServiceQueueTypes.NetworkTxEntry {
+export function getLatestNetworkTxEntryForSubqueueKey(subqueueKey: string): P2P.ServiceQueueTypes.NetworkTxEntry {
   for (let i = txList.length - 1; i >= 0; i--) {
     if (txList[i].tx.subQueueKey === subqueueKey) {
       return txList[i]
@@ -503,6 +622,16 @@ async function _addNetworkTx(addTx: P2P.ServiceQueueTypes.AddNetworkTx): Promise
   try {
     if (!addTx || !addTx.txData) {
       /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('Invalid addTx or missing addTx.txData', addTx)
+      return false
+    }
+
+    const hash = crypto.hash(addTx.txData)
+    const hashBuffer = Buffer.from(hash)
+    const txHashBuffer = Buffer.from(addTx.hash)
+
+    // Compare lengths first to avoid timing attacks
+    if (hashBuffer.length !== txHashBuffer.length || !timingSafeEqual(Buffer.from(addTx.hash), Buffer.from(hash))) {
+      /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('Hash mismatch', addTx.hash, hash)
       return false
     }
 
@@ -531,18 +660,18 @@ async function _addNetworkTx(addTx: P2P.ServiceQueueTypes.AddNetworkTx): Promise
 
     if (!(await verifyFunction(addTx))) {
       /* prettier-ignore */ if (logFlags.p2pNonFatal) error(
-        `Failed add network tx verification of type ${addTx.type} \n tx: ${stringifyReduce(addTx.txData)}`
-      )
+      `Failed add network tx verification of type ${addTx.type} \n tx: ${stringifyReduce(addTx.txData)}`
+    )
       return false
     }
     /* prettier-ignore */ if (logFlags.p2pNonFatal) console.log('add network tx', addTx.type, addTx.txData.publicKey, addTx)
     return true
   } catch (e) {
     /* prettier-ignore */ if (logFlags.p2pNonFatal) error(
-      `Failed add network tx verification of type ${addTx.type} \n tx: ${stringifyReduce(
-        addTx.txData
-      )}\n error: ${e instanceof Error ? e.stack : e}`
-    )
+    `Failed add network tx verification of type ${addTx.type} \n tx: ${stringifyReduce(
+      addTx.txData
+    )}\n error: ${e instanceof Error ? e.stack : e}`
+  )
     return false
   }
 }
@@ -582,7 +711,7 @@ export async function _removeNetworkTx(removeTx: P2P.ServiceQueueTypes.RemoveNet
 
 export async function processNetworkTransactions(record: P2P.CycleCreatorTypes.CycleRecord): Promise<void> {
   info('Process Network Transactions')
-  if (record.mode !== 'processing') {
+  if (record.mode !== 'processing' || !config.p2p.allowEndUserTxnInjections) {
     return
   }
   const processedSubQueueKeys = new Set<string>()
@@ -661,16 +790,14 @@ export async function syncTxListFromArchiver(): Promise<void> {
 
   if (!latestTxListHash) {
     warn('failed to get hash of latest tx list from cycle record')
-    return
+    throw Error('Fatal: Failed to get hash of latest tx list from cycle record')
   }
 
   if (latestTxListHash === crypto.hash(txListResult.value)) {
     txList = txListResult.value
     info('first nodes successfully synced tx list from archiver in restart mode')
   } else {
-    throw Error(
-      'Fatal: Hash of tx list from archiver does not match hash of latest tx list from cycle record'
-    )
+    throw Error('Fatal: Hash of tx list from archiver does not match hash of latest tx list from cycle record')
   }
 }
 
@@ -724,6 +851,118 @@ function sortedInsert(
     list.push(entry)
   } else {
     list.splice(index, 0, entry)
+  }
+}
+
+function verifyDebugDropNGT(reqParamsDropNGT, cycle): { success: boolean; message: string; cycle?: number } {
+  const payload = {
+    route: stripQueryParams(reqParamsDropNGT.url, ['sig', 'sig_counter', 'nodePubkeys']), //<- we're gonna hash, these query artificats need to be excluded from the hash
+    count: reqParamsDropNGT.sigCounter,
+    nodes: reqParamsDropNGT.pubKeys,
+    networkId: cycle.networkId,
+    cycleCounter: cycle.counter,
+  }
+  const hash = crypto.hash(Utils.safeStringify(payload))
+  const devPublicKeys = getDevPublicKeys() // This should return list of public keys
+  const requestSig = reqParamsDropNGT.sig
+
+  if (reqParamsDropNGT.owner !== '') {
+    const ownerPk = reqParamsDropNGT.owner
+    const sign = { owner: ownerPk, sig: requestSig }
+    const hashIncluded = {
+      route: payload.route,
+      count: payload.count,
+      nodes: payload.nodes,
+      networkId: payload.networkId,
+      cycleCounter: payload.cycleCounter,
+      requestHash: hash,
+      sign,
+    }
+
+    let verified = crypto.verify(hashIncluded, hashIncluded.sign.owner)
+    if (verified === false) {
+      delete hashIncluded.requestHash
+      delete hashIncluded.sign
+      // decrementing counter to check the sig in case the sig was made on the object with the prev counter
+      hashIncluded.cycleCounter--
+      const hash = crypto.hash(Utils.safeStringify(hashIncluded))
+      hashIncluded.requestHash = hash
+      hashIncluded.sign = sign
+
+      verified = crypto.verify(hashIncluded, hashIncluded.sign.owner)
+    }
+    if (verified === true) {
+      const authorized = ensureKeySecurity(ownerPk, DevSecurityLevel.High)
+      if (authorized) {
+        return {
+          success: true,
+          message: 'Signature is correct and signer is authorized',
+          cycle: hashIncluded.cycleCounter,
+        }
+      } else {
+        /* prettier-ignore */ if (logFlags.verbose) console.log('Authorization failed for security level HIGH')
+        /* prettier-ignore */ nestedCountersInstance.countEvent('security', 'Authorization failed for security level HIGH')
+        return {
+          success: false,
+          message: 'Authorization failed for security level HIGH',
+        }
+      }
+    } else {
+      /* prettier-ignore */ if (logFlags.verbose) console.log('Signature verification failed')
+      return {
+        success: false,
+        message: 'Signature verification failed',
+      }
+    }
+  }
+
+  // Check if signature is valid for any of the public keys
+  for (const ownerPk in devPublicKeys) {
+    const sign = { owner: ownerPk, sig: requestSig }
+    const hashIncluded = {
+      route: payload.route,
+      count: payload.count,
+      nodes: payload.nodes,
+      networkId: payload.networkId,
+      cycleCounter: payload.cycleCounter,
+      requestHash: hash,
+      sign,
+    }
+
+    let verified = crypto.verify(hashIncluded, hashIncluded.sign.owner)
+    if (verified === false) {
+      delete hashIncluded.requestHash
+      delete hashIncluded.sign
+      // decrementing counter to check the sig in case the sig was made on the object with the prev counter
+      hashIncluded.cycleCounter--
+      const hash = crypto.hash(Utils.safeStringify(hashIncluded))
+      hashIncluded.requestHash = hash
+      hashIncluded.sign = sign
+      verified = crypto.verify(hashIncluded, hashIncluded.sign.owner)
+    }
+    if (verified === true) {
+      const authorized = ensureKeySecurity(ownerPk, DevSecurityLevel.High)
+      if (authorized) {
+        reqParamsDropNGT.owner = ownerPk
+        return {
+          success: true,
+          message: 'Signature is correct and signer is authorized',
+        }
+      } else {
+        /* prettier-ignore */ if (logFlags.verbose) console.log('Authorization failed for security level HIGH')
+        /* prettier-ignore */ nestedCountersInstance.countEvent('security', 'Authorization failed for security level HIGH')
+        return {
+          success: false,
+          message: 'Authorization failed for security level HIGH',
+        }
+      }
+    } else {
+      /* prettier-ignore */ if (logFlags.verbose) console.log('Signature verification failed')
+      return {
+        success: false,
+        message: 'Signature verification failed',
+      }
+    }
   }
 }
 

@@ -1,13 +1,13 @@
-import { publicKey } from '@shardus/types'
-import { CycleMarker } from '@shardus/types/build/src/p2p/CycleCreatorTypes'
+import { publicKey } from '@shardus/lib-types'
+import { CycleMarker } from '@shardus/lib-types/build/src/p2p/CycleCreatorTypes'
 import {
   ArchiverDownMsg,
   ArchiverRefutesLostMsg,
   ArchiverUpMsg,
   InvestigateArchiverMsg,
-} from '@shardus/types/build/src/p2p/LostArchiverTypes'
-import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
-import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
+} from '@shardus/lib-types/build/src/p2p/LostArchiverTypes'
+import { Node } from '@shardus/lib-types/build/src/p2p/NodeListTypes'
+import { SignedObject } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import * as http from '../../http'
 import * as CycleChain from '../../p2p/CycleChain'
 import * as Archivers from '../Archivers'
@@ -23,13 +23,11 @@ import { inspect } from 'util'
 import { formatErrorMessage } from '../../utils'
 import { nestedCountersInstance } from '../..'
 import { shardusGetTime } from '../../network'
-import {
-  LostArchiverInvestigateReq,
-  serializeLostArchiverInvestigateReq,
-} from '../../types/LostArchiverInvestigateReq'
+import { LostArchiverInvestigateReq, serializeLostArchiverInvestigateReq } from '../../types/LostArchiverInvestigateReq'
 import { InternalRouteEnum } from '../../types/enum/InternalRouteEnum'
 import { tellBinary } from '../Comms'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
+import { fireAndForget } from '../../utils/functions/promises'
 
 /** Lost Archivers Functions */
 
@@ -80,17 +78,13 @@ export function reportLostArchiver(publicKey: publicKey, errorMsg: string): void
  * This function gets called to verify if an Archiver is indeed lost
  * @param publicKey - The public key of the Archiver to investigate
  */
-export async function investigateArchiver(
-  investigateMsg: SignedObject<InvestigateArchiverMsg>
-): Promise<void> {
+export async function investigateArchiver(investigateMsg: SignedObject<InvestigateArchiverMsg>): Promise<void> {
   info(`investigateArchiver: investigateMsg: ${inspect(investigateMsg)}`)
   const publicKey = investigateMsg.target
   const archiver = Archivers.archivers.get(publicKey)
   if (!archiver) {
     // don't know the archiver
-    warn(
-      `investigateArchiver: asked to investigate archiver '${publicKey}', but it's not in the archivers list`
-    )
+    warn(`investigateArchiver: asked to investigate archiver '${publicKey}', but it's not in the archivers list`)
     return
   }
 
@@ -178,6 +172,7 @@ export function informInvestigator(target: publicKey): void {
     // Send message to investigator
     info(`informInvestigator: sending InvestigateArchiverMsg: ${inspect(investigateMsg)}`)
     // if (this.config.p2p.useBinarySerializedEndpoints && this.config.p2p.lostArchiverInvestigateBinary) {
+    fireAndForget(() =>
       Comms.tellBinary<LostArchiverInvestigateReq>(
         [investigator],
         InternalRouteEnum.binary_lost_archiver_investigate,
@@ -185,10 +180,10 @@ export function informInvestigator(target: publicKey): void {
         serializeLostArchiverInvestigateReq,
         {}
       )
+    )
     // } else {
     //   Comms.tell([investigator], 'lost-archiver-investigate', investigateMsg)
     // }
-    
   } catch (ex) {
     nestedCountersInstance.countEvent('p2p', `informInvestigator error ${shardusGetTime()}`)
     error('informInvestigator: ' + formatErrorMessage(ex))
@@ -209,7 +204,9 @@ export function tellNetworkArchiverIsDown(record: LostArchiverRecord): void {
   })
   info(`tellNetworkArchiverIsDown: downMsg: ${Utils.safeStringify(downMsg)}`)
   record.archiverDownMsg = downMsg
-  Comms.sendGossip('lost-archiver-down', downMsg, '', null, NodeList.byIdOrder, /* isOrigin */ true)
+  fireAndForget(() =>
+    Comms.sendGossip('lost-archiver-down', downMsg, '', null, NodeList.byIdOrder, /* isOrigin */ true)
+  )
   // This is to inform the rest of the network that the Archiver is down
 }
 
@@ -311,9 +308,7 @@ export function errorForArchiverUpMsg(msg: SignedObject<ArchiverUpMsg> | null): 
  * @param msg - The ArchiverUpMsg to check
  * @returns null if there are no errors, and a string describing the error otherwise
  */
-export function errorForArchiverRefutesLostMsg(
-  msg: SignedObject<ArchiverRefutesLostMsg> | null
-): string | null {
+export function errorForArchiverRefutesLostMsg(msg: SignedObject<ArchiverRefutesLostMsg> | null): string | null {
   if (msg == null) return 'null message'
   if (msg.sign == null) return 'no signature'
   const missing = missingProperties(msg, 'archiver cycle')
@@ -327,9 +322,7 @@ export function errorForArchiverRefutesLostMsg(
  * @param msg - The InvestigateArchiverMsg to check
  * @returns null if there are no errors, and a string describing the error otherwise
  */
-export function errorForInvestigateArchiverMsg(
-  msg: SignedObject<InvestigateArchiverMsg> | null
-): string | null {
+export function errorForInvestigateArchiverMsg(msg: SignedObject<InvestigateArchiverMsg> | null): string | null {
   if (msg == null) return 'null message'
   if (msg.sign == null) return 'no signature'
   const error = _errorForInvestigateArchiverMsg(msg)

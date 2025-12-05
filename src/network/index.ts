@@ -1,6 +1,6 @@
 import Sntp from '@hapi/sntp'
-import { Sn } from '@shardus/net'
-import { AppHeader } from '@shardus/net/build/src/types'
+import { Sn } from '@shardus/lib-net'
+import { AppHeader } from '@shardus/lib-net/build/src/types'
 import bodyParser from 'body-parser'
 import cors from 'cors'
 import { EventEmitter } from 'events'
@@ -19,7 +19,7 @@ import { formatErrorMessage } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { profilerInstance } from '../utils/profiler'
 import NatAPI = require('nat-api')
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 /** TYPES */
 export interface IPInfo {
@@ -67,11 +67,10 @@ export class NetworkClass extends EventEmitter {
   statisticsInstance: any
   useLruCacheForSocketMgmt: boolean
   lruCacheSizeForSocketMgmt: number
+  payloadSizeLimitInBytes: number
+  headerSizeLimitInBytes: number
 
-  constructor(
-    config: Shardus.StrictServerConfiguration,
-    logger: Logger,
-  ) {
+  constructor(config: Shardus.StrictServerConfiguration, logger: Logger) {
     super()
     this.app = express()
     this.sn = null
@@ -99,7 +98,8 @@ export class NetworkClass extends EventEmitter {
     this.useLruCacheForSocketMgmt = config.p2p.useLruCacheForSocketMgmt
     this.lruCacheSizeForSocketMgmt = config.p2p.lruCacheSizeForSocketMgmt
     this.shardusCryptoHashKey = config.crypto.hashKey
-
+    this.payloadSizeLimitInBytes = config.p2p.payloadSizeLimitInBytes
+    this.headerSizeLimitInBytes = config.p2p.headerSizeLimitInBytes
   }
 
   setDebugNetworkDelay(delay: number) {
@@ -111,7 +111,7 @@ export class NetworkClass extends EventEmitter {
   }
 
   customSendJsonMiddleware(req, res, next) {
-    const originalSend = res.send;
+    const originalSend = res.send
     res.send = function (data) {
       if (typeof data === 'object' && data !== null) {
         const jsonString = Utils.safeStringify(data)
@@ -119,7 +119,7 @@ export class NetworkClass extends EventEmitter {
         return originalSend.call(this, jsonString)
       }
       return originalSend.call(this, data)
-    };
+    }
 
     res.json = function (data) {
       const jsonString = Utils.safeStringify(data)
@@ -129,10 +129,6 @@ export class NetworkClass extends EventEmitter {
 
     next()
   }
-
-
-
-
 
   // TODO: Allow for binding to a specified network interface
   _setupExternal() {
@@ -154,17 +150,16 @@ export class NetworkClass extends EventEmitter {
         next()
       }
 
-      this.app.use(bodyParser.json({ limit: '50mb', reviver: Utils.typeReviver}))
+      this.app.use(bodyParser.json({ limit: '50mb', reviver: Utils.typeReviver }))
       this.app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }))
       this.app.use(cors())
       this.app.use(this.customSendJsonMiddleware)
       this.app.use(storeRequests)
       this._applyExternal()
       this.app.use((err, req, res, next) => {
-
         res.status(500).json({
           error: 'Internal Server Error',
-          message: isDebugMode() ? err.message : 'An unexpected error occurred'
+          message: isDebugMode() ? err.message : 'An unexpected error occurred',
         })
       })
 
@@ -197,6 +192,10 @@ export class NetworkClass extends EventEmitter {
         hashKey: this.shardusCryptoHashKey,
         signingSecretKeyHex: this.signingSecretKeyHex,
       },
+      payloadOpts: {
+        payloadSizeLimitInBytes: this.payloadSizeLimitInBytes,
+        headerSizeLimitInBytes: this.headerSizeLimitInBytes,
+      },
     })
     this.intServer = await this.sn.listen(async (data, remote, respond, header, sign) => {
       let routeName
@@ -206,8 +205,7 @@ export class NetworkClass extends EventEmitter {
 
         routeName = route
         if (!route && payload) {
-          if (logFlags.debug)
-            this.mainLogger.debug('Received response data without any specified route', payload)
+          if (logFlags.debug) this.mainLogger.debug('Received response data without any specified route', payload)
           return
         }
 
@@ -225,6 +223,15 @@ export class NetworkClass extends EventEmitter {
         if (this.debugNetworkDelay > 0) {
           await utils.sleep(this.debugNetworkDelay)
         }
+
+        // Check if we should respond slowly
+        if (config?.debug?.slowResponseChance > 0 && Math.random() < config.debug.slowResponseChance) {
+          const delayMs = config.debug.slowResponseDelay || 3000
+          nestedCountersInstance.countEvent('network', 'slow-response-injected')
+          /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Injecting slow response delay of ${delayMs}ms for route: ${route}`)
+          await utils.sleep(delayMs)
+        }
+
         profilerInstance.profileSectionStart('net-internl')
         profilerInstance.profileSectionStart(`net-internl-${route}`)
 
@@ -245,8 +252,7 @@ export class NetworkClass extends EventEmitter {
         }
       } catch (err) {
         if (logFlags.error) this.mainLogger.error('Network: _setupInternal: ', err)
-        if (logFlags.error)
-          this.mainLogger.error('DBG', 'Network: _setupInternal > sn.listen > callback > data', data)
+        if (logFlags.error) this.mainLogger.error('DBG', 'Network: _setupInternal > sn.listen > callback > data', data)
         if (logFlags.error)
           this.mainLogger.error('DBG', 'Network: _setupInternal > sn.listen > callback > remote', remote)
       } finally {
@@ -285,6 +291,13 @@ export class NetworkClass extends EventEmitter {
       /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`requestId: ${requestId}, node: ${utils.logNode(node)}`)
       /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`route: ${route} ${subRoute}, message: ${message} requestId: ${requestId}`)
       this.InternalTellCounter++
+      // Check if we should drop this message
+      if (config?.debug?.dropMessageChance > 0 && Math.random() < config.debug.dropMessageChance) {
+        nestedCountersInstance.countEvent('network', 'message-dropped-tell')
+        /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Dropping tell message due to dropMessageChance: ${route} ${subRoute}`)
+        continue
+      }
+
       const promise = this.sn.send(node.internalPort, node.internalIp, data)
       promise.catch((err) => {
         /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tell) on ${route} ${subRoute}: ${formatErrorMessage(err)}` )
@@ -348,6 +361,13 @@ export class NetworkClass extends EventEmitter {
         /* prettier-ignore */ if (logFlags.net_verbose) this.mainLogger.info(`tellBinary: requestId: ${requestId}, node: ${utils.logNode(node)}`)
         /* prettier-ignore */ if (logFlags.net_verbose) this.mainLogger.info(`tellBinary: route: ${route}, message: ${message} requestId: ${requestId}`)
         this.InternalTellCounter++
+        // Check if we should drop this message
+        if (config?.debug?.dropMessageChance > 0 && Math.random() < config.debug.dropMessageChance) {
+          nestedCountersInstance.countEvent('network', 'message-dropped-tellBinary')
+          /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Dropping tellBinary message due to dropMessageChance: ${route}`)
+          continue
+        }
+
         const promise = this.sn.sendWithHeader(node.internalPort, node.internalIp, data, appHeader)
         promise.catch((err) => {
           /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (tellBinary) on ${route}: ${formatErrorMessage(err)}`)
@@ -401,15 +421,17 @@ export class NetworkClass extends EventEmitter {
           reject(err)
         }
         /* prettier-ignore */ if (logFlags.playback && alreadyLogged === false) this.logger.playbackLog('self', node, 'InternalAsk', route, id, message)
+
+        // Check if we should drop this message
+        if (config?.debug?.dropMessageChance > 0 && Math.random() < config.debug.dropMessageChance) {
+          nestedCountersInstance.countEvent('network', 'message-dropped-ask')
+          /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Dropping ask message due to dropMessageChance: ${route}`)
+          reject(new Error('Message dropped due to dropMessageChance'))
+          return
+        }
+
         try {
-          await this.sn.send(
-            node.internalPort,
-            node.internalIp,
-            data,
-            this.timeout + extraTime,
-            onRes,
-            onTimeout
-          )
+          await this.sn.send(node.internalPort, node.internalIp, data, this.timeout + extraTime, onRes, onTimeout)
         } catch (err) {
           nestedCountersInstance.countEvent('network', `error-ask ${route}`)
           /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`Network error (ask-err) on ${route}: ${formatErrorMessage(err)}`)
@@ -462,6 +484,15 @@ export class NetworkClass extends EventEmitter {
           reject(err)
         }
         /* prettier-ignore */ if (logFlags.playback && alreadyLogged === false) this.logger.playbackLog('self', node, 'InternalAsk', route, trackerId, message)
+
+        // Check if we should drop this message
+        if (config?.debug?.dropMessageChance > 0 && Math.random() < config.debug.dropMessageChance) {
+          nestedCountersInstance.countEvent('network', 'message-dropped-askBinary')
+          /* prettier-ignore */ if (logFlags.net_verbose) mainLogger.info(`Dropping askBinary message due to dropMessageChance: ${route}`)
+          reject(new Error('Message dropped due to dropMessageChance'))
+          return
+        }
+
         try {
           await this.sn.sendWithHeader(
             node.internalPort,
@@ -690,8 +721,7 @@ export async function init() {
     (config.ip.externalPort === 'auto' ? await getNextExternalPort(externalIp) : config.ip.externalPort) ||
     defaults['externalPort']
 
-  const internalIp =
-    (config.ip.internalIp === 'auto' ? externalIp : config.ip.internalIp) || defaults['internalIp']
+  const internalIp = (config.ip.internalIp === 'auto' ? externalIp : config.ip.internalIp) || defaults['internalIp']
 
   const internalPort =
     (config.ip.internalPort === 'auto' ? await getNextExternalPort(internalIp) : config.ip.internalPort) ||
@@ -885,7 +915,7 @@ export async function checkAndUpdateTimeSyncedOffset(timeServers) {
 
 export function shardusGetTime(): number {
   let time = Date.now()
-  
+
   if (config.p2p.useNTPOffsets === true) {
     time += ntpOffsetMs
   }
@@ -912,11 +942,11 @@ export function calculateFakeTimeOffset(shift: number, spread: number): number {
   const maxShift = 5000
   const minSpread = 0
   const maxSpread = 5000
-  shift = Math.min(Math.max(shift, minShift), maxShift);
-  spread = Math.min(Math.max(spread, minSpread), maxSpread);
+  shift = Math.min(Math.max(shift, minShift), maxShift)
+  spread = Math.min(Math.max(spread, minSpread), maxSpread)
 
-  const begin = shift - (spread / 2)
-  const end = shift + (spread / 2) 
+  const begin = shift - spread / 2
+  const end = shift + spread / 2
   fakeTimeOffsetMs = Math.round(begin + (end - begin) * Math.random())
   return fakeTimeOffsetMs
 }

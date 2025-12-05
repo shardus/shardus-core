@@ -44,17 +44,6 @@ export const schemaAppliedVote = {
   ],
 }
 
-export const schemaConfirmOrChallengeMessage = {
-  type: 'object',
-  properties: {
-    message: { type: 'string' },
-    nodeId: { type: 'string' },
-    appliedVote: schemaAppliedVote,
-    sign: schemaSign,
-  },
-  required: ['message', 'nodeId', 'appliedVote'],
-}
-
 export const schemaProposal = {
   type: 'object',
   properties: {
@@ -75,14 +64,7 @@ export const schemaProposal = {
     appReceiptDataHash: { type: 'string' },
     txid: { type: 'string' },
   },
-  required: [
-    'applied',
-    'cant_preApply',
-    'accountIDs',
-    'beforeStateHashes',
-    'afterStateHashes',
-    'appReceiptDataHash',
-  ],
+  required: ['applied', 'cant_preApply', 'accountIDs', 'beforeStateHashes', 'afterStateHashes', 'appReceiptDataHash'],
 }
 
 export const schemaSignedReceipt = {

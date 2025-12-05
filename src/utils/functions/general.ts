@@ -1,9 +1,9 @@
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import { Ordering } from '..'
 import { Response } from 'express-serve-static-core'
 import { DevSecurityLevel, NodeWithRank } from '../../shardus/shardus-types'
 import { nestedCountersInstance } from '../nestedCounters'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 /**
  * Checks if the input string is a valid IPv4 address
@@ -76,15 +76,7 @@ export function propComparator<T>(prop: keyof T): (a: T, b: T) => Ordering {
 export function propComparator2<T>(prop: keyof T, prop2: keyof T): (a: T, b: T) => Ordering {
   /* eslint-disable security/detect-object-injection */
   const comparator = (a: T, b: T): Ordering =>
-    a[prop] === b[prop]
-      ? a[prop2] === b[prop2]
-        ? 0
-        : a[prop2] > b[prop2]
-        ? 1
-        : -1
-      : a[prop] > b[prop]
-      ? 1
-      : -1
+    a[prop] === b[prop] ? (a[prop2] === b[prop2] ? 0 : a[prop2] > b[prop2] ? 1 : -1) : a[prop] > b[prop] ? 1 : -1
   /* eslint-enable security/detect-object-injection */
   return comparator
 }
@@ -151,29 +143,29 @@ export const debugExpand = (value: string): string => {
 }
 
 export const selectNeighbors = (array: any[], ourIndex: number, neighborsOnEachSide: number): any[] => {
-  const length = array.length;
-  const neighbors = [];
+  const length = array.length
+  const neighbors = []
 
-  if (length === 0) return neighbors;
-  if (length <= neighborsOnEachSide * 2) return array.slice();
+  if (length === 0) return neighbors
+  if (length <= neighborsOnEachSide * 2) return array.slice()
 
   try {
     for (let i = 1; i <= neighborsOnEachSide; i++) {
-      const leftIndex = (ourIndex - i + length) % length;
-      const rightIndex = (ourIndex + i) % length;
+      const leftIndex = (ourIndex - i + length) % length
+      const rightIndex = (ourIndex + i) % length
 
       if (leftIndex !== ourIndex) {
-        neighbors.push(array[leftIndex]);
+        neighbors.push(array[leftIndex])
       }
 
       if (rightIndex !== ourIndex && rightIndex !== leftIndex) {
-        neighbors.push(array[rightIndex]);
+        neighbors.push(array[rightIndex])
       }
     }
   } catch (e) {
-    console.error(`Error selecting neighbors nodes: ${e.message}`);
+    console.error(`Error selecting neighbors nodes: ${e.message}`)
   }
-  return neighbors;
+  return neighbors
 }
 
 /*
@@ -319,9 +311,7 @@ export function generateArraySchema(arr: unknown[], options = { diversity: false
       if (options.diversity) {
         return 'any[]'
       } else {
-        throw new Error(
-          'Array schema generation does not allowed type diversities in an array unless specified'
-        )
+        throw new Error('Array schema generation does not allowed type diversities in an array unless specified')
       }
     }
 
@@ -412,25 +402,6 @@ export function compareObjectShape(
   return { isValid, error }
 }
 
-// version checker
-export function isEqualOrNewerVersion(oldVer: string, newVer: string): boolean {
-  if (oldVer === newVer) {
-    return true
-  }
-  const oldParts = oldVer.split('.')
-  const newParts = newVer.split('.')
-  for (let i = 0; i < newParts.length; i++) {
-    // eslint-disable-next-line security/detect-object-injection
-    const a = ~~newParts[i] // parse int
-    if (oldParts.length <= i) return false
-    // eslint-disable-next-line security/detect-object-injection
-    const b = ~~oldParts[i] // parse int
-    if (a > b) return true
-    if (a < b) return false
-  }
-  return false
-}
-
 // adapted from stack overflow post
 export function humanFileSize(size: number): string {
   const i = Math.max(size == 0 ? 0 : Math.floor(Math.log(size) / Math.log(1024)), 4)
@@ -451,6 +422,22 @@ export function fastIsPicked(ourIndex: number, groupSize: number, numToPick: num
     isPicked = true
   }
   return isPicked
+}
+
+/**
+ * Returns a random index based on a hash and group size.
+ * This is useful for picking a random index from a group of nodes based on txId or similar,
+ * to ensure all nodes in the group pick the same index.
+ * @param groupSize
+ * @param hash
+ */
+export function pickIndexBasedOnHash(groupSize: number, hash: string): number {
+  if (!hash.startsWith('0x')) {
+    hash = '0x' + hash
+  }
+  const hashAsBigInt = BigInt(hash)
+  const offset = Number(hashAsBigInt % BigInt(groupSize))
+  return (groupSize - offset) % groupSize
 }
 
 //Write a function that uses fastIsPicked to return an arrray of all the indexes that are picked
@@ -496,7 +483,7 @@ export function selectIndexesWithOffeset(arraySize: number, numberToPick: number
  * @param printStack
  * @returns
  */
-export function formatErrorMessage(err: unknown, printStack: boolean = true): string {
+export function formatErrorMessage(err: unknown, printStack = true): string {
   let errMsg = 'An error occurred'
 
   if (typeof err === 'string') {
@@ -549,10 +536,7 @@ export function logNode(node: P2P.NodeListTypes.Node | NodeWithRank): string {
  * @param obj
  * @returns
  */
-export function jsonHttpResWithSize(
-  res: Response<unknown, Record<string, unknown>, number>,
-  obj: object
-): number {
+export function jsonHttpResWithSize(res: Response<unknown, Record<string, unknown>, number>, obj: object): number {
   const str = Utils.safeStringify(obj)
   res.setHeader('Content-Length', str.length)
   res.setHeader('Content-Type', 'application/json')
@@ -604,17 +588,17 @@ export function getPrefixInt(hexAddress: string, length = 8): number {
   // }
 
   if (length < 1 || length > 8) {
-    throw new Error("Length parameter should be between 1 and 8.");
+    throw new Error('Length parameter should be between 1 and 8.')
   }
 
-  const prefixHex = hexAddress.slice(0, length);
-  const prefixInt = parseInt(prefixHex, 16);
+  const prefixHex = hexAddress.slice(0, length)
+  const prefixInt = parseInt(prefixHex, 16)
 
   if (isNaN(prefixInt)) {
-    throw new Error("Invalid hex characters in the input.");
+    throw new Error('Invalid hex characters in the input.')
   }
 
-  return prefixInt;
+  return prefixInt
 }
 
 /**

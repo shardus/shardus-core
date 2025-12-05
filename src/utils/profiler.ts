@@ -8,7 +8,7 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import { isDebugModeMiddleware, isDebugModeMiddlewareLow } from '../network/debugMiddleware'
 import { memoryReportingInstance } from '../utils/memoryReporting'
 import { shardusGetTime, getNetworkTimeOffset } from '../network'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 const cDefaultMin = 1e12
 const cDefaultMinBig = BigInt(cDefaultMin)
@@ -134,8 +134,24 @@ class Profiler {
 
       if (this.statisticsInstance) this.statisticsInstance.clearRing('txProcessed')
 
+      // This interval is used to keep the connection alive by sending periodic empty writes.
+      // It checks if the response stream is still open and clears the interval if the stream is closed.
+      const keepAliveInterval = setInterval(() => {
+        try {
+          if (!res.destroyed) {
+            res.write(``)
+          } else {
+            clearInterval(keepAliveInterval)
+          }
+        } catch (err) {
+          console.error('Error writing keep-alive response:', err)
+          clearInterval(keepAliveInterval)
+        }
+      }, 2000)
+
       // wait X seconds
       await sleep(waitTime * 1000)
+      clearInterval(keepAliveInterval)
       res.write(`Results for ${waitTime} sec of sampling...`)
       res.write(`\n===========================\n`)
 
@@ -241,9 +257,7 @@ class Profiler {
       this.sectionTimes[sectionName] = section
     }
 
-    section.start = Context.config?.debug?.highResolutionProfiling
-      ? process.hrtime.bigint()
-      : BigInt(Date.now())
+    section.start = Context.config?.debug?.highResolutionProfiling ? process.hrtime.bigint() : BigInt(Date.now())
     section.started = true
     section.c++
 
@@ -279,9 +293,7 @@ class Profiler {
       return
     }
 
-    section.end = Context.config?.debug?.highResolutionProfiling
-      ? process.hrtime.bigint()
-      : BigInt(Date.now())
+    section.end = Context.config?.debug?.highResolutionProfiling ? process.hrtime.bigint() : BigInt(Date.now())
     section.total += section.end - section.start
     section.started = false
 
@@ -368,9 +380,7 @@ class Profiler {
       stat.avg = stat.total / stat.c
     }
 
-    section.start = Context.config?.debug?.highResolutionProfiling
-      ? process.hrtime.bigint()
-      : BigInt(Date.now())
+    section.start = Context.config?.debug?.highResolutionProfiling ? process.hrtime.bigint() : BigInt(Date.now())
     section.started = true
     section.c++
   }
@@ -383,9 +393,7 @@ class Profiler {
       if (profilerSelfReporting) return
     }
 
-    section.end = Context.config?.debug?.highResolutionProfiling
-      ? process.hrtime.bigint()
-      : BigInt(Date.now())
+    section.end = Context.config?.debug?.highResolutionProfiling ? process.hrtime.bigint() : BigInt(Date.now())
 
     const duration = section.end - section.start
     section.total += duration

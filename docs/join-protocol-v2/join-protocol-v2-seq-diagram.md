@@ -7,7 +7,7 @@ sequenceDiagram
     Note over N,AN: Node wants to join network
     
     N->>AN: Submit join request
-    AN-->>N: Validate staking (in Shardeum)
+    AN-->>N: Validate staking (in Shardus)
     
     opt Node is Validated and Reachable
         AN->>AN: Gossip join request to all nodes

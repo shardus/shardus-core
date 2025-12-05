@@ -9,14 +9,11 @@ import StateManager from '.'
 import { GlobalAccountReportResp } from './state-manager-types'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { Logger as Log4jsLogger } from 'log4js'
-import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { Route } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { InternalBinaryHandler } from '../types/Handler'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
-import {
-  GlobalAccountReportRespSerializable,
-  serializeGlobalAccountReportResp,
-} from '../types/GlobalAccountReportResp'
+import { GlobalAccountReportRespSerializable, serializeGlobalAccountReportResp } from '../types/GlobalAccountReportResp'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
 import { BadRequest, InternalError, serializeResponseError } from '../types/ResponseError'
@@ -256,10 +253,7 @@ class AccountGlobals {
         }
       },
     }
-    this.p2p.registerInternalBinary(
-      globalAccountReportBinaryHandler.name,
-      globalAccountReportBinaryHandler.handler
-    )
+    this.p2p.registerInternalBinary(globalAccountReportBinaryHandler.name, globalAccountReportBinaryHandler.handler)
   }
 
   /**
@@ -283,6 +277,9 @@ class AccountGlobals {
   async getGlobalListEarly(syncFromArchiver: boolean = false): Promise<void> {
     let retriesLeft = 10
 
+    if (syncFromArchiver) {
+      retriesLeft = 100
+    }
     //This will try up to 10 times to get the global list
     //if that fails we will throw an error that shoul cause an apop
     while (this.hasknownGlobals === false) {
@@ -292,8 +289,10 @@ class AccountGlobals {
         throw new Error(`DATASYNC: getGlobalListEarly: failed to get global list after 10 retries`)
       }
       try {
-        const globalReport: GlobalAccountReportResp =
-          await this.stateManager.accountSync.getRobustGlobalReport('getGlobalListEarly', syncFromArchiver)
+        const globalReport: GlobalAccountReportResp = await this.stateManager.accountSync.getRobustGlobalReport(
+          'getGlobalListEarly',
+          syncFromArchiver
+        )
         const temp = []
         for (const report of globalReport.accounts) {
           temp.push(report.id)
@@ -304,8 +303,11 @@ class AccountGlobals {
         /* prettier-ignore */ if (logFlags.debug) this.mainLogger.debug(`DATASYNC: getGlobalListEarly: ${utils.stringifyReduce(temp)}`)
         this.hasknownGlobals = true
       } catch (err) {
-        /* prettier-ignore */ nestedCountersInstance.countEvent('sync', 'DATASYNC: getRobustGlobalReport results === null')
+        /* prettier-ignore */ nestedCountersInstance.countEvent('sync', 'DATASYNC: getGlobalListEarly: getRobustGlobalReport results === null')
         await utils.sleep(10000)
+        if (syncFromArchiver) {
+          await utils.sleep(60000)
+        }
       } finally {
         retriesLeft--
       }

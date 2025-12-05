@@ -1,5 +1,5 @@
 // write jest unit test for RequestStateForTx
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { initAjvSchemas, verifyPayload } from '../../../../src/types/ajv/Helpers'
 import { TypeIdentifierEnum } from '../../../../src/types/enum/TypeIdentifierEnum'
 import {
@@ -13,19 +13,18 @@ import {
 } from '../../../../src/types/RequestReceiptForTxResp'
 import { VectorBufferStream } from '../../../../src/utils/serialization/VectorBufferStream'
 import { AJVSchemaEnum } from '../../../../src/types/enum/AJVSchemaEnum'
-
-// Mock the Context module and its nested structure
-jest.mock('../../../../src/p2p/Context', () => ({
-  setDefaultConfigs: jest.fn(),
-  stateManager: {
-    app: {
-      binarySerializeObject: jest.fn((enumType, data) => Buffer.from(Utils.safeStringify(data), 'utf8')),
-      binaryDeserializeObject: jest.fn((enumType, buffer) => Utils.safeJsonParse(buffer.toString('utf8'))),
-    },
-  },
-}))
+import { stateManager } from '@src/p2p/Context'
 
 describe('RequestReceiptForTx Serialization', () => {
+  beforeEach(() => {
+    ;(stateManager as any) = {
+      app: {
+        binarySerializeObject: jest.fn((_, data: any) => Buffer.from(Utils.safeStringify(data), 'utf8')),
+        binaryDeserializeObject: jest.fn((_, buffer: Buffer) => Utils.safeJsonParse(buffer.toString('utf8'))),
+      },
+    }
+  })
+
   beforeAll(() => {
     initAjvSchemas()
   })
@@ -57,6 +56,7 @@ describe('RequestReceiptForTx Serialization', () => {
           beforeStateHashes: ['b1', 'b2', 'b3'],
           afterStateHashes: ['a1', 'a2', 'a3'],
           appReceiptDataHash: 'hash',
+          executionShardKey: 'shardKey',
         },
         signaturePack: [
           {
@@ -104,6 +104,7 @@ describe('RequestReceiptForTx Serialization', () => {
           beforeStateHashes: ['b1', 'b2', 'b3'],
           afterStateHashes: ['a1', 'a2', 'a3'],
           appReceiptDataHash: 'hash',
+          executionShardKey: 'shardKey',
         },
         signaturePack: [
           {
@@ -148,6 +149,7 @@ describe('RequestReceiptForTx Serialization', () => {
           beforeStateHashes: ['b1', 'b2', 'b3'],
           afterStateHashes: ['a1', 'a2', 'a3'],
           appReceiptDataHash: 'hash',
+          executionShardKey: 'shardKey',
         },
         signaturePack: [
           {
@@ -188,6 +190,7 @@ describe('RequestReceiptForTx Serialization', () => {
           beforeStateHashes: ['b1', 'b2', 'b3'],
           afterStateHashes: ['a1', 'a2', 'a3'],
           appReceiptDataHash: 'hash',
+          executionShardKey: 'shardKey',
         },
         signaturePack: [
           {

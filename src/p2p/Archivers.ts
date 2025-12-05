@@ -1,14 +1,8 @@
-import { hexstring, P2P, publicKey, StateManager } from '@shardus/types'
+import { hexstring, P2P, publicKey, StateManager } from '@shardus/lib-types'
 import deepmerge from 'deepmerge'
 import * as http from '../http'
 import { logFlags } from '../logger'
-import {
-  getReceiptHashes,
-  getReceiptMap,
-  getStateHashes,
-  getSummaryBlob,
-  getSummaryHashes,
-} from '../snapshot'
+import { getReceiptHashes, getReceiptMap, getStateHashes, getSummaryBlob, getSummaryHashes } from '../snapshot'
 import { shuffleMapIterator, sleep, validateTypes } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { profilerInstance } from '../utils/profiler'
@@ -23,18 +17,21 @@ import * as NodeList from './NodeList'
 import Timeout = NodeJS.Timeout
 import { apoptosizeSelf } from './Apoptosis'
 import { randomInt } from 'crypto'
-import { CycleRecord } from '@shardus/types/build/src/p2p/CycleCreatorTypes'
-import { StateMetaData } from '@shardus/types/build/src/p2p/SnapshotTypes'
-import { DataRequest, JoinedArchiver } from '@shardus/types/build/src/p2p/ArchiversTypes'
+import { CycleRecord } from '@shardus/lib-types/build/src/p2p/CycleCreatorTypes'
+import { StateMetaData } from '@shardus/lib-types/build/src/p2p/SnapshotTypes'
+import { DataRequest, JoinedArchiver } from '@shardus/lib-types/build/src/p2p/ArchiversTypes'
 import * as CycleChain from './CycleChain'
 import rfdc from 'rfdc'
 import { shardusGetTime } from '../network'
 import { reportLostArchiver } from '../p2p/LostArchivers/functions'
-import { ActiveNode } from '@shardus/types/build/src/p2p/SyncTypes'
+import { ActiveNode } from '@shardus/lib-types/build/src/p2p/SyncTypes'
 import { Result, ResultAsync } from 'neverthrow'
-import { Utils } from '@shardus/types'
-import { arch } from 'os'
-import { checkGossipPayload } from '../utils/GossipValidation'
+import { Utils } from '@shardus/lib-types'
+import { DevSecurityLevel } from '../shardus/shardus-types'
+import { verifyPayload } from '../types/ajv/Helpers'
+import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
+import { customFetch } from '../http/customHttpFunctions'
+import { fireAndForget } from '../utils/functions/promises'
 
 const clone = rfdc()
 
@@ -44,11 +41,10 @@ let p2pLogger
 
 export let archivers: Map<P2P.ArchiversTypes.JoinedArchiver['publicKey'], P2P.ArchiversTypes.JoinedArchiver>
 // TODO: Update any with appropriate type
-export let recipients: Map<
-  P2P.ArchiversTypes.JoinedArchiver['publicKey'],
-  P2P.ArchiversTypes.DataRecipient | any
->
+export let recipients: Map<P2P.ArchiversTypes.JoinedArchiver['publicKey'], P2P.ArchiversTypes.DataRecipient | any>
 
+let allowedArchivers: Array<{ ip: string; port: number; publicKey: string }> = []
+let allowedArchiversInterval: NodeJS.Timeout | null = null
 let joinRequests: P2P.ArchiversTypes.Request[]
 let leaveRequests: P2P.ArchiversTypes.Request[]
 let receiptForwardInterval: Timeout | null = null
@@ -58,13 +54,14 @@ export let connectedSockets = {}
 let lastSentCycle = -1
 let lastTimeForwardedArchivers = []
 export const RECEIPT_FORWARD_INTERVAL_MS = 5000
+const ALLOWED_ARCHIVERS_UPDATE_INTERVAL_MS = process.env.ALLOWED_ARCHIVERS_UPDATE_INTERVAL_MS || 601000
+const MAX_BODY_LENGTH_ALLOWED_ARCHIVERS = 1024 * 1024 * 1 // 1MB
 
 export enum DataRequestTypes {
   SUBSCRIBE = 'SUBSCRIBE',
   UNSUBSCRIBE = 'UNSUBSCRIBE',
 }
 
-// This is to check if the new archiver data subscriptions feature is activated in shardeum v1.1.3
 // We can remove later after v1.1.3 upgrade
 export let archiverDataSubscriptionsUpdateFeatureActivated = false
 
@@ -76,17 +73,15 @@ export function getNumArchivers(): number {
   return archivers.size
 }
 
-export function getArchiverWithPublicKey(
-  publicKey: publicKey
-): P2P.ArchiversTypes.JoinedArchiver | undefined {
+export function getArchiverWithPublicKey(publicKey: publicKey): P2P.ArchiversTypes.JoinedArchiver | undefined {
   return archivers.get(publicKey)
 }
 
 export function getRandomArchiver(): P2P.ArchiversTypes.JoinedArchiver | null {
   if (archivers.size === 0) return null
   const list = Array.from(archivers.values())
-  const index = randomInt(0, list.length);
-  return list[index];
+  const index = randomInt(0, list.length)
+  return list[index]
 }
 
 /** CycleCreator Functions */
@@ -101,6 +96,27 @@ export function init() {
   reset()
   resetLeaveRequests()
   registerRoutes()
+  getAllowedArchivers().then((archivers) => {
+    if (archivers.length >= 1) {
+      allowedArchivers = archivers
+    }
+  })
+
+  setTimeout(() => {
+    // Set up interval to fetch allowed archivers
+    allowedArchiversInterval = setInterval(async () => {
+      try {
+        const newArchiversList = await getAllowedArchivers()
+        if (newArchiversList.length >= 1) {
+          allowedArchivers = newArchiversList
+        }
+      } catch (err) {
+        if (logFlags.important_as_fatal) {
+          console.error('Periodic update: failed to update allowedArchivers:', err)
+        }
+      }
+    }, Number(ALLOWED_ARCHIVERS_UPDATE_INTERVAL_MS)) // Default is 60 seconds
+  }, randomInt(Number(ALLOWED_ARCHIVERS_UPDATE_INTERVAL_MS))) // Stagger
 
   if (config.p2p.experimentalSnapshot && !receiptForwardInterval) {
     receiptForwardInterval = setInterval(forwardReceipts, RECEIPT_FORWARD_INTERVAL_MS)
@@ -118,12 +134,135 @@ export function init() {
               'checkNetworkStopped',
               `Network has stopped: apop self. ${shardusGetTime()}`
             )
-            apoptosizeSelf(msg)
+            apoptosizeSelf(msg, 'Node stopped due to the network shutting down.')
           }
         })
       }, 1000 * 60 * 5) // Check every 5 min
     }, randomInt(1000 * 60, 1000 * 60 * 5)) // Stagger initial checks between 1-5 min
   }
+}
+
+async function getAllowedArchivers(): Promise<
+  Array<{
+    ip: string
+    port: number
+    publicKey: string
+  }>
+> {
+  // Type for archiver data response
+  type ArchiverResponse = {
+    allowedArchivers: Array<{
+      ip: string
+      port: number
+      publicKey: string
+    }>
+    signatures: Array<{
+      owner: string
+      sig: string
+    }>
+  }
+
+  // Helper function to verify signatures
+  function verifyArchiverData(data: ArchiverResponse): boolean {
+    // Get allowed signers and min sig required from the global account
+    const allowedSigners = config.debug.multisigKeys
+    const minSigRequired = config.debug.minSigRequiredForArchiverWhitelist
+
+    if (!data.signatures || data.signatures.length < minSigRequired) {
+      p2pLogger.warn('getAllowedArchivers: insufficient signatures')
+      return false
+    }
+
+    const payload = {
+      allowedArchivers: data.allowedArchivers,
+    }
+
+    const isValidList = Context.stateManager.app.verifyMultiSigs(
+      payload,
+      data.signatures,
+      allowedSigners,
+      minSigRequired,
+      DevSecurityLevel.High
+    )
+    if (!isValidList) {
+      p2pLogger.warn('getAllowedArchivers: invalid signatures')
+      return false
+    }
+
+    return true
+  }
+
+  // Helper function to fetch and validate archiver data
+  async function fetchArchiverData(ip: string, port: number): Promise<ArchiverResponse | null> {
+    try {
+      const response = await customFetch(`http://${ip}:${port}/allowed-archivers`)
+      if (!response.ok) {
+        /* prettier-ignore */ nestedCountersInstance.countEvent('Archiver', `getAllowedArchivers: Response body not ok: ${ip}:${port} `)
+        return null
+      }
+      const bodyText = await response.text()
+
+      // Check if the body length exceeds the maximum allowed length
+      if (bodyText.length > MAX_BODY_LENGTH_ALLOWED_ARCHIVERS) {
+        p2pLogger.warn(
+          `Response body for allowed archivers is too large: ${bodyText.length} bytes. Max allowed is ${MAX_BODY_LENGTH_ALLOWED_ARCHIVERS} bytes.`
+        )
+        /* prettier-ignore */ nestedCountersInstance.countEvent('Archiver', `getAllowedArchivers: Response body for allowed archivers is too large: ${bodyText.length} bytes.  ${ip}:${port} `)
+        return null
+      }
+
+      const data = Utils.safeJsonParse(bodyText)
+
+      // Validate the parsed JSON data against the AJV schema
+      const inValidResponse = verifyPayload(AJVSchemaEnum.AllowedArchiverResponse, data)
+      if (inValidResponse) {
+        p2pLogger.warn('getAllowedArchivers: invalid allowed archivers response')
+        /* prettier-ignore */ nestedCountersInstance.countEvent('Archiver', `getAllowedArchivers: invalid allowed archivers response  ${ip}:${port} `)
+        return null
+      }
+      if (data.allowedArchivers?.length > 0 && verifyArchiverData(data)) {
+        return data
+      } else {
+        p2pLogger.warn('getAllowedArchivers: invalid signatures or no allowed archivers')
+        /* prettier-ignore */ nestedCountersInstance.countEvent('Archiver', `getAllowedArchivers: invalid signatures or no allowed archivers  ${ip}:${port} `)
+        return null
+      }
+    } catch (err) {
+      console.error('getAllowedArchivers: Failed to get archiver data from ', ip, ':', port, err)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('Archiver', `getAllowedArchivers: err ${ip}:${port} ${err.message}`)
+      p2pLogger.warn(`Failed to get archiver data from ${ip}:${port}`)
+    }
+    return null
+  }
+
+  // Try getting from existing archivers first
+  if (archivers.size > 0) {
+    const randomArchiver = getRandomArchiver()
+    if (!randomArchiver) return []
+
+    const data = await fetchArchiverData(randomArchiver.ip, randomArchiver.port)
+    if (data) {
+      /* prettier-ignore */ nestedCountersInstance.countEvent('Archiver', `getAllowedArchivers: got data from: ${randomArchiver.ip}:${randomArchiver.port}`)
+      return data.allowedArchivers
+    } else {
+      /* prettier-ignore */ nestedCountersInstance.countEvent('Archiver', `getAllowedArchivers: failed to get data from: ${randomArchiver.ip}:${randomArchiver.port}`)
+    }
+  }
+
+  // Fall back to configured existing archivers
+  const existingArchivers = config.p2p.existingArchivers
+  if (existingArchivers.length > 0) {
+    for (const archiver of existingArchivers) {
+      const data = await fetchArchiverData(archiver.ip, archiver.port)
+      if (data) {
+        /* prettier-ignore */ nestedCountersInstance.countEvent('Archiver', `getAllowedArchivers: got data from fallback: ${archiver.ip}:${archiver.port}`)
+        return data.allowedArchivers
+      } else {
+        /* prettier-ignore */ nestedCountersInstance.countEvent('Archiver', `getAllowedArchivers: failed to get data from fallback: ${archiver.ip}:${archiver.port}`)
+      }
+    }
+  }
+  return []
 }
 
 export function reset() {
@@ -169,6 +308,17 @@ export function updateRecord(txs: P2P.ArchiversTypes.Txs, record: P2P.CycleCreat
     .filter((request) => request.requestType === P2P.ArchiversTypes.RequestTypes.LEAVE)
     .map((leaveRequest) => leaveRequest.nodeInfo)
 
+  // Remove archivers that are not in the allowed list
+  for (const existingArchiver of archivers.values()) {
+    if (
+      allowedArchivers.length > 0 &&
+      !allowedArchivers.some((allowed) => allowed.publicKey === existingArchiver.publicKey) &&
+      !leavingArchivers.some((leaving) => leaving.publicKey === existingArchiver.publicKey)
+    ) {
+      leavingArchivers.push(existingArchiver)
+    }
+  }
+
   if (logFlags.console)
     console.log(
       `Archiver before updating record: Cycle ${CycleCreator.currentCycle}, Quarter: ${CycleCreator.currentQuarter}`,
@@ -177,12 +327,10 @@ export function updateRecord(txs: P2P.ArchiversTypes.Txs, record: P2P.CycleCreat
     )
 
   record.joinedArchivers = joinedArchivers.sort(
-    (a: P2P.ArchiversTypes.JoinedArchiver, b: P2P.ArchiversTypes.JoinedArchiver) =>
-      a.publicKey > b.publicKey ? 1 : -1
+    (a: P2P.ArchiversTypes.JoinedArchiver, b: P2P.ArchiversTypes.JoinedArchiver) => (a.publicKey > b.publicKey ? 1 : -1)
   )
   record.leavingArchivers = leavingArchivers.sort(
-    (a: P2P.ArchiversTypes.JoinedArchiver, b: P2P.ArchiversTypes.JoinedArchiver) =>
-      a.publicKey > b.publicKey ? 1 : -1
+    (a: P2P.ArchiversTypes.JoinedArchiver, b: P2P.ArchiversTypes.JoinedArchiver) => (a.publicKey > b.publicKey ? 1 : -1)
   )
   if (logFlags.console)
     console.log(
@@ -255,9 +403,7 @@ export function addArchiverJoinRequest(joinRequest: P2P.ArchiversTypes.Request, 
     warn('addJoinRequest: This archiver is already in the active archiver list')
     return { success: false, reason: 'This archiver is already in the active archiver list' }
   }
-  const existingJoinRequest = joinRequests.find(
-    (j) => j.nodeInfo.publicKey === joinRequest.nodeInfo.publicKey
-  )
+  const existingJoinRequest = joinRequests.find((j) => j.nodeInfo.publicKey === joinRequest.nodeInfo.publicKey)
   if (existingJoinRequest) {
     warn('addJoinRequest: This archiver join request already exists')
     return { success: false, reason: 'This archiver join request already exists' }
@@ -267,6 +413,14 @@ export function addArchiverJoinRequest(joinRequest: P2P.ArchiversTypes.Request, 
       warn('addJoinRequest: This archiver join request uses a bogon IP')
       return { success: false, reason: 'This archiver join request is a bogon IP' }
     }
+  }
+
+  const isPublicKeyWhitelisted = allowedArchivers.some(
+    (archiver) => archiver.publicKey === joinRequest.nodeInfo.publicKey
+  )
+  if (!isPublicKeyWhitelisted && archivers.size > 0) {
+    warn('addJoinRequest: Archiver not found in the allowed list')
+    return { success: false, reason: 'Archiver not found in the allowed list' }
   }
 
   if (archivers.size > 0) {
@@ -320,7 +474,7 @@ export function addArchiverJoinRequest(joinRequest: P2P.ArchiversTypes.Request, 
       joinRequest
     )
   if (gossip === true) {
-    Comms.sendGossip('joinarchiver', joinRequest, tracker, null, NodeList.byIdOrder, true)
+    fireAndForget(() => Comms.sendGossip('joinarchiver', joinRequest, tracker, null, NodeList.byIdOrder, true))
   }
   return { success: true }
 }
@@ -333,11 +487,7 @@ function validateArchiverAppData(joinRequest: P2P.ArchiversTypes.Request): {
     try {
       const validationResponse = shardus.app.validateArchiverJoinRequest(joinRequest)
       if (validationResponse.success !== true) {
-        error(
-          `Validation of Archiver join request data failed due to ${
-            validationResponse.reason || 'unknown reason'
-          }`
-        )
+        error(`Validation of Archiver join request data failed due to ${validationResponse.reason || 'unknown reason'}`)
         nestedCountersInstance.countEvent('Archiver', `Join-reject-dapp`)
         return {
           success: validationResponse.success,
@@ -393,13 +543,10 @@ export function addLeaveRequest(leaveRequest: P2P.ArchiversTypes.Request, tracke
     )
     return {
       success: false,
-      reason:
-        'Not a valid archiver to be sending leave request, archiver was not found in active archiver list',
+      reason: 'Not a valid archiver to be sending leave request, archiver was not found in active archiver list',
     }
   }
-  const existingLeaveRequest = leaveRequests.find(
-    (j) => j.nodeInfo.publicKey === leaveRequest.nodeInfo.publicKey
-  )
+  const existingLeaveRequest = leaveRequests.find((j) => j.nodeInfo.publicKey === leaveRequest.nodeInfo.publicKey)
   if (existingLeaveRequest) {
     warn('addLeaveRequest: This archiver leave request already exists')
     return { success: false, reason: 'This archiver leave request already exists' }
@@ -429,7 +576,7 @@ export function addLeaveRequest(leaveRequest: P2P.ArchiversTypes.Request, tracke
   leaveRequests.push(leaveRequest)
   if (logFlags.console) console.log('adding leave requests', leaveRequests)
   if (gossip === true) {
-    Comms.sendGossip('leavingarchiver', leaveRequest, tracker, null, NodeList.byIdOrder, true)
+    fireAndForget(() => Comms.sendGossip('leavingarchiver', leaveRequest, tracker, null, NodeList.byIdOrder, true))
   }
   return { success: true }
 }
@@ -538,7 +685,7 @@ async function forwardReceipts() {
     else continue
     if (logFlags.console)
       console.log('pingNeeded', pingNeeded, stateManager.transactionQueue.receiptsForwardedTimestamp)
-    forwardDataToSubscribedArchivers(responses, publicKey, recipient)
+    fireAndForget(() => forwardDataToSubscribedArchivers(responses, publicKey, recipient))
   }
 
   if (config.p2p.instantForwardReceipts) {
@@ -548,11 +695,10 @@ async function forwardReceipts() {
         responses.RECEIPT = receipts
         if (logFlags.console) console.log('newArchiversToForward', newArchiversToForward)
         for (let publicKey of newArchiversToForward) {
-          if (logFlags.console)
-            console.log('Sending last 15s receipts to newly subscribed archivers', publicKey)
+          if (logFlags.console) console.log('Sending last 15s receipts to newly subscribed archivers', publicKey)
           const recipient = recipients.get(publicKey)
           if (!recipient) continue
-          forwardDataToSubscribedArchivers(responses, publicKey, recipient)
+          fireAndForget(() => forwardDataToSubscribedArchivers(responses, publicKey, recipient))
         }
       }
     }
@@ -575,18 +721,21 @@ async function forwardDataToSubscribedArchivers(responses, publicKey, recipient)
   const taggedDataResponse = crypto.tag(dataResponse, recipient.curvePk)
   if (logFlags.console) console.log('Sending data to subscribed archivers', taggedDataResponse)
   try {
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) info('Sending data to subscribed archivers: ', Utils.safeStringify(taggedDataResponse))
     if (io.sockets.sockets[connectedSockets[publicKey]]) {
-      if (logFlags.console)
-        console.log('Forwarded Archiver', recipient.nodeInfo.ip + ':' + recipient.nodeInfo.port)
+      if (logFlags.console) console.log('Forwarded Archiver', recipient.nodeInfo.ip + ':' + recipient.nodeInfo.port)
       io.sockets.sockets[connectedSockets[publicKey]].emit('DATA', Utils.safeStringify(taggedDataResponse))
+      /* prettier-ignore */ if (nestedCountersInstance) nestedCountersInstance.countEvent('forwardDataToSubscribedArchivers', `archiver connected — ${publicKey}`)
     } else {
       warn(`Subscribed Archiver ${publicKey} is not connected over socket connection`)
       // Call into LostArchivers to report Archiver as lost
+      /* prettier-ignore */ if (nestedCountersInstance) nestedCountersInstance.countEvent('forwardDataToSubscribedArchivers', `archiver not connected — ${publicKey}`)
       reportLostArchiver(publicKey, 'forwardDataToSubscribedArchivers() error')
     }
   } catch (e) {
-    error('Run into issue in forwarding data', e)
+    error('Run into issue in forwarding data to - ', publicKey, e)
     // Call into LostArchivers to report Archiver as lost
+    /* prettier-ignore */ if (nestedCountersInstance) nestedCountersInstance.countEvent('forwardDataToSubscribedArchivers', `unknown error — ${publicKey}`)
     reportLostArchiver(publicKey, 'forwardDataToSubscribedArchivers() error')
   }
 }
@@ -600,9 +749,9 @@ export async function instantForwardReceipts(receipts) {
   const responses: any = {}
   responses.RECEIPT = [...receipts]
   for (const [publicKey, recipient] of recipients) {
-    forwardDataToSubscribedArchivers(responses, publicKey, recipient)
+    fireAndForget(() => forwardDataToSubscribedArchivers(responses, publicKey, recipient))
   }
-  nestedCountersInstance.countEvent('Archiver', 'instantForwardReceipts')
+  if (nestedCountersInstance) nestedCountersInstance.countEvent('Archiver', 'instantForwardReceipts')
   profilerInstance.scopedProfileSectionEnd('instantForwardReceipts')
 }
 
@@ -615,7 +764,7 @@ export async function instantForwardOriginalTxData(originalTxData) {
   const responses: any = {}
   responses.ORIGINAL_TX_DATA = [originalTxData]
   for (const [publicKey, recipient] of recipients) {
-    forwardDataToSubscribedArchivers(responses, publicKey, recipient)
+    fireAndForget(() => forwardDataToSubscribedArchivers(responses, publicKey, recipient))
   }
   nestedCountersInstance.countEvent('Archiver', 'instantForwardOriginalTxData')
   profilerInstance.scopedProfileSectionEnd('instantForwardOriginalTxData')
@@ -710,11 +859,11 @@ export function sendData() {
     const cycleRecords = getCycleChain(lastSentCycle + 1)
     const cyclesWithMarker = []
     for (let i = 0; i < cycleRecords.length; i++) {
-      if (logFlags.console)
-        console.log('cycleRecords counter to sent to the archiver', cycleRecords[i].counter)
+      if (logFlags.console) console.log('cycleRecords counter to sent to the archiver', cycleRecords[i].counter)
       cyclesWithMarker.push({
         ...cycleRecords[i],
         marker: computeCycleMarker(cycleRecords[i]),
+        certificates: CycleCreator.getBestCycleCerts(cycleRecords[i].counter),
       })
     }
     // Update lastSentCycle
@@ -734,10 +883,7 @@ export function sendData() {
       try {
         // console.log('connected socketes', publicKey, connectedSockets)
         if (io.sockets.sockets[connectedSockets[publicKey]])
-          io.sockets.sockets[connectedSockets[publicKey]].emit(
-            'DATA',
-            Utils.safeStringify(taggedDataResponse)
-          )
+          io.sockets.sockets[connectedSockets[publicKey]].emit('DATA', Utils.safeStringify(taggedDataResponse))
         else {
           warn(`Subscribed Archiver ${publicKey} is not connected over socket connection`)
           // Call into LostArchivers to report Archiver as lost
@@ -759,9 +905,7 @@ export function sendData() {
       switch (request.type) {
         case P2P.SnapshotTypes.TypeNames.CYCLE: {
           // Identify request type
-          const typedRequest = request as P2P.ArchiversTypes.DataRequest<
-            P2P.SnapshotTypes.NamesToTypes['CYCLE']
-          >
+          const typedRequest = request as P2P.ArchiversTypes.DataRequest<P2P.SnapshotTypes.NamesToTypes['CYCLE']>
           // Get latest cycles since lastData
           const cycleRecords = getCycleChain(typedRequest.lastData + 1)
           const cyclesWithMarker = []
@@ -868,9 +1012,7 @@ export function getRefreshedArchivers(record) {
   // }
   if (record.leavingArchivers) {
     for (const archiverInfo of record.leavingArchivers) {
-      refreshedArchivers = refreshedArchivers.filter(
-        (archiver) => archiver.publicKey !== archiverInfo.publicKey
-      )
+      refreshedArchivers = refreshedArchivers.filter((archiver) => archiver.publicKey !== archiverInfo.publicKey)
     }
   }
   return refreshedArchivers
@@ -902,9 +1044,7 @@ export function registerRoutes() {
     const accepted = addArchiverJoinRequest(joinRequest)
     if (!accepted.success) {
       warn('Archiver join request not accepted.')
-      res.json(
-        { success: false, error: `Archiver join request rejected! ${accepted.reason}` }
-      )
+      res.json({ success: false, error: `Archiver join request rejected! ${accepted.reason}` })
       return
     }
     if (logFlags.p2pNonFatal) info('Archiver join request accepted!')
@@ -926,9 +1066,7 @@ export function registerRoutes() {
     const accepted = addLeaveRequest(leaveRequest)
     if (!accepted.success) {
       warn('Archiver leave request not accepted.')
-      res.json(
-        { success: false, error: `Archiver leave request rejected! ${accepted.reason}` }
-      )
+      res.json({ success: false, error: `Archiver leave request rejected! ${accepted.reason}` })
       return
     }
     if (logFlags.p2pNonFatal) info('Archiver leave request accepted!')
@@ -946,7 +1084,7 @@ export function registerRoutes() {
       }
       if (!accepted.success) return warn('Archiver join request not accepted.')
       if (logFlags.p2pNonFatal) info('Archiver join request accepted!')
-      Comms.sendGossip('joinarchiver', payload, tracker, sender, NodeList.byIdOrder, false)
+      fireAndForget(() => Comms.sendGossip('joinarchiver', payload, tracker, sender, NodeList.byIdOrder, false))
     } finally {
       profilerInstance.scopedProfileSectionEnd('joinarchiver')
     }
@@ -964,8 +1102,8 @@ export function registerRoutes() {
       if (logFlags.console) console.log('Leave request gossip received:', payload)
       const accepted = await addLeaveRequest(payload, tracker, false)
       if (!accepted.success) return warn('Archiver leave request not accepted.')
-      /* prettier-ignore */ if (logFlags.p2pNonFatal) info('Archiver leave request accepted!')
-      Comms.sendGossip('leavingarchiver', payload, tracker, sender, NodeList.byIdOrder, false)
+      if (logFlags.p2pNonFatal) info('Archiver leave request accepted!')
+      fireAndForget(() => Comms.sendGossip('leavingarchiver', payload, tracker, sender, NodeList.byIdOrder, false))
     } finally {
       profilerInstance.scopedProfileSectionEnd('leavingarchiver')
     }
@@ -1082,9 +1220,7 @@ export function registerRoutes() {
     delete queryRequest.publicKey
     delete queryRequest.tag
     let data: {
-      [key: number]:
-        | StateManager.StateManagerTypes.ReceiptMapResult[]
-        | StateManager.StateManagerTypes.StatsClump
+      [key: number]: StateManager.StateManagerTypes.ReceiptMapResult[] | StateManager.StateManagerTypes.StatsClump
     }
     if (queryRequest.type === 'RECEIPT_MAP') {
       data = getReceiptMap(queryRequest.lastData)
@@ -1172,10 +1308,7 @@ export function getFromArchiver<R>(
     http.get(`http://${archiver.ip}:${archiver.port}/${endpoint}`, false, timeout ?? 1000),
     (e: Error) => {
       warn(`${archiver.ip}:${archiver.port} is unreachable`)
-      reportLostArchiver(
-        archiver.publicKey,
-        failureReportMessage || `cannot GET archiver endpoint ${endpoint}`
-      )
+      reportLostArchiver(archiver.publicKey, failureReportMessage || `cannot GET archiver endpoint ${endpoint}`)
       return e
     }
   )
@@ -1197,10 +1330,7 @@ export function postToArchiver<B, R>(
     http.post(`http://${archiver.ip}:${archiver.port}/${endpoint}`, body, false, timeout),
     (e: Error) => {
       warn(`${archiver.ip}:${archiver.port} is unreachable`)
-      reportLostArchiver(
-        archiver.publicKey,
-        failureReportMessage || `cannot POST archiver endpoint ${endpoint}`
-      )
+      reportLostArchiver(archiver.publicKey, failureReportMessage || `cannot POST archiver endpoint ${endpoint}`)
       return e
     }
   )

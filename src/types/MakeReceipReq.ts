@@ -1,4 +1,4 @@
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 import { verifyPayload } from './ajv/Helpers'
@@ -16,6 +16,8 @@ export type MakeReceiptReq = {
   value: unknown
   when: number
   source: string
+  txId: string
+  afterStateHash: string
 }
 
 export function serializeMakeReceiptReq(stream: VectorBufferStream, obj: MakeReceiptReq, root = false): void {
@@ -30,6 +32,8 @@ export function serializeMakeReceiptReq(stream: VectorBufferStream, obj: MakeRec
   stream.writeString(Utils.safeStringify(obj.value))
   stream.writeBigUInt64(BigInt(obj.when))
   stream.writeString(obj.source)
+  stream.writeString(obj.txId)
+  stream.writeString(obj.afterStateHash)
 }
 
 export function deserializeMakeReceiptReq(stream: VectorBufferStream): MakeReceiptReq {
@@ -47,6 +51,8 @@ export function deserializeMakeReceiptReq(stream: VectorBufferStream): MakeRecei
     value: Utils.safeJsonParse(stream.readString()),
     when: Number(stream.readBigUInt64()),
     source: stream.readString(),
+    txId: stream.readString(),
+    afterStateHash: stream.readString(),
   }
   const errors = verifyPayload(AJVSchemaEnum.MakeReceiptReq, obj)
   if (errors && errors.length > 0) {

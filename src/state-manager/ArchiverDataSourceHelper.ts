@@ -1,7 +1,7 @@
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { logFlags } from '../logger'
 import StateManager from '.'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import * as utils from '../utils'
 
 /**
@@ -37,7 +37,7 @@ export default class ArchiverDataSourceHelper {
     if (this.dataSourceArchiverIndex >= this.dataSourceArchiverList.length) {
       /* prettier-ignore */ if (logFlags.error) this.stateManager.mainLogger.error(`tryNextDataSourceArchiver ${debugString} ran out of archivers ask for data`)
       this.dataSourceArchiverIndex = 0
-      /* prettier-ignore */ nestedCountersInstance.countEvent('sync', `tryNextDataSourceArchiver Out of tries: ${this.dataSourceArchiverIndex} of ${this.dataSourceArchiverList.length} `, 1)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('archiver_sync', `tryNextDataSourceArchiver Out of tries: ${this.dataSourceArchiverIndex} of ${this.dataSourceArchiverList.length} `, 1)
       return false
     }
 
@@ -45,13 +45,13 @@ export default class ArchiverDataSourceHelper {
     this.dataSourceArchiver = this.dataSourceArchiverList[this.dataSourceArchiverIndex]
 
     if (this.dataSourceArchiver == null) {
-      /* prettier-ignore */ nestedCountersInstance.countEvent('sync', `tryNextDataSourceArchiver next try: ${this.dataSourceArchiverIndex} of ${this.dataSourceArchiverList.length} ARCHIVER==null`, 1)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('archiver_sync', `tryNextDataSourceArchiver next try: ${this.dataSourceArchiverIndex} of ${this.dataSourceArchiverList.length} ARCHIVER==null`, 1)
       return false
     }
 
     /* prettier-ignore */ if (logFlags.error) this.stateManager.mainLogger.error(`tryNextDataSourceArchiver ${debugString} found: ${this.dataSourceArchiver.ip} ${this.dataSourceArchiver.port} `)
 
-    /* prettier-ignore */ nestedCountersInstance.countEvent('sync', `tryNextDataSourceArchiver next try: ${this.dataSourceArchiverIndex} of ${this.dataSourceArchiverList.length}`, 1)
+    /* prettier-ignore */ nestedCountersInstance.countEvent('archiver_sync', `tryNextDataSourceArchiver next try: ${this.dataSourceArchiverIndex} of ${this.dataSourceArchiverList.length}`, 1)
 
     return true
   }

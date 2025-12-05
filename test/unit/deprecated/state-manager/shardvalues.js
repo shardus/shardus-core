@@ -5,7 +5,7 @@ const ShardFunctions = require('../../../build/src/state-manager/shardFunctions.
 // import {ShardGlobals,ShardInfo,WrappableParitionRange,NodeShardData,AddressRange, HomeNodeSummary,ParititionShardDataMap,NodeShardDataMap,MergeResults,BasicAddressRange} from  './shardFunctionTypes'
 // import ShardFunctions from './shardFunctions.js'
 
-const crypto = require('@shardus/crypto-utils')
+const crypto = require('@shardus/lib-crypto-utils')
 const utils = require('../../../build/src/utils')
 crypto('69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc')
 
@@ -52,14 +52,7 @@ function getClosestNodes(shardGlobals, parititionShardDataMap, activeNodes, hash
   let homeNode = ShardFunctions.findHomeNode(shardGlobals, hash, parititionShardDataMap)
   let homeNodeIndex = homeNode.ourNodeIndex
   let idToExclude = ''
-  let results = ShardFunctions.getNodesByProximity(
-    shardGlobals,
-    activeNodes,
-    homeNodeIndex,
-    idToExclude,
-    count,
-    true
-  )
+  let results = ShardFunctions.getNodesByProximity(shardGlobals, activeNodes, homeNodeIndex, idToExclude, count, true)
 
   return results
 }
@@ -445,9 +438,7 @@ for (let i = 0; i < testIterations; i++) {
     console.log(` summary:${utils.stringifyReduce(summaryObject)}`)
     console.log(` relationString:${relationString}`)
     console.log('Home node for debug acc:' + utils.stringifyReduce(homeNode))
-    console.log(
-      'nodeThatStoreOurParitionFull:' + utils.stringifyReduce(homeNode.nodeThatStoreOurParitionFull)
-    )
+    console.log('nodeThatStoreOurParitionFull:' + utils.stringifyReduce(homeNode.nodeThatStoreOurParitionFull))
     let { homePartition: partition } = ShardFunctions.addressToPartition(shardGlobals, debugAccount)
 
     let ourNodeData = nodeShardDataMap.get(debugNode.id)

@@ -24,7 +24,7 @@ Keep these benefits in mind when coding and testing:
   - needed for at least reward calculations
 - reduce the number of messages related to the join process
 - reduce the cycles the certificate needs to be valid from 20 to a few
-- in Shardeum, eliminate the need for nodes to renew the stake certificate repeatedly as they submit join requests
+- in Shardus, eliminate the need for nodes to renew the stake certificate repeatedly as they submit join requests
 
 ## Code and Configuration
 
@@ -44,7 +44,7 @@ The existing join code is in the repository "shardus-global-server", aka "Shardu
     - if otherNode validates
       - reachability with `isPortReachable()`
       - and joiningNode is not already in `pendingJoinRequestList`, `standByNodes` or active nodes
-      - and joiningNode is validated (by Shardeum) to ensure that the node has staked properly
+      - and joiningNode is validated (by Shardus) to ensure that the node has staked properly
     - then
       - otherNode gossips the join request
       - otherNode adds newNode to a new `pendingJoinRequestList` in the cycle record
@@ -114,4 +114,4 @@ The state of a node goes through these states:
   - The old gossip route of gossiping the join requests with the highest score is deprecated.
   - Note that the active and standby list can only be modified based on instructions in the cycle record.
 - Phase 4
-  - In Shardeum when a node tries to unstake, make sure it is not in the standby, syncing or active list.
+  - In Shardus when a node tries to unstake, make sure it is not in the standby, syncing or active list.

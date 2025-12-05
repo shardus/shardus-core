@@ -1,7 +1,7 @@
 import deepmerge from 'deepmerge'
 import { Logger } from 'log4js'
 import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import * as utils from '../utils'
 // don't forget to add new modules here
 import * as Active from './Active'
@@ -25,7 +25,7 @@ import * as LostArchivers from './LostArchivers'
 import { compareQuery, Comparison } from './Utils'
 import { errorToStringFull, formatErrorMessage } from '../utils'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { randomBytes } from '@shardus/crypto-utils'
+import { randomBytes } from '@shardus/lib-crypto-utils'
 import { digestCycle, syncNewCycles } from './Sync'
 import { shardusGetTime } from '../network'
 import { InternalBinaryHandler } from '../types/Handler'
@@ -36,27 +36,26 @@ import {
   deserializeCompareCertResp,
   serializeCompareCertResp,
 } from '../types/CompareCertResp'
-import {
-  CompareCertReqSerializable,
-  deserializeCompareCertReq,
-  serializeCompareCertReq,
-} from '../types/CompareCertReq'
+import { CompareCertReqSerializable, deserializeCompareCertReq, serializeCompareCertReq } from '../types/CompareCertReq'
 import { verifyPayload } from '../types/ajv/Helpers'
 import fs from 'fs'
 import path from 'path'
 import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { BadRequest, InternalError, NotFound, serializeResponseError } from '../types/ResponseError'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { nodeListFromStates } from './Join'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
+import { log } from 'console'
+import { Utils as UtilsTypes } from '@shardus/lib-types'
+import { fireAndForget } from '../utils/functions/promises'
 
 /** CONSTANTS */
 
 const SECOND = 1000
 const BEST_CERTS_WANTED = 3
 const DESIRED_CERT_MATCHES = 3
-const MAX_CYCLES_TO_KEEP = 20
+export const MAX_CYCLES_TO_KEEP = 60
 
 // add the types of any new modules here
 type submoduleTypes =
@@ -124,12 +123,17 @@ let record: P2P.CycleCreatorTypes.CycleRecord
 let marker: P2P.CycleCreatorTypes.CycleMarker
 let cert: P2P.CycleCreatorTypes.CycleCert
 
+let prevMarkerCached: P2P.CycleCreatorTypes.CycleMarker
+let prevMarkerLastUpdate: number = -1
+
 let bestRecord: P2P.CycleCreatorTypes.CycleRecord
 let bestMarker: P2P.CycleCreatorTypes.CycleMarker
 let bestCycleCert: Map<P2P.CycleCreatorTypes.CycleMarker, P2P.CycleCreatorTypes.CycleCert[]>
 let bestCertScore: Map<P2P.CycleCreatorTypes.CycleMarker, number>
 
 const timers = {}
+
+let cacheOfCycleCerts: utils.FIFOCache<number, P2P.CycleCreatorTypes.CycleCert[]>
 
 // Keeps track of the last saved record in the DB in order to update it
 let lastSavedData: P2P.CycleCreatorTypes.CycleRecord
@@ -241,6 +245,8 @@ export function init() {
   p2pLogger = logger.getLogger('p2p')
   cycleLogger = logger.getLogger('cycle')
 
+  cacheOfCycleCerts = new utils.FIFOCache<number, P2P.CycleCreatorTypes.CycleCert[]>(100)
+
   for (const submodule of submodules) {
     if (submodule.init) submodule.init()
   }
@@ -294,6 +300,7 @@ function updateScaleFactor() {
     scaleFactorSyncBoost = 1
   }
 
+  //ITN3 example numbers  (128 / 5) * (640 / 100) = 25.6 * 6.4 = 163.84
   scaleFactor = Math.max((consensusRange / consenusParSize) * (activeNodeCount / networkParSize), 1)
 }
 
@@ -306,7 +313,9 @@ function reset() {
 
   // Reset CycleCreator
   txs = collectCycleTxs()
+  const oldMarker = marker
   ;({ record, marker, cert } = makeCycleData(txs, CycleChain.newest || undefined))
+  /* prettier-ignore */ if (logFlags.p2pSyncDebug) info(`updateMarker: reset C${currentCycle} Q${currentQuarter} counter: ${record.counter} oldMarker: ${oldMarker} marker: ${marker} prevMarker: ${prevMarkerCached}`)
 
   //todo some logging here.
 
@@ -356,7 +365,7 @@ async function cycleCreator() {
 
   createCycleTag++
   let callTag = `cct${createCycleTag}`
-  /* prettier-ignore */ if (logFlags.verbose) info( `cc: start C${currentCycle} Q${currentQuarter} madeCycle: ${madeCycle} bestMarker: ${bestMarker} ${callTag}` )
+  /* prettier-ignore */ if (logFlags.verbose) info(`cc: start C${currentCycle} Q${currentQuarter} madeCycle: ${madeCycle} bestMarker: ${bestMarker} ${callTag}`)
 
   try {
     // Get the previous record
@@ -487,7 +496,7 @@ async function cycleCreator() {
     schedule(runQ4, startQ4)
     schedule(cycleCreator, end, { runEvenIfLateBy: Infinity })
   } finally {
-    /* prettier-ignore */ if (logFlags.verbose) info( `cc: end C${currentCycle} Q${currentQuarter} madeCycle: ${madeCycle} bestMarker: ${bestMarker} ${callTag}` )
+    /* prettier-ignore */ if (logFlags.verbose) info(`cc: end C${currentCycle} Q${currentQuarter} madeCycle: ${madeCycle} bestMarker: ${bestMarker} ${callTag}`)
   }
 }
 
@@ -536,6 +545,9 @@ function runQ2() {
   currentQuarter = 2
   Self.emitter.emit('cycle_q2_start')
   /* prettier-ignore */ if (logFlags.p2pNonFatal) info(`C${currentCycle} Q${currentQuarter}`)
+
+  // making the prevMarker now since it should ready before we start scoring certs, which happens in Q3
+  prevMarkerCached = makeCycleMarker(CycleChain.newest)
 }
 
 /**
@@ -575,7 +587,10 @@ async function runQ3() {
   profilerInstance.profileSectionStart('CycleCreator-runQ3')
   // Get txs and create this cycle's record, marker, and cert
   txs = collectCycleTxs()
+  const oldMarker = marker
   ;({ record, marker, cert } = makeCycleData(txs, CycleChain.newest))
+  /* prettier-ignore */ if (logFlags.p2pSyncDebug) info(`updateMarker: runQ3 C${currentCycle} Q${currentQuarter} counter: ${record.counter} oldMarker: ${oldMarker} marker: ${marker} prevMarker: ${prevMarkerCached}`)
+  //prevMarker = oldMarker
 
   if (config.debug.enableCycleRecordDebugTool || config.debug.localEnableCycleRecordDebugTool) {
     if (currentQuarter === 3 && Self.isActive) {
@@ -634,7 +649,7 @@ async function runQ3() {
   // Gossip your cert for this cycle with the network
   gossipMyCycleCert()
 
-  ServiceQueue.processNetworkTransactions(record)
+  fireAndForget(() => ServiceQueue.processNetworkTransactions(record))
 
   profilerInstance.profileSectionEnd('CycleCreator-runQ3')
 }
@@ -667,13 +682,13 @@ async function runQ4() {
       matched = await compareCycleCert(myC, myQ, DESIRED_CERT_MATCHES)
       if (!matched) {
         if (cycleQuarterChanged(myC, myQ)) {
-          /* prettier-ignore */ if (logFlags.p2pNonFatal) warn( `In Q4 ran out of time waiting for compareCycleCert with DESIRED_CERT_MATCHES of ${DESIRED_CERT_MATCHES}` )
+          /* prettier-ignore */ if (logFlags.p2pNonFatal) warn(`In Q4 ran out of time waiting for compareCycleCert with DESIRED_CERT_MATCHES of ${DESIRED_CERT_MATCHES}`)
           profilerInstance.profileSectionEnd('CycleCreator-runQ4')
           return
         }
         await utils.sleep(100)
         if (enterTime + cycleDuration < shardusGetTime()) {
-          /* prettier-ignore */ if (logFlags.p2pNonFatal) warn( `In Q4 waited ${config.p2p.cycleDuration} seconds for compareCycleCert with DESIRED_CERT_MATCHES of ${DESIRED_CERT_MATCHES}` )
+          /* prettier-ignore */ if (logFlags.p2pNonFatal) warn(`In Q4 waited ${config.p2p.cycleDuration} seconds for compareCycleCert with DESIRED_CERT_MATCHES of ${DESIRED_CERT_MATCHES}`)
           //profilerInstance.profileSectionEnd('CycleCreator-runQ4')
           //return
           // we should return, but want to catch this get stuck to confirm it is not happening
@@ -682,14 +697,16 @@ async function runQ4() {
       }
     } while (!matched)
 
-    /* prettier-ignore */ if (logFlags.p2pNonFatal) 
+    /* prettier-ignore */ if (logFlags.p2pNonFatal)
       info(`
     Certified cycle record: ${Utils.safeStringify(record)}
     Certified cycle marker: ${Utils.safeStringify(marker)}
     Certified cycle cert: ${Utils.safeStringify(cert)}
   `)
+
+    cacheOfCycleCerts.set(currentCycle, bestCycleCert.get(bestMarker))
   } finally {
-    /* prettier-ignore */ if (logFlags.p2pNonFatal) info( `Q4: END: myC:${myC}  C${currentCycle} Q${currentQuarter} Certified cycle record: ${Utils.safeStringify(record.counter)}` )
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) info(`Q4: END: myC:${myC}  C${currentCycle} Q${currentQuarter} Certified cycle record: ${Utils.safeStringify(record.counter)}`)
     // Dont need this any more since we are not doing anything after this
     // if (cycleQuarterChanged(myC, myQ)) return
     profilerInstance.profileSectionEnd('CycleCreator-runQ4')
@@ -725,10 +742,7 @@ function makeCycleRecord(
     networkId: prevRecord ? prevRecord.networkId : randomBytes(32),
     counter: prevRecord ? prevRecord.counter + 1 : 0,
     previous: prevRecord ? makeCycleMarker(prevRecord) : '0'.repeat(64),
-    start:
-      prevRecord && prevRecord.mode !== 'shutdown'
-        ? prevRecord.start + prevRecord.duration
-        : utils.getTime('s'),
+    start: prevRecord && prevRecord.mode !== 'shutdown' ? prevRecord.start + prevRecord.duration : utils.getTime('s'),
     duration: prevRecord ? prevRecord.duration : config.p2p.cycleDuration,
     networkConfigHash: makeNetworkConfigHash(),
   }
@@ -763,11 +777,15 @@ function makeCycleRecord(
 }
 
 export function makeCycleMarker(record: P2P.CycleCreatorTypes.CycleRecord) {
-  return crypto.hash(record)
+  const marker = crypto.hash(record)
+  info(`makeCycleCert for cycle ${record.counter} marker: ${marker} cycleRecord: ${Utils.safeStringify(record)}`)
+  return marker
 }
 
 function makeCycleCert(marker: P2P.CycleCreatorTypes.CycleMarker): P2P.CycleCreatorTypes.CycleCert {
-  return crypto.sign({ marker })
+  const cert = crypto.sign({ marker })
+  console.log(`makeCycleCert:  ${Utils.safeStringify(cert)}`)
+  return cert
 }
 
 function makeNetworkConfigHash() {
@@ -830,12 +848,18 @@ async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
       /* prettier-ignore */ if (logFlags.p2pNonFatal) warn(`CycleCreator: fetchLatestRecord: synced record not newer CycleChain.newest.counter: ${CycleChain.newest.counter} oldCounter: ${oldCounter}`)
       fetchLatestRecordFails++
       if (fetchLatestRecordFails > maxFetchLatestRecordFails) {
-        /* prettier-ignore */ if (logFlags.p2pNonFatal) error( 'CycleCreator: fetchLatestRecord_A: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf ' )
+        /* prettier-ignore */ if (logFlags.p2pNonFatal) error('CycleCreator: fetchLatestRecord_A: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf ')
         // this.fatalLogger.fatal(
         //   'CycleCreator: fetchLatestRecord_A: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf '
         // )
-        nestedCountersInstance.countEvent('fetchLatestRecord', `fetchLatestRecord_A fail and apop self. ${shardusGetTime()}`)
-        Apoptosis.apoptosizeSelf('Apoptosized within fetchLatestRecord() => src/p2p/CycleCreator.ts')
+        nestedCountersInstance.countEvent(
+          'fetchLatestRecord',
+          `fetchLatestRecord_A fail and apop self. ${shardusGetTime()}`
+        )
+        Apoptosis.apoptosizeSelf(
+          'Apoptosized within fetchLatestRecord() => src/p2p/CycleCreator.ts',
+          'Node stopped. Unable to sync newest cycles due to node performance or network issues.'
+        )
       }
 
       return null
@@ -844,13 +868,19 @@ async function fetchLatestRecord(): Promise<P2P.CycleCreatorTypes.CycleRecord> {
     /* prettier-ignore */ if (logFlags.p2pNonFatal) warn('CycleCreator: fetchLatestRecord: syncNewCycles failed:', errorToStringFull(err))
     fetchLatestRecordFails++
     if (fetchLatestRecordFails > maxFetchLatestRecordFails) {
-      /* prettier-ignore */ if (logFlags.p2pNonFatal) error( 'CycleCreator: fetchLatestRecord_B: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf ' )
+      /* prettier-ignore */ if (logFlags.p2pNonFatal) error('CycleCreator: fetchLatestRecord_B: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf ')
       // this.fatalLogger.fatal(
       //   'CycleCreator: fetchLatestRecord_B: fetchLatestRecordFails > maxFetchLatestRecordFails. apoptosizeSelf ',
       //   utils.formatErrorMessage(err)
       // )
-      nestedCountersInstance.countEvent('fetchLatestRecord', `fetchLatestRecord_B fail and apop self. ${shardusGetTime()}`)
-      Apoptosis.apoptosizeSelf('Apoptosized within fetchLatestRecord() => src/p2p/CycleCreator.ts')
+      nestedCountersInstance.countEvent(
+        'fetchLatestRecord',
+        `fetchLatestRecord_B fail and apop self. ${shardusGetTime()}`
+      )
+      Apoptosis.apoptosizeSelf(
+        'Apoptosized within fetchLatestRecord() => src/p2p/CycleCreator.ts',
+        'Node stopped. Unable to sync newest cycles due to node performance or network issues.'
+      )
     }
     return null
   }
@@ -950,12 +980,40 @@ function cycleQuarterChanged(cycle: number, quarter: number) {
   return cycle !== currentCycle || quarter !== currentQuarter
 }
 
-function scoreCert(cert: P2P.CycleCreatorTypes.CycleCert): number {
+function scoreCert(cert: P2P.CycleCreatorTypes.CycleCert, prevMarker: P2P.CycleCreatorTypes.CycleMarker): number {
   try {
     const id = NodeList.byPubKey.get(cert.sign.owner).id // get node id from cert pub key
     const obj = { id }
     const hid = crypto.hash(obj) // Omar - use hash of id so the cert is not made by nodes that are near based on node id
-    const out = utils.XOR(cert.marker, hid)
+
+    // This is what scoring has used for the marker for years:
+    const inProgressCertMarker = cert.marker
+
+    //// Some test code to compare JIT marker creation with the prevMarker.
+    if (logFlags.p2pSyncDebug && logFlags.verbose) {
+      const jitPrevMarker = makeCycleMarker(CycleChain.newest)
+      info(
+        `scoreCert cycle:${CycleChain?.newest?.counter}  scoreCert: calcPrevMarker: ${jitPrevMarker} prevMarker: ${prevMarker} inProgressCertMarker: ${inProgressCertMarker}  id: ${id} `
+      )
+      if (jitPrevMarker != prevMarker) {
+        info(`scoreCert error: jitPrevMarker != prevMarker: ${jitPrevMarker} != ${prevMarker} `)
+      }
+    }
+
+    let markerToScore = inProgressCertMarker
+    if (config.p2p.newCycleCertScoring) {
+      //this is an update to use the prevMarker instead of the inProgressCertMarker
+      markerToScore = prevMarker
+    }
+
+    // take the marker we want to use and XOR it with the hid
+    const out = utils.XOR(markerToScore, hid)
+
+    // if the cert is from a non-foundation node, reduce the potential score
+    if (config.p2p.nerfNonFoundationCertScores && NodeList.byPubKey.get(cert.sign.owner).foundationNode === false) {
+      return out & 0x0fffffff
+    }
+
     return out
   } catch (err) {
     error('scoreCert ERR:', err)
@@ -985,6 +1043,7 @@ function validateCerts(certs: P2P.CycleCreatorTypes.CycleCert[], record, sender,
   if (!certs || !Array.isArray(certs) || certs.length <= 0) {
     /* prettier-ignore */ warn(`validateCerts: bad certificate format;  ${callerTag}`)
     /* prettier-ignore */ warn( `validateCerts:   sent by: port:${NodeList.nodes.get(sender).externalPort} id:${Utils.safeStringify(sender)}` )
+    nestedCountersInstance.countEvent('cycle', `validateCerts: bad certificate format`)
     return false
   }
   if (!record || record === null || typeof record !== 'object') return false
@@ -992,14 +1051,16 @@ function validateCerts(certs: P2P.CycleCreatorTypes.CycleCert[], record, sender,
   if (record.counter !== CycleChain.newest.counter + 1) {
     /* prettier-ignore */ warn( `validateCerts: bad cycle record counter; ${callerTag} expected ${CycleChain.newest.counter + 1} but got ${ record.counter } ` )
     /* prettier-ignore */ warn( `validateCerts:   sent by: port:${NodeList.nodes.get(sender).externalPort} id:${Utils.safeStringify(sender)}` )
+    nestedCountersInstance.countEvent('cycle', `validateCerts: bad cycle record counter`)
     return false
   }
   // make sure all the certs are for the same cycle marker
   const inpMarker = crypto.hash(record)
-  for (let i = 1; i < certs.length; i++) {
+  for (let i = 0; i < certs.length; i++) {
     if (inpMarker !== certs[i].marker) {
       /* prettier-ignore */ warn(`validateCerts: certificates marker does not match hash of record;  ${callerTag}`)
       /* prettier-ignore */ warn( `validateCerts:   sent by: port:${NodeList.nodes.get(sender).externalPort} id:${Utils.safeStringify( sender )}` )
+      nestedCountersInstance.countEvent('cycle', `validateCerts: certificates marker does not match hash of record`)
       return false
     }
   }
@@ -1009,6 +1070,7 @@ function validateCerts(certs: P2P.CycleCreatorTypes.CycleCert[], record, sender,
     if (seen[certs[i].sign.owner]) {
       /* prettier-ignore */ warn(`validateCerts: multiple certificate from same owner; ${callerTag} certs: ${Utils.safeStringify(certs)}`)
       /* prettier-ignore */ warn( `validateCerts:   sent by: port:${NodeList.nodes.get(sender).externalPort} id:${Utils.safeStringify( sender )}` )
+      nestedCountersInstance.countEvent('cycle', `validateCerts: multiple certificate from same owner`)
       return false
     }
     seen[certs[i].sign.owner] = true
@@ -1017,6 +1079,7 @@ function validateCerts(certs: P2P.CycleCreatorTypes.CycleCert[], record, sender,
   if (!validateCertSign(certs, sender)) {
     /* prettier-ignore */ warn(`validateCerts: certificate has bad sign;  ${callerTag} certs:${Utils.safeStringify(certs)}`)
     /* prettier-ignore */ warn( `validateCerts:   sent by: port:${NodeList.nodes.get(sender).externalPort} id:${Utils.safeStringify(sender)}` )
+    nestedCountersInstance.countEvent('cycle', `validateCerts: certificate has bad sign`)
     return false
   }
   return true
@@ -1101,11 +1164,23 @@ function improveBestCert(inpCerts: P2P.CycleCreatorTypes.CycleCert[], inpRecord)
       have[cert.sign.owner] = true
     }
   }
+
+  //// logic moved back to q2 for now
+  // if(prevMarkerLastUpdate < CycleChain.newest.counter) {
+  //   prevMarkerLastUpdate = CycleChain.newest.counter
+  //   const lastPrevMarker = prevMarkerCached
+  //   prevMarkerCached = makeCycleMarker(CycleChain.newest)
+  //   info(`improveBestCert: newest.counter:${CycleChain.newest.counter} updated prevMarker:${prevMarkerCached} lastPrevMarker:${lastPrevMarker}`)
+  // }
+
   //  warn(`improveBestCert: have:${JSON.stringify(have)}`)
   for (const cert of inpCerts) {
+    if (Active.enableSkipActivatedCert && Active.activated.includes(cert.sign.owner)) {
+      continue
+    }
     // make sure we don't store more than one cert from the same owner with the same marker
     if (have[cert.sign.owner]) continue
-    cert.score = scoreCert(cert)
+    cert.score = scoreCert(cert, prevMarkerCached)
     if (!bestCycleCert.get(cert.marker)) {
       bestCycleCert.set(cert.marker, [cert])
     } else {
@@ -1126,6 +1201,9 @@ function improveBestCert(inpCerts: P2P.CycleCreatorTypes.CycleCert[], inpRecord)
     }
   }
   for (const cert of inpCerts) {
+    if (Active.enableSkipActivatedCert && Active.activated.includes(cert.sign.owner)) {
+      continue
+    }
     let score = 0
     const bcerts = bestCycleCert.get(cert.marker)
     for (const bcert of bcerts) {
@@ -1183,17 +1261,17 @@ async function compareCycleCert(myC: number, myQ: number, matches: number) {
 
     let resp: CompareCertRes
     // if (config.p2p.useBinarySerializedEndpoints && config.p2p.compareCertBinary) {
-      let reqSerialized = req as CompareCertReqSerializable
-      resp = await Comms.askBinary<CompareCertReqSerializable, CompareCertRespSerializable>(
-        node,
-        InternalRouteEnum.binary_compare_cert,
-        reqSerialized,
-        serializeCompareCertReq,
-        deserializeCompareCertResp,
-        {}
-      )
+    let reqSerialized = req as CompareCertReqSerializable
+    resp = await Comms.askBinary<CompareCertReqSerializable, CompareCertRespSerializable>(
+      node,
+      InternalRouteEnum.binary_compare_cert,
+      reqSerialized,
+      serializeCompareCertReq,
+      deserializeCompareCertResp,
+      {}
+    )
     // } else {
-      // resp = await Comms.ask(node, 'compare-cert', req)
+    // resp = await Comms.ask(node, 'compare-cert', req)
     // }
     if (!validateCertsRecordTypes(resp, 'compareCycleCert')) return [null, node]
     if (!(resp && resp.certs && resp.certs[0].marker && resp.record)) {
@@ -1280,12 +1358,13 @@ function gossipHandlerCycleCert(inp: CompareCertReq, sender: P2P.NodeListTypes.N
   if (!validateCertsRecordTypes(inp, 'gossipHandlerCycleCert')) return
   const { certs: inpCerts, record: inpRecord } = inp
   if (!validateCerts(inpCerts, inpRecord, sender, 'gossipHandlerCycleCert')) {
+    nestedCountersInstance.countEvent('cycle', `cert gossip: rejecting invalid certs`)
     return
   }
   if (improveBestCert(inpCerts, inpRecord)) {
     // don't need the following line anymore since improveBestCert sets bestRecord if it improved
     // bestRecord = inpRecord
-    gossipCycleCert(sender, tracker)
+    fireAndForget(() => gossipCycleCert(sender, tracker))
   }
   profilerInstance.profileSectionEnd('CycleCreator-gossipHandlerCycleCert')
 }
@@ -1297,17 +1376,19 @@ async function gossipCycleCert(sender: P2P.NodeListTypes.Node['id'], tracker?: s
     record: bestRecord,
   }
   const signedCertGossip = crypto.sign(certGossip)
-  Comms.sendGossip(
-    'gossip-cert',
-    signedCertGossip,
-    tracker,
-    sender,
-    Join.nodeListFromStates([
-      P2P.P2PTypes.NodeStatus.ACTIVE,
-      P2P.P2PTypes.NodeStatus.READY,
-      P2P.P2PTypes.NodeStatus.SYNCING,
-    ]),
-    true
+  fireAndForget(() =>
+    Comms.sendGossip(
+      'gossip-cert',
+      signedCertGossip,
+      tracker,
+      sender,
+      Join.nodeListFromStates([
+        P2P.P2PTypes.NodeStatus.ACTIVE,
+        P2P.P2PTypes.NodeStatus.READY,
+        P2P.P2PTypes.NodeStatus.SYNCING,
+      ]),
+      true
+    )
   )
 }
 
@@ -1320,6 +1401,10 @@ function pruneCycleChain() {
     // Throws away extra cycles
     CycleChain.prune(keep)
   }
+}
+
+export function getBestCycleCerts(counter: number) {
+  return cacheOfCycleCerts.get(counter) ?? []
 }
 
 function info(...msg) {

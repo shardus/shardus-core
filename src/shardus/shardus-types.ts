@@ -1,5 +1,5 @@
-import { P2P } from '@shardus/types'
-import { JoinRequest } from '@shardus/types/build/src/p2p/JoinTypes'
+import { P2P } from '@shardus/lib-types'
+import { JoinRequest } from '@shardus/lib-types/build/src/p2p/JoinTypes'
 import { AppObjEnum } from '../types/enum/AppObjEnum'
 export type Node = P2P.NodeListTypes.Node
 export type Cycle = P2P.CycleCreatorTypes.CycleRecord
@@ -170,10 +170,7 @@ export interface InjectTxResponse {
 }
 
 export interface App {
-  injectTxToConsensor(
-    consensor: ValidatorNodeDetails[],
-    tx: OpaqueTransaction
-  ): Promise<InjectTxResponse | null>
+  injectTxToConsensor(consensor: ValidatorNodeDetails[], tx: OpaqueTransaction): Promise<InjectTxResponse | null>
   getNonceFromTx(tx: OpaqueTransaction): bigint
   getAccountNonce(accountId: string, wrappedData?: WrappedData): Promise<bigint>
   getTxSenderAddress(tx: OpaqueTransaction): string
@@ -186,11 +183,25 @@ export interface App {
   validate(tx: OpaqueTransaction, appData: any): { success: boolean; reason: string; status: number }
 
   /**
+   * Checks if the incoming transaction needs limits on destination address usage
+   *
+   * Returns a boolean value indicaing the same
+   */
+  isDestLimitTx(tx: OpaqueTransaction): boolean
+
+  /**
    * Checks if the incoming transaction is an internal tx or not
    *
    * Returns a boolean value indicaing the same
    */
   isInternalTx(tx: OpaqueTransaction): boolean
+
+  /**
+   * Checks if the incoming transaction is a multi-sig foundation transaction or not
+   *
+   * Returns a boolean value indicaing the same
+   */
+  isMultiSigFoundationTx(tx: OpaqueTransaction): boolean
 
   /**
    * Cracks open the transaction and returns its timestamp, id (hash), and any
@@ -344,7 +355,7 @@ export interface App {
   dataSummaryInit?: (blob: any, accountData: any) => void
   dataSummaryUpdate?: (blob: any, accountDataBefore: any, accountDataAfter: any) => void
   txSummaryUpdate?: (blob: any, tx: any, wrappedStates: any) => void
-  // use of minNodes instead of baselineNodes here do to minNodes used when not in processing mode (check shardeum-server condition where used)
+  // use of minNodes instead of baselineNodes here do to minNodes used when not in processing mode
   validateJoinRequest?: (
     data: any,
     mode: P2P.ModesTypes.Record['mode'] | null,
@@ -362,6 +373,7 @@ export interface App {
   ) => Promise<boolean>
 
   getNodeInfoAppData?: () => any
+  getNetworkAccountFromArchiver?: () => Promise<WrappedData>
   signAppData?: (type: string, hash: string, nodesToSign: number, appData: any) => Promise<SignAppDataResult>
   updateNetworkChangeQueue?: (account: WrappedData, appData: any) => Promise<WrappedData[]>
   pruneNetworkChangeQueue?: (account: WrappedData, cycle: number) => Promise<WrappedData[]>
@@ -376,6 +388,9 @@ export interface App {
     minSigRequired: number,
     requiredSecurityLevel: DevSecurityLevel
   ) => boolean
+  isNGT(acceptedTx: OpaqueTransaction): boolean
+  verifyAppJoinData?: (data: unknown) => string[] | null
+  getUniqueAppTags?: (tx: OpaqueTransaction) => { [key: string]: string } | null | undefined
 }
 
 export interface TransactionKeys {
@@ -751,6 +766,35 @@ export interface ServerConfiguration {
     maxNodeForSyncTime?: number
     /** The maxRotatedPerCycle parameter is an Integer specifying the maximum number of nodes that can that can be rotated out of the network each cycle. */
     maxRotatedPerCycle?: number
+    /** This allows us to set a window below our desired amount where we can still rotate a node out of the network */
+    flexibleRotationDelta?: number
+    /** enable a system which allows rotatin even if active nodes are a small amount below the desired in processing mode */
+    flexibleRotationEnabled?: boolean
+
+    /** Problematic Node configurations */
+    /** enable problematic node removal */
+    enableProblematicNodeRemoval?: boolean
+    /** when true, we will remove problematic nodes even when calculateToAcceptV2 says we should not remove any nodes. This is useful in development when testing this feature. */
+    enableDangerousProblematicNodeRemoval?: boolean
+    /** enable problematic node removal on a specific cycle. This is to allow the network to stabilize before removing problematic nodes.
+     * enableProblematicNodeRemoval must be true for this to take effect*/
+    enableProblematicNodeRemovalOnCycle?: number
+    /** The problematicNodeRemovalCycleFrequency parameter is an Integer specifying the number of cycles between problematic node removals. */
+    problematicNodeRemovalCycleFrequency?: number
+    /** The maxProblematicNodeRemovalsPerCycle parameter is an Integer specifying the maximum number of problematic nodes that can be removed from the network each cycle. */
+    maxProblematicNodeRemovalsPerCycle?: number
+    /** The problematicNodeConsecutiveRefuteThreshold parameter is an Integer specifying the number of consecutive refutes a node must have before it is considered problematic. */
+    problematicNodeConsecutiveRefuteThreshold?: number
+    /** The problematicNodeRefutePercentageThreshold parameter is a 0-1 fraction specifying the percentage of refutes a node must have before it is considered problematic. */
+    problematicNodeRefutePercentageThreshold?: number
+    /** The problematicNodeHistoryLength parameter is an Integer specifying the number of cycles to consider when determining if a node is problematic. */
+    problematicNodeHistoryLength?: number
+    /** When true, use the new cache-based implementation for problematic node detection */
+    useProblematicNodeCacheV2?: boolean
+    /** Enable shadow mode cache building for validation */
+    enableProblematicNodeCacheBuilding?: boolean
+    /** end of problematic node configurations */
+
     /** A fixed boost to let more nodes in when we have just the one seed node in the network */
     firstCycleJoin?: number
 
@@ -805,6 +849,10 @@ export interface ServerConfiguration {
     useLruCacheForSocketMgmt: boolean
     /** LRU cache size for socket connection mgmt in shardus/net. Is used only if `useLruCacheForSocketMgmt` is set to `true`. Default: 1000 */
     lruCacheSizeForSocketMgmt: number
+    /** Payload size limit for shardus/net. Default: 2MB */
+    payloadSizeLimitInBytes: number
+    /** Header size limit for shardus/net. Default: 2KB */
+    headerSizeLimitInBytes: number
     /** Number of cycles we want to delay the lost report by */
     delayLostReportByNumOfCycles: number
     /** If disabled, the lost reports are sent to the checker immediately */
@@ -895,8 +943,19 @@ export interface ServerConfiguration {
     rotationMaxAddPercent: number
     /** not an actual percent but 0-1 value or multiplication */
     rotationMaxRemovePercent: number
-    /** The max number of nodes added to `activated` list in cycleRecord each cycle */
+    /** enable sync floor */
+    syncFloorEnabled: boolean
+    /** additional support for more syncing nodes.  not an actual percent but 0-1 value or multiplication */
+    syncingMaxAddPercent: number
+    /** how many node should be syncing at any given time  */
+    syncingDesiredMinCount: number
+    /** The max number of nodes added to `activated` list in cycleRecord each cycle while processing */
     allowActivePerCycle: number
+    /** The max number of nodes added to `activated` list in cycleRecord each cycle */
+    allowActivePerCycleRecover: number
+    /** enable active node rotation recovery */
+    activeRecoveryEnabled: boolean
+    /** should a checking node use a random proxy to run the down test */
     useProxyForDownCheck: boolean
     /** The number of checker nodes to ask to investigate whether a node that is potentially lost */
     numCheckerNodes: number
@@ -934,6 +993,8 @@ export interface ServerConfiguration {
     downNodeFilteringEnabled: boolean
     /** Whether to use upgraded FACT corresponding tell algorithm */
     useFactCorrespondingTell: boolean
+    /** Whether to use FACT v2 algorithm (enhanced version with improved verification) */
+    factv2?: boolean
     // /** The number of ms to wait to resubmit a standby add request to an active node if we get an error */
     resubmitStandbyAddWaitDuration: number
     // /** The percentage of votes required to confirm transaction*/
@@ -943,6 +1004,34 @@ export interface ServerConfiguration {
     // /** The number of network transactions to try to process per cycle from txAdd in cycle record */
     networkTransactionsToProcessPerCycle: number
     useAjvCycleRecordValidation: boolean
+    getTxTimestampTimeoutOffset?: number // default timeout is 5 seconds so this can be used to add or subtract time from that
+    /** allow dropping NGTs by hitting a single node's endpoint and the drop mesage being sent to other nodes by gossip  */
+    dropNGTByGossipEnabled: boolean
+    // cache size for mapping of nodeId to pubKey for the `n` last removed nodes
+    removedNodeIDCacheSize: number
+    timestampCacheFixSize: number
+    stuckNGTInQueueFix: boolean
+    nerfNonFoundationCertScores: boolean
+    // wheather to use the new foundation nodes over others for creating tx timestamp receipts
+    preferFoundationNodesForTimestamp: boolean
+    // if `preferFoundationNodesForTimestamp` is set to true we don't want to DDoS those foundation nodes in case the number of them drop below a certain threshold
+    foundationNodeThreshold: number
+    /** add boolean to joinedConsensor object that shows whether a node is foundation or not */
+    addFoundationNodeAttribute: boolean
+    /** enable fixes that allow us to sync and patch the network account so that we have correct config values at more places in the node lifecycle */
+    patchNetworkAccountSyncFixes?: boolean
+    // enable shard key refactoring changes as part of SHARD-1892 sec fixes
+    enableShardKeyChanges: boolean
+    // control the max content size for http responses
+    maxResponseSize: number
+    // control if non-internal txs should be allowed to be injected
+    allowEndUserTxnInjections: boolean
+    // score cycle certs based on prevMarker instead of the cycle we are running consensus on
+    newCycleCertScoring: boolean
+    // enable to not send apply receipts of type Stake in case Unstake and SecureTransfer fail
+    fixApplyReceiptType: boolean
+    // Number of historical cycles to sync when joining the network
+    syncV2HistoricalCyclesCount: number
   }
   /** Server IP configuration */
   ip?: {
@@ -1043,6 +1132,8 @@ export interface ServerConfiguration {
     minMultiSigRequiredForEndpoints: number
     /** minimum approvals needed for global txs using multisig */
     minMultiSigRequiredForGlobalTxs: number
+    /** minimum approvals needed for archiver whitelist using multisig */
+    minSigRequiredForArchiverWhitelist: number
     /** dump extra data for robust query even if in error/fatal logggin only mode */
     robustQueryDebug: boolean
     /** pretty sure we don't want this ever but making a config so we can AB test as needed */
@@ -1097,8 +1188,27 @@ export interface ServerConfiguration {
     finishedSyncingDelay: number
     /** config for the minimum number of seconds a node must be in the ready state */
     readyNodeDelay: number
+    /** do-nothing config solely for testing purposes. */
+    qaTestBoolean: boolean
+    /** do-nothing config solely for testing purposes. */
+    qaTestNumber: number
+    /** do-nothing config solely for testing purposes. */
+    qaTestString: string
     /** chance to fail before state in sending tx receipt to archiver */
     beforeStateFailChance: number
+    /** write bad node perf events to a csv file. */
+    logCSVPerfEvents: boolean
+    /** controls how many perfEvents needs to accumulate before we log them */
+    numOfPerfEventsNeededForLogging: number
+    enableDebugFlags: boolean
+    /** Chance to miss consensus rounds (0-1) */
+    missConsensusChance?: number
+    /** Chance to drop network messages (0-1) */
+    dropMessageChance?: number
+    /** Chance to respond slowly to requests (0-1) */
+    slowResponseChance?: number
+    /** Delay in ms when responding slowly */
+    slowResponseDelay?: number
   }
   /** Options for the statistics module */
   statistics?: {
@@ -1164,6 +1274,8 @@ export interface ServerConfiguration {
     patcherMaxLeafHashesPerRequest: number
     /** max number of child hashes that we can respond with */
     patcherMaxChildHashResponses: number
+    /** max number of requests for account data that execute any given cycle when receiving a repair request */
+    patcherRepairByReceiptPerUpdate: number
     /** max number of sync restarts allowed due to thrown exceptions before we go apop */
     maxDataSyncRestarts: number
     /** max number of sync restarts allowed due to thrown exceptions for each tracker instance */
@@ -1172,6 +1284,8 @@ export interface ServerConfiguration {
     syncWithAccountOffset: boolean
     /** this will control if the account copies table functions */
     useAccountCopiesTable: boolean
+    /** Delay in ms between sync completion and starting transaction processing */
+    syncToProcessingDelay: number
     /** How long before we decide that processingn is stuck */
     stuckProcessingLimit: number
     //** auto fix stuck processing.  this is a stopgap method */
@@ -1311,6 +1425,12 @@ export interface ServerConfiguration {
     maxCyclesShardDataToKeep: number
     // make sure we send data to non-self nodes
     avoidOurIndexInFactTell: boolean
+    // check transactions to see if their target addresses are in the queue too many times
+    checkDestLimits: boolean
+    // how many times can this destination address show up in the queue before we avoid sending to it
+    checkDestLimitCount: number
+    // timeout for global accounts receipt initiation
+    globalAccountsReceiptInitiationTimeout?: number
   }
   /** Options for sharding calculations */
   sharding?: {
@@ -1325,9 +1445,7 @@ export interface ServerConfiguration {
   features?: {
     /** Generic flag for the dapp to enable/disable certain features. Todo: replace this with something less hardcoded **/
     dappFeature1enabled: boolean
-    /** Enabled at shardeum v1.1.3. Fixes homeNode check for TX group changes: https://gitlab.com/shardus/global/shardus-global-server/-/merge_requests/268 */
     fixHomeNodeCheckForTXGroupChanges?: boolean
-    /** To enable at shardeum v1.1.3 */
     archiverDataSubscriptionsUpdate?: boolean
     startInServiceMode?: boolean
     /** This flag defaults to true. If set to true, addresses marked as ir will be fetched when tx is ageing. */
@@ -1335,12 +1453,12 @@ export interface ServerConfiguration {
     /** Options for validator tickets. E.g. - Silver tickets */
     tickets?: {
       /** Amount of time between checks for an updated list */
-      updateTicketListTimeInMs?: number,
+      updateTicketListTimeInMs?: number
       /** Array of ticket types */
       ticketTypes?: Array<{
-        type: string;
-        enabled: boolean;
-      }>,
+        type: string
+        enabled: boolean
+      }>
     }
   }
 }
@@ -1359,6 +1477,7 @@ export interface LogsConfiguration {
     appenders?: {
       out?: {
         type?: string
+        //  layout?: { type: string; pattern?: string; tokens?: { [name: string]: any } }
         maxLogSize?: number
         backups?: number
       }
@@ -1366,46 +1485,91 @@ export interface LogsConfiguration {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       seq?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       app?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       p2p?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       snapshot?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       cycle?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       fatal?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       exit?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       errorFile?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       errors?: {
         type?: string
@@ -1416,21 +1580,41 @@ export interface LogsConfiguration {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       playback?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       shardDump?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
       statsDump?: {
         type?: string
         maxLogSize?: number
         backups?: number
+        pattern?: string
+        keepFileExt?: boolean
+        numBackups?: number
+        compress?: boolean
+        alwaysIncludePattern?: boolean
       }
     }
     categories?: {

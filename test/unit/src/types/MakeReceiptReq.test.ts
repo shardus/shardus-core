@@ -1,12 +1,8 @@
-import {
-  serializeMakeReceiptReq,
-  deserializeMakeReceiptReq,
-  MakeReceiptReq,
-} from '../../../../src/types/MakeReceipReq'
+import { serializeMakeReceiptReq, deserializeMakeReceiptReq, MakeReceiptReq } from '../../../../src/types/MakeReceipReq'
 import { VectorBufferStream } from '../../../../src/utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from '../../../../src/types/enum/TypeIdentifierEnum'
 import { initAjvSchemas } from '../../../../src/types/ajv/Helpers'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 describe('MakeReceiptReq Tests', () => {
   beforeAll(() => {
@@ -31,6 +27,8 @@ describe('MakeReceiptReq Tests', () => {
         value: { key: 'value' },
         when: 1234567890,
         source: 'source123',
+        txId: 'txId123',
+        afterStateHash: 'afterStateHash123',
       }
       serializeMakeReceiptReq(stream, obj, false)
       stream.position = 0 // Reset stream position to read from the beginning
@@ -55,6 +53,8 @@ describe('MakeReceiptReq Tests', () => {
         value: { key: 'value' },
         when: 1234567890,
         source: 'source123',
+        txId: 'txId123',
+        afterStateHash: 'afterStateHash123',
       }
       serializeMakeReceiptReq(stream, obj, true)
       stream.position = 0 // Reset stream position to read from the beginning
@@ -80,6 +80,8 @@ describe('MakeReceiptReq Tests', () => {
         value: {},
         when: 0,
         source: '',
+        txId: '',
+        afterStateHash: '',
       }
       serializeMakeReceiptReq(stream, obj, false)
       stream.position = 0 // Reset stream position to read from the beginning
@@ -104,6 +106,8 @@ describe('MakeReceiptReq Tests', () => {
         value: { key: 'value' },
         when: Number.MAX_SAFE_INTEGER,
         source: 'source123',
+        txId: 'txId123',
+        afterStateHash: 'afterStateHash123',
       }
       serializeMakeReceiptReq(stream, obj, false)
       stream.position = 0 // Reset stream position to read from the beginning
@@ -148,6 +152,8 @@ describe('MakeReceiptReq Tests', () => {
         value: { key: 'value' },
         when: 1234567890,
         source: 'source123',
+        txId: 'txId123',
+        afterStateHash: 'afterStateHash123',
       }
       stream.writeUInt8(1) // Version
       stream.writeString(obj.sign.owner)
@@ -157,6 +163,8 @@ describe('MakeReceiptReq Tests', () => {
       stream.writeString(Utils.safeStringify(obj.value))
       stream.writeBigUInt64(BigInt(obj.when))
       stream.writeString(obj.source)
+      stream.writeString(obj.txId)
+      stream.writeString(obj.afterStateHash)
       stream.position = 0 // Reset stream position to read from the beginning
       const result = deserializeMakeReceiptReq(stream)
       expect(result).toEqual(obj)
@@ -173,6 +181,8 @@ describe('MakeReceiptReq Tests', () => {
         value: {},
         when: 0,
         source: '',
+        txId: '',
+        afterStateHash: '',
       }
       stream.writeUInt8(1) // Version
       stream.writeString(obj.sign.owner)
@@ -182,6 +192,8 @@ describe('MakeReceiptReq Tests', () => {
       stream.writeString(Utils.safeStringify(obj.value))
       stream.writeBigUInt64(BigInt(obj.when))
       stream.writeString(obj.source)
+      stream.writeString(obj.txId)
+      stream.writeString(obj.afterStateHash)
       stream.position = 0 // Reset stream position to read from the beginning
       const result = deserializeMakeReceiptReq(stream)
       expect(result).toEqual(obj)
@@ -198,6 +210,8 @@ describe('MakeReceiptReq Tests', () => {
         value: { key: 'value' },
         when: Number.MAX_SAFE_INTEGER,
         source: 'source123',
+        txId: 'txId123',
+        afterStateHash: 'afterStateHash123',
       }
       stream.writeUInt8(1) // Version
       stream.writeString(obj.sign.owner)
@@ -207,6 +221,8 @@ describe('MakeReceiptReq Tests', () => {
       stream.writeString(Utils.safeStringify(obj.value))
       stream.writeBigUInt64(BigInt(obj.when))
       stream.writeString(obj.source)
+      stream.writeString(obj.txId)
+      stream.writeString(obj.afterStateHash)
       stream.position = 0 // Reset stream position to read from the beginning
       const result = deserializeMakeReceiptReq(stream)
       expect(result).toEqual(obj)

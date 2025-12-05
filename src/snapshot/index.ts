@@ -11,13 +11,14 @@ import * as Self from '../p2p/Self'
 import * as ShardusTypes from '../shardus/shardus-types'
 import ShardFunctions from '../state-manager/shardFunctions'
 import { Cycle, CycleShardData, MainHashResults } from '../state-manager/state-manager-types'
-import { P2P, StateManager } from '@shardus/types'
+import { P2P, StateManager } from '@shardus/lib-types'
 import * as utils from '../utils'
 import { profilerInstance } from '../utils/profiler'
 import * as partitionGossip from './partition-gossip'
 import * as SnapshotFunctions from './snapshotFunctions'
 import { getNewestCycle } from '../p2p/Sync'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
+import { fireAndForget } from '../utils/functions/promises'
 
 console.log('StateManager', StateManager)
 console.log('StateManager type', StateManager.StateManagerTypes)
@@ -37,8 +38,7 @@ const alreadyOfferedNodes = new Map()
 let stateHashesByCycle: Map<Cycle['counter'], P2P.SnapshotTypes.StateHashes> = new Map()
 let receiptHashesByCycle: Map<Cycle['counter'], P2P.SnapshotTypes.ReceiptHashes> = new Map()
 let summaryHashesByCycle: Map<Cycle['counter'], P2P.SnapshotTypes.SummaryHashes> = new Map()
-const partitionBlockMapByCycle: Map<Cycle['counter'], StateManager.StateManagerTypes.ReceiptMapResult[]> =
-  new Map()
+const partitionBlockMapByCycle: Map<Cycle['counter'], StateManager.StateManagerTypes.ReceiptMapResult[]> = new Map()
 const statesClumpMapByCycle: Map<Cycle['counter'], StateManager.StateManagerTypes.StatsClump> = new Map()
 let safetySyncing = false // to set true when data exchange occurs during safetySync
 
@@ -63,10 +63,7 @@ export function setOldDataPath(path) {
   log('set old-data-path', oldDataPath)
 }
 
-export function getStateHashes(
-  start: Cycle['counter'] = 0,
-  end?: Cycle['counter']
-): P2P.SnapshotTypes.StateHashes[] {
+export function getStateHashes(start: Cycle['counter'] = 0, end?: Cycle['counter']): P2P.SnapshotTypes.StateHashes[] {
   const collector: P2P.SnapshotTypes.StateHashes[] = []
   for (const [key] of stateHashesByCycle) {
     if (key >= start) {
@@ -191,8 +188,7 @@ export function startSnapshotting() {
               range.low,
               range.high
             )
-            if (logFlags.debug)
-              snapshotLogger.debug('Accounts in partition: ', partition, accountsInPartition)
+            if (logFlags.debug) snapshotLogger.debug('Accounts in partition: ', partition, accountsInPartition)
 
             const hash = Context.crypto.hash(accountsInPartition)
             partitionHashes.set(partition, hash)
@@ -200,11 +196,7 @@ export function startSnapshotting() {
             if (logFlags.debug) {
               try {
                 //DBG: Print all accounts in mem
-                const wrappedAccts = await Context.stateManager.app.getAccountData(
-                  range.low,
-                  range.high,
-                  10000000
-                )
+                const wrappedAccts = await Context.stateManager.app.getAccountData(range.low, range.high, 10000000)
                 debugStrs.push(
                   `  PARTITION ${partition}\n` +
                     wrappedAccts
@@ -258,9 +250,11 @@ export function startSnapshotting() {
           safetyModeVals.networkStateHash = networkStateHash
 
           // save the partition and network hashes for that cycle number to the DB
-          SnapshotFunctions.savePartitionAndNetworkHashes(shard, partitionHashes, networkStateHash)
-          SnapshotFunctions.saveReceiptAndNetworkHashes(shard, receiptHashes, networkReceiptMapHash)
-          SnapshotFunctions.saveSummaryAndNetworkHashes(shard, summaryHashes, networkSummaryHash)
+          fireAndForget(() => SnapshotFunctions.savePartitionAndNetworkHashes(shard, partitionHashes, networkStateHash))
+          fireAndForget(() =>
+            SnapshotFunctions.saveReceiptAndNetworkHashes(shard, receiptHashes, networkReceiptMapHash)
+          )
+          fireAndForget(() => SnapshotFunctions.saveSummaryAndNetworkHashes(shard, summaryHashes, networkSummaryHash))
 
           // Update stateHashes by Cycle map
           const newStateHash: P2P.SnapshotTypes.StateHashes = {
@@ -354,7 +348,7 @@ export function startSnapshotting() {
         }
         const signedMessage = Context.crypto.sign(message)
 
-        Comms.sendGossip('snapshot_gossip', signedMessage, '', null, NodeList.byIdOrder, true)
+        fireAndForget(() => Comms.sendGossip('snapshot_gossip', signedMessage, '', null, NodeList.byIdOrder, true))
         partitionGossip.forwardedGossips.set(message.sender, true)
         collector.process([message])
 
@@ -398,10 +392,7 @@ function getNodesThatCoverPartition(
       if (nodeId === Self.id) return
       const node = data.node
       const homePartition = data.homePartition
-      const { partitionStart, partitionEnd } = ShardFunctions.calculateStoredPartitions2(
-        shardGlobals,
-        homePartition
-      )
+      const { partitionStart, partitionEnd } = ShardFunctions.calculateStoredPartitions2(shardGlobals, homePartition)
       if (partitionId >= partitionStart && partitionId <= partitionEnd) {
         nodesInPartition.push(node)
       }
@@ -486,12 +477,12 @@ export async function startWitnessMode() {
         // send offer to each syncing + active nodes unless data is already offered
         for (let i = 0; i < nodeList.length; i++) {
           const node = nodeList[i]
-          const ip = 'ip' in node && node.ip || node.externalIp
-          const port = 'port' in node && node.port || node.externalIp
+          const ip = ('ip' in node && node.ip) || node.externalIp
+          const port = ('port' in node && node.port) || node.externalIp
           if (!alreadyOfferedNodes.has(node.id)) {
             try {
               log(`Sending witness offer to new node ${ip}:${port}`)
-              sendOfferToNode(node, offer)
+              fireAndForget(() => sendOfferToNode(node, offer))
               alreadyOfferedNodes.set(node.id, true)
             } catch (e) {
               log('ERROR: ', e)
@@ -526,17 +517,16 @@ async function sendOfferToNode(node, offer, isSuggestedByNetwork = false) {
         hash: oldPartitionHashMap.get(parseInt(partitionId)),
       }
     }
-    await http.post(`${node.ip}:${node.port}/snapshot-data`, dataToSend)
-      .catch(e => {
-        log('ERROR: unable to send snapshot data to node')
-        log('ERROR: ', e)
-      })
+    await http.post(`${node.ip}:${node.port}/snapshot-data`, dataToSend).catch((e) => {
+      log('ERROR: unable to send snapshot data to node')
+      log('ERROR: ', e)
+    })
     // If a node reply us 'try_later', wait X amount of time provided by node (OR) cycleDuration/2
   } else if (answer === P2P.SnapshotTypes.offerResponse.tryLater) {
     const waitTime = res.waitTime || 5 * Context.config.p2p.cycleDuration * 1000
     setTimeout(() => {
       log(`Trying again to send to ${node.ip}:${node.port} after waiting ${waitTime} ms`)
-      sendOfferToNode(node, offer, isSuggestedByNetwork)
+      fireAndForget(() => sendOfferToNode(node, offer, isSuggestedByNetwork))
     }, waitTime)
     // If a node reply us 'send_to', send data to those provided nodes
   } else if (answer === P2P.SnapshotTypes.offerResponse.sendTo) {
@@ -550,7 +540,7 @@ async function sendOfferToNode(node, offer, isSuggestedByNetwork = false) {
         const suggestedNode = suggestedNodes[i]
         if (!alreadyOfferedNodes.has(suggestedNode.id)) {
           log(`Sending offer to suggested Node ${node.ip}:${node.port}`)
-          sendOfferToNode(suggestedNode, offer, true)
+          fireAndForget(() => sendOfferToNode(suggestedNode, offer, true))
         }
       }
     }

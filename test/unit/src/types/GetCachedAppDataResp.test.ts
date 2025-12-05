@@ -1,4 +1,4 @@
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { initAjvSchemas } from '../../../../src/types/ajv/Helpers'
 import {
   deserializeGetCachedAppDataResp,
@@ -7,23 +7,25 @@ import {
 } from '../../../../src/types/GetCachedAppDataResp'
 import { VectorBufferStream } from '../../../../src'
 
+import { beforeEachHandler } from './stateManagerSerializeMocks'
+
 jest.mock('../../../../src/p2p/Context', () => ({
-  setDefaultConfigs: jest.fn(),
   stateManager: {
     app: {
-      binarySerializeObject: jest.fn((enumType, data) => Buffer.from(Utils.safeStringify(data), 'utf8')),
-      binaryDeserializeObject: jest.fn((enumType, buffer) => Utils.safeJsonParse(buffer.toString('utf8'))),
+      binarySerializeObject: jest.fn(),
+      binaryDeserializeObject: jest.fn(),
     },
   },
+  setDefaultConfigs: jest.fn(),
 }))
 
 describe('GetCachedAppDataResp serialization and deserialization', () => {
-  beforeAll(() => {
-    initAjvSchemas()
+  beforeEach(() => {
+    beforeEachHandler()
   })
 
-  beforeEach(() => {
-    jest.clearAllMocks()
+  beforeAll(() => {
+    initAjvSchemas()
   })
 
   test('combined serialization and deserialization happy case', () => {

@@ -6,7 +6,7 @@ import {
 } from '../../../../src/types/CompareCertReq'
 import { initCompareCertReq } from '../../../../src/types/ajv/CompareCert'
 import { TypeIdentifierEnum } from '../../../../src/types/enum/TypeIdentifierEnum'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { verifyPayload } from '../../../../src/types/ajv/Helpers'
 import { AJVSchemaEnum } from '../../../../src/types/enum/AJVSchemaEnum'
 
@@ -30,14 +30,7 @@ describe('CompareCert Serialization and Deserialization', () => {
       start: 123,
       duration: 456,
       networkConfigHash: 'hash',
-      mode: 'processing' as
-        | 'forming'
-        | 'processing'
-        | 'safety'
-        | 'recovery'
-        | 'restart'
-        | 'restore'
-        | 'shutdown',
+      mode: 'processing' as 'forming' | 'processing' | 'safety' | 'recovery' | 'restart' | 'restore' | 'shutdown',
       safetyMode: true,
       safetyNum: 2,
       networkStateHash: 'stateHash',

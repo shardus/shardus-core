@@ -1,16 +1,17 @@
-import { isDebugMode, getDevPublicKeys, ensureKeySecurity, getMultisigPublicKeys } from '../debug'
+import { isDebugMode, getDevPublicKeys, ensureKeySecurity, getMultisigPublicKeys, unsafeUnlock } from '../debug'
 import * as Context from '../p2p/Context'
-import * as crypto from '@shardus/crypto-utils'
+import * as crypto from '@shardus/lib-crypto-utils'
 import { DevSecurityLevel } from '../shardus/shardus-types'
 import SERVER_CONFIG from '../config/server'
 import { logFlags } from '../logger'
 import { nestedCountersInstance } from '../utils/nestedCounters'
-import { Utils } from '@shardus/types'
-import { SignedObject } from '@shardus/crypto-utils'
+import { Utils } from '@shardus/lib-types'
+import { SignedObject } from '@shardus/lib-crypto-utils'
 import * as CycleChain from '../p2p/CycleChain'
 import { contactArchiver, getStatusHistoryCopy } from '../p2p/Self'
-import { NodeStatus } from '@shardus/types/build/src/p2p/P2PTypes'
+import { NodeStatus } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { getNewestCycle } from '../p2p/Sync'
+import { formatErrorMessage } from '../utils'
 
 const MAX_COUNTER_BUFFER_MILLISECONDS = 10000 // <- Nonce are essentially just timestamp. This number dictate how much time range we will tolerance.
 let lastCounter = Date.now() // <- when node is first load onto mem this used to be 0, but that would cause a replay attack. So now it is set to the current time with ntp offset accounted
@@ -18,21 +19,22 @@ let multiSigLstCounter = Date.now()
 
 // This function is used to check if the request is authorized to access the debug endpoint
 async function handleDebugAuth(_req, res, next, authLevel) {
+  let unauthorizedDBG = ''
+
   try {
     let statusHist = getStatusHistoryCopy()
-    let statusNow = statusHist[statusHist.length -1].moduleStatus || undefined
+    let statusNow = statusHist[statusHist.length - 1].moduleStatus || undefined
     let weAreActive = statusNow === NodeStatus.ACTIVE
     let latestCycle = CycleChain.newest
 
     if (!weAreActive) {
-      const activeNodes = await contactArchiver("dbgMiddleware")
+      const activeNodes = await contactArchiver('dbgMiddleware')
       latestCycle = await getNewestCycle(activeNodes)
     }
 
-    if(!latestCycle) {
-      res.status(500).json({ error: "Node can't gather latest Cycle to perform signature verification"})
+    if (!latestCycle) {
+      res.status(500).json({ error: "Node can't gather latest Cycle to perform signature verification" })
     }
-
 
     //auth with a signature
     if (_req.query.sig != null && _req.query.sig_counter != null) {
@@ -45,9 +47,12 @@ async function handleDebugAuth(_req, res, next, authLevel) {
         }
       })
       if (!intentedForOurNode) {
+        unauthorizedDBG = `ourPubkey: ${ourPubkey} not found in ${_req.query.nodePubkeys}`
+
         return res.status(401).json({
           status: 401,
-          message: 'Unauthorized!',
+          message: 'Unauthorized! 1',
+          dbg: unauthorizedDBG,
         })
       }
 
@@ -97,6 +102,7 @@ async function handleDebugAuth(_req, res, next, authLevel) {
             }
           } else {
             /* prettier-ignore */ if (logFlags.verbose) console.log('Signature is not correct')
+            unauthorizedDBG = `Signature is not correct: ${hashIncluded.sign.sig}`
           }
         } else {
           if (logFlags.verbose) {
@@ -107,36 +113,46 @@ async function handleDebugAuth(_req, res, next, authLevel) {
               console.log('Counter is not larger than last counter', parsedCounter, lastCounter)
             }
           }
+
+          const parsedCounter = parseInt(hashIncluded.count)
+          if (Number.isNaN(parsedCounter)) {
+            unauthorizedDBG = `Counter is not a number: ${hashIncluded.count}`
+          } else {
+            unauthorizedDBG = `Counter is not larger than last counter: ${parsedCounter} <= ${lastCounter}`
+          }
         }
       }
+    } else {
+      unauthorizedDBG = `sig or counter missing. sig: ${_req.query.sig} sig_counter: ${_req.query.sig_counter}`
     }
   } catch (error) {
     /* prettier-ignore */ if (logFlags.verbose) console.log('Error in handleDebugAuth:', error)
     nestedCountersInstance.countEvent('security', 'debug unauthorized failure - exception caught')
+    unauthorizedDBG = `Exception caught: ${formatErrorMessage(error)}`
   }
 
   return res.status(401).json({
     status: 401,
-    message: 'Unauthorized!',
+    message: 'Unauthorized! 2',
+    dbg: unauthorizedDBG,
   })
 }
 
 async function handleDebugMultiSigAuth(_req, res, next, authLevel: DevSecurityLevel) {
   nestedCountersInstance.countEvent('middleware', 'debug_multi_sig_auth')
   try {
-
     let statusHist = getStatusHistoryCopy()
-    let statusNow = statusHist[statusHist.length -1].moduleStatus || undefined
+    let statusNow = statusHist[statusHist.length - 1].moduleStatus || undefined
     let weAreActive = statusNow === NodeStatus.ACTIVE
     let latestCycle = CycleChain.newest
 
     if (!weAreActive) {
-      const activeNodes = await contactArchiver("dbgMiddleware")
+      const activeNodes = await contactArchiver('dbgMiddleware')
       latestCycle = await getNewestCycle(activeNodes)
     }
 
-    if(!latestCycle) {
-      res.status(500).json({ error: "Node can't gather latest Cycle to perform signature verification"})
+    if (!latestCycle) {
+      res.status(500).json({ error: "Node can't gather latest Cycle to perform signature verification" })
     }
     //auth with a signature
     if (_req.query.sig != null && _req.query.sig_counter != null) {
@@ -177,7 +193,7 @@ async function handleDebugMultiSigAuth(_req, res, next, authLevel: DevSecurityLe
       // Remove duplicates from parsedSignatures
       parsedSignatures = Array.from(new Set(parsedSignatures))
 
-      const minApprovals = Math.max(1, SERVER_CONFIG.debug.minMultiSigRequiredForEndpoints)
+      const minApprovals = Math.max(3, SERVER_CONFIG.debug.minMultiSigRequiredForEndpoints)
 
       if (parsedSignatures.length < minApprovals) {
         return res.status(400).json({
@@ -230,7 +246,7 @@ async function handleDebugMultiSigAuth(_req, res, next, authLevel: DevSecurityLe
   })
 }
 
-function stripQueryParams(url: string, params: string[]) {
+export function stripQueryParams(url: string, params: string[]) {
   // Split the URL into the base and the query string
   let [base, ...tail] = url.split('?')
   let queryString = tail.join('?')
@@ -266,6 +282,11 @@ export const isDebugModeMiddleware = (_req, res, next) => {
 
 // Middleware for low security level
 export const isDebugModeMiddlewareLow = (_req, res, next) => {
+  // if (unsafeUnlock) {
+  //   next()
+  //   return
+  // }
+
   const isDebug = isDebugMode()
   if (!isDebug) {
     handleDebugAuth(_req, res, next, DevSecurityLevel.Low)
@@ -274,6 +295,11 @@ export const isDebugModeMiddlewareLow = (_req, res, next) => {
 
 // Middleware for medium security level
 export const isDebugModeMiddlewareMedium = (_req, res, next) => {
+  // if (unsafeUnlock) {
+  //   next()
+  //   return
+  // }
+
   const isDebug = isDebugMode()
   if (!isDebug) {
     handleDebugAuth(_req, res, next, DevSecurityLevel.Medium)
@@ -282,6 +308,11 @@ export const isDebugModeMiddlewareMedium = (_req, res, next) => {
 
 // Middleware for high security level
 export const isDebugModeMiddlewareHigh = (_req, res, next) => {
+  // if (unsafeUnlock) {
+  //   next()
+  //   return
+  // }
+
   const isDebug = isDebugMode()
   if (!isDebug) {
     handleDebugAuth(_req, res, next, DevSecurityLevel.High)

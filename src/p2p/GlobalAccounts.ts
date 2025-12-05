@@ -5,7 +5,7 @@
  */
 
 import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import ShardFunctions from '../state-manager/shardFunctions'
 import * as utils from '../utils'
 import * as Comms from './Comms'
@@ -22,7 +22,8 @@ import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { MakeReceiptReq, deserializeMakeReceiptReq, serializeMakeReceiptReq } from '../types/MakeReceipReq'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
+import { fireAndForget } from '../utils/functions/promises'
 
 /** ROUTES */
 // [TODO] - need to add validattion of types to the routes
@@ -68,22 +69,21 @@ const makeReceiptBinaryHandler: P2P.P2PTypes.Route<InternalBinaryHandler<Buffer>
   },
 }
 
-const setGlobalGossipRoute: P2P.P2PTypes.Route<P2P.P2PTypes.GossipHandler<P2P.GlobalAccountsTypes.Receipt>> =
-  {
-    name: 'set-global',
-    handler: (payload, sender, tracker) => {
-      profilerInstance.scopedProfileSectionStart('set-global')
-      try {
-        if (validateReceipt(payload) === false) return
-        if (processReceipt(payload) === false) return
-        /** [TODO] [AS] Replace with Comms.sendGossip() */
-        // p2p.sendGossipIn('set-global', payload)
-        Comms.sendGossip('set-global', payload, tracker, sender, NodeList.byIdOrder, false)
-      } finally {
-        profilerInstance.scopedProfileSectionEnd('set-global')
-      }
-    },
-  }
+const setGlobalGossipRoute: P2P.P2PTypes.Route<P2P.P2PTypes.GossipHandler<P2P.GlobalAccountsTypes.Receipt>> = {
+  name: 'set-global',
+  handler: (payload, sender, tracker) => {
+    profilerInstance.scopedProfileSectionStart('set-global')
+    try {
+      if (validateReceipt(payload) === false) return
+      if (processReceipt(payload) === false) return
+      /** [TODO] [AS] Replace with Comms.sendGossip() */
+      // p2p.sendGossipIn('set-global', payload)
+      Comms.sendGossip('set-global', payload, tracker, sender, NodeList.byIdOrder, false)
+    } finally {
+      profilerInstance.scopedProfileSectionEnd('set-global')
+    }
+  },
+}
 
 /** STATE */
 
@@ -91,6 +91,11 @@ let lastClean = 0
 
 const receipts = new Map<P2P.GlobalAccountsTypes.TxHash, P2P.GlobalAccountsTypes.Receipt>()
 const trackers = new Map<P2P.GlobalAccountsTypes.TxHash, P2P.GlobalAccountsTypes.Tracker>()
+const localReceiptInitiationPromises = new Map<P2P.GlobalAccountsTypes.TxHash, Promise<void>>()
+const localReceiptResolvers = new Map<
+  P2P.GlobalAccountsTypes.TxHash,
+  { resolve: () => void; reject: (reason?: any) => void }
+>()
 
 /** FUNCTIONS */
 
@@ -101,7 +106,29 @@ export function init() {
   Comms.registerGossipHandler(setGlobalGossipRoute.name, setGlobalGossipRoute.handler)
 }
 
-export function setGlobal(address, addressHash, value, when, source) {
+/**
+ * Sets a global account by creating and broadcasting a transaction.
+ *
+ * This function performs the following steps:
+ * 1. Logs the initiation of the setGlobal process if console logging is enabled.
+ * 2. Checks if the current node is active. If not, logs a message and returns.
+ * 3. Creates a transaction (`tx`) for setting a global account with the provided parameters.
+ * 4. Signs the transaction (`signedTx`).
+ * 5. Checks if the state manager is available and logs the state.
+ * 6. Determines the nodes to which the transaction will be broadcasted.
+ * 7. Finds the home node and consensus group for the current node.
+ * 8. Removes the current node from the consensus group.
+ * 9. Sets up a timeout and receipt handling mechanism to process receipts or handle timeouts.
+ * 10. Broadcasts the transaction to the consensus group to trigger the creation of a receipt collection.
+ *
+ * @param address - The address of the global account to set.
+ * @param addressHash - The hash of the address.
+ * @param value - The value to set for the global account.
+ * @param when - The timestamp or condition when the value should be set.
+ * @param source - The source node initiating the transaction.
+ * @param afterStateHash - The state hash after the transaction is applied.
+ */
+export function setGlobal(address, addressHash, value, when, source, afterStateHash) {
   if (logFlags.console) console.log(`SETGLOBAL: WE ARE: ${Self.id.substring(0, 5)}`)
 
   // Only do this if you're active
@@ -111,8 +138,16 @@ export function setGlobal(address, addressHash, value, when, source) {
   }
 
   // Create a tx for setting a global account
-  const tx: P2P.GlobalAccountsTypes.SetGlobalTx = { address, addressHash, value, when, source }
-  const txHash = Context.shardus.app.calculateTxId(tx.value as OpaqueTransaction)
+  const txHash = Context.shardus.app.calculateTxId(value as OpaqueTransaction)
+  const tx: P2P.GlobalAccountsTypes.SetGlobalTx = {
+    address,
+    addressHash,
+    value,
+    when,
+    source,
+    txId: txHash,
+    afterStateHash,
+  }
 
   // Sign tx
   const signedTx: P2P.GlobalAccountsTypes.SignedSetGlobalTx = Context.crypto.sign(tx)
@@ -135,8 +170,7 @@ export function setGlobal(address, addressHash, value, when, source) {
     Context.stateManager.currentCycleShardData.parititionShardDataMap
   )
   const consensusGroup = [...homeNode.consensusNodeForOurNodeFull]
-  if (logFlags.console)
-    console.log(`SETGLOBAL: CONSENSUS_GROUP: ${consensusGroup.map((n) => n.id.substring(0, 5))}`)
+  if (logFlags.console) console.log(`SETGLOBAL: CONSENSUS_GROUP: ${consensusGroup.map((n) => n.id.substring(0, 5))}`)
   /** [TODO] [AS] Replace p2p.id with Self.id */
   // const ourIdx = consensusGroup.findIndex(node => node.id === p2p.id)
   const ourIdx = consensusGroup.findIndex((node) => node.id === Self.id)
@@ -165,7 +199,7 @@ export function setGlobal(address, addressHash, value, when, source) {
     if (processReceipt(receipt) === false) return
     /** [TODO] [AS] Replace with Comms.sendGossip */
     // p2p.sendGossipIn('set-global', receipt)
-    Comms.sendGossip('set-global', receipt, '', null, NodeList.byIdOrder, true)
+    fireAndForget(() => Comms.sendGossip('set-global', receipt, '', null, NodeList.byIdOrder, true))
   }
   /** [TODO] [AS] Replace with Self.emitter.on() */
   // p2p.on(handle, onReceipt)
@@ -179,12 +213,14 @@ export function setGlobal(address, addressHash, value, when, source) {
   // p2p.tell(consensusGroup, 'make-receipt', signedTx)
   // if (Context.config.p2p.useBinarySerializedEndpoints && Context.config.p2p.makeReceiptBinary) {
   const request = signedTx as MakeReceiptReq
-  Comms.tellBinary<MakeReceiptReq>(
-    consensusGroup,
-    InternalRouteEnum.binary_make_receipt,
-    request,
-    serializeMakeReceiptReq,
-    {}
+  fireAndForget(() =>
+    Comms.tellBinary<MakeReceiptReq>(
+      consensusGroup,
+      InternalRouteEnum.binary_make_receipt,
+      request,
+      serializeMakeReceiptReq,
+      {}
+    )
   )
   // } else {
   // Comms.tell(consensusGroup, 'make-receipt', signedTx)
@@ -195,9 +231,46 @@ export function createMakeReceiptHandle(txHash: string) {
   return `receipt-${txHash}`
 }
 
-export function getGlobalTxReceipt(
+/**
+ * Waits for local receipt initiation to complete before attempting to access the receipt.
+ * This function ensures that makeReceipt has completed its critical local setup.
+ *
+ * @param txHash - The transaction hash to wait for
+ * @returns Promise that resolves when the receipt is ready or rejects on timeout/error
+ */
+export async function awaitLocalReceiptInitiation(txHash: P2P.GlobalAccountsTypes.TxHash): Promise<void> {
+  const pendingPromise = localReceiptInitiationPromises.get(txHash)
+  if (pendingPromise) {
+    // Use configurable timeout, with fallback to 15 seconds if not configured
+    const timeout = Context.config?.stateManager?.globalAccountsReceiptInitiationTimeout || 15000
+    if (logFlags.verbose)
+      console.log(`GlobalAccounts: Awaiting local receipt initiation for ${txHash} with timeout: ${timeout}ms`)
+    try {
+      await Promise.race([
+        pendingPromise,
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error(`Receipt initiation timeout for ${txHash} after ${timeout}ms`)), timeout)
+        ),
+      ])
+      if (logFlags.verbose) console.log(`GlobalAccounts: Local receipt initiation completed for ${txHash}`)
+    } catch (error) {
+      if (logFlags.error) console.error(`GlobalAccounts: Error awaiting receipt initiation for ${txHash}:`, error)
+      throw error
+    } finally {
+      // Clean up the promise after use
+      localReceiptInitiationPromises.delete(txHash)
+    }
+  } else {
+    if (logFlags.verbose) console.log(`GlobalAccounts: No pending promise for ${txHash}, receipt might already exist`)
+  }
+}
+
+export async function getGlobalTxReceipt(
   txHash: P2P.GlobalAccountsTypes.TxHash
-): P2P.GlobalAccountsTypes.GlobalTxReceipt | null {
+): Promise<P2P.GlobalAccountsTypes.GlobalTxReceipt | null> {
+  // For backward compatibility, still check for pending promises
+  await awaitLocalReceiptInitiation(txHash)
+
   const receipt = receipts.get(txHash)
   if (!receipt) return null
   return {
@@ -206,12 +279,20 @@ export function getGlobalTxReceipt(
   }
 }
 
-export function makeReceipt(
-  signedTx: P2P.GlobalAccountsTypes.SignedSetGlobalTx,
-  sender: P2P.P2PTypes.NodeInfo['id']
-) {
+export function makeReceipt(signedTx: P2P.GlobalAccountsTypes.SignedSetGlobalTx, sender: P2P.P2PTypes.NodeInfo['id']) {
+  const txForHash = { ...signedTx }
+  delete txForHash.sign
+  const txHash = Context.shardus.app.calculateTxId(txForHash.value as OpaqueTransaction)
+
+  // Early exit and promise rejection if stateManager not ready
   if (!Context.stateManager) {
-    if (logFlags.console) console.log('GlobalAccounts: makeReceipt: stateManager not ready')
+    if (logFlags.console) console.log('GlobalAccounts: makeReceipt: stateManager not ready for tx', txHash)
+    const promiseEntry = localReceiptResolvers.get(txHash)
+    if (promiseEntry && sender === Self.id) {
+      promiseEntry.reject(new Error('StateManager not ready in makeReceipt for tx ' + txHash))
+      localReceiptInitiationPromises.delete(txHash)
+      localReceiptResolvers.delete(txHash)
+    }
     return
   }
 
@@ -220,19 +301,52 @@ export function makeReceipt(
   const tx = { ...signedTx }
   delete tx.sign
 
-  const txHash = Context.shardus.app.calculateTxId(tx.value as OpaqueTransaction)
   console.log('makeReceipt', txHash)
+
+  // Check if this is a new receipt and local initiation
+  let isNewReceiptAndLocalInitiation = false
+  let currentPromiseResolvers: { resolve: () => void; reject: (reason?: any) => void } | null = null
+
+  if (sender === Self.id && !receipts.has(txHash) && !localReceiptInitiationPromises.has(txHash)) {
+    isNewReceiptAndLocalInitiation = true
+    // Create promise BEFORE creating receipt for atomic operation
+    const promise = new Promise<void>((resolve, reject) => {
+      currentPromiseResolvers = { resolve, reject }
+      localReceiptResolvers.set(txHash, currentPromiseResolvers)
+    })
+    localReceiptInitiationPromises.set(txHash, promise)
+    if (logFlags.verbose) console.log(`GlobalAccounts: Created promise for local receipt initiation ${txHash}`)
+  }
 
   // Put into correct Receipt and Tracker
   let receipt: P2P.GlobalAccountsTypes.Receipt = receipts.get(txHash)
+
   if (!receipt) {
-    const consensusGroup = new Set(getConsensusGroupIds(tx.source))
-    receipt = {
-      signs: [],
-      tx: null,
-      consensusGroup,
+    try {
+      const consensusGroup = new Set(getConsensusGroupIds(tx.source))
+      receipt = {
+        signs: [],
+        tx: null,
+        consensusGroup,
+      }
+      receipts.set(txHash, receipt) // CRITICAL: Receipt is added to the map HERE
+      if (logFlags.verbose) console.log(`GlobalAccounts: receipts.set() called for ${txHash}`)
+
+      if (isNewReceiptAndLocalInitiation && currentPromiseResolvers) {
+        // Receipt successfully created, but don't resolve yet - wait for majority
+        if (logFlags.verbose)
+          console.log(`GlobalAccounts: Receipt created successfully for ${txHash}, waiting for majority`)
+      }
+    } catch (err) {
+      if (logFlags.error) console.error(`GlobalAccounts: Error during receipt creation for ${txHash}:`, err)
+      if (isNewReceiptAndLocalInitiation && currentPromiseResolvers) {
+        currentPromiseResolvers.reject(err) // Reject the promise
+        localReceiptInitiationPromises.delete(txHash)
+        localReceiptResolvers.delete(txHash)
+      }
+      throw err
     }
-    receipts.set(txHash, receipt)
+
     if (logFlags.console)
       console.log(
         `SETGLOBAL: MAKERECEIPT CONSENSUS GROUP FOR ${txHash.substring(0, 5)}: ${Utils.safeStringify(
@@ -247,9 +361,17 @@ export function makeReceipt(
   }
 
   // Ignore duplicate txs
-  if (tracker.seen.has(sign.owner)) return
+  if (tracker.seen.has(sign.owner)) {
+    if (logFlags.verbose) console.log(`GlobalAccounts: Ignoring duplicate tx from ${sign.owner} for ${txHash}`)
+    // Note: We don't reject the promise here as this is normal behavior
+    return
+  }
   // Ignore if sender is not in consensus group
-  if (!receipt.consensusGroup.has(sender)) return
+  if (!receipt.consensusGroup.has(sender)) {
+    if (logFlags.verbose) console.log(`GlobalAccounts: Sender ${sender} not in consensus group for ${txHash}`)
+    // Note: We don't reject the promise here as this is normal behavior
+    return
+  }
 
   receipt.signs.push(sign)
   receipt.tx = tx
@@ -260,19 +382,24 @@ export function makeReceipt(
   // When a majority (%60) is reached, emit the completion event for this txHash
   if (logFlags.console)
     console.log(
-      `SETGLOBAL: GOT SIGNED_SET_GLOBAL_TX FROM ${sender.substring(0, 5)}: ${txHash} ${Utils.safeStringify(
-        signedTx
-      )}`
+      `SETGLOBAL: GOT SIGNED_SET_GLOBAL_TX FROM ${sender.substring(0, 5)}: ${txHash} ${Utils.safeStringify(signedTx)}`
     )
   if (logFlags.console)
-    console.log(
-      `SETGLOBAL: ${receipt.signs.length} RECEIPTS / ${receipt.consensusGroup.size} CONSENSUS_GROUP`
-    )
+    console.log(`SETGLOBAL: ${receipt.signs.length} RECEIPTS / ${receipt.consensusGroup.size} CONSENSUS_GROUP`)
   if (isReceiptMajority(receipt, receipt.consensusGroup)) {
     const handle = createMakeReceiptHandle(txHash)
     /** [TODO] [AS] Replace with Self.emitter.emit() */
     // p2p.emit(handle, receipt)
     Self.emitter.emit(handle, receipt)
+
+    // Resolve the promise if we have majority
+    const resolverEntry = localReceiptResolvers.get(txHash)
+    if (resolverEntry) {
+      resolverEntry.resolve()
+      localReceiptResolvers.delete(txHash)
+      // Promise will be cleaned up later in attemptCleanup
+      if (logFlags.verbose) console.log(`GlobalAccounts: Receipt reached majority, resolved promise for ${txHash}`)
+    }
   }
 }
 
@@ -281,7 +408,7 @@ export function processReceipt(receipt: P2P.GlobalAccountsTypes.Receipt) {
   const tracker = trackers.get(txHash) || createTracker(txHash)
   tracker.timestamp = receipt.tx.when
   if (tracker.gossiped) return false
-  Context.shardus.put(receipt.tx.value as OpaqueTransaction, false, true)
+  fireAndForget(() => Context.shardus.put(receipt.tx.value as OpaqueTransaction, false, true))
   /* prettier-ignore */ if (logFlags.console) console.log(`Processed set-global receipt: ${Utils.safeStringify(receipt)} now:${shardusGetTime()}`)
   tracker.gossiped = true
   attemptCleanup()
@@ -297,6 +424,9 @@ export function attemptCleanup() {
     if (now - tracker.timestamp > 30000) {
       trackers.delete(txHash)
       receipts.delete(txHash)
+      // Clean up any associated promises
+      localReceiptInitiationPromises.delete(txHash)
+      localReceiptResolvers.delete(txHash)
     }
   }
 }
@@ -304,8 +434,7 @@ export function attemptCleanup() {
 function validateReceipt(receipt: P2P.GlobalAccountsTypes.Receipt) {
   if (Context.stateManager.currentCycleShardData === null) {
     // we may get this endpoint way before we are ready, so just log it can exit out
-    if (logFlags.console)
-      console.log('validateReceipt: unable to validate receipt currentCycleShardData not ready')
+    if (logFlags.console) console.log('validateReceipt: unable to validate receipt currentCycleShardData not ready')
     return false
   }
 
@@ -349,9 +478,7 @@ function validateReceipt(receipt: P2P.GlobalAccountsTypes.Receipt) {
       signsInConsensusGroup.push(sign)
     } else {
       if (logFlags.console)
-        console.log(
-          `validateReceipt: consensusGroup does not have id: ${id} ${utils.stringifyReduce(consensusGroup)}`
-        )
+        console.log(`validateReceipt: consensusGroup does not have id: ${id} ${utils.stringifyReduce(consensusGroup)}`)
     }
   }
   // Make sure signs and consensusGroup overlap >= %60
@@ -408,4 +535,10 @@ function intersectCount(a, b) {
 
 function percentOverlap(a, b) {
   return (a.length / b.length) * 100
+}
+
+// Export for testing purposes
+export function __clearForTest() {
+  receipts.clear()
+  trackers.clear()
 }

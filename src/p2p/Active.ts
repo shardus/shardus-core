@@ -1,6 +1,6 @@
 import { Logger } from 'log4js'
 import { logFlags } from '../logger'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import * as utils from '../utils'
 import { validateTypes } from '../utils'
 import * as Comms from './Comms'
@@ -10,14 +10,15 @@ import * as CycleChain from './CycleChain'
 import * as NodeList from './NodeList'
 import * as Self from './Self'
 import { profilerInstance } from '../utils/profiler'
-import { NodeStatus } from '@shardus/types/build/src/p2p/P2PTypes'
+import { NodeStatus } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { nestedCountersInstance } from '../utils/nestedCounters'
 import { getSortedStandbyJoinRequests } from './Join/v2'
 import { selectNodesFromReadyList } from './Join/v2/syncFinished'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
-import { Utils } from '@shardus/types'
-import { nodeListFromStates } from "./Join";
+import { Utils } from '@shardus/lib-types'
+import { nodeListFromStates } from './Join'
 import { checkGossipPayload } from '../utils/GossipValidation'
+import { fireAndForget } from '../utils/functions/promises'
 
 let syncTimes = []
 let lastCheckedCycleForSyncTimes = 0
@@ -39,19 +40,20 @@ const gossipActiveRoute: P2P.P2PTypes.GossipHandler<P2P.ActiveTypes.SignedActive
       return
     }
 
-
     if (addActiveTx(payload)) {
-      Comms.sendGossip(
-        'gossip-active',
-        payload,
-        tracker,
-        sender,
-        nodeListFromStates([
-          P2P.P2PTypes.NodeStatus.ACTIVE,
-          P2P.P2PTypes.NodeStatus.READY,
-          P2P.P2PTypes.NodeStatus.SYNCING,
-        ]),
-        false
+      fireAndForget(() =>
+        Comms.sendGossip(
+          'gossip-active',
+          payload,
+          tracker,
+          sender,
+          nodeListFromStates([
+            P2P.P2PTypes.NodeStatus.ACTIVE,
+            P2P.P2PTypes.NodeStatus.READY,
+            P2P.P2PTypes.NodeStatus.SYNCING,
+          ]),
+          false
+        )
       )
     }
   } finally {
@@ -72,6 +74,9 @@ let p2pLogger: Logger
 
 let activeRequests: Map<P2P.NodeListTypes.Node['publicKey'], P2P.ActiveTypes.SignedActiveRequest>
 let queuedRequest: P2P.ActiveTypes.ActiveRequest
+export let activated: string[] = []
+export const enableSkipActivatedCert = process.env.enableSkipActivatedCert === 'true' ? true : false
+console.log('[restore-415] enableSkipActivatedCert', enableSkipActivatedCert)
 export let neverGoActive = false
 
 /** FUNCTIONS */
@@ -101,6 +106,7 @@ export function init() {
 
 export function reset() {
   activeRequests = new Map()
+  activated = []
 }
 
 export function getTxs(): P2P.ActiveTypes.Txs {
@@ -138,10 +144,11 @@ export function updateRecord(
   _prev: P2P.CycleCreatorTypes.CycleRecord
 ) {
   const active = NodeList.activeByIdOrder.length
-  const activated = []
+  activated = []
   const activatedPublicKeys = []
 
   if (NodeList.readyByTimeAndIdOrder.length > 0) {
+    // ITN3 example if processing this will pick allowActivePerCycle = 1 nodes
     const selectedNodes = selectNodesFromReadyList(_prev.mode)
     for (const node of selectedNodes) {
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:updateRecord node added to activated`)
@@ -264,17 +271,19 @@ export function sendRequests() {
     if (addActiveTx(activeTx) === false) {
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:sendRequests failed to add our own request`)
     }
-    Comms.sendGossip(
-      'gossip-active',
-      activeTx,
-      '',
-      null,
-      nodeListFromStates([
-        P2P.P2PTypes.NodeStatus.ACTIVE,
-        P2P.P2PTypes.NodeStatus.READY,
-        P2P.P2PTypes.NodeStatus.SYNCING,
-      ]),
-      true
+    fireAndForget(() =>
+      Comms.sendGossip(
+        'gossip-active',
+        activeTx,
+        '',
+        null,
+        nodeListFromStates([
+          P2P.P2PTypes.NodeStatus.ACTIVE,
+          P2P.P2PTypes.NodeStatus.READY,
+          P2P.P2PTypes.NodeStatus.SYNCING,
+        ]),
+        true
+      )
     )
 
     // Check if we went active and try again if we didn't in 1 cycle duration
@@ -327,12 +336,12 @@ function addActiveTx(request: P2P.ActiveTypes.SignedActiveRequest) {
 function validateActiveRequest(request: P2P.ActiveTypes.SignedActiveRequest) {
   const node = NodeList.nodes.get(request.nodeId)
   if (!node) {
-    /* prettier-ignore */ if(logFlags.important_as_error) warn(`validateActiveRequest: node not found, nodeId: ${request.nodeId}`)
+    /* prettier-ignore */ if (logFlags.important_as_error) warn(`validateActiveRequest: node not found, nodeId: ${request.nodeId}`)
     /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:validateActiveRequest node not found`)
     return false
   }
   if (!crypto.verify(request, node.publicKey)) {
-    /* prettier-ignore */ if(logFlags.important_as_error) warn(`validateActiveRequest: bad signature, request: ${Utils.safeStringify(request)} ${request.nodeId}`)
+    /* prettier-ignore */ if (logFlags.important_as_error) warn(`validateActiveRequest: bad signature, request: ${Utils.safeStringify(request)} ${request.nodeId}`)
     /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:validateActiveRequests bad signature`)
     return false
   }
@@ -340,7 +349,7 @@ function validateActiveRequest(request: P2P.ActiveTypes.SignedActiveRequest) {
     // Do not accept active request if node is already active
     const existing = NodeList.nodes.get(request.nodeId)
     if (existing && existing.status === NodeStatus.ACTIVE) {
-      /* prettier-ignore */ if(logFlags.important_as_error) warn(`validateActiveRequest: already active , nodeId: ${request.nodeId}`)
+      /* prettier-ignore */ if (logFlags.important_as_error) warn(`validateActiveRequest: already active , nodeId: ${request.nodeId}`)
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `active:validateActiveRequest already active`)
       return false
     }

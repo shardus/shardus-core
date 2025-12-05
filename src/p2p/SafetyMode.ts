@@ -1,5 +1,5 @@
 import { Logger } from 'log4js'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import * as Snapshot from '../snapshot'
 import * as Comms from './Comms'
 import * as Context from './Context'
@@ -120,8 +120,7 @@ export function updateRecord(
       }
     })
     if (record.networkReceiptHash.length > 0) {
-      cycleNumberForNetworkReceiptHash =
-        record.networkReceiptHash[record.networkReceiptHash.length - 1].cycle + 1
+      cycleNumberForNetworkReceiptHash = record.networkReceiptHash[record.networkReceiptHash.length - 1].cycle + 1
     }
   } else {
     record.networkReceiptHash = []
@@ -136,8 +135,7 @@ export function updateRecord(
       }
     })
     if (record.networkSummaryHash.length > 0) {
-      cycleNumberForNetworkSummaryHash =
-        record.networkSummaryHash[record.networkSummaryHash.length - 1].cycle + 1
+      cycleNumberForNetworkSummaryHash = record.networkSummaryHash[record.networkSummaryHash.length - 1].cycle + 1
     }
   } else {
     record.networkSummaryHash = []

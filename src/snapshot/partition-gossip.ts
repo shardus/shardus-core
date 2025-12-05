@@ -5,7 +5,8 @@ import * as NodeList from '../p2p/NodeList'
 import { logFlags } from '../logger'
 import { CycleShardData } from '../state-manager/state-manager-types'
 import { profilerInstance } from '../utils/profiler'
-import { ShardInfo } from '@shardus/types/build/src/state-manager/shardFunctionTypes'
+import { ShardInfo } from '@shardus/lib-types/build/src/state-manager/shardFunctionTypes'
+import { fireAndForget } from '../utils/functions/promises'
 
 /** TYPES */
 
@@ -74,7 +75,7 @@ export class Collector extends EventEmitter {
       // forward snapshot gossip if gossip cycle is same as current cycle
       if (this.shard.cycleNumber === message.cycle) {
         if (!forwardedGossips.has(message.sender)) {
-          Comm.sendGossip('snapshot_gossip', message, '', null, NodeList.byIdOrder, false)
+          fireAndForget(() => Comm.sendGossip('snapshot_gossip', message, '', null, NodeList.byIdOrder, false))
           forwardedGossips.set(message.sender, true)
         } else if (forwardedGossips.has(message.sender)) {
           continue

@@ -1,12 +1,17 @@
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import {
   ArchiverDownMsg,
   ArchiverRefutesLostMsg,
   ArchiverUpMsg,
   InvestigateArchiverMsg,
-} from '@shardus/types/build/src/p2p/LostArchiverTypes'
-import { Node } from '@shardus/types/build/src/p2p/NodeListTypes'
-import { GossipHandler, InternalHandler, Route, SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
+} from '@shardus/lib-types/build/src/p2p/LostArchiverTypes'
+import { Node } from '@shardus/lib-types/build/src/p2p/NodeListTypes'
+import {
+  GossipHandler,
+  InternalHandler,
+  Route,
+  SignedObject,
+} from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { Handler } from 'express'
 import * as Comms from '../Comms'
 import { config, crypto, network } from '../Context'
@@ -28,15 +33,12 @@ import { deserializeLostArchiverInvestigateReq } from '../../types/LostArchiverI
 import { getStreamWithTypeCheck } from '../../types/Helpers'
 import { TypeIdentifierEnum } from '../../types/enum/TypeIdentifierEnum'
 import { checkGossipPayload } from '../../utils/GossipValidation'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
+import { fireAndForget } from '../../utils/functions/promises'
 
 /** Gossip */
 
-const lostArchiverUpGossip: GossipHandler<SignedObject<ArchiverUpMsg>, Node['id']> = (
-  payload,
-  sender,
-  tracker
-) => {
+const lostArchiverUpGossip: GossipHandler<SignedObject<ArchiverUpMsg>, Node['id']> = (payload, sender, tracker) => {
   // the original gossip source is a node or nodes that the archiver notified as to the fact
   // that rumors of its death were highly exaggerated
 
@@ -64,7 +66,7 @@ const lostArchiverUpGossip: GossipHandler<SignedObject<ArchiverUpMsg>, Node['id'
 
   const error = funcs.errorForArchiverUpMsg(payload)
   if (error) {
-    nestedCountersInstance.countEvent('lostArchivers', `lostArchiverUpGossip invalid payload ${error}`)      
+    nestedCountersInstance.countEvent('lostArchivers', `lostArchiverUpGossip invalid payload ${error}`)
     logging.warn(`lostArchiverUpGossip: invalid payload error: ${error}, payload: ${inspect(payload)}`)
     return
   }
@@ -91,15 +93,11 @@ const lostArchiverUpGossip: GossipHandler<SignedObject<ArchiverUpMsg>, Node['id'
   // or even:
   // record.updated.push({source: 'lostArchiverUpGossip', cycle: currentCycle, quarter: currentQuarter, what: 'up'})
   // ... is LostArchiverRecord in the cycle record? if not, we're good to add this debugging info
-  Comms.sendGossip('lost-archiver-up', payload, tracker, id, byIdOrder, false) // isOrigin: false
+  fireAndForget(() => Comms.sendGossip('lost-archiver-up', payload, tracker, id, byIdOrder, false)) // isOrigin: false
   record.gossippedUpMsg = true
 }
 
-const lostArchiverDownGossip: GossipHandler<SignedObject<ArchiverDownMsg>, Node['id']> = (
-  payload,
-  sender,
-  tracker
-) => {
+const lostArchiverDownGossip: GossipHandler<SignedObject<ArchiverDownMsg>, Node['id']> = (payload, sender, tracker) => {
   // the original gossip source is the investigator node that confirmed the archiver is down
 
   // If Lost Archiver Detection is disabled, return
@@ -121,11 +119,17 @@ const lostArchiverDownGossip: GossipHandler<SignedObject<ArchiverDownMsg>, Node[
   logging.info(`lostArchiverDownGossip: payload: ${inspect(payload)}, sender: ${sender}, tracker: ${tracker}`)
 
   // check args
-  if (!sender) { logging.warn(`lostArchiverDownGossip: missing sender`); return }
-  if (!tracker) { logging.warn(`lostArchiverDownGossip: missing tracker`); return }
+  if (!sender) {
+    logging.warn(`lostArchiverDownGossip: missing sender`)
+    return
+  }
+  if (!tracker) {
+    logging.warn(`lostArchiverDownGossip: missing tracker`)
+    return
+  }
   const error = funcs.errorForArchiverDownMsg(payload)
   if (error) {
-    nestedCountersInstance.countEvent('lostArchivers', `lostArchiverDownGossip invalid payload ${error}`)      
+    nestedCountersInstance.countEvent('lostArchivers', `lostArchiverDownGossip invalid payload ${error}`)
     logging.warn(`lostArchiverDownGossip: invalid payload error: ${error}, payload: ${inspect(payload)}`)
     return
   }
@@ -150,7 +154,7 @@ const lostArchiverDownGossip: GossipHandler<SignedObject<ArchiverDownMsg>, Node[
     record.status = 'down'
     record.archiverDownMsg = downMsg
   }
-  Comms.sendGossip('lost-archiver-down', payload, tracker, id, byIdOrder, false) // isOrigin: false
+  fireAndForget(() => Comms.sendGossip('lost-archiver-down', payload, tracker, id, byIdOrder, false)) // isOrigin: false
   record.gossippedDownMsg = true
   // to-do: idea: record the update
 }
@@ -176,7 +180,7 @@ const lostArchiverDownGossip: GossipHandler<SignedObject<ArchiverDownMsg>, Node[
 //     if (!sender) { logging.warn(`investigateLostArchiverRoute: missing sender`); return }
 //     const error = funcs.errorForInvestigateArchiverMsg(payload)
 //     if (error) {
-//       nestedCountersInstance.countEvent('lostArchivers', `investigateLostArchiverRoute invalid payload ${error}`)       
+//       nestedCountersInstance.countEvent('lostArchivers', `investigateLostArchiverRoute invalid payload ${error}`)
 //       logging.warn(
 //         `investigateLostArchiverRoute: invalid payload error: ${error}, payload: ${inspect(payload)}`
 //       )
@@ -223,13 +227,25 @@ const investigateLostArchiverRouteBinary: Route<InternalBinaryHandler<Buffer>> =
       )
 
       // Basic argument checks
-      if (!deserializedPayload) { logging.warn(`${route}: Missing payload`); return }
-      if (!respond) { logging.warn(`${route}: Missing response method`); return }
-      if (!header.sender_id) { logging.warn(`${route}: Missing sender ID`); return }
+      if (!deserializedPayload) {
+        logging.warn(`${route}: Missing payload`)
+        return
+      }
+      if (!respond) {
+        logging.warn(`${route}: Missing response method`)
+        return
+      }
+      if (!header.sender_id) {
+        logging.warn(`${route}: Missing sender ID`)
+        return
+      }
 
       const error = funcs.errorForInvestigateArchiverMsg(deserializedPayload)
       if (error) {
-        nestedCountersInstance.countEvent('lostArchivers', `investigateLostArchiverRouteBinary invalid payload ${error}`)
+        nestedCountersInstance.countEvent(
+          'lostArchivers',
+          `investigateLostArchiverRouteBinary invalid payload ${error}`
+        )
         logging.warn(`${route}: Invalid payload error: ${error}, payload: ${inspect(payload)}`)
         return
       }

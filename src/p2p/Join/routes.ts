@@ -7,7 +7,7 @@ import * as NodeList from '../NodeList'
 import * as Self from '../Self'
 import * as utils from '../../utils'
 import { Handler } from 'express'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import {
   addJoinRequest,
   computeSelectionNum,
@@ -20,9 +20,9 @@ import {
   queueJoinRequest,
   queueUnjoinRequest,
   verifyJoinRequestTypes,
-  nodeListFromStates
+  nodeListFromStates,
 } from '.'
-import { config } from '../Context'
+import { config, shardus } from '../Context'
 import { isBogonIP } from '../../utils/functions/checkIP'
 import { isPortReachable } from '../../utils/isPortReachable'
 import { nestedCountersInstance } from '../../utils/nestedCounters'
@@ -38,15 +38,15 @@ import {
   JoinRequest,
   SignedUnjoinRequest,
   StartedSyncingRequest,
-} from '@shardus/types/build/src/p2p/JoinTypes'
+} from '@shardus/lib-types/build/src/p2p/JoinTypes'
 import { addSyncStarted } from './v2/syncStarted'
 import { addStandbyRefresh } from './v2/standbyRefresh'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { testFailChance } from '../../utils'
 import { shardusGetTime } from '../../network'
 import { verifyPayload } from '../../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../../types/enum/AJVSchemaEnum'
-
+import { fireAndForget } from '../../utils/functions/promises'
 
 const cycleMarkerRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'GET',
@@ -76,26 +76,34 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   handler: async (req, res) => {
-  
-
-  try {
-      const joinRequest: JoinRequest = Utils.safeJsonParse(Utils.safeStringify(req.body))
-
-      // Validate the joinReq against the ajv schema
-      const errors = verifyPayload(AJVSchemaEnum.JoinReq, joinRequest);
+    try {
+      const requestBody = req.body
+      // Validate the joinReq against the ajv schema]
+      const errors = verifyPayload(AJVSchemaEnum.JoinReq, requestBody)
       if (errors) {
         res.status(400).json({
           success: false,
           fatal: true,
-          reason: 'Validation error: ' + errors.join('; ')
-        });
+          reason: 'Validation error: ' + errors.join('; '),
+        })
         return
       }
 
+      const appJoinDataErrors = shardus.app.verifyAppJoinData(requestBody.appJoinData)
+      if (appJoinDataErrors) {
+        res.status(400).json({
+          success: false,
+          fatal: true,
+          reason: 'Validation error: ' + appJoinDataErrors.join('; '),
+        })
+        return
+      }
+
+      const joinRequest: JoinRequest = Utils.safeJsonParse(Utils.safeStringify(requestBody))
 
       if (!isActive && !Self.isRestartNetwork) {
         /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-reject: not-active`)
-        /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error( `join-reject: not-active`)
+        /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`join-reject: not-active`)
         // if we are not active yet, we cannot accept join requests
         res.status(400).json({
           success: false,
@@ -107,7 +115,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
 
       if (CycleCreator.currentQuarter < 1) {
         /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-reject: CycleCreator.currentQuarter < 1 ${CycleCreator.currentQuarter}`)
-        /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error( `join-reject: CycleCreator.currentQuarter < 1 ${CycleCreator.currentQuarter} ${joinRequest.nodeInfo.publicKey}`)
+        /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`join-reject: CycleCreator.currentQuarter < 1 ${CycleCreator.currentQuarter} ${joinRequest.nodeInfo.publicKey}`)
         // if currentQuarter <= 0 then we are not ready
         res.status(400).json({
           success: false,
@@ -128,14 +136,14 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
       nestedCountersInstance.countEvent('p2p', `join-allow-bogon-firstnode:${getAllowBogon()}`)
 
       // Ensure IP and Port properties exist
-      const { externalIp, externalPort, internalIp, internalPort } = joinRequest.nodeInfo || {};
+      const { externalIp, externalPort, internalIp, internalPort } = joinRequest.nodeInfo || {}
 
       const externalPortReachable = await isPortReachable({ host: externalIp, port: externalPort })
       const internalPortReachable = await isPortReachable({ host: internalIp, port: internalPort })
 
       if (!externalPortReachable || !internalPortReachable) {
-        /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-reject: !externalPortReachable || !internalPortReachable` )
-        /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error( `join-reject: !externalPortReachable || !internalPortReachable ${joinRequest.nodeInfo.publicKey} ${Utils.safeStringify({ host: externalIp, port: externalPort })}`)
+        /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-reject: !externalPortReachable || !internalPortReachable`)
+        /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`join-reject: !externalPortReachable || !internalPortReachable ${joinRequest.nodeInfo.publicKey} ${Utils.safeStringify({ host: externalIp, port: externalPort })}`)
         res.json({
           success: false,
           fatal: true,
@@ -151,7 +159,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
         // ensure this join request doesn't already exist in standby nodes
         if (getStandbyNodesInfoMap().has(joinRequest.nodeInfo.publicKey)) {
           /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-reject: already standby`)
-          /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error( `join-reject: already standby ${joinRequest.nodeInfo.publicKey}:`)
+          /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`join-reject: already standby ${joinRequest.nodeInfo.publicKey}:`)
           res.status(400).json({
             success: false,
             fatal: false, //this was true before which seems wrong.  Do we want to kill a node that already got in?
@@ -165,7 +173,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
         const validationError = validateJoinRequest(joinRequest)
         if (validationError) {
           /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-reject: validateJoinRequest ${validationError.reason}`)
-          /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error( `join-reject: validateJoinRequest ${validationError.reason} ${joinRequest.nodeInfo.publicKey}:`)
+          /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`join-reject: validateJoinRequest ${validationError.reason} ${joinRequest.nodeInfo.publicKey}:`)
           res.status(400).json(validationError)
           return
         }
@@ -175,7 +183,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
         const signatureError = verifyJoinRequestSignature(joinRequest)
         if (signatureError) {
           /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-reject: signature error`)
-          /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error( `join-reject: signature error ${joinRequest.nodeInfo.publicKey}:`)
+          /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`join-reject: signature error ${joinRequest.nodeInfo.publicKey}:`)
           res.status(400).json(signatureError)
           return
         }
@@ -184,7 +192,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
         const selectionNumResult = computeSelectionNum(joinRequest)
         if (selectionNumResult.isErr()) {
           /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-reject: failed selection number ${selectionNumResult.error.reason}`)
-          /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error( `failed to compute selection number for node ${joinRequest.nodeInfo.publicKey}:`, Utils.safeStringify(selectionNumResult.error) )
+          /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`failed to compute selection number for node ${joinRequest.nodeInfo.publicKey}:`, Utils.safeStringify(selectionNumResult.error))
           res.status(500).json(selectionNumResult.error)
           return
         }
@@ -209,7 +217,7 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
         // then, queue this join request to be sent when sendRequests is called at the start of Q1
         queueJoinRequest(joinRequest)
 
-        /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join success` )
+        /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join success`)
         // respond with the number of standby nodes for the user's information
         res.status(200).json({ success: true, numStandbyNodes: getStandbyNodesInfoMap().size })
         return
@@ -239,13 +247,13 @@ const joinRoute: P2P.P2PTypes.Route<Handler> = {
         return
       }
     } catch (error) {
-      console.error('Error handling join request:', error);
+      console.error('Error handling join request:', error)
       res.status(500).json({
         success: false,
         fatal: true,
-        reason: 'An error occurred while processing the join request'
+        reason: 'An error occurred while processing the join request',
       })
-    return
+      return
     }
   },
 }
@@ -254,22 +262,22 @@ const unjoinRoute: P2P.P2PTypes.Route<Handler> = {
   method: 'POST',
   name: 'unjoin',
   handler: (req, res) => {
-    const unjoinRequest = req.body
-    const processResult = processNewUnjoinRequest(unjoinRequest)
-    if (processResult.isErr()) {
-      res.status(500).json({ error: processResult.error })
-      return
+    try {
+      const unjoinRequest = req.body
+
+      const processResult = processNewUnjoinRequest(unjoinRequest)
+      if (processResult.isErr()) {
+        res.status(500).json({ error: processResult.error.message })
+        return
+      }
+
+      removeUnjoinRequest(unjoinRequest.publicKey)
+      queueUnjoinRequest(unjoinRequest)
+
+      res.status(200).json({ message: 'Unjoin request processed successfully' })
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'An unknown error occurred' })
     }
-
-    // we need to remove the unjoin request this cycle since we are waiting until next cycle to gossip it to the network
-    // processNewUnjoinRequest automatically adds the unjoin request to newUnjoinRequests it will be added back to our list
-    // once we process the queued request next cycle
-    removeUnjoinRequest(unjoinRequest.publicKey)
-
-    queueUnjoinRequest(unjoinRequest)
-
-    res.status(200).json()
-    return
   },
 }
 
@@ -296,9 +304,7 @@ const standbyRefreshRoute: P2P.P2PTypes.Route<Handler> = {
   handler: async (req, res) => {
     // check if the config.debug.ignoreStandbyRefreshChance is a probability
     if (config.debug.ignoreStandbyRefreshChance < 0 || config.debug.ignoreStandbyRefreshChance > 1) {
-      warn(
-        'invalid config.debug.ignoreStandbyRefreshChance value: ' + config.debug.ignoreStandbyRefreshChance
-      )
+      warn('invalid config.debug.ignoreStandbyRefreshChance value: ' + config.debug.ignoreStandbyRefreshChance)
       res.status(500).json({ error: 'invalid config.debug.ignoreStandbyRefreshChance value' })
       // check if we should ignore this request for testing purposes
     } else if (config.debug.ignoreStandbyRefreshChance > 0) {
@@ -484,14 +490,14 @@ const gossipJoinRoute: P2P.P2PTypes.GossipHandler<P2P.JoinTypes.JoinRequest, P2P
  * Part of Join Protocol v2. Gossips all valid join requests.
  */
 const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<
-{
-  joinRequest: P2P.JoinTypes.JoinRequest,
-  sign: P2P.P2PTypes.Signature
-},
+  {
+    joinRequest: P2P.JoinTypes.JoinRequest
+    sign: P2P.P2PTypes.Signature
+  },
   P2P.NodeListTypes.Node['id']
 > = (
   payload: {
-    joinRequest: P2P.JoinTypes.JoinRequest,
+    joinRequest: P2P.JoinTypes.JoinRequest
     sign: P2P.P2PTypes.Signature
   },
   sender: P2P.NodeListTypes.Node['id'],
@@ -526,14 +532,14 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<
   })
 
   if (err) {
-    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip-reject: invalid payload.joinRequest` )
+    /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-gossip-reject: invalid payload.joinRequest`)
     warn(`gossipValidJoinRequests: invalid payload.joinRequest: ${err}`)
     return
   }
 
   // ensure this join request doesn't already exist in standby nodes
   if (getStandbyNodesInfoMap().has(joinRequest.nodeInfo.publicKey)) {
-    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip-reject: node already standby` )
+    /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-gossip-reject: node already standby`)
     /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`join request for pubkey ${joinRequest.nodeInfo.publicKey} already exists as a standby node`)
     return
   }
@@ -541,8 +547,8 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<
   // validate the join request first
   const validationError = validateJoinRequest(joinRequest)
   if (validationError) {
-    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip-reject: failed to validate join request` )
-    /* prettier-ignore */ if (logFlags.p2pNonFatal)console.error(`failed to validate join request when gossiping: ${validationError}`)
+    /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-gossip-reject: failed to validate join request`)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`failed to validate join request when gossiping: ${validationError}`)
     return
   }
 
@@ -556,15 +562,15 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<
   const signatureError = verifyJoinRequestSignature(joinRequest)
   if (signatureError) {
     /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-gossip-reject: signature error`)
-    /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error( `join-gossip-reject: signature error ${joinRequest.nodeInfo.publicKey}:`)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`join-gossip-reject: signature error ${joinRequest.nodeInfo.publicKey}:`)
     return
   }
 
   // then, calculate the selection number for this join request
   const selectionNumResult = computeSelectionNum(joinRequest)
   if (selectionNumResult.isErr()) {
-    /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip-reject: failed to compute selection number` )
-    /* prettier-ignore */ if (logFlags.p2pNonFatal)console.error( `failed to compute selection number for node ${joinRequest.nodeInfo.publicKey}:`, JSON.stringify(selectionNumResult.error) )
+    /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-gossip-reject: failed to compute selection number`)
+    /* prettier-ignore */ if (logFlags.p2pNonFatal) console.error(`failed to compute selection number for node ${joinRequest.nodeInfo.publicKey}:`, JSON.stringify(selectionNumResult.error))
     return
   }
 
@@ -575,18 +581,20 @@ const gossipValidJoinRequests: P2P.P2PTypes.GossipHandler<
   // cycle creation to create a standy node list.
   saveJoinRequest(joinRequest)
 
-  /* prettier-ignore */ nestedCountersInstance.countEvent( 'p2p', `join-gossip: request saved and gossiped` )
-  Comms.sendGossip(
-    'gossip-valid-join-requests',
-    payload,
-    tracker,
-    sender,
-    nodeListFromStates([
-      P2P.P2PTypes.NodeStatus.ACTIVE,
-      P2P.P2PTypes.NodeStatus.READY,
-      P2P.P2PTypes.NodeStatus.SYNCING,
-    ]),
-    false
+  /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `join-gossip: request saved and gossiped`)
+  fireAndForget(() =>
+    Comms.sendGossip(
+      'gossip-valid-join-requests',
+      payload,
+      tracker,
+      sender,
+      nodeListFromStates([
+        P2P.P2PTypes.NodeStatus.ACTIVE,
+        P2P.P2PTypes.NodeStatus.READY,
+        P2P.P2PTypes.NodeStatus.SYNCING,
+      ]),
+      false
+    )
   )
 }
 
@@ -595,10 +603,17 @@ const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<SignedUnjoinRequest, P2P.
   sender: P2P.NodeListTypes.Node['id'],
   tracker: string
 ) => {
-  if(!checkGossipPayload(payload, {
-    publicKey: 's',
-    sign: 'o',
-  }, 'gossip-unjoin', sender)) {
+  if (
+    !checkGossipPayload(
+      payload,
+      {
+        publicKey: 's',
+        sign: 'o',
+      },
+      'gossip-unjoin',
+      sender
+    )
+  ) {
     return
   }
 
@@ -608,24 +623,27 @@ const gossipUnjoinRequests: P2P.P2PTypes.GossipHandler<SignedUnjoinRequest, P2P.
     return
   }
 
-  Comms.sendGossip(
-    'gossip-unjoin',
-    payload,
-    tracker,
-    sender,
-    nodeListFromStates([
-      P2P.P2PTypes.NodeStatus.ACTIVE,
-      P2P.P2PTypes.NodeStatus.READY,
-      P2P.P2PTypes.NodeStatus.SYNCING,
-    ]),
-    false
+  fireAndForget(() =>
+    Comms.sendGossip(
+      'gossip-unjoin',
+      payload,
+      tracker,
+      sender,
+      nodeListFromStates([
+        P2P.P2PTypes.NodeStatus.ACTIVE,
+        P2P.P2PTypes.NodeStatus.READY,
+        P2P.P2PTypes.NodeStatus.SYNCING,
+      ]),
+      false
+    )
   )
 }
 
-const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler<
-  StartedSyncingRequest,
-  P2P.NodeListTypes.Node['id']
-> = (payload, sender, tracker) => {
+const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler<StartedSyncingRequest, P2P.NodeListTypes.Node['id']> = (
+  payload,
+  sender,
+  tracker
+) => {
   profilerInstance.scopedProfileSectionStart('gossip-sync-started')
   nestedCountersInstance.countEvent('p2p', `received gossip-sync-started`)
 
@@ -648,25 +666,24 @@ const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler<
 
     //  Validate of payload is done in addSyncStarted
     const addSyncStartedResult = addSyncStarted(payload)
-    nestedCountersInstance.countEvent(
-      'p2p',
-      `sync-started validation success: ${addSyncStartedResult.success}`
-    )
+    nestedCountersInstance.countEvent('p2p', `sync-started validation success: ${addSyncStartedResult.success}`)
     /* prettier-ignore */ if (logFlags.verbose) console.log(`sync-started validation success: ${addSyncStartedResult.success}`)
     /* prettier-ignore */ if (!addSyncStartedResult.success) nestedCountersInstance.countEvent('p2p', `sync-started failure reason: ${addSyncStartedResult.reason}`)
     /* prettier-ignore */ if (logFlags.verbose && !addSyncStartedResult.success) console.log(`sync-started validation reason: ${addSyncStartedResult.reason}`)
     if (addSyncStartedResult.success)
-      Comms.sendGossip(
-        'gossip-sync-started',
-        payload,
-        tracker,
-        sender,
-        nodeListFromStates([
-          P2P.P2PTypes.NodeStatus.ACTIVE,
-          P2P.P2PTypes.NodeStatus.READY,
-          P2P.P2PTypes.NodeStatus.SYNCING,
-        ]),
-        false
+      fireAndForget(() =>
+        Comms.sendGossip(
+          'gossip-sync-started',
+          payload,
+          tracker,
+          sender,
+          nodeListFromStates([
+            P2P.P2PTypes.NodeStatus.ACTIVE,
+            P2P.P2PTypes.NodeStatus.READY,
+            P2P.P2PTypes.NodeStatus.SYNCING,
+          ]),
+          false
+        )
       )
   } finally {
     profilerInstance.scopedProfileSectionEnd('gossip-sync-started')
@@ -679,11 +696,7 @@ const gossipSyncStartedRoute: P2P.P2PTypes.GossipHandler<
 const gossipSyncFinishedRoute: P2P.P2PTypes.GossipHandler<
   P2P.JoinTypes.FinishedSyncingRequest,
   P2P.NodeListTypes.Node['id']
-> = (
-  payload: P2P.JoinTypes.FinishedSyncingRequest,
-  sender: P2P.NodeListTypes.Node['id'],
-  tracker: string
-) => {
+> = (payload: P2P.JoinTypes.FinishedSyncingRequest, sender: P2P.NodeListTypes.Node['id'], tracker: string) => {
   profilerInstance.scopedProfileSectionStart('gossip-sync-finished')
 
   try {

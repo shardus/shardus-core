@@ -1,4 +1,4 @@
-import { Signature } from '@shardus/types/build/src/p2p/P2PTypes'
+import { Signature } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { VectorBufferStream } from '../utils/serialization/VectorBufferStream'
 import { TypeIdentifierEnum } from './enum/TypeIdentifierEnum'
 
@@ -31,9 +31,7 @@ export function serializeLostArchiverInvestigateReq(
   stream.writeString(obj.sign.sig)
 }
 
-export function deserializeLostArchiverInvestigateReq(
-  stream: VectorBufferStream
-): LostArchiverInvestigateReq {
+export function deserializeLostArchiverInvestigateReq(stream: VectorBufferStream): LostArchiverInvestigateReq {
   const version = stream.readUInt8()
   if (version > cLostArchiverInvestigateReqVersion) {
     throw new Error('cLostArchiverInvestigateReq version mismatch')

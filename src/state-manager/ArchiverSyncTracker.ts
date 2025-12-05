@@ -1,5 +1,5 @@
 import * as Shardus from '../shardus/shardus-types'
-import { StateManager as StateManagerTypes } from '@shardus/types'
+import { StateManager as StateManagerTypes } from '@shardus/lib-types'
 import * as utils from '../utils'
 
 import { SimpleRange, GlobalAccountReportResp, GetAccountData3Resp, QueueEntry } from './state-manager-types'
@@ -139,7 +139,7 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
 
         const lowAddress = this.addressRange.low
         const highAddress = this.addressRange.high
-        partition = `${utils.stringifyReduce(lowAddress)} - ${utils.stringifyReduce(highAddress)}`
+        partition = `${utils.makeShortHash(lowAddress, 8)} - ${utils.makeShortHash(highAddress, 8)}`
 
         /* prettier-ignore */ if (config.debug.verboseNestedCounters) nestedCountersInstance.countEvent('archiver_sync', `sync partition: ${partition} start: ${this.accountSync.stateManager.currentCycleShardData.cycleNumber}`)
 
@@ -148,7 +148,7 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
         const accountsSaved = await this.syncAccountData2(lowAddress, highAddress)
         /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: partition: ${partition}, syncAccountData2 done.`)
 
-        /* prettier-ignore */ if (config.debug.verboseNestedCounters) nestedCountersInstance.countEvent( 'archiver_sync', `sync partition: ${partition} end: ${this.accountSync.stateManager.currentCycleShardData.cycleNumber} accountsSynced:${accountsSaved} failedHashes:${this.failedAccounts.length}` )
+        /* prettier-ignore */ nestedCountersInstance.countEvent( 'archiver_sync', `sync partition: ${partition} end: ${this.accountSync.stateManager.currentCycleShardData.cycleNumber} accountsSynced:${accountsSaved} failedHashes:${this.failedAccounts.length}` )
         this.failedAccounts = [] //clear failed hashes.  We dont try to fix them for now.  let the patcher handle it.  could bring back old code if we change mind
       } catch (error) {
         if (error.message.includes('reset-sync-ranges')) {
@@ -156,13 +156,13 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
           //buble up:
           throw new Error('reset-sync-ranges')
         } else if (error.message.includes('FailAndRestartPartition')) {
-          /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: Error Failed at: ${error.stack}`)
+          /* prettier-ignore */ if (logFlags.important_as_fatal) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: Error Failed at: ${error.stack}`)
           /* prettier-ignore */ this.accountSync.statemanager_fatal( `syncStateDataForRange_ex_failandrestart`, 'ARCHIVER_DATASYNC: FailAndRestartPartition: ' + errorToStringFull(error) )
 
           retry = await this.tryRetry('syncStateDataForRange 1')
         } else {
           /* prettier-ignore */ this.accountSync.statemanager_fatal( `syncStateDataForRange_ex`, 'syncStateDataForPartition failed: ' + errorToStringFull(error) )
-          /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: unexpected error. restaring sync:` + errorToStringFull(error))
+          /* prettier-ignore */ if (logFlags.important_as_fatal) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: unexpected error. restaring sync:` + errorToStringFull(error))
 
           retry = await this.tryRetry('syncStateDataForRange 2')
         }
@@ -206,12 +206,19 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
         /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals partition: ${partition} `)
 
         //this.accountSync.readyforTXs = true //Do not open the floodgates of queuing stuffs.
-
-        //Get globals list and hash.
-        const globalReport: GlobalAccountReportResp = await this.accountSync.getRobustGlobalReport(
-          'syncTrackerGlobal',
-          true
-        )
+        let globalReport: GlobalAccountReportResp
+        let retries = 100
+        while (retries > 0) {
+          try {
+            //Get globals list and hash.
+            globalReport = await this.accountSync.getRobustGlobalReport('syncTrackerGlobal', true)
+            break //if an error was not thrown we may proceed
+          } catch (error) {
+            await utils.sleep(3000)
+            retries--
+            nestedCountersInstance.countEvent('archiver_sync', `syncStateDataGlobals: syncTrackerGlobal retry`)
+          }
+        }
 
         // Added all archivers to the list of archivers to ask for data
         this.archiverDataSourceHelper.initWithList(getArchiversList())
@@ -241,9 +248,7 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
           }
           while (this.accountSync.debugFail4) {
             await utils.sleep(1000)
-            if (
-              this.archiverDataSourceHelper.tryNextDataSourceArchiver('syncAccountData1 debugFail4') == false
-            ) {
+            if (this.archiverDataSourceHelper.tryNextDataSourceArchiver('syncAccountData1 debugFail4') == false) {
               throw new Error('out of account archivers to ask: dataSourceTest debugFail4')
             }
           }
@@ -257,8 +262,8 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
         while (hasAllGlobalData === false) {
           maxTries--
           if (maxTries <= 0) {
-            /* prettier-ignore */ if (logFlags.error) this.accountSync.mainLogger.error(`ARCHIVER_DATASYNC: syncStateDataGlobals max tries excceded `)
-            return
+            /* prettier-ignore */ if (logFlags.important_as_fatal) this.accountSync.mainLogger.error(`ARCHIVER_DATASYNC: syncStateDataGlobals max tries excceded `)
+            throw new Error(`setting global data falied. max tries exceeded`)
           }
           /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals hasAllGlobalData === false `)
 
@@ -313,9 +318,7 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
           if (result.success === false) {
             /* prettier-ignore */ if (logFlags.verbose) if (logFlags.error) this.accountSync.mainLogger.error('ASK FAIL syncStateTableData result == success:false')
             if (this.archiverDataSourceHelper.tryNextDataSourceArchiver('ArchiverReponseFail') == false) {
-              throw new Error(
-                'out of account archivers to ask: syncStateDataGlobals- archiver success:false response'
-              )
+              throw new Error('out of account archivers to ask: syncStateDataGlobals- archiver success:false response')
             }
             continue
           }
@@ -335,7 +338,18 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
           // add any new accounts to globalAccounts
           /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals get_account_data_by_list_archiver ${utils.stringifyReduce(result)} `)
 
-          globalReport2 = await this.accountSync.getRobustGlobalReport('syncTrackerGlobal2', true)
+          retries = 100
+          while (retries > 0) {
+            try {
+              //Get globals list and hash.
+              globalReport2 = await this.accountSync.getRobustGlobalReport('syncTrackerGlobal2', true)
+              break //if an error was not thrown we may proceed
+            } catch (error) {
+              await utils.sleep(3000)
+              retries--
+              nestedCountersInstance.countEvent('archiver_sync', `syncStateDataGlobals: syncTrackerGlobal2 retry`)
+            }
+          }
 
           // Added all archivers to the list of archivers to ask for data
           this.archiverDataSourceHelper.initWithList(getArchiversList())
@@ -359,12 +373,12 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
               //we dont have the data
               hasAllGlobalData = false
               remainingAccountsToSync.push(report.id)
-              /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals remainingAccountsToSync data===null ${utils.makeShortHash(report.id)} `)
+              /* prettier-ignore */ if (logFlags.important_as_fatal) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals remainingAccountsToSync data===null ${utils.makeShortHash(report.id)} `)
             } else if (data.stateId !== report.hash) {
               //we have the data but he hash is wrong
               hasAllGlobalData = false
               remainingAccountsToSync.push(report.id)
-              /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals remainingAccountsToSync data.stateId !== report.hash ${utils.makeShortHash(report.id)} `)
+              /* prettier-ignore */ if (logFlags.important_as_fatal) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals remainingAccountsToSync data.stateId !== report.hash ${utils.makeShortHash(report.id)} `)
             }
           }
           //set this report to the last report and continue.
@@ -406,13 +420,13 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
         /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals complete synced ${dataToSet.length} accounts `)
       } catch (error) {
         if (error.message.includes('FailAndRestartPartition')) {
-          /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals Error Failed at: ${error.stack}`)
+          /* prettier-ignore */ if (logFlags.important_as_fatal) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: syncStateDataGlobals Error Failed at: ${error.stack}`)
           /* prettier-ignore */ this.accountSync.statemanager_fatal( `syncStateDataGlobals_ex_failandrestart`, 'ARCHIVER_DATASYNC: syncStateDataGlobals FailAndRestartPartition: ' + errorToStringFull(error) )
 
           retry = await this.tryRetry('syncStateDataGlobals 1 ')
         } else {
           /* prettier-ignore */ this.accountSync.statemanager_fatal( `syncStateDataGlobals_ex`, 'syncStateDataGlobals failed: ' + errorToStringFull(error) )
-          /* prettier-ignore */ if (logFlags.debug) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: unexpected error. restaring sync:` + errorToStringFull(error))
+          /* prettier-ignore */ if (logFlags.important_as_fatal) this.accountSync.mainLogger.debug(`ARCHIVER_DATASYNC: unexpected error. restaring sync:` + errorToStringFull(error))
 
           retry = await this.tryRetry('syncStateDataGlobals 2')
         }
@@ -480,6 +494,7 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
     }
 
     let receivedBusyMessageTimes = 0
+    let otherArchiverRetries = 0
 
     const retryWithNextArchiver = async (debugMessage: string, errorString: string) => {
       if (this.archiverDataSourceHelper.tryNextDataSourceArchiver(debugMessage) == false) {
@@ -488,9 +503,33 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
           // Try again from the start of the list of archivers after waiting for 10 seconds
           receivedBusyMessageTimes = 0
           await utils.sleep(10000)
-        } else { 
-          throw new Error(errorString)
+        } else {
+          //this throw made no sense... the else case here is the happy path, as in
+          //we have not run out of attempts to keep asking archivers
+          //perhaps it would have even broken the restore if there was more than two archivers
+          //throw new Error(errorString)
         }
+
+        if (otherArchiverRetries > this.archiverDataSourceHelper.getNumberArchivers()) {
+          otherArchiverRetries = 0
+          await utils.sleep(10000)
+        }
+
+        //select archiver 0 if we wrapped around.  This is a local fix,
+        //tryNextDataSourceArchiver is in need of a some refactoring but that is out of scope
+        if (
+          this.archiverDataSourceHelper.getNumberArchivers() > 0 &&
+          this.archiverDataSourceHelper.dataSourceArchiverIndex === 0
+        ) {
+          this.archiverDataSourceHelper.dataSourceArchiver = this.archiverDataSourceHelper.dataSourceArchiverList[0]
+        }
+      }
+
+      const dataSourceArchiver = this.archiverDataSourceHelper.dataSourceArchiver
+      if (dataSourceArchiver != null) {
+        /* prettier-ignore */ nestedCountersInstance.countEvent(`archiver_sync`, `next archiver: ${dataSourceArchiver.ip}:${dataSourceArchiver.port} idx:${this.archiverDataSourceHelper.dataSourceArchiverIndex}`)
+      } else {
+        /* prettier-ignore */ nestedCountersInstance.countEvent(`archiver_sync`, `next archiver: null   idx:${this.archiverDataSourceHelper.dataSourceArchiverIndex}`)
       }
     }
 
@@ -545,7 +584,9 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
       }
       const signedMessage = crypto.sign(message)
       console.log('getAccountDataFromArchiver message', signedMessage)
-      const getAccountDataFromArchiver = async (payload): Promise<GetAccountData3Resp & { success: boolean; error: string }> => {
+      const getAccountDataFromArchiver = async (
+        payload
+      ): Promise<GetAccountData3Resp & { success: boolean; error: string }> => {
         const dataSourceArchiver = this.archiverDataSourceHelper.dataSourceArchiver
         const accountDataArchiverUrl = `http://${dataSourceArchiver.ip}:${dataSourceArchiver.port}/get_account_data_archiver`
         try {
@@ -554,7 +595,7 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
           return result
         } catch (error) {
           console.error('getAccountDataFromArchiver error', error)
-          return { data:null, errors:[], success:false, error:error.message as string }
+          return { data: null, errors: [], success: false, error: error.message as string }
         }
       }
       let result: GetAccountData3Resp & { success: boolean; error: string }
@@ -568,14 +609,16 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
         if (askRetriesLeft > 0) {
           askRetriesLeft--
         } else {
-          retryWithNextArchiver('syncAccountData1', 'out of archiver account sync retries')
+          otherArchiverRetries++
+          await retryWithNextArchiver('syncAccountData1', 'out of archiver account sync retries')
         }
         continue
       }
 
       if (result == null) {
         /* prettier-ignore */ if (logFlags.verbose) if (logFlags.error) this.accountSync.mainLogger.error(`ASK FAIL syncAccountData result == null archiver:${this.archiverDataSourceHelper.dataSourceArchiver.publicKey}`)
-        retryWithNextArchiver('syncAccountData2', 'out of account archivers to ask: syncAccountData2')
+        otherArchiverRetries++
+        await retryWithNextArchiver('syncAccountData2', 'out of account archivers to ask: syncAccountData2')
         continue
       }
 
@@ -583,16 +626,17 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
         /* prettier-ignore */ if (logFlags.verbose) if (logFlags.error) this.accountSync.mainLogger.error(`ASK FAIL syncAccountData result == success:false archiver:${this.archiverDataSourceHelper.dataSourceArchiver.publicKey}`)
 
         //interpret timeout as a busy archiver, so that we can keep try retrying
-        if(result?.error != null && result.error.includes('Timeout') ){
+        if (result?.error != null && result.error.includes('Timeout')) {
           receivedBusyMessageTimes++
-          retryWithNextArchiver('archiver success:false', 'Archiver is busy serving other validators: Timeout')
+          await retryWithNextArchiver('archiver success:false', 'Archiver is busy serving other validators: Timeout')
           /* prettier-ignore */ nestedCountersInstance.countEvent(`archiver_sync`, `archiver is busy: Timeout`)
         } else if (result.error === 'Archiver is busy serving other validators at the moment!') {
           receivedBusyMessageTimes++
-          retryWithNextArchiver('archiver success:false', 'Archiver is busy serving other validators')
+          await retryWithNextArchiver('archiver success:false', 'Archiver is busy serving other validators')
           /* prettier-ignore */ nestedCountersInstance.countEvent(`archiver_sync`, `archiver is busy`)
         } else {
-          retryWithNextArchiver('archiver success:false', result.error)
+          otherArchiverRetries++
+          await retryWithNextArchiver('archiver success:false', result.error)
           /* prettier-ignore */ nestedCountersInstance.countEvent(`archiver_sync`, `archiver is other error: ${result.error}`)
         }
         continue
@@ -602,7 +646,8 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
 
       if (result.data == null) {
         /* prettier-ignore */ if (logFlags.verbose) if (logFlags.error) this.accountSync.mainLogger.error(`ASK FAIL syncAccountData result.data == null archiver:${this.archiverDataSourceHelper.dataSourceArchiver.publicKey}`)
-        retryWithNextArchiver('syncAccountData3', 'out of account archivers to ask: syncAccountData3')
+        otherArchiverRetries++
+        await retryWithNextArchiver('syncAccountData3', 'out of account archivers to ask: syncAccountData3')
         continue
       }
       // accountData is in the form [{accountId, stateId, data}] for n accounts.
@@ -754,6 +799,9 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
 
       //process combinedAccountData right away and then clear it
       if (this.combinedAccountData.length > 0) {
+        const dataSourceArchiver = this.archiverDataSourceHelper.dataSourceArchiver
+        /* prettier-ignore */ nestedCountersInstance.countEvent('archiver_sync', `accounts synced from archiver ${dataSourceArchiver?.ip}`, this.combinedAccountData.length)
+
         const accountToSave = this.combinedAccountData.length
         const accountsSaved = await this.processAccountDataNoStateTable2()
         totalAccountsSaved += accountsSaved
@@ -820,13 +868,17 @@ export default class ArchiverSyncTracker implements SyncTrackerInterface {
     this.accountSync.syncStatement.numAccounts += goodAccounts.length
 
     if (failedHashes.length > 1000) {
-      /* prettier-ignore */ if (logFlags.error) this.accountSync.mainLogger.error(`ARCHIVER_DATASYNC: processAccountData failed hashes over 1000:  ${failedHashes.length} restarting sync process`)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) this.accountSync.mainLogger.error(`ARCHIVER_DATASYNC: processAccountData failed hashes over 1000:  ${failedHashes.length} restarting sync process`)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('archiver_sync', `data hashes failed`, failedHashes.length)
+
       // recordPotentialBadnode is not implemented yet but we have it as a placeholder
       this.accountSync.stateManager.recordPotentialBadnode()
       throw new Error('FailAndRestartPartition_processAccountData_A')
     }
     if (failedHashes.length > 0) {
-      /* prettier-ignore */ if (logFlags.error) this.accountSync.mainLogger.error(`ARCHIVER_DATASYNC: processAccountData failed hashes:  ${failedHashes.length} will have to download them again`)
+      /* prettier-ignore */ if (logFlags.important_as_fatal) this.accountSync.mainLogger.error(`ARCHIVER_DATASYNC: processAccountData failed hashes:  ${failedHashes.length} will have to download them again`)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('archiver_sync', `data hashes failed`, failedHashes.length)
+
       // recordPotentialBadnode is not implemented yet but we have it as a placeholder
       this.accountSync.stateManager.recordPotentialBadnode()
       this.failedAccounts = this.failedAccounts.concat(failedHashes)

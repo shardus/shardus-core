@@ -1,6 +1,11 @@
-import { publicKey } from '@shardus/types'
-import { SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
-import { ArchiverDownMsg, ArchiverRefutesLostMsg, ArchiverUpMsg, InvestigateArchiverMsg } from '@shardus/types/build/src/p2p/LostArchiverTypes'
+import { publicKey } from '@shardus/lib-types'
+import { SignedObject } from '@shardus/lib-types/build/src/p2p/P2PTypes'
+import {
+  ArchiverDownMsg,
+  ArchiverRefutesLostMsg,
+  ArchiverUpMsg,
+  InvestigateArchiverMsg,
+} from '@shardus/lib-types/build/src/p2p/LostArchiverTypes'
 
 /** TYPES */
 

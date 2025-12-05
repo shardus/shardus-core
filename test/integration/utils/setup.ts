@@ -1,6 +1,6 @@
 // shardus-core/test/integration/setup.ts
-import * as crypto from '@shardus/crypto-utils'
-import { NodeStatus } from '@shardus/types/build/src/p2p/P2PTypes'
+import * as crypto from '@shardus/lib-crypto-utils'
+import { NodeStatus } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import SHARDUS_CONFIG from '../../../src/config'
 import * as http from '../../../src/http'
 import Logger from '../../../src/logger'
@@ -83,7 +83,7 @@ export async function setupTestEnvironment(): Promise<{
     internalPort: number
     status: string
     appData: {
-      shardeumVersion: string
+      appVersion: string
       minVersion: string
       activeVersion: string
       latestVersion: string
@@ -113,6 +113,7 @@ export async function setupTestEnvironment(): Promise<{
     id: crypto.hashObj({ publicKey: keyPair.publicKey, cycleMarker: 'madeupcyclemarker' }),
     syncingTimestamp: Date.now(),
     readyTimestamp: 0,
+    activeCycle: 0,
   }
 
   const targetNode: ShardusTypes.Node = {
@@ -131,6 +132,7 @@ export async function setupTestEnvironment(): Promise<{
     id: nodeInfo.id,
     syncingTimestamp: Date.now(),
     readyTimestamp: 0,
+    activeCycle: 0,
   }
 
   return { dummyNode, networkContext, targetNode }

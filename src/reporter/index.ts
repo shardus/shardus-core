@@ -20,10 +20,11 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import { memoryReportingInstance } from '../utils/memoryReporting'
 import { getLinearGossipBurstList } from '../utils'
 import { getSocketReport } from '../utils/debugUtils'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { finishedSyncingCycle } from '../p2p/Join'
 import { currentCycle } from '../p2p/CycleCreator'
 import process from 'process'
+import { fireAndForget } from '../utils/functions/promises'
 
 const http = require('../http')
 const allZeroes64 = '0'.repeat(64)
@@ -100,9 +101,7 @@ class Reporter {
     this.statisticsReport.txApplied += this.statistics ? this.statistics.getPreviousElement('txApplied') : 0
     this.statisticsReport.txRejected += this.statistics ? this.statistics.getPreviousElement('txRejected') : 0
     this.statisticsReport.txExpired += this.statistics ? this.statistics.getPreviousElement('txExpired') : 0
-    this.statisticsReport.txProcessed += this.statistics
-      ? this.statistics.getPreviousElement('txProcessed')
-      : 0
+    this.statisticsReport.txProcessed += this.statistics ? this.statistics.getPreviousElement('txProcessed') : 0
   }
 
   async reportJoining(publicKey) {
@@ -118,8 +117,7 @@ class Reporter {
         appData,
       })
     } catch (e) {
-      if (logFlags.error)
-        this.mainLogger.error('reportJoining: ' + e.name + ': ' + e.message + ' at ' + e.stack)
+      if (logFlags.error) this.mainLogger.error('reportJoining: ' + e.name + ': ' + e.message + ' at ' + e.stack)
       console.error(e)
     }
   }
@@ -138,8 +136,7 @@ class Reporter {
         appData,
       })
     } catch (e) {
-      if (logFlags.error)
-        this.mainLogger.error('reportJoined: ' + e.name + ': ' + e.message + ' at ' + e.stack)
+      if (logFlags.error) this.mainLogger.error('reportJoined: ' + e.name + ': ' + e.message + ' at ' + e.stack)
       console.error(e)
     }
   }
@@ -151,8 +148,7 @@ class Reporter {
     try {
       await http.post(`${this.config.recipient}/active`, { nodeId })
     } catch (e) {
-      if (logFlags.error)
-        this.mainLogger.error('reportActive: ' + e.name + ': ' + e.message + ' at ' + e.stack)
+      if (logFlags.error) this.mainLogger.error('reportActive: ' + e.name + ': ' + e.message + ' at ' + e.stack)
       console.error(e)
     }
   }
@@ -164,8 +160,7 @@ class Reporter {
     try {
       await http.post(`${this.config.recipient}/sync-statement`, { nodeId, syncStatement })
     } catch (e) {
-      if (logFlags.error)
-        this.mainLogger.error('reportSyncStatement: ' + e.name + ': ' + e.message + ' at ' + e.stack)
+      if (logFlags.error) this.mainLogger.error('reportSyncStatement: ' + e.name + ': ' + e.message + ' at ' + e.stack)
       console.error(e)
     }
   }
@@ -177,8 +172,7 @@ class Reporter {
     try {
       await http.post(`${this.config.recipient}/removed`, { nodeId })
     } catch (e) {
-      if (logFlags.error)
-        this.mainLogger.error('reportRemoved: ' + e.name + ': ' + e.message + ' at ' + e.stack)
+      if (logFlags.error) this.mainLogger.error('reportRemoved: ' + e.name + ': ' + e.message + ' at ' + e.stack)
       console.error(e)
     }
     // Omar added this, since, just clearing the timer did not work
@@ -188,21 +182,27 @@ class Reporter {
 
   // Sends a report
   async _sendReport(data) {
-    if (logFlags.debug) this.mainLogger.debug(JSON.stringify({method: '_sendReport', script: 'reporter/index', hasRecipient: this.hasRecipient}))
+    if (logFlags.debug)
+      this.mainLogger.debug(
+        Utils.safeStringify({ method: '_sendReport', script: 'reporter/index', hasRecipient: this.hasRecipient })
+      )
     if (!this.hasRecipient) {
       return
     }
     const nodeId = Self.id
-    if (logFlags.debug) this.mainLogger.debug(JSON.stringify({method: '_sendReport', script: 'reporter/index', nodeId: nodeId}))
+    if (logFlags.debug)
+      this.mainLogger.debug(Utils.safeStringify({ method: '_sendReport', script: 'reporter/index', nodeId: nodeId }))
     if (!nodeId) throw new Error('No node ID available to the Reporter module.')
     const report = {
       nodeId,
       data,
     }
-    if (logFlags.debug){
+    if (logFlags.debug) {
       try {
-        this.mainLogger.debug(JSON.stringify({report: JSON.stringify(report), method: `_sendReport`, script: '_sendReport'}))
-      } catch (error){
+        this.mainLogger.debug(
+          Utils.safeStringify({ report: Utils.safeStringify(report), method: `_sendReport`, script: '_sendReport' })
+        )
+      } catch (error) {
         console.error(`[reporter/index][_sendReport] ERROR while writing report object to log.`, error)
       }
     }
@@ -210,8 +210,7 @@ class Reporter {
     try {
       await http.post(`${this.config.recipient}/heartbeat`, report)
     } catch (e) {
-      if (logFlags.error)
-        this.mainLogger.error('_sendReport: ' + e.name + ': ' + e.message + ' at ' + e.stack)
+      if (logFlags.error) this.mainLogger.error('_sendReport: ' + e.name + ': ' + e.message + ' at ' + e.stack)
       console.error(e)
     }
   }
@@ -256,7 +255,10 @@ class Reporter {
         ? await this.stateManager.transactionQueue.getAccountsStateHash()
         : allZeroes64
     */
-    if (logFlags.debug) this.mainLogger.debug(JSON.stringify({method: 'report', script: 'reporter/index', cycleChainNewest: CycleChain.newest}))
+    if (logFlags.debug)
+      this.mainLogger.debug(
+        Utils.safeStringify({ method: 'report', script: 'reporter/index', cycleChainNewest: CycleChain.newest })
+      )
     if (CycleChain.newest == null) {
       this.restartReportInterval()
       return
@@ -394,15 +396,14 @@ class Reporter {
         lastInSyncResult,
         cycleFinishedSyncing,
         stillNeedsInitialPatchPostActive,
-        memory: process.memoryUsage()
+        memory: process.memoryUsage(),
       })
       if (this.stateManager != null && config.mode === 'debug' && !config.debug.disableTxCoverageReport) {
         this.stateManager.transactionQueue.resetTxCoverageMap()
       }
       this.statistics.resetCountedEvents()
     } catch (e) {
-      if (logFlags.error)
-        this.mainLogger.error('startReporting: ' + e.name + ': ' + e.message + ' at ' + e.stack)
+      if (logFlags.error) this.mainLogger.error('startReporting: ' + e.name + ': ' + e.message + ' at ' + e.stack)
       console.error(e)
     }
 
@@ -415,21 +416,38 @@ class Reporter {
       clearTimeout(this.reportTimer)
     }
     const reportInterval = this.getReportInterval()
-    if (logFlags.debug) this.mainLogger.debug(JSON.stringify({script: 'reporter/index', method: 'restartReportInterval', reportInterval}))
+    if (logFlags.debug)
+      this.mainLogger.debug(
+        Utils.safeStringify({ script: 'reporter/index', method: 'restartReportInterval', reportInterval })
+      )
     this.reportTimer = setTimeout(() => {
-      this.report()
+      fireAndForget(() => this.report())
     }, reportInterval)
   }
 
   startReporting() {
     const self = this
 
-    if (logFlags.debug) this.mainLogger.debug(JSON.stringify({script: 'reporter/index', method: 'startReporting', reportingIntervalDefined: (this.reportingInterval !== undefined)}))
+    if (logFlags.debug)
+      this.mainLogger.debug(
+        Utils.safeStringify({
+          script: 'reporter/index',
+          method: 'startReporting',
+          reportingIntervalDefined: this.reportingInterval !== undefined,
+        })
+      )
     if (this.reportingInterval) {
       return
     }
     this.reportingInterval = setInterval(() => {
-      if (logFlags.debug) this.mainLogger.debug(JSON.stringify({script: 'reporter/index', method: 'startReporting[reportingInterval]', message: 'called'}))
+      if (logFlags.debug)
+        this.mainLogger.debug(
+          Utils.safeStringify({
+            script: 'reporter/index',
+            method: 'startReporting[reportingInterval]',
+            message: 'called',
+          })
+        )
       self.collectStatisticToReport()
 
       //temp mem debugging:
@@ -438,7 +456,14 @@ class Reporter {
 
     //log a socket report every 5 minutes
     this.socketReportInterval = setInterval(async () => {
-      if (logFlags.debug) this.mainLogger.debug(JSON.stringify({script: 'reporter/index', method: 'startReporting[socketReportInterval]', logSocketReports: this.config.logSocketReports}))
+      if (logFlags.debug)
+        this.mainLogger.debug(
+          Utils.safeStringify({
+            script: 'reporter/index',
+            method: 'startReporting[socketReportInterval]',
+            logSocketReports: this.config.logSocketReports,
+          })
+        )
       if (this.config.logSocketReports) {
         const report = await getSocketReport()
         this.mainLogger.info(Utils.safeStringify(report))
@@ -478,7 +503,10 @@ class Reporter {
   }
 
   stopReporting() {
-    if (logFlags.debug) this.mainLogger.debug(JSON.stringify({script: 'reporter/index', method: 'stopReporting', message: 'called'}))
+    if (logFlags.debug)
+      this.mainLogger.debug(
+        Utils.safeStringify({ script: 'reporter/index', method: 'stopReporting', message: 'called' })
+      )
     this.mainLogger.info('Stopping statistics reporting...')
     clearTimeout(this.reportTimer)
     clearInterval(this.reportingInterval)

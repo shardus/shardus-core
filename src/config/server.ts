@@ -38,7 +38,7 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     ],
     syncLimit: 180, //180 seconds seems way to high to allow.
     useNTPOffsets: true,
-    useFakeTimeOffsets: true,
+    useFakeTimeOffsets: false,
     cycleDuration: 30,
     maxRejoinTime: 20,
     difficulty: 2,
@@ -69,6 +69,19 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     maxSyncTimeFloor: 1200,
     maxNodeForSyncTime: 9,
     maxRotatedPerCycle: 1,
+    flexibleRotationDelta: 1,
+    flexibleRotationEnabled: false,
+    enableDangerousProblematicNodeRemoval: false,
+    enableProblematicNodeRemoval: false,
+    enableProblematicNodeRemovalOnCycle: 20000,
+    maxProblematicNodeRemovalsPerCycle: 1,
+    problematicNodeConsecutiveRefuteThreshold: 6,
+    problematicNodeRefutePercentageThreshold: 0.1,
+    problematicNodeHistoryLength: 60,
+    problematicNodeRemovalCycleFrequency: 5,
+    // New flags for problematic node cache v2
+    useProblematicNodeCacheV2: false, // When true, use the new cache-based implementation
+    enableProblematicNodeCacheBuilding: false, // Enable shadow mode cache building for validation
     firstCycleJoin: 10,
     maxPercentOfDelta: 40,
     minScaleReqsNeeded: 5,
@@ -95,6 +108,8 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     uniqueLostIdsUpdate: false,
     useLruCacheForSocketMgmt: false,
     lruCacheSizeForSocketMgmt: 1000,
+    payloadSizeLimitInBytes: 2 * 1024 * 1024, // 2MB
+    headerSizeLimitInBytes: 2 * 1024, // 2 KB
     delayLostReportByNumOfCycles: 1,
     aggregateLostReportsTillQ1: true,
     isDownCachePruneCycles: 10,
@@ -132,7 +147,12 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     rotationPercentActive: 0.001, //rotate 0.1% of active nodes per cycle when in a steady processing state
     rotationMaxAddPercent: 0.1,
     rotationMaxRemovePercent: 0.05,
+    syncFloorEnabled: false, //DEBUG=true, ITN initially false for rotation safety
+    syncingMaxAddPercent: 0.2,
+    syncingDesiredMinCount: 50, //Debug=5, ITN = 50
     allowActivePerCycle: 7,
+    allowActivePerCycleRecover: 4,
+    activeRecoveryEnabled: false, //Debug=true, ITN initially false for rotation safety
     useProxyForDownCheck: false,
     numCheckerNodes: 1,
     minChecksForDown: 1,
@@ -151,11 +171,28 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     formingNodesPerCycle: 7,
     downNodeFilteringEnabled: false,
     useFactCorrespondingTell: true,
+    factv2: false, // FACT v2 algorithm - disabled by default
     resubmitStandbyAddWaitDuration: 1000, // 1 second in ms
     requiredVotesPercentage: 2 / 3.0,
     timestampCacheFix: true,
     useAjvCycleRecordValidation: true,
-    networkTransactionsToProcessPerCycle: 20
+    networkTransactionsToProcessPerCycle: 20,
+    getTxTimestampTimeoutOffset: 0,
+    dropNGTByGossipEnabled: false,
+    timestampCacheFixSize: 10000,
+    removedNodeIDCacheSize: 1000,
+    stuckNGTInQueueFix: true,
+    nerfNonFoundationCertScores: true,
+    addFoundationNodeAttribute: true,
+    preferFoundationNodesForTimestamp: false,
+    foundationNodeThreshold: 50,
+    patchNetworkAccountSyncFixes: true,
+    enableShardKeyChanges: true,
+    maxResponseSize: 1024 * 1024 * 15, // 15MB
+    allowEndUserTxnInjections: true,
+    newCycleCertScoring: true,
+    fixApplyReceiptType: false,
+    syncV2HistoricalCyclesCount: 60, // Number of historical cycles to sync when joining
   },
   ip: {
     externalIp: '0.0.0.0',
@@ -200,8 +237,9 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     oldPartitionSystem: false,
     dumpAccountReportFromSQL: false,
     profiler: false,
-    minMultiSigRequiredForEndpoints: 2,
-    minMultiSigRequiredForGlobalTxs: 2,
+    minMultiSigRequiredForEndpoints: 3,
+    minMultiSigRequiredForGlobalTxs: 3,
+    minSigRequiredForArchiverWhitelist: 2,
     robustQueryDebug: false,
     forwardTXToSyncingNeighbors: false,
     recordAcceptedTx: false,
@@ -229,7 +267,17 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     startedSyncingDelay: 0,
     finishedSyncingDelay: 0,
     readyNodeDelay: 0,
-    beforeStateFailChance: 0
+    qaTestBoolean: false,
+    qaTestNumber: 0,
+    qaTestString: '',
+    beforeStateFailChance: 0,
+    logCSVPerfEvents: false,
+    numOfPerfEventsNeededForLogging: 10,
+    enableDebugFlags: false,
+    missConsensusChance: 0,
+    dropMessageChance: 0,
+    slowResponseChance: 0,
+    slowResponseDelay: 0,
   },
   statistics: { save: true, interval: 1 },
   loadDetection: {
@@ -258,10 +306,12 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     patcherMaxHashesPerRequest: 300,
     patcherMaxLeafHashesPerRequest: 300,
     patcherMaxChildHashResponses: 2000,
+    patcherRepairByReceiptPerUpdate: 100,
     maxDataSyncRestarts: 5,
     maxTrackerRestarts: 5,
     syncWithAccountOffset: true,
     useAccountCopiesTable: false,
+    syncToProcessingDelay: 500, // Delay in ms between sync completion and starting transaction processing
     stuckProcessingLimit: 300,
     autoUnstickProcessing: false,
     apopFromStuckProcessing: false,
@@ -331,6 +381,9 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     fallbackToCurrentCycleFortxGroup: false,
     maxCyclesShardDataToKeep: 20,
     avoidOurIndexInFactTell: false, //initial testing shows this may cause issues so leaving it off for now
+    checkDestLimits: true,
+    checkDestLimitCount: 5,
+    globalAccountsReceiptInitiationTimeout: 5000, // 5 seconds default timeout
   },
   sharding: { nodesPerConsensusGroup: 5, nodesPerEdge: 2, executeInOneShard: false },
   mode: ServerMode.Release,
@@ -342,10 +395,8 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     enableRIAccountsCache: true,
     tickets: {
       updateTicketListTimeInMs: 60000 * 10,
-      ticketTypes: [
-        {type: 'silver', enabled: false}
-      ]
-    }
+      ticketTypes: [{ type: 'silver', enabled: false }],
+    },
   },
 }
 export default SERVER_CONFIG

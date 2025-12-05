@@ -1,4 +1,4 @@
-import * as crypto from '@shardus/crypto-utils'
+import * as crypto from '@shardus/lib-crypto-utils'
 import { ChildProcess, fork, Serializable } from 'child_process'
 import fs from 'fs'
 import Log4js from 'log4js'
@@ -6,7 +6,7 @@ import path from 'path'
 import Logger, { logFlags } from '../logger'
 import * as Shardus from '../shardus/shardus-types'
 import Storage from '../storage'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 export type HashableObject = (object | string) & { sign?: Shardus.Sign }
 
@@ -55,8 +55,7 @@ class Crypto {
         return
       }
     } catch (e) {
-      if (logFlags.error)
-        this.mainLogger.error(`error fetching keypair from database ${Utils.safeStringify(e)}`)
+      if (logFlags.error) this.mainLogger.error(`error fetching keypair from database ${Utils.safeStringify(e)}`)
     }
 
     if (this.config.crypto.keyPairConfig.useKeyPairFromFile) {
@@ -157,10 +156,7 @@ class Crypto {
    * @param recipientCurvePk
    * @returns
    */
-  tagWithSize<T>(
-    obj: T,
-    recipientCurvePk: crypto.curvePublicKey
-  ): T & { msgSize: number } & crypto.TaggedObject {
+  tagWithSize<T>(obj: T, recipientCurvePk: crypto.curvePublicKey): T & { msgSize: number } & crypto.TaggedObject {
     const strEncoded = Utils.safeStringify(obj)
     const msgSize = strEncoded.length //get the message size
     const objCopy = Utils.safeJsonParse(strEncoded)

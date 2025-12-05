@@ -3,13 +3,13 @@
  * requires an external node to be queried, including robust queries.
  */
 
-import { hexstring, P2P } from '@shardus/types'
+import { hexstring, P2P } from '@shardus/lib-types'
 import { errAsync, ResultAsync } from 'neverthrow'
 import { attempt, robustQuery } from '../Utils'
 import * as http from '../../http'
 import { logger } from '../Context'
 import { Logger } from 'log4js'
-import { JoinRequest } from '@shardus/types/build/src/p2p/JoinTypes'
+import { JoinRequest } from '@shardus/lib-types/build/src/p2p/JoinTypes'
 
 /** A `ResultAsync` that wraps an `UnwrappedRobustResult`. */
 export type RobustQueryResultAsync<T> = ResultAsync<UnwrappedRobustResult<ActiveNode, T>, Error>
@@ -119,7 +119,9 @@ function attemptSimpleFetch<T>(
 }
 
 /** Executes a robust query to retrieve the cycle marker from the network. */
-export function robustQueryForCycleRecordHash(nodes: ActiveNode[]): RobustQueryResultAsync<{ currentCycleHash: hexstring }> {
+export function robustQueryForCycleRecordHash(
+  nodes: ActiveNode[]
+): RobustQueryResultAsync<{ currentCycleHash: hexstring }> {
   return makeRobustQueryCall(nodes, 'current-cycle-hash')
 }
 
@@ -145,27 +147,30 @@ export function robustQueryForStandbyNodeListHash(
 }
 
 /** Executes a robust query to retrieve the txList hash from the network. */
-export function robustQueryForTxListHash(
-  nodes: ActiveNode[]
-): RobustQueryResultAsync<{ txListHash: hexstring }> {
+export function robustQueryForTxListHash(nodes: ActiveNode[]): RobustQueryResultAsync<{ txListHash: hexstring }> {
   return makeRobustQueryCall(nodes, 'tx-list-hash')
 }
 
+/** Executes a robust query to retrieve recent cycle markers from the network. */
+export function robustQueryForRecentCycleMarkers(
+  nodes: ActiveNode[]
+): RobustQueryResultAsync<{ cycleMarkers: string[]; oldestCounter: number }> {
+  return makeRobustQueryCall(nodes, 'recent-cycle-markers')
+}
+
 /** Retrives the cycle by marker from the node. */
-export function getCycleDataFromNode(
-  node: ActiveNode,
-  expectedMarker: hexstring
-): ResultAsync<CycleRecord, Error> {
+export function getCycleDataFromNode(node: ActiveNode, expectedMarker: hexstring): ResultAsync<CycleRecord, Error> {
+  info(`getCycleDataFromNode: expectedMarker: ${expectedMarker}`)
+
   return attemptSimpleFetch(node, 'cycle-by-marker', {
     marker: expectedMarker,
   })
 }
 
 /** Gets the full validator list from the specified node. */
-export function getValidatorListFromNode(
-  node: ActiveNode,
-  expectedHash: hexstring
-): ResultAsync<Validator[], Error> {
+export function getValidatorListFromNode(node: ActiveNode, expectedHash: hexstring): ResultAsync<Validator[], Error> {
+  info(`getValidatorListFromNode: expectedHash: ${expectedHash}`)
+
   return attemptSimpleFetch(
     node,
     'validator-list',
@@ -177,10 +182,9 @@ export function getValidatorListFromNode(
 }
 
 /** Gets the full archiver list from the specified archiver. */
-export function getArchiverListFromNode(
-  node: ActiveNode,
-  expectedHash: hexstring
-): ResultAsync<Archiver[], Error> {
+export function getArchiverListFromNode(node: ActiveNode, expectedHash: hexstring): ResultAsync<Archiver[], Error> {
+  info(`getArchiverListFromNode: expectedHash: ${expectedHash}`)
+
   return attemptSimpleFetch(node, 'archiver-list', {
     hash: expectedHash,
   })
@@ -191,6 +195,8 @@ export function getStandbyNodeListFromNode(
   node: ActiveNode,
   expectedHash: hexstring
 ): ResultAsync<JoinRequest[], Error> {
+  info(`getStandbyNodeListFromNode: expectedHash: ${expectedHash}`)
+
   return attemptSimpleFetch(
     node,
     'standby-list',
@@ -206,6 +212,8 @@ export function getTxListFromNode(
   node: ActiveNode,
   expectedHash: hexstring
 ): ResultAsync<{ hash: string; tx: P2P.ServiceQueueTypes.AddNetworkTx }[], Error> {
+  info(`getTxListFromNode: expectedHash: ${expectedHash}`)
+
   return attemptSimpleFetch(
     node,
     'tx-list',
@@ -214,4 +222,25 @@ export function getTxListFromNode(
     },
     10000 //TODO need to make this scale when there could be millions of entries
   )
+}
+
+/** Retrieves multiple cycles in batch from a node. */
+export function getCyclesBatchFromNode(
+  node: ActiveNode,
+  markers: string[]
+): ResultAsync<{ cycles: CycleRecord[] }, Error> {
+  info(`getCyclesBatchFromNode: fetching ${markers.length} cycles`)
+  return attemptSimpleFetch(
+    node,
+    'cycles-batch',
+    {
+      markers: markers.join(','),
+    },
+    30000 // 30 seconds timeout for batch operations
+  )
+}
+
+function info(...msg) {
+  const entry = `SyncV2: ${msg.join(' ')}`
+  p2pLogger.info(entry)
 }

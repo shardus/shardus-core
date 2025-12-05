@@ -1,6 +1,6 @@
 import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 
 import Profiler from '../utils/profiler'
 import Crypto from '../crypto'
@@ -8,7 +8,7 @@ import Logger, { logFlags } from '../logger'
 import AccountCache from './AccountCache'
 import StateManager from '.'
 import { AccountHashCache, QueueEntry, CycleShardData } from './state-manager-types'
-import { StateManager as StateManagerTypes } from '@shardus/types'
+import { StateManager as StateManagerTypes } from '@shardus/lib-types'
 import * as Context from '../p2p/Context'
 import * as Wrapper from '../p2p/Wrapper'
 import { isDebugModeMiddleware } from '../network/debugMiddleware'
@@ -192,26 +192,15 @@ class PartitionStats {
             res.write(Utils.safeStringify(lines))
           } else {
             {
-              const {
-                allPassed,
-                allPassedMetric2,
-                singleVotePartitions,
-                multiVotePartitions,
-                badPartitions,
-                totalTx,
-              } = this.processTxStatsDump(res, this.txStatsTallyFunction, lines)
+              const { allPassed, allPassedMetric2, singleVotePartitions, multiVotePartitions, badPartitions, totalTx } =
+                this.processTxStatsDump(res, this.txStatsTallyFunction, lines)
               res.write(
                 `TX statsReport${cycleNumber}  : ${allPassed} pass2: ${allPassedMetric2}  single:${singleVotePartitions} multi:${multiVotePartitions} badPartitions:${badPartitions} totalTx:${totalTx}\n`
               )
             }
             {
-              const {
-                allPassed,
-                allPassedMetric2,
-                singleVotePartitions,
-                multiVotePartitions,
-                badPartitions,
-              } = this.processDataStatsDump(res, this.dataStatsTallyFunction, lines)
+              const { allPassed, allPassedMetric2, singleVotePartitions, multiVotePartitions, badPartitions } =
+                this.processDataStatsDump(res, this.dataStatsTallyFunction, lines)
               res.write(
                 `DATA statsReport${cycleNumber}  : ${allPassed} pass2: ${allPassedMetric2}  single:${singleVotePartitions} multi:${multiVotePartitions} badPartitions:${badPartitions}\n`
               )
@@ -279,9 +268,7 @@ class PartitionStats {
    * gets the TX summary blob partition for the given cycle.  (should be the TX's cycleToRecordOn).
    * @param cycle
    */
-  getOrCreateTXSummaryBlobCollectionByCycle(
-    cycle: number
-  ): StateManagerTypes.StateManagerTypes.SummaryBlobCollection {
+  getOrCreateTXSummaryBlobCollectionByCycle(cycle: number): StateManagerTypes.StateManagerTypes.SummaryBlobCollection {
     let summaryBlobCollectionToUse = null
     if (cycle < 0) {
       return null
@@ -543,9 +530,7 @@ class PartitionStats {
         })}`
       )
 
-    const blob: StateManagerTypes.StateManagerTypes.SummaryBlob = this.getSummaryBlob(
-      accountDataAfter.accountId
-    )
+    const blob: StateManagerTypes.StateManagerTypes.SummaryBlob = this.getSummaryBlob(accountDataAfter.accountId)
     blob.counter++
     if (accountDataAfter.data == null) {
       blob.errorNull += 100000000
@@ -640,9 +625,7 @@ class PartitionStats {
     }
     if (accountToUseForTXStatBinning == null) {
       if (this.invasiveDebugInfo)
-        this.mainLogger.debug(
-          `statsTxSummaryUpdate skip(no local writable key) c:${cycle} ${queueEntry.logID}`
-        )
+        this.mainLogger.debug(`statsTxSummaryUpdate skip(no local writable key) c:${cycle} ${queueEntry.logID}`)
       return
     }
 
@@ -676,9 +659,9 @@ class PartitionStats {
     } else {
       if (logFlags.error || this.invasiveDebugInfo)
         this.mainLogger.error(
-          `statsTxSummaryUpdate no collection for c:${cycle}  tx: ${
-            queueEntry.logID
-          } accForBin:${utils.makeShortHash(accountToUseForTXStatBinning)}`
+          `statsTxSummaryUpdate no collection for c:${cycle}  tx: ${queueEntry.logID} accForBin:${utils.makeShortHash(
+            accountToUseForTXStatBinning
+          )}`
         )
     }
   }
@@ -703,6 +686,9 @@ class PartitionStats {
     cycleShardData: CycleShardData,
     excludeEmpty = true
   ): StateManagerTypes.StateManagerTypes.StatsClump {
+    if (!cycleShardData) {
+      throw new Error('cycleShardData is required')
+    }
     const cycle = cycleShardData.cycleNumber
     const nextQueue = []
 
@@ -766,7 +752,8 @@ class PartitionStats {
           continue
         }
         if (excludeEmpty === false || summaryBlob.counter > 0) {
-          statsDump.txStats.push(summaryBlob)
+          const cloneSummaryBlob = Utils.safeJsonParse(Utils.safeStringify(summaryBlob))
+          statsDump.txStats.push(cloneSummaryBlob)
         }
       }
     }
@@ -831,9 +818,7 @@ class PartitionStats {
     }
 
     if (writeTofile) {
-      /*if(logFlags.debug)*/ this.statsLogger.debug(
-        `logs for cycle ${cycle}: ` + utils.stringifyReduce(statsDump)
-      )
+      /*if(logFlags.debug)*/ this.statsLogger.debug(`logs for cycle ${cycle}: ` + utils.stringifyReduce(statsDump))
     }
 
     return statsDump
@@ -869,11 +854,15 @@ class PartitionStats {
       if (index >= 0) {
         const statsStr = line.raw.slice(index)
         //this.generalLog(string)
-        let statsObj: { cycle: number; owner: string }
+        let statsObj: { cycle: number; owner: string; covered: number[]; dataStats: any[] }
         try {
           statsObj = Utils.safeJsonParse(statsStr)
         } catch (err) {
           if (logFlags.error) this.mainLogger.error(`Fail to parse statsObj: ${statsStr}`, err)
+          continue
+        }
+
+        if (!statsObj || typeof statsObj.cycle !== 'number') {
           continue
         }
 
@@ -883,23 +872,30 @@ class PartitionStats {
           )
           continue
         }
-        statsBlobs.push(statsObj)
 
         if (statsObj.cycle > newestCycle) {
           newestCycle = statsObj.cycle
         }
+
+        statsBlobs.push(statsObj)
         // this isn't quite working right without scanning the whole playback log
         statsObj.owner = line.file.owner // line.raw.slice(0, index)
       }
     }
 
     for (const statsObj of statsBlobs) {
+      if (!statsObj || !statsObj.covered) {
+        continue
+      }
       const coveredMap = new Map()
       for (const partition of statsObj.covered) {
         coveredMap.set(partition, true)
       }
 
       if (statsObj.cycle === newestCycle) {
+        if (!statsObj.dataStats) {
+          continue
+        }
         for (const dataStatsObj of statsObj.dataStats) {
           const partition = dataStatsObj.partition
           if (coveredMap.has(partition) === false) {
@@ -1016,30 +1012,39 @@ class PartitionStats {
       if (index >= 0) {
         const statsStr = line.raw.slice(index)
         //this.generalLog(string)
-        let statsObj: { cycle: number; owner: string }
+        let statsObj: { cycle: number; owner: string; covered: number[]; txStats: any[]; cycleDebugNotes?: any }
         try {
           statsObj = Utils.safeJsonParse(statsStr)
         } catch (err) {
           if (logFlags.error) this.mainLogger.error(`Fail to parse statsObj: ${statsStr}`, err)
           continue
         }
+
+        if (!statsObj || typeof statsObj.cycle !== 'number') {
+          continue
+        }
+
         if (newestCycle > 0 && statsObj.cycle != newestCycle) {
           stream.write(
             `wrong cycle for node: ${line.file.owner} reportCycle:${newestCycle} thisNode:${statsObj.cycle} \n`
           )
           continue
         }
-        statsBlobs.push(statsObj)
 
         if (statsObj.cycle > newestCycle) {
           newestCycle = statsObj.cycle
         }
+
+        statsBlobs.push(statsObj)
         // this isn't quite working right without scanning the whole playback log
         statsObj.owner = line.file.owner // line.raw.slice(0, index)
       }
     }
     const txCountMap = new Map()
     for (const statsObj of statsBlobs) {
+      if (!statsObj || !statsObj.covered) {
+        continue
+      }
       if (!txCountMap.has(statsObj.owner)) {
         txCountMap.set(statsObj.owner, [])
       }
@@ -1048,6 +1053,9 @@ class PartitionStats {
         coveredMap.set(partition, true)
       }
       const dataTallyListForThisOwner = []
+      if (!statsObj.txStats) {
+        continue
+      }
       for (const txStatsObj of statsObj.txStats) {
         const partition = txStatsObj.partition
         if (coveredMap.has(partition) === false) {

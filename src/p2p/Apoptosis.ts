@@ -18,7 +18,7 @@ it is saved and gossiped to other nodes.
 When the apoptosized field of a cycle record contains the node id
 of a particular node, the node is removed from the node list.
 */
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardus/lib-types'
 import { Handler } from 'express'
 import { isDebugMode } from '../debug'
 import { logFlags } from '../logger'
@@ -47,11 +47,11 @@ import { robustQuery } from './Utils'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { SQLDataTypes } from '../storage/utils/schemaDefintions'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { BadRequest, serializeResponseError } from '../types/ResponseError'
 import { RequestErrorEnum } from '../types/enum/RequestErrorEnum'
 import { getStreamWithTypeCheck, requestErrorHandler } from '../types/Helpers'
-
+import { fireAndForget } from '../utils/functions/promises'
 
 /** STATE */
 
@@ -75,7 +75,7 @@ const stopExternalRoute: P2P.P2PTypes.Route<Handler> = {
   handler: (_req, res) => {
     if (isDebugMode()) {
       res.json({ status: 'goodbye cruel world' })
-      apoptosizeSelf('Apoptosis called at stopExternalRoute => src/p2p/Apoptosis.ts')
+      apoptosizeSelf('Apoptosis called at stopExternalRoute => src/p2p/Apoptosis.ts', 'Node stopped from `stop` route.')
     }
   },
 }
@@ -151,7 +151,7 @@ const apoptosisInternalRoute: P2P.P2PTypes.Route<InternalBinaryHandler<Buffer>> 
         if (addProposal(apopProposal)) {
           if (currentQuarter === 1) {
             // if it is Q1 we can try to gossip the message now instead of waiting for Q1 of next cycle
-            Comms.sendGossip(gossipRouteName, apopProposal)
+            fireAndForget(() => Comms.sendGossip(gossipRouteName, apopProposal))
           }
           let resp: ApoptosisProposalResp = { s: 'pass', r: 1 }
           return response(resp, serializeApoptosisProposalResp)
@@ -195,7 +195,7 @@ const apoptosisGossipRoute: P2P.P2PTypes.GossipHandler<P2P.ApoptosisTypes.Signed
     }
     if ([1, 2].includes(currentQuarter)) {
       if (addProposal(payload)) {
-        Comms.sendGossip(gossipRouteName, payload, tracker, Self.id, byIdOrder, false) // use Self.id so we don't gossip to ourself
+        fireAndForget(() => Comms.sendGossip(gossipRouteName, payload, tracker, Self.id, byIdOrder, false)) // use Self.id so we don't gossip to ourself
       }
     }
   } finally {
@@ -306,7 +306,7 @@ export function sendRequests() {
     // make sure node is still in the network, since it might
     //   have already been removed
     if (nodes.get(id)) {
-      Comms.sendGossip(gossipRouteName, proposals[id], '', null, byIdOrder, true)
+      fireAndForget(() => Comms.sendGossip(gossipRouteName, proposals[id], '', null, byIdOrder, true))
     }
   }
 }
@@ -315,7 +315,7 @@ export function sendRequests() {
 
 // [TODO] - We don't need the caller to pass us the list of nodes
 //          remove this after changing references
-export async function apoptosizeSelf(message: string) {
+export async function apoptosizeSelf(message: string, userFriendlyMessage?: string) {
   /* prettier-ignore */ if (logFlags.important_as_fatal) warn(`In apoptosizeSelf. ${message}`)
   // [TODO] - maybe we should shuffle this array
   const activeNodes = activeByIdOrder
@@ -372,7 +372,7 @@ export async function apoptosizeSelf(message: string) {
     /* prettier-ignore */ if (logFlags.important_as_fatal) warn(`Sent apoptosize-self proposal: ${Utils.safeStringify(proposal)}   ${message}`)
   }
   // Omar - added the following line. Maybe we should emit an event when we apoptosize so other modules and app can clean up
-  Self.emitter.emit('invoke-exit', `In apoptosizeSelf. ${message}`, getCallstack(), message) // we can pass true as a parameter if we want to be restarted
+  Self.emitter.emit('invoke-exit', userFriendlyMessage, getCallstack(), message) // we can pass true as a parameter if we want to be restarted
   // Omar - we should not add any proposal since we are exiting; we already sent our proposal to some nodes
   //  addProposal(proposal)
   /* prettier-ignore */ if (logFlags.important_as_fatal) error(`We have been apoptosized. Exiting with status 1. Will not be restarted. ${message}`)

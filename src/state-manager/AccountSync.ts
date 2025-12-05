@@ -1,4 +1,4 @@
-import { StateManager as StateManagerTypes } from '@shardus/types'
+import { StateManager as StateManagerTypes } from '@shardus/lib-types'
 import * as Shardus from '../shardus/shardus-types'
 import * as utils from '../utils'
 
@@ -34,27 +34,21 @@ import ArchiverSyncTracker from './ArchiverSyncTracker'
 import { getArchiversList } from '../p2p/Archivers'
 import * as http from '../http'
 import { InternalRouteEnum } from '../types/enum/InternalRouteEnum'
-import {
-  GetAccountDataByListResp,
-  serializeGetAccountDataByListResp,
-} from '../types/GetAccountDataByListResp'
+import { GetAccountDataByListResp, serializeGetAccountDataByListResp } from '../types/GetAccountDataByListResp'
 import { InternalBinaryHandler } from '../types/Handler'
-import { Route } from '@shardus/types/build/src/p2p/P2PTypes'
+import { Route } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { deserializeGetAccountDataByListReq } from '../types/GetAccountDataByListReq'
 import { getStreamWithTypeCheck } from '../types/Helpers'
 import { GetAccountDataRespSerializable, serializeGetAccountDataResp } from '../types/GetAccountDataResp'
 import { deserializeGetAccountDataReq, verifyGetAccountDataReq } from '../types/GetAccountDataReq'
-import {
-  GlobalAccountReportReqSerializable,
-  serializeGlobalAccountReportReq,
-} from '../types/GlobalAccountReportReq'
+import { GlobalAccountReportReqSerializable, serializeGlobalAccountReportReq } from '../types/GlobalAccountReportReq'
 import {
   GlobalAccountReportRespSerializable,
   deserializeGlobalAccountReportResp,
 } from '../types/GlobalAccountReportResp'
 import { BadRequest, InternalError, serializeResponseError } from '../types/ResponseError'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 
 const REDUNDANCY = 3
@@ -320,6 +314,27 @@ class AccountSync {
     //   }
     // )
 
+    Context.network.registerExternalGet('sync-globals', isDebugModeMiddleware, async (req, res) => {
+      try {
+        const cycle = this.stateManager.currentCycleShardData.cycleNumber
+        const syncFromArchiver = false
+
+        // need to review this , consider sync from archiver.
+        // consider "express version" that syncs to a specific hash
+        // todo actual endpoint with options
+        const syncTracker = this.createSyncTrackerByForGlobals(cycle, false, syncFromArchiver)
+        //this.globalAccountsSynced = false
+
+        await syncTracker.syncStateDataGlobals()
+        this.syncTrackers.pop()
+      } catch (e) {
+        this.mainLogger.error(`sync-globals: Exception executing request: ${errorToStringFull(e)}`)
+        res.write('error')
+      }
+      res.write('ok')
+      res.end()
+    })
+
     const getAccDataBinaryHandler: Route<InternalBinaryHandler<Buffer>> = {
       name: InternalRouteEnum.binary_get_account_data,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -562,7 +577,7 @@ class AccountSync {
       this.syncStatement.timeBeforeDataSync = (shardusGetTime() - Self.p2pSyncEnd) / 1000
       this.syncStatement.timeBeforeDataSync2 = this.syncStatement.timeBeforeDataSync
 
-      /* prettier-ignore */ nestedCountersInstance.countEvent('sync', `sync comlete numCycles: ${this.syncStatement.numCycles} start:${this.syncStatement.cycleStarted} end:${this.syncStatement.cycleEnded}`)
+      /* prettier-ignore */ nestedCountersInstance.countEvent('sync', `seednode: sync comlete numCycles: ${this.syncStatement.numCycles} start:${this.syncStatement.cycleStarted} end:${this.syncStatement.cycleEnded}`)
 
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('shrd_sync_syncStatement', ` `, `${utils.stringifyReduce(this.syncStatement)}`)
 
@@ -705,7 +720,10 @@ class AccountSync {
             this.clearSyncTrackers()
 
             /* prettier-ignore */ nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: too many exceptions in accound data sync.  Init apop`)
-            this.stateManager.initApoptosisAndQuitSyncing('too many exceptions in accound data sync')
+            this.stateManager.initApoptosisAndQuitSyncing(
+              'too many exceptions in accound data sync',
+              'Node stopped syncing due to too many exceptions in account data sync.'
+            )
             return
           }
 
@@ -751,6 +769,11 @@ class AccountSync {
             this.createSyncTrackerByRange(range, cycle, true)
             newTrackers++
           }
+
+          // sync globals again after all the non global data.
+          // this is needed in case the global account changed in that time
+          this.createSyncTrackerByForGlobals(cycle, true)
+
           /* prettier-ignore */ nestedCountersInstance.countRareEvent('sync', `RETRYSYNC: lastCycle: ${lastCycle} cycle: ${cycle} ${Utils.safeStringify({keptGlobal, addedGlobal, cleared, kept, newTrackers })}`)
           /* prettier-ignore */ this.mainLogger.debug(`DATASYNC: RETRYSYNC lastCycle: lastCycle: ${lastCycle} cycle: ${cycle} ${Utils.safeStringify({keptGlobal, addedGlobal, cleared, kept, newTrackers })}`)
           continue //resume loop at top!
@@ -759,7 +782,10 @@ class AccountSync {
           running = false
 
           nestedCountersInstance.countRareEvent('sync', `initialSyncMain unhandledEX.  Init apop`)
-          this.stateManager.initApoptosisAndQuitSyncing('initialSyncMain unhandledEX')
+          this.stateManager.initApoptosisAndQuitSyncing(
+            'initialSyncMain unhandledEX',
+            'Node stopped syncing due to unhandled error during initial sync.'
+          )
         }
       }
     }
@@ -809,10 +835,8 @@ class AccountSync {
     const rangesToSync = [] //, rangesToSync: StateManagerTypes.shardFunctionTypes.AddressRange[]
 
     if (nodeShardData.storedPartitions.rangeIsSplit === true) {
-      partitionsCovered =
-        nodeShardData.storedPartitions.partitionEnd1 - nodeShardData.storedPartitions.partitionStart1
-      partitionsCovered +=
-        nodeShardData.storedPartitions.partitionEnd2 - nodeShardData.storedPartitions.partitionStart2
+      partitionsCovered = nodeShardData.storedPartitions.partitionEnd1 - nodeShardData.storedPartitions.partitionStart1
+      partitionsCovered += nodeShardData.storedPartitions.partitionEnd2 - nodeShardData.storedPartitions.partitionStart2
       partitionsPerRange = Math.max(Math.floor(partitionsCovered / syncRangeGoal), 1)
       /* prettier-ignore */ if (logFlags.console) console.log( `syncRangeGoal ${syncRangeGoal}  chunksGuide:${chunksGuide} numPartitions:${this.stateManager.currentCycleShardData.shardGlobals.numPartitions} partitionsPerRange:${partitionsPerRange}` )
 
@@ -871,8 +895,7 @@ class AccountSync {
         rangesToSync.push(range)
       }
     } else {
-      partitionsCovered =
-        nodeShardData.storedPartitions.partitionEnd - nodeShardData.storedPartitions.partitionStart
+      partitionsCovered = nodeShardData.storedPartitions.partitionEnd - nodeShardData.storedPartitions.partitionStart
       partitionsPerRange = Math.max(Math.floor(partitionsCovered / syncRangeGoal), 1)
       /* prettier-ignore */ if (logFlags.console) console.log( `syncRangeGoal ${syncRangeGoal}  chunksGuide:${chunksGuide} numPartitions:${this.stateManager.currentCycleShardData.shardGlobals.numPartitions} partitionsPerRange:${partitionsPerRange}` )
 
@@ -957,15 +980,10 @@ class AccountSync {
       return a.combinedHash === b.combinedHash
     }
 
-    const queryFn = async (
-      node: Shardus.Node
-    ): Promise<Partial<GlobalAccountReportResp> & { msg: string }> => {
+    const queryFn = async (node: Shardus.Node): Promise<Partial<GlobalAccountReportResp> & { msg: string }> => {
       try {
         // Node Precheck!
-        if (
-          this.stateManager.isNodeValidForInternalMessage(node.id, 'getRobustGlobalReport', true, true) ===
-          false
-        ) {
+        if (this.stateManager.isNodeValidForInternalMessage(node.id, 'getRobustGlobalReport', true, true) === false) {
           /* prettier-ignore */ nestedCountersInstance.countEvent('sync', `DATASYNC: getRobustGlobalReport_${tag} invalid node to ask: ${utils.stringifyReduce(node.id)}`)
           return {
             ready: false,
@@ -981,10 +999,7 @@ class AccountSync {
         //   this.stateManager.config.p2p.getGloablAccountReportBinary
         // ) {
         const request = {} as GlobalAccountReportReqSerializable
-        result = await this.p2p.askBinary<
-          GlobalAccountReportReqSerializable,
-          GlobalAccountReportRespSerializable
-        >(
+        result = await this.p2p.askBinary<GlobalAccountReportReqSerializable, GlobalAccountReportRespSerializable>(
           node,
           InternalRouteEnum.binary_get_globalaccountreport,
           request,
@@ -1448,10 +1463,7 @@ class AccountSync {
   }
 
   // Check the entire range for a partition to see if any of it is covered by a sync tracker.
-  getSyncTrackerForParition(
-    partitionID: number,
-    cycleShardData: CycleShardData
-  ): SyncTrackerInterface | null {
+  getSyncTrackerForParition(partitionID: number, cycleShardData: CycleShardData): SyncTrackerInterface | null {
     if (cycleShardData == null) {
       return null
     }
@@ -1514,6 +1526,17 @@ class AccountSync {
 
   setGlobalSyncFinished(): void {
     this.globalAccountsSynced = true
+  }
+
+  reSyncGlobals(): void {
+    const cycle = this.stateManager.currentCycleShardData.cycleNumber
+    const syncFromArchiver = false
+
+    // need to review this , consider sync from archiver.
+    // consider "express version" that syncs to a specific hash
+    // todo actual endpoint with options
+    this.createSyncTrackerByForGlobals(cycle, false, syncFromArchiver)
+    //this.globalAccountsSynced = false
   }
 }
 

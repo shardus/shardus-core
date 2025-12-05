@@ -1,5 +1,5 @@
-import { P2P } from '@shardus/types'
-import { NodeStatus, SignedObject } from '@shardus/types/build/src/p2p/P2PTypes'
+import { P2P } from '@shardus/lib-types'
+import { NodeStatus, SignedObject } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import * as events from 'events'
 import * as log4js from 'log4js'
 import { logFlags } from '../logger'
@@ -21,18 +21,20 @@ import * as Sync from './Sync'
 import * as SyncV2 from './SyncV2/'
 import { getRandomAvailableArchiver, SeedNodesList } from './Utils'
 import * as CycleChain from './CycleChain'
+import * as ProblemNodeHandler from './ProblemNodeHandler'
 import rfdc from 'rfdc'
 import { shardusGetTime } from '../network'
 import getCallstack from '../utils/getCallstack'
-import { ActiveNode } from '@shardus/types/build/src/p2p/SyncTypes'
+import { ActiveNode } from '@shardus/lib-types/build/src/p2p/SyncTypes'
 import { Result } from 'neverthrow'
 const deepCopy = rfdc()
 import { isServiceMode } from '../debug'
 import { submitStandbyRefresh } from './Join/v2/standbyRefresh'
 import { getNumArchivers } from './Archivers'
 import { currentQuarter } from './CycleCreator'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardus/lib-types'
 import * as ServiceQueue from './ServiceQueue'
+import Shardus from '../shardus'
 
 /** STATE */
 
@@ -117,6 +119,9 @@ export function init(): void {
     JoinV2.init()
   }
 
+  // Initialize ProblematicNodeCache if enabled
+  ProblemNodeHandler.initProblematicNodeCache()
+
   // Create a logger for yourself
   p2pLogger = Context.logger.getLogger('p2p')
 
@@ -124,7 +129,7 @@ export function init(): void {
   updateNodeState(P2P.P2PTypes.NodeStatus.INITIALIZING) // requires p2pLogger through warn()
 }
 
-export function startupV2(): Promise<boolean> {
+export function startupV2(shardus: Shardus): Promise<boolean> {
   const promise = new Promise<boolean>((resolve, reject) => {
     if (isServiceMode()) {
       info('p2p/Self/startup disabled: Starting in service mode.')
@@ -188,7 +193,7 @@ export function startupV2(): Promise<boolean> {
 
         nestedCountersInstance.countEvent('p2p', 'joined')
         // Sync cycle chain from network
-        await syncCycleChain(id)
+        await syncCycleChain(id, shardus)
         await Join.queueStartedSyncingRequest()
 
         // Enable internal routes
@@ -278,7 +283,10 @@ export function startupV2(): Promise<boolean> {
         const resp = await Join.fetchJoinedV2(activeNodes)
 
         info(`startupV2: resp ${Utils.safeStringify(resp)}`)
-        nestedCountersInstance.countEvent('p2p', `fetchJoinedV2: isOnStandbyList: ${resp.isOnStandbyList} id: ${resp.id}`)
+        nestedCountersInstance.countEvent(
+          'p2p',
+          `fetchJoinedV2: isOnStandbyList: ${resp.isOnStandbyList} id: ${resp.id}`
+        )
 
         // note the list below is in priority order of what operation is the most important
         // mainly this matters on something like our node being selected to join but also on the
@@ -295,7 +303,8 @@ export function startupV2(): Promise<boolean> {
 
             /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `detected self as zombie ${latestCycle.counter} waiting ${Context.config.p2p.delayZombieRestartSec} before exiting`, 1)
 
-            utils.sleep(Context.config.p2p.delayZombieRestartSec * 1000 /*sec to ms*/).then(() => {  //give the network a chance to see we are not active
+            utils.sleep(Context.config.p2p.delayZombieRestartSec * 1000 /*sec to ms*/).then(() => {
+              //give the network a chance to see we are not active
               //TODO in the future if we are more confident in our ablility to shut down the node from functioning
               // we could have a shutdown wait. (but there is a lot of surface area)
               // the other method would be to request to be shut down but that is tricky and may not be possible
@@ -334,9 +343,7 @@ export function startupV2(): Promise<boolean> {
           if (isFirstRefresh) {
             if (
               latestCycle.counter >=
-              joinRequestCounter +
-                Context.config.p2p.standbyListCyclesTTL -
-                Context.config.p2p.cyclesToRefreshEarly
+              joinRequestCounter + Context.config.p2p.standbyListCyclesTTL - Context.config.p2p.cyclesToRefreshEarly
             ) {
               isFirstRefresh = false
               //info(`startupV2: submitStandbyRefresh first ${latestCycle.counter}`)
@@ -408,9 +415,7 @@ export function startupV2(): Promise<boolean> {
 
         //this should help us feel safer that attemptJoining will not finish until we are ready for it to do so
         nestedCountersInstance.countEvent('p2p', 'attemptJoining: error got too far without an action')
-        throw new Error(
-          'Should not reach this point. Throwing non-fatal error which will restart attemptJoining'
-        )
+        throw new Error('Should not reach this point. Throwing non-fatal error which will restart attemptJoining')
       } catch (err) {
         // Log joining error
         /* prettier-ignore */ if (logFlags.important_as_fatal) console.log(`error in startupV2 > attemptJoining:`, utils.formatErrorMessage(err))
@@ -586,7 +591,6 @@ export interface StatusHistoryEntry {
 
 const statusHistory: StatusHistoryEntry[] = []
 
-
 export function getStatusHistoryCopy(): StatusHistoryEntry[] {
   // return a copy so it cannot be mutated
   return deepCopy(statusHistory)
@@ -598,11 +602,7 @@ export function updateNodeState(updatedState: NodeStatus, because = ''): void {
   const entry: StatusHistoryEntry = {
     moduleStatus: state,
     nodeListStatus:
-      (pubKey &&
-        NodeList.byPubKey &&
-        NodeList.byPubKey.get(pubKey) &&
-        NodeList.byPubKey.get(pubKey).status) ||
-      null,
+      (pubKey && NodeList.byPubKey && NodeList.byPubKey.get(pubKey) && NodeList.byPubKey.get(pubKey).status) || null,
     timestamp: shardusGetTime(),
     isoDateTime: new Date().toISOString(),
     uptime: utils.readableDuration(startTimestamp),
@@ -628,7 +628,7 @@ async function joinNetworkV2(activeNodes): Promise<void> {
   info(`joinNetworkV2: got latest cycle :${mode}`)
   const publicKey = Context.crypto.getPublicKey()
 
-  try{
+  try {
     const isReadyToJoin = await Context.shardus.app.isReadyToJoin(latestCycle, publicKey, activeNodes, mode)
     if (!isReadyToJoin) {
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `joinNetworkV2:isReadyToJoin:false`)
@@ -637,7 +637,7 @@ async function joinNetworkV2(activeNodes): Promise<void> {
     } else {
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `joinNetworkV2:isReadyToJoin:true`)
     }
-  } catch(ex){
+  } catch (ex) {
     /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `joinNetworkV2:isReadyToJoin:crashed: ${ex?.message}`)
     warn(`joinNetworkV2: isReadyToJoin crashed :${utils.formatErrorMessage(ex)}`)
     return
@@ -776,12 +776,33 @@ async function joinNetworkV2(activeNodes): Promise<void> {
 //   }
 // }
 
-async function syncCycleChain(selfId: string): Promise<void> {
+async function syncCycleChain(selfId: string, shardus: Shardus): Promise<void> {
   // You're already synced if you're first
   if (isFirst) {
     // If you're the first node in a restart network, you only need to sync the network generated tx list
     if (isRestartNetwork) {
-      await ServiceQueue.syncTxListFromArchiver()
+      // retry as needed to get the TX list
+      for (let i = 0; i < 100; i++) {
+        try {
+          nestedCountersInstance.countEvent(
+            'p2p',
+            `syncCycleChain: syncTxListFromArchiver: getting tx list from archiver`
+          )
+          await ServiceQueue.syncTxListFromArchiver()
+          nestedCountersInstance.countEvent(
+            'p2p',
+            `syncCycleChain: syncTxListFromArchiver: got tx list from archiver: ${i}`
+          )
+          break
+        } catch (e) {
+          nestedCountersInstance.countEvent(
+            'p2p',
+            `syncCycleChain: syncTxListFromArchiver: getting tx list from archiver failed:${i}`
+          )
+          info(`syncCycleChain: syncTxListFromArchiver: error getting tx list from archiver ${e.message}`)
+          await utils.sleep(1000)
+        }
+      }
     }
     return
   }
@@ -804,7 +825,7 @@ async function syncCycleChain(selfId: string): Promise<void> {
         // callback will run if the result is `Ok`, the second if it is `Err`
         // TODO this can be very very expensive.  In a local test it was getting called repeatedly due to
         // a local error.  we may need some limits on how many times we try to sync
-        await SyncV2.syncV2(activeNodes).match(
+        await SyncV2.syncV2(activeNodes, shardus).match(
           () => (synced = true),
           (err) => {
             throw err
@@ -835,25 +856,51 @@ async function checkNodeId(nodeMatch: (node: any) => boolean, selfId: string): P
   // query the archiver for the latest cycles if we can't find the node in the current cycle
   if (!node) {
     //check the latest 4 cycles from the archiver
-    if (logFlags.p2pNonFatal) info('Getting latest cycles from archiver check node id')
-    const latestCycles = await getLatestCyclesFromArchiver(4)
+    info('syncCycleChain: checkNodeId: Getting last 4 cycles from archiver check node id')
+    let latestCycles = undefined
+    for (let i = 0; i < 30; i++) {
+      try {
+        const archiver = getRandomAvailableArchiver()
+        nestedCountersInstance.countEvent('p2p', `syncCycleChain: checkNodeId: getting latest cycles from archiver`)
+        latestCycles = await getLatestCyclesFromArchiver(6, archiver)
+        nestedCountersInstance.countEvent('p2p', `syncCycleChain: checkNodeId: got latest cycles from archiver: ${i}`)
+        break
+      } catch (e) {
+        nestedCountersInstance.countEvent(
+          'p2p',
+          `syncCycleChain: checkNodeId: getting latest cycles from archiver failed:${i}`
+        )
+        info(`syncCycleChain: checkNodeId: error getting latest cycles from archiver ${e.message}`)
+        await utils.sleep(1000)
+      }
+    }
     for (const cycle of latestCycles) {
       node = cycle.joinedConsensors.find(nodeMatch)
+      info(`syncCycleChain: checkNodeId: cycle ${cycle.counter} node ${node?.id}`)
       if (node) {
         break
       }
     }
   }
 
-  if (!node || node.id !== selfId) {
-    /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `syncCycleChain: ${idErrorMessage}`)
+  if (node == null) {
+    info(
+      `syncCycleChain: checkNodeId: checkNodeId node not found in joinedConsensors ${newestCycle.joinedConsensors.length}`
+    )
+    /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `syncCycleChain: checkNodeId: checkNodeId node not found in joinedConsensors for a recent cycle`)
+    // throw new Error(`checkNodeId node not found in joinedConsensors for a recent cycle`)
+    throw new Error(idErrorMessage) //keeping the same basic error as it is used in control flow, and do not have time to redo that part
+  }
+  if (node.id !== selfId) {
+    info(`syncCycleChain: checkNodeId: ${idErrorMessage} ${node.id} != ${selfId}`)
+    /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `syncCycleChain: checkNodeId: ${idErrorMessage} ${node.id} != ${selfId}`)
     throw new Error(idErrorMessage)
   }
 
   if (logFlags.p2pNonFatal) info('Node passed id check')
 }
 
-export async function contactArchiver(dbgContex:string): Promise<P2P.P2PTypes.Node[]> {
+export async function contactArchiver(dbgContex: string): Promise<P2P.P2PTypes.Node[]> {
   const maxRetries = 10
   let retry = maxRetries
   const failArchivers: string[] = []
@@ -868,25 +915,19 @@ export async function contactArchiver(dbgContex:string): Promise<P2P.P2PTypes.No
       archiver = getRandomAvailableArchiver()
       info(`contactArchiver: communicate with:${archiver?.ip}`)
 
-      if (!failArchivers.includes(archiver.ip + ':' + archiver.port)){
+      if (!failArchivers.includes(archiver.ip + ':' + archiver.port)) {
         failArchivers.push(archiver.ip + ':' + archiver.port)
       }
 
       activeNodesSigned = await getActiveNodesFromArchiver(archiver)
-      if (
-        activeNodesSigned == null ||
-        activeNodesSigned.nodeList == null ||
-        activeNodesSigned.nodeList.length === 0
-      ) {
+      if (activeNodesSigned == null || activeNodesSigned.nodeList == null || activeNodesSigned.nodeList.length === 0) {
         /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `contactArchiver: no nodes in nodelist yet. ${dbgContex}`, 1)
         info(`contactArchiver: no nodes in nodelist yet, or seedlist null ${Utils.safeStringify(activeNodesSigned)}`)
         await utils.sleep(1000) // no nodes in nodelist yet so please take a breather. would be smarter to ask each archiver only once but
-                                // but do not want to refactor that much right now
+        // but do not want to refactor that much right now
         if (retry === 1) {
           /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `contactArchiver: no nodes in nodelist yet out of retries. ${dbgContex}`, 1)
-          throw Error(
-            `contactArchiver: nodelist null or empty after ${maxRetries} retries:`
-          )
+          throw Error(`contactArchiver: nodelist null or empty after ${maxRetries} retries:`)
         }
         continue
       }
@@ -902,9 +943,7 @@ export async function contactArchiver(dbgContex:string): Promise<P2P.P2PTypes.No
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `contactArchiver: out of retries. ${dbgContex}`, 1)
       info(`contactArchiver: failed ${archiver.ip} ${utils.formatErrorMessage(e)} retry:${retry}`)
       if (retry === 1) {
-        throw Error(
-          `Could not get seed list from seed node server ${failArchivers} after ${maxRetries} retries:`
-        )
+        throw Error(`Could not get seed list from seed node server ${failArchivers} after ${maxRetries} retries:`)
       }
     }
     //move retry-- to top so that we dont retry forever!
@@ -913,7 +952,11 @@ export async function contactArchiver(dbgContex:string): Promise<P2P.P2PTypes.No
 
   info(`contactArchiver: passed ${archiver.ip} retry:${retry}`)
 
-  info(`contactArchiver: activeNodesSigned:${Utils.safeStringify(activeNodesSigned?.joinRequest)} restartCycleRecord:${Utils.safeStringify(activeNodesSigned?.restartCycleRecord)}`)
+  info(
+    `contactArchiver: activeNodesSigned:${Utils.safeStringify(
+      activeNodesSigned?.joinRequest
+    )} restartCycleRecord:${Utils.safeStringify(activeNodesSigned?.restartCycleRecord)}`
+  )
 
   const joinRequest: P2P.ArchiversTypes.Request | undefined = activeNodesSigned.joinRequest as
     | P2P.ArchiversTypes.Request
@@ -1000,14 +1043,9 @@ function checkIfFirstSeedNode(seedNodes: P2P.P2PTypes.Node[]): boolean {
   return false
 }
 
-async function getActiveNodesFromArchiver(
-  archiver: ActiveNode
-): Promise<P2P.P2PTypes.SignedObject<SeedNodesList>> {
+async function getActiveNodesFromArchiver(archiver: ActiveNode): Promise<P2P.P2PTypes.SignedObject<SeedNodesList>> {
   const nodeInfo = getPublicNodeInfo()
-  const seedListResult: Result<
-    P2P.P2PTypes.SignedObject<SeedNodesList>,
-    Error
-  > = await Archivers.postToArchiver(
+  const seedListResult: Result<P2P.P2PTypes.SignedObject<SeedNodesList>, Error> = await Archivers.postToArchiver(
     archiver,
     'nodelist',
     Context.crypto.sign({
@@ -1039,8 +1077,7 @@ export async function getFullNodesFromArchiver(
   if (fullNodeListResult.isErr()) {
     const nodeListUrl = `http://${archiver.ip}:${archiver.port}/full-nodelist`
     throw Error(
-      `Fatal: Could not get seed list from seed node server ${nodeListUrl}: ` +
-        fullNodeListResult.error.message
+      `Fatal: Could not get seed list from seed node server ${nodeListUrl}: ` + fullNodeListResult.error.message
     )
   }
 
@@ -1168,12 +1205,12 @@ function acceptedTrigger(): Promise<void> {
  * @returns
  */
 export function waitForQ1SendRequests(): Promise<void> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const intervalId = setInterval(() => {
       if (currentQuarter === 1 && q1SendRequests === true) {
-        clearInterval(intervalId);
-        resolve();
+        clearInterval(intervalId)
+        resolve()
       }
-    }, Context.config.p2p.secondsToCheckForQ1);
-  });
+    }, Context.config.p2p.secondsToCheckForQ1)
+  })
 }

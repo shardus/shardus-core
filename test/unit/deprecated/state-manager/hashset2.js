@@ -1,7 +1,7 @@
 /* eslint-disable */
 const StateManager = require('../../../src/state-manager')
 
-const crypto = require('@shardus/crypto-utils')
+const crypto = require('@shardus/lib-crypto-utils')
 const utils = require('../../../src/utils')
 
 const Profiler = require('../../../src/utils/profiler.js')
@@ -32,10 +32,7 @@ function generateVariants(numElements, elementSizeInBytes, numVariants, lossRate
   for (let i = 0; i < numElements; ++i) {
     let votes = 0
 
-    let msg = fullString.slice(
-      i * elementSizeInBytes * 2,
-      i * elementSizeInBytes * 2 + elementSizeInBytes * 2
-    )
+    let msg = fullString.slice(i * elementSizeInBytes * 2, i * elementSizeInBytes * 2 + elementSizeInBytes * 2)
 
     if (dupeCheck[msg] != null) {
       dupeCount++

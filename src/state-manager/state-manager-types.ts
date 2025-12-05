@@ -1,4 +1,4 @@
-import { StateManager, P2P } from '@shardus/types'
+import { StateManager, P2P } from '@shardus/lib-types'
 import * as Shardus from '../shardus/shardus-types'
 export { AcceptedTx, App, ApplyResponse, Cycle, Sign } from '../shardus/shardus-types'
 
@@ -40,6 +40,8 @@ export type QueueEntry = {
   eligibleNodeIdsToVote: Set<string>
   eligibleNodeIdsToConfirm: Set<string>
   acceptedTx: Shardus.AcceptedTx
+  uniqueTags?: { [key: string]: string } | null
+
   txKeys: Shardus.TransactionKeys
   /** This is data that is collected or loaded locally before it attemps to call apply() */
   collectedData: WrappedResponses
@@ -142,7 +144,6 @@ export type QueueEntry = {
   uniqueChallengesCount: number
   robustAccountDataPromises?: { [key: string]: Promise<Shardus.WrappedData> }
   queryingRobustVote?: boolean
-  queryingRobustConfirmOrChallenge?: boolean
   queryingRobustAccountData?: boolean
   queryingFinalData: boolean
   lastFinalDataRequestTimestamp: number
@@ -235,6 +236,8 @@ export type QueueEntry = {
   }
 
   isSenderWrappedTxGroup: { [nodeId: string]: number }
+
+  isNGT: boolean
 }
 
 // export type SyncTracker = {
@@ -266,6 +269,7 @@ export type CycleShardData = {
   syncingNeighbors: Shardus.Node[]
   syncingNeighborsTxGroup: Shardus.Node[]
   hasSyncingNeighbors: boolean
+  activeFoundationNodes: Shardus.Node[]
 
   partitionsToSkip: Map<number, boolean>
 
@@ -656,7 +660,7 @@ export type AccountCopy = {
 // result is the transaction result;
 // the account_id array is sorted by account_id and
 // the account_state_hash_after array is in corresponding order.
-// The applied vote is sent even if the result is ‘fail’.
+// The applied vote is sent even if the result is 'fail'.
 
 export type AppliedVoteCore = {
   txid: string
@@ -680,6 +684,7 @@ export type Proposal = {
   afterStateHashes: string[]
   appReceiptDataHash: string
   txid: string
+  executionShardKey: string
 }
 
 export type SignedReceipt = {
@@ -707,7 +712,6 @@ export type ArchiverReceipt = {
   beforeStates?: Shardus.AccountsCopy[]
   afterStates?: Shardus.AccountsCopy[]
   cycle: number
-  executionShardKey: string
   globalModification: boolean
 }
 
