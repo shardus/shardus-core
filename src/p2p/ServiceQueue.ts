@@ -714,6 +714,8 @@ export async function processNetworkTransactions(record: P2P.CycleCreatorTypes.C
   if (record.mode !== 'processing' || !config.p2p.allowEndUserTxnInjections) {
     return
   }
+  // Only active nodes should process network transactions
+  if (!Self.isActive) return
   const processedSubQueueKeys = new Set<string>()
   let length = Math.min(txList.length, config.p2p.networkTransactionsToProcessPerCycle)
   for (let i = 0; i < length && currentQuarter === 3; i++) {
