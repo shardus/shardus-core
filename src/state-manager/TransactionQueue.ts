@@ -1088,7 +1088,8 @@ class TransactionQueue {
   }
   handleSharedTX(tx: Shardus.TimestampedTx, appData: unknown, sender: Shardus.Node): QueueEntry {
     profilerInstance.profileSectionStart('handleSharedTX')
-    const internalTx = this.app.isInternalTx(tx)
+    if (!tx.tx) return null
+    const internalTx = this.app.isInternalTx(tx.tx)
     if ((internalTx && !isInternalTxAllowed()) || (!internalTx && networkMode !== 'processing')) {
       profilerInstance.profileSectionEnd('handleSharedTX')
       // Block invalid txs in case a node maliciously relays them to other nodes
@@ -1100,7 +1101,7 @@ class TransactionQueue {
       return null
     }
 
-    const txId = this.app.calculateTxId(tx)
+    const txId = this.app.calculateTxId(tx.tx)
 
     // Check if we already have this tx in our queue
     let queueEntry = this.getQueueEntrySafe(txId) // , payload.timestamp)
