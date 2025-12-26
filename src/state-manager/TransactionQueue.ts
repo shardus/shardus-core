@@ -1099,6 +1099,16 @@ class TransactionQueue {
       /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('tx_non_internal_tx_paused', '', 'execution paused for non-internal tx')
       return null
     }
+
+    const txId = this.app.calculateTxId(tx)
+
+    // Check if we already have this tx in our queue
+    let queueEntry = this.getQueueEntrySafe(txId) // , payload.timestamp)
+    if (queueEntry) {
+      profilerInstance.profileSectionEnd('handleSharedTX')
+      return null
+    }
+
     // Perform fast validation of the transaction fields
     profilerInstance.scopedProfileSectionStart('handleSharedTX_validateTX')
     const validateResult = this.app.validate(tx, appData)
@@ -1112,15 +1122,8 @@ class TransactionQueue {
       return null
     }
 
-    // Ask App to crack open tx and return timestamp, id (hash), and keys
-    const { timestamp, id, keys, shardusMemoryPatterns } = this.app.crack(tx, appData)
-
-    // Check if we already have this tx in our queue
-    let queueEntry = this.getQueueEntrySafe(id) // , payload.timestamp)
-    if (queueEntry) {
-      profilerInstance.profileSectionEnd('handleSharedTX')
-      return null
-    }
+    // Ask App to crack open tx and return timestamp and keys
+    const { timestamp, keys, shardusMemoryPatterns } = this.app.crack(tx, appData)
 
     // Need to review these timeouts before main net.  what bad things can happen by setting a timestamp too far in the future or past.
     // only a subset of transactions can have timestamp set by the sender while others use independent consensus (askTxnTimestampFromNode)
@@ -1138,7 +1141,7 @@ class TransactionQueue {
     // Pack into AcceptedTx for routeAndQueueAcceptedTransaction
     const acceptedTx: AcceptedTx = {
       timestamp,
-      txId: id,
+      txId,
       keys,
       data: tx,
       appData,
@@ -1165,13 +1168,13 @@ class TransactionQueue {
       profilerInstance.profileSectionEnd('handleSharedTX')
       return null
     }
-    queueEntry = this.getQueueEntrySafe(id) //, payload.timestamp) // now that we added it to the queue, it should be possible to get the queueEntry now
+    queueEntry = this.getQueueEntrySafe(txId) //, payload.timestamp) // now that we added it to the queue, it should be possible to get the queueEntry now
 
     if (queueEntry == null) {
       // do not gossip this, we are not involved
       // downgrading, this does not seem to be fatal, but may need further logs/testing
       //this.statemanager_fatal(`spread_tx_to_group_noQE`, `spread_tx_to_group failed: cant find queueEntry for:  ${utils.makeShortHash(payload.id)}`)
-      /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('spread_tx_to_group_noQE', '', `spread_tx_to_group failed: cant find queueEntry for:  ${utils.makeShortHash(id)}`)
+      /* prettier-ignore */ if (logFlags.playback) this.logger.playbackLogNote('spread_tx_to_group_noQE', '', `spread_tx_to_group failed: cant find queueEntry for:  ${utils.makeShortHash(txId)}`)
       profilerInstance.profileSectionEnd('handleSharedTX')
       return null
     }
