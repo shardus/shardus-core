@@ -1163,8 +1163,8 @@ class Shardus extends EventEmitter {
       return validateResult
     }
 
-    // Ask App to crack open tx and return timestamp, id (hash), and keys
-    const { timestamp, id, keys, shardusMemoryPatterns } = this.app.crack(timestampedTx, appData)
+    // Ask App to crack open tx and return timestamp and keys
+    const { timestamp, keys, shardusMemoryPatterns } = this.app.crack(timestampedTx, appData)
 
     const uniqueTags = this.app.getUniqueAppTags?.(tx)
     if (uniqueTags && Object.keys(uniqueTags).length > 0) {
@@ -1254,7 +1254,7 @@ class Shardus extends EventEmitter {
     // Pack into acceptedTx, and pass to StateManager
     const acceptedTX: ShardusTypes.AcceptedTx = {
       timestamp,
-      txId: id,
+      txId,
       keys,
       data: timestampedTx,
       appData,

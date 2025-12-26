@@ -204,8 +204,7 @@ export interface App {
   isMultiSigFoundationTx(tx: OpaqueTransaction): boolean
 
   /**
-   * Cracks open the transaction and returns its timestamp, id (hash), and any
-   * involved keys.
+   * Cracks open the transaction and returns its timestamp and any involved keys.
    *
    * Txs passed to this function are guaranteed to have passed validation first.
    */
@@ -214,7 +213,6 @@ export interface App {
     appData: any
   ): {
     timestamp: number
-    id: string
     keys: TransactionKeys
     shardusMemoryPatterns: ShardusMemoryPatternsInput
   }
