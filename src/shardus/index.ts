@@ -1586,6 +1586,16 @@ class Shardus extends EventEmitter {
         }
       }
 
+      // Check if we already have this tx in our queue
+      let queueEntry = this.stateManager.transactionQueue.getQueueEntrySafe(txId)
+      if (queueEntry) {
+        return {
+          success: false,
+          reason: `Transaction is already in queue.`,
+          status: 500,
+        }
+      }
+
       const senderAddress = this.app.getTxSenderAddress(tx)
       /* prettier-ignore */ if (logFlags.seqdiagram) this.seqLogger.info(`0x53455106 ${shardusGetTime()} tx:${txId} Note over ${activeIdToPartition.get(Self.id)}: sender:${senderAddress}`)
       // Forward transaction to a node that has the account data locally if we don't have it
