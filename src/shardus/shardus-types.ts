@@ -831,8 +831,12 @@ export interface ServerConfiguration {
     extraCyclesToKeep: number
     /** multiplier applied to cycle to keep before extraCyclesToKeep is added */
     extraCyclesToKeepMultiplier: number
-    /** Should the node remove itself from the network (apoptosize) if the network has stopped */
+    /** Should the node check if the archivers are down at regular interval */
     checkNetworkStopped: boolean
+    /** Interval for checking archvier status **/
+    archiverNetworkCheckInterval: number
+    /** Should the node remove itself from the network (apoptosize) if the network has stopped */
+    shouldApopOnNetworkStop: boolean
     /** Toggles Active Request validation on or off */
     validateActiveRequests: boolean
     /** for the cycle syncing to complete if it is stuck */
