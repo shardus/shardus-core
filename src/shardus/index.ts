@@ -1508,18 +1508,24 @@ class Shardus extends EventEmitter {
         status: 500,
       }
     }
+    const archiverAllowTransactions = Archivers.allowTransactions()
+    const p2pAllowTransactions = this.p2p.allowTransactions()
+
     // set === true (which is handled in the else case here) is a special kind of TX that is allowed only be the first node in the network
     // this is used to create global network settings and other dawn of time accounts
     if (set === false) {
-      if (!this.p2p.allowTransactions()) {
+      if (!p2pAllowTransactions || !archiverAllowTransactions) {
         if (global === true && this.p2p.allowSet()) {
           // This ok because we are initializing a global at the set time period
+          this.mainLogger.debug(`Allowing global tx ${Utils.safeStringify(tx)} set:${set} global:${global}`)
         } else {
           if (logFlags.verbose)
-            this.mainLogger.debug(`txRejected ${Utils.safeStringify(tx)} set:${set} global:${global}`)
+            this.mainLogger.debug(`txRejected ${Utils.safeStringify(tx)} set:${set} global:${global} archiverAllowTransactions:${archiverAllowTransactions} p2pAllowTransactions:${p2pAllowTransactions}`)
 
           this.statistics.incrementCounter('txRejected')
           nestedCountersInstance.countEvent('rejected', '!allowTransactions')
+          if (!p2pAllowTransactions) nestedCountersInstance.countEvent('rejected', '!p2pAllowTransactions')
+          if (!archiverAllowTransactions) nestedCountersInstance.countEvent('rejected', '!archiverAllowTransactions')
           return {
             success: false,
             reason: 'Network conditions to allow transactions are not met.',

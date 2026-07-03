@@ -56,6 +56,7 @@ let lastTimeForwardedArchivers = []
 export const RECEIPT_FORWARD_INTERVAL_MS = 5000
 const ALLOWED_ARCHIVERS_UPDATE_INTERVAL_MS = process.env.ALLOWED_ARCHIVERS_UPDATE_INTERVAL_MS || 601000
 const MAX_BODY_LENGTH_ALLOWED_ARCHIVERS = 1024 * 1024 * 1 // 1MB
+let areArchiversDown = false
 
 export enum DataRequestTypes {
   SUBSCRIBE = 'SUBSCRIBE',
@@ -126,20 +127,27 @@ export function init() {
     setTimeout(() => {
       networkCheckInterval = setInterval(() => {
         hasNetworkStopped().then((stopped) => {
+          areArchiversDown = stopped
           if (stopped) {
-            const msg = 'checkNetworkStopped: Network has stopped. Initiating apoptosis'
-            /* prettier-ignore */ if (logFlags.important_as_fatal) info(msg)
-            this.fatalLogger.fatal('checkNetworkStopped: Network has stopped. Initiating apoptosis')
-            nestedCountersInstance.countEvent(
-              'checkNetworkStopped',
-              `Network has stopped: apop self. ${shardusGetTime()}`
-            )
-            apoptosizeSelf(msg, 'Node stopped due to the network shutting down.')
+            if (config.p2p.shouldApopOnNetworkStop) {
+              const msg = 'checkNetworkStopped: Network has stopped. Initiating apoptosis'
+              /* prettier-ignore */ if (logFlags.important_as_fatal) info(msg)
+              this.fatalLogger.fatal('checkNetworkStopped: Network has stopped. Initiating apoptosis')
+              nestedCountersInstance.countEvent(
+                'checkNetworkStopped',
+                `Network has stopped: apop self. ${shardusGetTime()}`
+              )
+              apoptosizeSelf(msg, 'Node stopped due to the network shutting down.')
+            }
           }
         })
-      }, 1000 * 60 * 5) // Check every 5 min
+      }, config.p2p.archiverNetworkCheckInterval) // Check every 5 min
     }, randomInt(1000 * 60, 1000 * 60 * 5)) // Stagger initial checks between 1-5 min
   }
+}
+
+export function allowTransactions() {
+  return !areArchiversDown
 }
 
 async function getAllowedArchivers(): Promise<
@@ -775,9 +783,12 @@ export async function instantForwardOriginalTxData(originalTxData) {
  * the node to apoptosize itself.
  */
 async function hasNetworkStopped(): Promise<boolean> {
+  if (!Self.isActive) return false
+
   // If network check still in progress, return
   if (networkCheckInProgress) return
   networkCheckInProgress = true
+  let networkStopped = true
   try {
     // Get a randomized list of all Archivers
     const shuffledArchivers = shuffleMapIterator(archivers)
@@ -785,18 +796,22 @@ async function hasNetworkStopped(): Promise<boolean> {
     for (const archiver of shuffledArchivers) {
       const response: Result<{ data: unknown }, Error> = await getFromArchiver(
         archiver,
-        '/nodelist',
-        'hasNetworkStopped() could not fetch nodelist'
+        'nodelist',
+        'hasNetworkStopped() could not fetch nodelist from archiver'
       )
+      const result = response.unwrapOr(null)
       // If any one of them responds, return false
-      if (response.isOk() && response.value.data) {
-        return false
+      if (response.isOk() && result.nodeList?.length > 0) {
+        networkStopped = false
+        break // Stop checking if any one of archivers responds
       } else if (response.isErr()) {
-        warn(`hasNetworkStopped(): network error: ${response.error.message}`)
+        warn(`hasNetworkStopped(): archiver check resp error: ${response.error.message}`)
       }
     }
-    // If all of them do not respond, initiate apoptosis
-    return true
+    // none of the archivers responds, return true (network has stopped)
+    return networkStopped
+  } catch (e) {
+    error(`hasNetworkStopped(): error checking archvier status: `)
   } finally {
     networkCheckInProgress = false
   }
@@ -1246,6 +1261,9 @@ export function registerRoutes() {
   network.registerExternalGet('datarecipients', (req, res) => {
     res.json({ dataRecipients: [...recipients.values()] })
   })
+  network.registerExternalGet('archivers-status', (req, res) => {
+    res.json({ status: !areArchiversDown })
+  })
 }
 
 export function sortedByPubKey(): P2P.ArchiversTypes.JoinedArchiver[] {
@@ -1307,7 +1325,7 @@ export function getFromArchiver<R>(
   return ResultAsync.fromPromise(
     http.get(`http://${archiver.ip}:${archiver.port}/${endpoint}`, false, timeout ?? 1000),
     (e: Error) => {
-      warn(`${archiver.ip}:${archiver.port} is unreachable`)
+      warn(`${archiver.ip}:${archiver.port}/${endpoint} is unreachable`)
       reportLostArchiver(archiver.publicKey, failureReportMessage || `cannot GET archiver endpoint ${endpoint}`)
       return e
     }

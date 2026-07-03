@@ -22,7 +22,7 @@ jest.mock('../../../../src/p2p/Context', () => ({
   config: {
     p2p: {
       experimentalSnapshot: false,
-      checkNetworkStopped: false,
+      checkNetworkStopped: true,
       forceBogonFilteringOn: false,
       validateArchiverAppData: false,
       existingArchivers: [],
