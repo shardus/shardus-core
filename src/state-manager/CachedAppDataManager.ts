@@ -415,7 +415,7 @@ class CachedAppDataManager {
     }
     const queueEntry: QueueEntry = this.stateManager.transactionQueue.getQueueEntry(txId)
 
-    if (!queueEntry.executionGroup) {
+    if (!queueEntry?.executionShardKey) {
       return
     }
 
