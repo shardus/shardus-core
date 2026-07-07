@@ -2136,12 +2136,13 @@ class TransactionQueue {
         this.updateHomeInformation(txQueueEntry)
 
         //set the executionShardKey for the transaction
-        if (txQueueEntry.globalModification === false && this.executeInOneShard) {
+        if (this.executeInOneShard) {
           //USE the first key in the list of all keys.  Applications much carefully sort this list
           //so that we start in the optimal shard.  This will matter less when shard hopping is implemented
           txQueueEntry.executionShardKey = txQueueEntry.txKeys.allKeys[0]
           /* prettier-ignore */ if (logFlags.verbose) this.mainLogger.debug(`routeAndQueueAcceptedTransaction set executionShardKey tx:${txQueueEntry.logID} ts:${timestamp} executionShardKey: ${utils.stringifyReduce(txQueueEntry.executionShardKey)}  `)
-
+        }
+        if (txQueueEntry.globalModification === false && this.executeInOneShard) {
           // we were doing this in queueEntryGetTransactionGroup.  moved it earlier.
           const { homePartition } = ShardFunctions.addressToPartition(
             cycleShardData.shardGlobals,
