@@ -18,6 +18,7 @@ import { nestedCountersInstance } from '../utils/nestedCounters'
 import Profiler, { profilerInstance } from '../utils/profiler'
 import ShardFunctions from './shardFunctions'
 import * as NodeList from '../p2p/NodeList'
+import * as Archiver from '../p2p/Archivers'
 import {
   AppliedVote,
   AppliedVoteHash,
@@ -2193,6 +2194,14 @@ class TransactionConsenus {
           return
         }
 
+        // Receipt is ready but do not produce receipt if all the archivers are down
+        if (Archiver.allowTransactions() === false) {
+          if (logFlags.debug)
+            this.mainLogger.debug(`tryProduceReceipt ${queueEntry.logID} skipped because all archivers down`)
+          nestedCountersInstance.countEvent('consensus', 'tryProduceReceipt skipped all archivers down')
+          return
+        }
+
         //make the new receipt.
         const receipt: SignedReceipt = {
           proposal: queueEntry.ourProposal,
@@ -3346,6 +3355,14 @@ class TransactionConsenus {
       nestedCountersInstance.countEvent('transactionConsensus', 'missConsensusChance')
       return
     }
+
+    // Do not participate in consensus and share vote if all the archivers are down
+    if (Archiver.allowTransactions() === false) {
+      if (logFlags.debug) this.mainLogger.debug(`createAndShareVote: ${queueEntry.logID} archivers down`)
+      nestedCountersInstance.countEvent('transactionConsensus', 'all archivers down')
+      return
+    }
+
     this.profiler.profileSectionStart('createAndShareVote', true)
 
     try {
