@@ -833,7 +833,7 @@ export interface ServerConfiguration {
     extraCyclesToKeepMultiplier: number
     /** Should the node check if the archivers are down at regular interval */
     checkNetworkStopped: boolean
-    /** Interval for checking archvier status **/
+    /** Interval for checking archiver status **/
     archiverNetworkCheckInterval: number
     /** Should the node remove itself from the network (apoptosize) if the network has stopped */
     shouldApopOnNetworkStop: boolean

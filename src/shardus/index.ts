@@ -1520,7 +1520,11 @@ class Shardus extends EventEmitter {
           this.mainLogger.debug(`Allowing global tx ${Utils.safeStringify(tx)} set:${set} global:${global}`)
         } else {
           if (logFlags.verbose)
-            this.mainLogger.debug(`txRejected ${Utils.safeStringify(tx)} set:${set} global:${global} archiverAllowTransactions:${archiverAllowTransactions} p2pAllowTransactions:${p2pAllowTransactions}`)
+            this.mainLogger.debug(
+              `txRejected ${Utils.safeStringify(
+                tx
+              )} set:${set} global:${global} archiverAllowTransactions:${archiverAllowTransactions} p2pAllowTransactions:${p2pAllowTransactions}`
+            )
 
           this.statistics.incrementCounter('txRejected')
           nestedCountersInstance.countEvent('rejected', '!allowTransactions')
