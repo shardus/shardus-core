@@ -127,6 +127,8 @@ export function init() {
     setTimeout(() => {
       networkCheckInterval = setInterval(() => {
         hasNetworkStopped().then((stopped) => {
+          // A non-boolean result means the check was skipped or errored; keep the previous state
+          if (typeof stopped !== 'boolean') return
           areArchiversDown = stopped
           if (stopped) {
             if (config.p2p.shouldApopOnNetworkStop) {
@@ -141,7 +143,7 @@ export function init() {
             }
           }
         })
-      }, config.p2p.archiverNetworkCheckInterval) // Check every 5 min
+      }, config.p2p.archiverNetworkCheckInterval)
     }, randomInt(1000 * 60, 1000 * 60 * 5)) // Stagger initial checks between 1-5 min
   }
 }
@@ -779,10 +781,10 @@ export async function instantForwardOriginalTxData(originalTxData) {
 }
 /**
  * This function is used by the checkNetworkStopped feature to check if the
- * network is down by checking if all Archivers are down. If so, it causes
- * the node to apoptosize itself.
+ * network is down by checking if all Archivers are down. Returns undefined
+ * when the check is skipped (already in progress) or errors.
  */
-async function hasNetworkStopped(): Promise<boolean> {
+async function hasNetworkStopped(): Promise<boolean | undefined> {
   if (!Self.isActive) return false
 
   // If network check still in progress, return
@@ -794,7 +796,7 @@ async function hasNetworkStopped(): Promise<boolean> {
     const shuffledArchivers = shuffleMapIterator(archivers)
     // Loop through them and check their /nodelist endpoint for a response
     for (const archiver of shuffledArchivers) {
-      const response: Result<{ data: unknown }, Error> = await getFromArchiver(
+      const response: Result<{ nodeList?: unknown[] }, Error> = await getFromArchiver(
         archiver,
         'nodelist',
         'hasNetworkStopped() could not fetch nodelist from archiver'
@@ -811,7 +813,7 @@ async function hasNetworkStopped(): Promise<boolean> {
     // none of the archivers responds, return true (network has stopped)
     return networkStopped
   } catch (e) {
-    error(`hasNetworkStopped(): error checking archvier status: `)
+    error(`hasNetworkStopped(): error checking archiver status: ${e instanceof Error ? e.stack : e}`)
   } finally {
     networkCheckInProgress = false
   }
