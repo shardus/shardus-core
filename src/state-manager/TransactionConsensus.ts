@@ -2128,6 +2128,15 @@ class TransactionConsenus {
         return queueEntry.signedReceipt
       }
 
+      // Do not produce receipt if all the archivers are down. Checked before the
+      // newVotes flag is consumed below so receipt production resumes once archivers recover
+      if (Archiver.allowTransactions() === false) {
+        if (logFlags.debug)
+          this.mainLogger.debug(`tryProduceReceipt ${queueEntry.logID} skipped because all archivers down`)
+        nestedCountersInstance.countEvent('consensus', 'tryProduceReceipt skipped all archivers down')
+        return
+      }
+
       // Design TODO:  should this be the full transaction group or just the consensus group?
       let votingGroup: Shardus.NodeWithRank[] | P2PTypes.NodeListTypes.Node[]
 
@@ -2191,14 +2200,6 @@ class TransactionConsenus {
             'poqo',
             'My votehash did not match consensed vote hash. Not producing receipt.'
           )
-          return
-        }
-
-        // Receipt is ready but do not produce receipt if all the archivers are down
-        if (Archiver.allowTransactions() === false) {
-          if (logFlags.debug)
-            this.mainLogger.debug(`tryProduceReceipt ${queueEntry.logID} skipped because all archivers down`)
-          nestedCountersInstance.countEvent('consensus', 'tryProduceReceipt skipped all archivers down')
           return
         }
 
