@@ -1034,6 +1034,10 @@ export interface ServerConfiguration {
     fixApplyReceiptType: boolean
     // Number of historical cycles to sync when joining the network
     syncV2HistoricalCyclesCount: number
+    /** Adopt the configuration committed to by the accepted cycle. */
+    netConfigV2: boolean
+    /** Reject join requests that do not reference the accepted network configuration. */
+    networkConfigHashEnforcement: boolean
   }
   /** Server IP configuration */
   ip?: {

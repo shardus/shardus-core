@@ -195,6 +195,8 @@ const SERVER_CONFIG: StrictServerConfiguration = {
     newCycleCertScoring: true,
     fixApplyReceiptType: false,
     syncV2HistoricalCyclesCount: 60, // Number of historical cycles to sync when joining
+    netConfigV2: false,
+    networkConfigHashEnforcement: false,
   },
   ip: {
     externalIp: '0.0.0.0',
