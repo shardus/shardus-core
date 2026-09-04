@@ -102,6 +102,14 @@ export class NetworkClass extends EventEmitter {
     this.headerSizeLimitInBytes = config.p2p.headerSizeLimitInBytes
   }
 
+  /** Refresh settings copied by the constructor after an approved network config is adopted. */
+  configUpdated(config: Shardus.StrictServerConfiguration): void {
+    this.useLruCacheForSocketMgmt = config.p2p.useLruCacheForSocketMgmt
+    this.lruCacheSizeForSocketMgmt = config.p2p.lruCacheSizeForSocketMgmt
+    this.payloadSizeLimitInBytes = config.p2p.payloadSizeLimitInBytes
+    this.headerSizeLimitInBytes = config.p2p.headerSizeLimitInBytes
+  }
+
   setDebugNetworkDelay(delay: number) {
     this.debugNetworkDelay = delay
   }

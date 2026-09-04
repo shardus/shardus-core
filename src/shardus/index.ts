@@ -34,7 +34,9 @@ import { config } from '../p2p/Context'
 import * as AutoScaling from '../p2p/CycleAutoScale'
 import * as CycleChain from '../p2p/CycleChain'
 import * as CycleCreator from '../p2p/CycleCreator'
-import { netConfig } from '../p2p/CycleCreator'
+import { buildNetworkConfig, hashNetworkConfig, setAppliedNetworkConfig } from '../config/networkConfig'
+import { adoptNetworkConfig } from '../config/networkConfigBootstrap'
+import * as Sync from '../p2p/Sync'
 import * as GlobalAccounts from '../p2p/GlobalAccounts'
 import * as ServiceQueue from '../p2p/ServiceQueue'
 import { scheduleLostReport, removeNodeWithCertificiate } from '../p2p/Lost'
@@ -475,6 +477,55 @@ class Shardus extends EventEmitter {
 
     // Setup crypto
     await this.crypto.init()
+
+    if (this.config.p2p.netConfigV2 && !isServiceMode()) {
+      let activeNodes: P2P.P2PTypes.Node[] | null = null
+      let lastBootstrapError: Error | null = null
+      for (const archiver of this.config.p2p.existingArchivers) {
+        try {
+          const nodeInfo = Self.getPublicNodeInfo(true)
+          const result = await Archivers.postToArchiver<any, P2P.P2PTypes.SignedObject<any>>(
+            archiver,
+            'nodelist',
+            this.crypto.sign({ nodeInfo }),
+            10000
+          )
+          if (result.isErr()) throw result.error
+          const signedList = result.value
+          if (!this.crypto.verify(signedList, archiver.publicKey)) {
+            throw new Error(`Active-node list signature did not match archiver ${archiver.ip}:${archiver.port}`)
+          }
+          if (!Array.isArray(signedList.nodeList) || signedList.nodeList.length === 0) {
+            throw new Error('Archiver returned an empty active-node list')
+          }
+          activeNodes = signedList.nodeList
+          break
+        } catch (error) {
+          lastBootstrapError = error instanceof Error ? error : new Error(String(error))
+        }
+      }
+      if (!activeNodes) throw new Error(`Unable to obtain a signed active-node list: ${lastBootstrapError?.message}`)
+
+      const genesis =
+        activeNodes.length === 1 &&
+        activeNodes[0].ip === Network.ipInfo.externalIp &&
+        activeNodes[0].port === Network.ipInfo.externalPort
+      if (genesis) {
+        setAppliedNetworkConfig({
+          networkConfigHash: hashNetworkConfig(this.config),
+          networkConfigCycleMarker: '0'.repeat(64),
+          cycleCounter: 0,
+        })
+      } else {
+        await adoptNetworkConfig(this.config, activeNodes, {
+          getNewestCycle: Sync.getNewestCycle,
+          makeCycleMarker: CycleCreator.makeCycleMarker,
+        })
+        this.network.configUpdated(this.config)
+        const adoptedTimeIsValid = await Network.checkAndUpdateTimeSyncedOffset(this.config.p2p.timeServers)
+        if (!adoptedTimeIsValid) throw new Error('Time is not in sync using the adopted network configuration')
+      }
+    }
 
     try {
       const sk: string = this.crypto.keypair.secretKey
@@ -3095,7 +3146,8 @@ class Shardus extends EventEmitter {
       res.json({ config: this.config })
     })
     this.network.registerExternalGet('netconfig', async (_req, res) => {
-      res.json({ config: netConfig })
+      const networkConfig = buildNetworkConfig(this.config)
+      res.json({ config: networkConfig, networkConfigHash: hashNetworkConfig(this.config) })
     })
 
     this.network.registerExternalGet('nodeInfo', async (req, res) => {

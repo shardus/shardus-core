@@ -39,6 +39,19 @@ import rfdc from 'rfdc'
 import { Utils } from '@shardus/lib-types'
 import { neverGoActive } from '../Active'
 import { fireAndForget } from '../../utils/functions/promises'
+import { getAppliedNetworkConfig, hashNetworkConfig, setAppliedNetworkConfig } from '../../config/networkConfig'
+import {
+  evaluateNetworkConfigJoin,
+  hasNetworkConfigMismatchMajority,
+  NetworkConfigJoinResponseCode,
+  NetworkConfigMismatchTracker,
+} from './networkConfig'
+
+export type NetworkConfigJoinRequest = P2P.JoinTypes.JoinRequest & {
+  networkConfigHash?: string
+  networkConfigCycleMarker?: string
+}
+
 /** STATE */
 
 let p2pLogger: Logger
@@ -73,6 +86,7 @@ export function getAllowBogon(): boolean {
 }
 
 let mode = null
+const networkConfigMismatchTracker = new NetworkConfigMismatchTracker()
 
 export let finishedSyncingCycle = -1
 
@@ -891,12 +905,29 @@ export async function createJoinRequest(
   const proofOfWork = {
     compute: await crypto.getComputeProofOfWork(cycleMarker, config.p2p.difficulty),
   }
-  const joinReq = {
+  const joinReq: Omit<NetworkConfigJoinRequest, 'sign'> = {
     nodeInfo,
     cycleMarker,
     proofOfWork: Utils.safeStringify(proofOfWork),
     version,
     selectionNum: undefined,
+  }
+  if (config.p2p.netConfigV2) {
+    const applied = getAppliedNetworkConfig()
+    const appliedHash = applied?.networkConfigHash ?? hashNetworkConfig(config)
+    if (cycleRecord.networkConfigHash && cycleRecord.networkConfigHash !== appliedHash) {
+      throw new Error(
+        `Network configuration changed after subsystem construction; restart required (applied=${appliedHash}, accepted=${cycleRecord.networkConfigHash})`
+      )
+    }
+    const cycleMarkerForConfig = CycleCreator.makeCycleMarker(cycleRecord)
+    setAppliedNetworkConfig({
+      networkConfigHash: appliedHash,
+      networkConfigCycleMarker: cycleMarkerForConfig,
+      cycleCounter: cycleRecord.counter ?? 0,
+    })
+    joinReq.networkConfigHash = appliedHash
+    joinReq.networkConfigCycleMarker = cycleMarkerForConfig
   }
   if (typeof shardus.app.getJoinData === 'function') {
     try {
@@ -923,6 +954,9 @@ export interface JoinRequestResponse {
 
   /** Whether the join request could not be accepted due to some error, usually in validating a join request. TODO: consider renaming to `invalid`? */
   fatal: boolean
+
+  code?: NetworkConfigJoinResponseCode
+  expectedNetworkConfigHash?: string
 }
 
 /**
@@ -1114,6 +1148,7 @@ export async function submitJoinV2(
 
   let goodCount = 0
   let unreachable = 0
+  let networkConfigMismatches = 0
 
   for (const res of responses) {
     /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Join Request Response: ${Utils.safeStringify(res)}`)
@@ -1128,6 +1163,21 @@ export async function submitJoinV2(
     if (res && res.success === true) {
       goodCount++
     }
+    if (res && res.code === 'NETWORK_CONFIG_HASH_MISMATCH') networkConfigMismatches++
+  }
+
+  if (hasNetworkConfigMismatchMajority(selectedNodes.length, responses)) {
+    nestedCountersInstance.countEvent('p2p', 'submitJoin: network config hash mismatch majority')
+    const submittedHash = (joinRequest as NetworkConfigJoinRequest).networkConfigHash ?? ''
+    const mismatchCount = networkConfigMismatchTracker.record(submittedHash)
+    if (mismatchCount >= 3) {
+      throw new Error(
+        `Fatal: terminal network configuration conformance failure after ${mismatchCount} majority rejections for hash ${submittedHash}`
+      )
+    }
+    throw new Error(
+      `Network configuration conformance failed: ${networkConfigMismatches}/${selectedNodes.length} validators rejected the applied hash`
+    )
   }
 
   if (unreachable >= 2) {
@@ -1143,6 +1193,9 @@ export async function submitJoinV2(
     nestedCountersInstance.countEvent('p2p', `submitJoin: no join success repsonses`)
     /* prettier-ignore */ if (logFlags.important_as_fatal) info(`submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`)
     //throw new Error(`submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`)
+  }
+  if (goodCount > 0) {
+    networkConfigMismatchTracker.reset()
   }
 
   //does not seem to chekc the join response. assumes fatal
@@ -1223,6 +1276,7 @@ export function validateJoinRequest(joinRequest: P2P.JoinTypes.JoinRequest): Joi
     verifyJoinRequestTypes(joinRequest) ||
     validateVersion(joinRequest.version) ||
     verifyJoinRequestSigner(joinRequest) ||
+    validateNetworkConfigHash(joinRequest as NetworkConfigJoinRequest) ||
     verifyNotIPv6(joinRequest) ||
     validateJoinRequestHost(joinRequest) ||
     verifyUnseen(joinRequest.nodeInfo.publicKey) ||
@@ -1333,6 +1387,16 @@ export function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): 
   }
 
   return null
+}
+
+export function validateNetworkConfigHash(joinRequest: NetworkConfigJoinRequest): JoinRequestResponse | null {
+  const result = evaluateNetworkConfigJoin(
+    joinRequest,
+    config.p2p.networkConfigHashEnforcement,
+    CycleChain.cyclesByMarker
+  )
+  if (result.diagnostic) nestedCountersInstance.countEvent('p2p', `join-network-config: ${result.diagnostic}`)
+  return result.response
 }
 
 /**
