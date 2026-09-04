@@ -7,10 +7,10 @@ const schemaCycleRecord: object | undefined = {
   properties: {
     networkId: { type: 'string' },
     counter: { type: 'number' },
-    previous: { type: 'string' },
+    previous: { type: 'string', pattern: '^[a-fA-F0-9]{64}$' },
     start: { type: 'number' },
     duration: { type: 'number' },
-    networkConfigHash: { type: 'string' },
+    networkConfigHash: { type: 'string', pattern: '^[a-fA-F0-9]{64}$' },
     mode: {
       type: 'string',
       enum: ['forming', 'processing', 'safety', 'recovery', 'restart', 'restore', 'shutdown'],

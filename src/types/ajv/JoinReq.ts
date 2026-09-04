@@ -52,6 +52,8 @@ const schemaJoinRequest = {
     version: { type: 'string' },
     sign: schemaSignature,
     appJoinData: { type: 'object', additionalProperties: true }, // Optional and allows any properties
+    networkConfigHash: { type: 'string', pattern: '^[a-fA-F0-9]{64}$' },
+    networkConfigCycleMarker: { type: 'string', pattern: '^[a-fA-F0-9]{64}$' },
   },
   required: ['nodeInfo', 'cycleMarker', 'proofOfWork', 'version', 'sign'],
 }
