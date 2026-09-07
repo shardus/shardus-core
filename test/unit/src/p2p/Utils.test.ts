@@ -232,15 +232,19 @@ describe('Utils', () => {
         Utils.robustQuery(
           [],
           jest.fn(() => Promise.resolve('test')),
-          jest.fn()
+          jest.fn(() => true)
         )
       ).rejects.toThrow('No nodes given.')
     })
 
     test('should throw error when queryFn is not a function', async () => {
-      await expect(Utils.robustQuery(['node1'], 'not-a-function' as any, jest.fn())).rejects.toThrow(
-        'is not a valid function'
-      )
+      await expect(
+        Utils.robustQuery(
+          ['node1'],
+          'not-a-function' as any,
+          jest.fn(() => true)
+        )
+      ).rejects.toThrow('is not a valid function')
     })
 
     test('should set minimum redundancy to 1', async () => {

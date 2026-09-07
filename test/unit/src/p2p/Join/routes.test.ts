@@ -180,7 +180,7 @@ describe('p2p/Join/routes', () => {
     mockedCycleCreator.currentQuarter = 1
 
     mockedNodeList.activeByIdOrder = []
-    mockedNodeList.byPubKey = new Map()
+    mockedNodeList.byPubKey = new Map() as typeof mockedNodeList.byPubKey
     mockedNodeList.byIdOrder = []
 
     mockedSelf.isActive = true

@@ -127,8 +127,8 @@ describe('SyncV2', () => {
   ]
 
   const mockShardus = {
-    earlyConfigFetchAndPatch: jest.fn(),
-  }
+  earlyConfigFetchAndPatch: jest.fn<() => Promise<void>>(),
+}
 
   beforeEach(() => {
     jest.clearAllMocks()

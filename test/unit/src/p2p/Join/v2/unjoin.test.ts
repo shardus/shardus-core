@@ -85,12 +85,12 @@ describe('unjoin', () => {
     unjoin.drainNewUnjoinRequests()
     ;(crypto.keypair.publicKey as any) = mockPublicKey
     ;(utils.getRandom as jest.Mock).mockReturnValue([mockActiveNode])
-    ;(http.get as jest.Mock).mockResolvedValue(mockCycleRecord)
-    ;(http.post as jest.Mock).mockResolvedValue({})
+    ;jest.mocked(http.get).mockResolvedValue(mockCycleRecord)
+    ;jest.mocked(http.post).mockResolvedValue({})
     ;(crypto.sign as jest.Mock).mockReturnValue({ publicKey: mockPublicKey, cycleNumber: 100, sign: 'mockSign' })
     ;(crypto.verify as jest.Mock).mockReturnValue(true)
     ;(getRandomAvailableArchiver as jest.Mock).mockReturnValue('mockArchiver')
-    ;(getActiveNodesFromArchiver as jest.Mock).mockResolvedValue(ok({ nodeList: [mockActiveNode] }))
+    ;jest.mocked(getActiveNodesFromArchiver).mockResolvedValue(ok({ nodeList: [mockActiveNode] }) as Awaited<ReturnType<typeof getActiveNodesFromArchiver>>)
     ;(getPublicNodeInfo as jest.Mock).mockReturnValue({ status: P2P.P2PTypes.NodeStatus.STANDBY })
     ;(CycleChain.getNewest as jest.Mock).mockReturnValue({ counter: 100 })
     ;(getStandbyNodesInfoMap as jest.Mock).mockReturnValue(
@@ -114,7 +114,7 @@ describe('unjoin', () => {
     })
 
     it('should return error when unable to get active nodes', async () => {
-      ;(getActiveNodesFromArchiver as jest.Mock).mockResolvedValue(err('Failed to get nodes'))
+      ;jest.mocked(getActiveNodesFromArchiver).mockResolvedValue( err(new Error('Failed to get nodes')))
 
       const result = await unjoin.submitUnjoin()
 
@@ -123,7 +123,7 @@ describe('unjoin', () => {
     })
 
     it('should return error when no cycle counter is found', async () => {
-      ;(http.get as jest.Mock).mockResolvedValue({})
+      ;jest.mocked(http.get).mockResolvedValue({})
 
       const result = await unjoin.submitUnjoin()
 
@@ -132,7 +132,7 @@ describe('unjoin', () => {
     })
 
     it('should return error when cycle counter is undefined', async () => {
-      ;(http.get as jest.Mock).mockResolvedValue({ counter: null })
+      ;jest.mocked(http.get).mockResolvedValue({ counter: null })
 
       const result = await unjoin.submitUnjoin()
 
@@ -141,7 +141,7 @@ describe('unjoin', () => {
     })
 
     it('should throw error when HTTP post fails', async () => {
-      ;(http.post as jest.Mock).mockRejectedValue(new Error('Network error'))
+      ;jest.mocked(http.post).mockRejectedValue(new Error('Network error'))
 
       await expect(unjoin.submitUnjoin()).rejects.toThrow('submitUnjoin: Error posting unjoin request')
     })
