@@ -28,7 +28,7 @@ import { NodeStatus } from '@shardus/lib-types/build/src/p2p/P2PTypes'
 import { getNewestCycle } from '../../../../src/p2p/Sync'
 
 // Define proper types for the mocks
-type MockFunction<T extends (...args: any) => any> = jest.Mock<ReturnType<T>, Parameters<T>>
+type MockFunction<T extends (...args: any) => any> = jest.Mock<T>;
 
 // Mock dependencies
 jest.mock('../../../../src/debug', () => ({
