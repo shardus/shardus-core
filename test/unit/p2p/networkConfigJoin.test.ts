@@ -30,7 +30,7 @@ describe('network configuration join enforcement', () => {
 
     expect(
       evaluateNetworkConfigJoin({ networkConfigHash: OTHER_HASH, networkConfigCycleMarker: MARKER }, true, {
-        [MARKER]: { networkConfigHash: HASH },
+        [MARKER]: { counter: 10, networkConfigHash: HASH },
       }).response
     ).toMatchObject({
       code: 'NETWORK_CONFIG_HASH_MISMATCH',
@@ -42,9 +42,41 @@ describe('network configuration join enforcement', () => {
   test('accepts a hash matching the referenced accepted cycle', () => {
     expect(
       evaluateNetworkConfigJoin({ networkConfigHash: HASH, networkConfigCycleMarker: MARKER }, true, {
-        [MARKER]: { networkConfigHash: HASH },
+        [MARKER]: { counter: 10, networkConfigHash: HASH },
       })
     ).toEqual({ diagnostic: null, response: null })
+  })
+
+  test('bounds referenced cycle freshness', () => {
+    expect(
+      evaluateNetworkConfigJoin(
+        { networkConfigHash: HASH, networkConfigCycleMarker: MARKER },
+        true,
+        { [MARKER]: { counter: 10, networkConfigHash: HASH } },
+        15,
+        5
+      ).response
+    ).toBeNull()
+
+    expect(
+      evaluateNetworkConfigJoin(
+        { networkConfigHash: HASH, networkConfigCycleMarker: MARKER },
+        true,
+        { [MARKER]: { counter: 9, networkConfigHash: HASH } },
+        15,
+        5
+      ).response
+    ).toMatchObject({ code: 'NETWORK_CONFIG_CYCLE_EXPIRED' })
+
+    expect(
+      evaluateNetworkConfigJoin(
+        { networkConfigHash: HASH, networkConfigCycleMarker: MARKER },
+        true,
+        { [MARKER]: { counter: 16, networkConfigHash: HASH } },
+        15,
+        5
+      ).response
+    ).toMatchObject({ code: 'NETWORK_CONFIG_CYCLE_IN_FUTURE' })
   })
 
   test('requires a strict majority and bounds repeated mismatches per hash', () => {

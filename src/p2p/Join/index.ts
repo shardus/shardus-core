@@ -42,9 +42,9 @@ import { fireAndForget } from '../../utils/functions/promises'
 import { getAppliedNetworkConfig, hashNetworkConfig, setAppliedNetworkConfig } from '../../config/networkConfig'
 import {
   evaluateNetworkConfigJoin,
+  DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE,
   hasNetworkConfigMismatchMajority,
   NetworkConfigJoinResponseCode,
-  NetworkConfigMismatchTracker,
 } from './networkConfig'
 
 export type NetworkConfigJoinRequest = P2P.JoinTypes.JoinRequest & {
@@ -86,7 +86,6 @@ export function getAllowBogon(): boolean {
 }
 
 let mode = null
-const networkConfigMismatchTracker = new NetworkConfigMismatchTracker()
 
 export let finishedSyncingCycle = -1
 
@@ -917,15 +916,17 @@ export async function createJoinRequest(
     const appliedHash = applied?.networkConfigHash ?? hashNetworkConfig(config)
     if (cycleRecord.networkConfigHash && cycleRecord.networkConfigHash !== appliedHash) {
       throw new Error(
-        `Network configuration changed after subsystem construction; restart required (applied=${appliedHash}, accepted=${cycleRecord.networkConfigHash})`
+        `Fatal: Network configuration changed after subsystem construction; restart required (applied=${appliedHash}, accepted=${cycleRecord.networkConfigHash})`
       )
     }
-    const cycleMarkerForConfig = CycleCreator.makeCycleMarker(cycleRecord)
-    setAppliedNetworkConfig({
-      networkConfigHash: appliedHash,
-      networkConfigCycleMarker: cycleMarkerForConfig,
-      cycleCounter: cycleRecord.counter ?? 0,
-    })
+    const cycleMarkerForConfig = applied?.networkConfigCycleMarker ?? CycleCreator.makeCycleMarker(cycleRecord)
+    if (!applied) {
+      setAppliedNetworkConfig({
+        networkConfigHash: appliedHash,
+        networkConfigCycleMarker: cycleMarkerForConfig,
+        cycleCounter: cycleRecord.counter ?? 0,
+      })
+    }
     joinReq.networkConfigHash = appliedHash
     joinReq.networkConfigCycleMarker = cycleMarkerForConfig
   }
@@ -1104,7 +1105,7 @@ export async function submitJoinV2(
   // Send the join request to a handful of the active node all at once
   const selectedNodes = utils.getRandom(nodes, Math.min(nodes.length, 5))
 
-  const promises = []
+  const promises: Promise<JoinRequestResponse | null>[] = []
   /* prettier-ignore */ if (logFlags.important_as_fatal) info(`submitJoinV2: selectedNodes: Sent join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`)
 
   // Check if network allows bogon IPs, set our own flag accordingly
@@ -1130,17 +1131,20 @@ export async function submitJoinV2(
   }
 
   for (const node of selectedNodes) {
-    try {
-      //set timeout to 5000 for debugging
-      const postPromise = http.post(`${node.ip}:${node.port}/join`, joinRequest, false, 5000)
-      promises.push(postPromise)
-    } catch (err) {
-      //seems like this is eleveated too high... can it throw a wrench in the join process..
-      // throw new Error(
-      //   `Fatal: submitJoin: Error posting join request to ${node.ip}:${node.port}: Error: ${err}`
-      // )
+    const postPromise = http.post(`${node.ip}:${node.port}/join`, joinRequest, false, 5000).catch((err) => {
+      const responseBody = err?.response?.body
+      if (responseBody && typeof responseBody === 'object') return responseBody as JoinRequestResponse
+      if (typeof responseBody === 'string') {
+        try {
+          return Utils.safeJsonParse(responseBody) as JoinRequestResponse
+        } catch {
+          // fall through to logging below
+        }
+      }
       /* prettier-ignore */ if (logFlags.important_as_fatal) error(`submitJoin: Error posting join request to ${node.ip}:${node.port}: Error: ${utils.formatErrorMessage(err)}`)
-    }
+      return null
+    })
+    promises.push(postPromise)
   }
 
   const responses = await Promise.all(promises)
@@ -1152,6 +1156,14 @@ export async function submitJoinV2(
 
   for (const res of responses) {
     /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Join Request Response: ${Utils.safeStringify(res)}`)
+    if (!res) {
+      errs.push({
+        success: false,
+        fatal: true,
+        reason: 'No join response received',
+      })
+      continue
+    }
     if (res && res.fatal) {
       errs.push(res)
 
@@ -1164,19 +1176,14 @@ export async function submitJoinV2(
       goodCount++
     }
     if (res && res.code === 'NETWORK_CONFIG_HASH_MISMATCH') networkConfigMismatches++
+    if (res?.code) nestedCountersInstance.countEvent('p2p', `submitJoin: ${res.code}`)
   }
 
   if (hasNetworkConfigMismatchMajority(selectedNodes.length, responses)) {
     nestedCountersInstance.countEvent('p2p', 'submitJoin: network config hash mismatch majority')
     const submittedHash = (joinRequest as NetworkConfigJoinRequest).networkConfigHash ?? ''
-    const mismatchCount = networkConfigMismatchTracker.record(submittedHash)
-    if (mismatchCount >= 3) {
-      throw new Error(
-        `Fatal: terminal network configuration conformance failure after ${mismatchCount} majority rejections for hash ${submittedHash}`
-      )
-    }
     throw new Error(
-      `Network configuration conformance failed: ${networkConfigMismatches}/${selectedNodes.length} validators rejected the applied hash`
+      `Fatal: Network configuration conformance failed: ${networkConfigMismatches}/${selectedNodes.length} validators rejected the applied hash ${submittedHash}`
     )
   }
 
@@ -1194,10 +1201,6 @@ export async function submitJoinV2(
     /* prettier-ignore */ if (logFlags.important_as_fatal) info(`submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`)
     //throw new Error(`submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`)
   }
-  if (goodCount > 0) {
-    networkConfigMismatchTracker.reset()
-  }
-
   //does not seem to chekc the join response. assumes fatal
 }
 
@@ -1393,7 +1396,9 @@ export function validateNetworkConfigHash(joinRequest: NetworkConfigJoinRequest)
   const result = evaluateNetworkConfigJoin(
     joinRequest,
     config.p2p.networkConfigHashEnforcement,
-    CycleChain.cyclesByMarker
+    CycleChain.cyclesByMarker,
+    CycleChain.newest?.counter,
+    DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE
   )
   if (result.diagnostic) nestedCountersInstance.countEvent('p2p', `join-network-config: ${result.diagnostic}`)
   return result.response

@@ -502,12 +502,13 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
     const localNetworkConfigHash = hashNetworkConfig(config)
     if (localNetworkConfigHash !== cycle.networkConfigHash) {
       nestedCountersInstance.countEvent('p2p', 'network-config-drift: mismatch')
-      warn(
+      const message =
         `network config drift localHash=${localNetworkConfigHash} expectedHash=${cycle.networkConfigHash} ` +
-          `cycle=${cycle.counter} marker=${digestedCycleMarker} source=${source} status=${
-            Self.getPublicNodeInfo(true).status
-          }`
-      )
+        `cycle=${cycle.counter} marker=${digestedCycleMarker} source=${source} status=${
+          Self.getPublicNodeInfo(true).status
+        }`
+      warn(message)
+      throw new Error(`Fatal: ${message}`)
     }
   }
   info(`digestCycle: marker of cycle${cycle.counter} from ${source} after digest is ${digestedCycleMarker}`)

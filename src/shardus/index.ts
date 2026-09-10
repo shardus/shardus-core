@@ -34,9 +34,14 @@ import { config } from '../p2p/Context'
 import * as AutoScaling from '../p2p/CycleAutoScale'
 import * as CycleChain from '../p2p/CycleChain'
 import * as CycleCreator from '../p2p/CycleCreator'
-import { buildNetworkConfig, hashNetworkConfig, setAppliedNetworkConfig } from '../config/networkConfig'
+import {
+  buildLegacyNetworkConfig,
+  buildNetworkConfig,
+  hashNetworkConfig,
+  hashNetworkConfigPayload,
+  setAppliedNetworkConfig,
+} from '../config/networkConfig'
 import { adoptNetworkConfig } from '../config/networkConfigBootstrap'
-import * as Sync from '../p2p/Sync'
 import * as GlobalAccounts from '../p2p/GlobalAccounts'
 import * as ServiceQueue from '../p2p/ServiceQueue'
 import { scheduleLostReport, removeNodeWithCertificiate } from '../p2p/Lost'
@@ -518,7 +523,6 @@ class Shardus extends EventEmitter {
         })
       } else {
         await adoptNetworkConfig(this.config, activeNodes, {
-          getNewestCycle: Sync.getNewestCycle,
           makeCycleMarker: CycleCreator.makeCycleMarker,
         })
         this.network.configUpdated(this.config)
@@ -3146,8 +3150,10 @@ class Shardus extends EventEmitter {
       res.json({ config: this.config })
     })
     this.network.registerExternalGet('netconfig', async (_req, res) => {
-      const networkConfig = buildNetworkConfig(this.config)
-      res.json({ config: networkConfig, networkConfigHash: hashNetworkConfig(this.config) })
+      const networkConfig = this.config.p2p.netConfigV2
+        ? buildNetworkConfig(this.config)
+        : buildLegacyNetworkConfig(this.config)
+      res.json({ config: networkConfig, networkConfigHash: hashNetworkConfigPayload(networkConfig) })
     })
 
     this.network.registerExternalGet('nodeInfo', async (req, res) => {
