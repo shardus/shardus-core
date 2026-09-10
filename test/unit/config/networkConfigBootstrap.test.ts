@@ -28,11 +28,15 @@ describe('network configuration bootstrap', () => {
         { ip: '127.0.0.2', port: 1002 },
       ],
       {
-        getNewestCycle: jest.fn().mockResolvedValue(cycle),
+        queryCycleMarker: jest
+          .fn()
+          .mockResolvedValue({ marker: MARKER, winningNodes: [{ ip: '127.0.0.1', port: 1001 }] }),
+        fetchCycleByMarker: jest.fn().mockResolvedValue(cycle),
         makeCycleMarker: () => MARKER,
         shuffle: (nodes) => nodes,
         get,
         hash,
+        payloadHash: () => HASH,
       }
     )
 
@@ -57,10 +61,14 @@ describe('network configuration bootstrap', () => {
         target,
         [{ ip: '127.0.0.1', port: 1001 }],
         {
-          getNewestCycle: jest.fn().mockResolvedValue(cycle),
+          queryCycleMarker: jest
+            .fn()
+            .mockResolvedValue({ marker: MARKER, winningNodes: [{ ip: '127.0.0.1', port: 1001 }] }),
+          fetchCycleByMarker: jest.fn().mockResolvedValue(cycle),
           makeCycleMarker: () => MARKER,
           get: jest.fn().mockResolvedValue({ config: payload, networkConfigHash: 'c'.repeat(64) }),
           hash: jest.fn().mockReturnValue(HASH),
+          payloadHash: jest.fn().mockReturnValue(HASH),
         },
         1
       )
@@ -69,18 +77,45 @@ describe('network configuration bootstrap', () => {
   })
 
   test('bounds overall retries', async () => {
-    const getNewestCycle = jest.fn().mockResolvedValue(cycle)
+    const queryCycleMarker = jest
+      .fn()
+      .mockResolvedValue({ marker: MARKER, winningNodes: [{ ip: '127.0.0.1', port: 1001 }] })
     const get = jest.fn().mockRejectedValue(new Error('unavailable'))
 
     await expect(
       adoptNetworkConfig(
         copyConfig(),
         [{ ip: '127.0.0.1', port: 1001 }],
-        { getNewestCycle, makeCycleMarker: () => MARKER, get, hash: () => HASH },
+        {
+          queryCycleMarker,
+          fetchCycleByMarker: jest.fn().mockResolvedValue(cycle),
+          makeCycleMarker: () => MARKER,
+          get,
+          hash: () => HASH,
+          payloadHash: () => HASH,
+        },
         3
       )
     ).rejects.toThrow('after 3 attempts')
-    expect(getNewestCycle).toHaveBeenCalledTimes(3)
+    expect(queryCycleMarker).toHaveBeenCalledTimes(3)
     expect(get).toHaveBeenCalledTimes(3)
+  })
+
+  test('rejects a fetched cycle whose marker does not match robust agreement', async () => {
+    await expect(
+      adoptNetworkConfig(
+        copyConfig(),
+        [{ ip: '127.0.0.1', port: 1001 }],
+        {
+          queryCycleMarker: jest
+            .fn()
+            .mockResolvedValue({ marker: MARKER, winningNodes: [{ ip: '127.0.0.1', port: 1001 }] }),
+          fetchCycleByMarker: jest.fn().mockResolvedValue(cycle),
+          makeCycleMarker: () => 'd'.repeat(64),
+          get: jest.fn(),
+        },
+        1
+      )
+    ).rejects.toThrow('cycle marker mismatch')
   })
 })

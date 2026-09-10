@@ -1,6 +1,10 @@
+import { NETWORK_CONFIG_HASH_PATTERN } from '../../config/networkConfigConstants'
+
 export type NetworkConfigJoinResponseCode =
   | 'NETWORK_CONFIG_FIELDS_REQUIRED'
   | 'NETWORK_CONFIG_CYCLE_UNAVAILABLE'
+  | 'NETWORK_CONFIG_CYCLE_EXPIRED'
+  | 'NETWORK_CONFIG_CYCLE_IN_FUTURE'
   | 'NETWORK_CONFIG_HASH_MISMATCH'
 
 export interface NetworkConfigJoinFields {
@@ -16,18 +20,43 @@ export interface NetworkConfigJoinValidationResponse {
   expectedNetworkConfigHash?: string
 }
 
+export interface NetworkConfigCycleReference {
+  counter?: number
+  networkConfigHash?: string
+}
+
 export interface NetworkConfigJoinValidationResult {
   diagnostic: NetworkConfigJoinResponseCode | null
   response: NetworkConfigJoinValidationResponse | null
 }
 
-const HASH_PATTERN = /^[a-fA-F0-9]{64}$/
+export const DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE = 5
+const HASH_PATTERN = new RegExp(NETWORK_CONFIG_HASH_PATTERN)
+
+function rejection(
+  code: NetworkConfigJoinResponseCode,
+  reason: string,
+  enforcement: boolean,
+  expectedNetworkConfigHash?: string
+): NetworkConfigJoinValidationResult {
+  const response: NetworkConfigJoinValidationResponse = {
+    success: false,
+    fatal: false,
+    code,
+    reason,
+    expectedNetworkConfigHash,
+  }
+  if (!expectedNetworkConfigHash) delete response.expectedNetworkConfigHash
+  return { diagnostic: response.code, response: enforcement ? response : null }
+}
 
 /** Pure validator so direct and gossiped join paths use exactly the same decision. */
 export function evaluateNetworkConfigJoin(
   request: NetworkConfigJoinFields,
   enforcement: boolean,
-  cyclesByMarker: Record<string, { networkConfigHash?: string }>
+  cyclesByMarker: Record<string, NetworkConfigCycleReference>,
+  currentCounter?: number,
+  maxReferenceAge = DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE
 ): NetworkConfigJoinValidationResult {
   if (
     typeof request.networkConfigHash !== 'string' ||
@@ -35,35 +64,47 @@ export function evaluateNetworkConfigJoin(
     typeof request.networkConfigCycleMarker !== 'string' ||
     !HASH_PATTERN.test(request.networkConfigCycleMarker)
   ) {
-    const response: NetworkConfigJoinValidationResponse = {
-      success: false,
-      fatal: false,
-      code: 'NETWORK_CONFIG_FIELDS_REQUIRED',
-      reason: 'Network configuration hash and cycle marker are required',
-    }
-    return { diagnostic: response.code, response: enforcement ? response : null }
+    return rejection(
+      'NETWORK_CONFIG_FIELDS_REQUIRED',
+      'Network configuration hash and cycle marker are required',
+      enforcement
+    )
   }
 
   const cycle = cyclesByMarker[request.networkConfigCycleMarker]
   if (!cycle) {
-    const response: NetworkConfigJoinValidationResponse = {
-      success: false,
-      fatal: false,
-      code: 'NETWORK_CONFIG_CYCLE_UNAVAILABLE',
-      reason: 'The referenced network configuration cycle is unavailable',
+    return rejection(
+      'NETWORK_CONFIG_CYCLE_UNAVAILABLE',
+      'The referenced network configuration cycle is unavailable',
+      enforcement
+    )
+  }
+
+  if (typeof currentCounter === 'number' && typeof cycle.counter === 'number') {
+    const age = currentCounter - cycle.counter
+    if (age < 0) {
+      return rejection(
+        'NETWORK_CONFIG_CYCLE_IN_FUTURE',
+        'The referenced network configuration cycle is in the future',
+        enforcement
+      )
     }
-    return { diagnostic: response.code, response: enforcement ? response : null }
+    if (age > maxReferenceAge) {
+      return rejection(
+        'NETWORK_CONFIG_CYCLE_EXPIRED',
+        'The referenced network configuration cycle is too old',
+        enforcement
+      )
+    }
   }
 
   if (cycle.networkConfigHash !== request.networkConfigHash) {
-    const response: NetworkConfigJoinValidationResponse = {
-      success: false,
-      fatal: false,
-      code: 'NETWORK_CONFIG_HASH_MISMATCH',
-      reason: 'The submitted network configuration hash does not match the referenced cycle',
-      expectedNetworkConfigHash: cycle.networkConfigHash,
-    }
-    return { diagnostic: response.code, response: enforcement ? response : null }
+    return rejection(
+      'NETWORK_CONFIG_HASH_MISMATCH',
+      'The submitted network configuration hash does not match the referenced cycle',
+      enforcement,
+      cycle.networkConfigHash
+    )
   }
   return { diagnostic: null, response: null }
 }
