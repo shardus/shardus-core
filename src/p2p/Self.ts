@@ -129,7 +129,12 @@ export function init(): void {
   updateNodeState(P2P.P2PTypes.NodeStatus.INITIALIZING) // requires p2pLogger through warn()
 }
 
-export function startupV2(shardus: Shardus): Promise<boolean> {
+export type BootstrapHandshake = {
+  archiver: ActiveNode
+  response: P2P.P2PTypes.SignedObject<SeedNodesList>
+}
+
+export function startupV2(shardus: Shardus, bootstrapHandshake?: BootstrapHandshake): Promise<boolean> {
   const promise = new Promise<boolean>((resolve, reject) => {
     if (isServiceMode()) {
       info('p2p/Self/startup disabled: Starting in service mode.')
@@ -248,7 +253,9 @@ export function startupV2(shardus: Shardus): Promise<boolean> {
 
         info(`startupV2: attemptJoining enter`)
         // this name is confusing, as the node is not actually active yet
-        const activeNodes = await contactArchiver('startupV2:attemptJoining')
+        const initialHandshake = bootstrapHandshake
+        bootstrapHandshake = undefined
+        const activeNodes = await contactArchiver('startupV2:attemptJoining', initialHandshake)
 
         info(`startupV2: got active nodes: ${activeNodes.length}`)
 
@@ -900,7 +907,10 @@ async function checkNodeId(nodeMatch: (node: any) => boolean, selfId: string): P
   if (logFlags.p2pNonFatal) info('Node passed id check')
 }
 
-export async function contactArchiver(dbgContex: string): Promise<P2P.P2PTypes.Node[]> {
+export async function contactArchiver(
+  dbgContex: string,
+  bootstrapHandshake?: BootstrapHandshake
+): Promise<P2P.P2PTypes.Node[]> {
   const maxRetries = 10
   let retry = maxRetries
   const failArchivers: string[] = []
@@ -912,14 +922,16 @@ export async function contactArchiver(dbgContex: string): Promise<P2P.P2PTypes.N
   while (retry > 0) {
     try {
       retry--
-      archiver = getRandomAvailableArchiver()
+      archiver = bootstrapHandshake?.archiver ?? getRandomAvailableArchiver()
       info(`contactArchiver: communicate with:${archiver?.ip}`)
 
       if (!failArchivers.includes(archiver.ip + ':' + archiver.port)) {
         failArchivers.push(archiver.ip + ':' + archiver.port)
       }
 
-      activeNodesSigned = await getActiveNodesFromArchiver(archiver)
+      const initialHandshake = bootstrapHandshake
+      bootstrapHandshake = undefined
+      activeNodesSigned = initialHandshake?.response ?? (await getActiveNodesFromArchiver(archiver))
       if (activeNodesSigned == null || activeNodesSigned.nodeList == null || activeNodesSigned.nodeList.length === 0) {
         /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `contactArchiver: no nodes in nodelist yet. ${dbgContex}`, 1)
         info(`contactArchiver: no nodes in nodelist yet, or seedlist null ${Utils.safeStringify(activeNodesSigned)}`)
