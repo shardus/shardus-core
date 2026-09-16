@@ -65,6 +65,15 @@ describe('network configuration v2', () => {
     expect(target.p2p.cycleDuration).toBe(77)
   })
 
+  test('preserves numeric type and integer count validation', () => {
+    const payload = buildNetworkConfig(copyConfig())
+    ;(payload.p2p as any).rotationCountMultiply = '0.5'
+    expect(() => validateNetworkConfig(payload)).toThrow('should be number')
+    payload.p2p.rotationCountMultiply = 0.5
+    payload.p2p.minNodes = 1.5
+    expect(() => validateNetworkConfig(payload)).toThrow('should be integer')
+  })
+
   test('uses legacy payload hashing when netConfigV2 is disabled', () => {
     const config = copyConfig()
     config.p2p.netConfigV2 = false
