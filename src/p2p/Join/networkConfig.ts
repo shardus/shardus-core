@@ -1,3 +1,4 @@
+import type { AppliedNetworkConfig } from '../../config/networkConfig'
 import { NETWORK_CONFIG_HASH_PATTERN } from '../../config/networkConfigConstants'
 
 export type NetworkConfigJoinResponseCode =
@@ -135,4 +136,25 @@ export function hasNetworkConfigMismatchMajority(
 ): boolean {
   const mismatches = responses.filter((response) => response?.code === 'NETWORK_CONFIG_HASH_MISMATCH').length
   return mismatches >= Math.floor(selectedNodeCount / 2) + 1
+}
+
+/** Refresh the cycle reference without changing the configuration already applied. */
+export function refreshNetworkConfigReference<T extends NetworkConfigCycleReference>(
+  applied: AppliedNetworkConfig | null,
+  appliedHash: string,
+  cycle: T,
+  makeCycleMarker: (cycle: T) => string
+): AppliedNetworkConfig {
+  if (cycle.networkConfigHash && cycle.networkConfigHash !== appliedHash) {
+    throw new Error(
+      `Fatal: Network configuration changed after subsystem construction; restart required (applied=${appliedHash}, accepted=${cycle.networkConfigHash})`
+    )
+  }
+  // Genesis has no accepted cycle yet; retain its zero-marker reference.
+  if (!cycle.networkConfigHash && applied) return applied
+  return {
+    networkConfigHash: appliedHash,
+    networkConfigCycleMarker: makeCycleMarker(cycle),
+    cycleCounter: cycle.counter ?? 0,
+  }
 }
