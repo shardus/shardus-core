@@ -947,15 +947,18 @@ export function schedule<T, U extends unknown[]>(
 }
 
 export function shutdown() {
-  warn('Cycle creator shutdown')
+  // Startup may stop before init() creates this module's logger.
+  if (p2pLogger) warn('Cycle creator shutdown')
   for (const timer of Object.keys(timers)) {
-    warn(`clearing timer ${timer}`)
+    if (p2pLogger) warn(`clearing timer ${timer}`)
     clearTimeout(timers[timer])
+    delete timers[timer]
   }
-  warn(`current cycle and quarter is: C${currentCycle} Q${currentQuarter}`)
-  currentCycle += 1
-  currentQuarter = 0 // to stop functions which check if we are in the same quarter
-  warn(`changed cycle and quarter to: C${currentCycle} Q${currentQuarter}`)
+  if (currentQuarter !== 0) {
+    currentCycle += 1
+    currentQuarter = 0 // stop functions which check if we are in the same quarter
+  }
+  if (p2pLogger) warn(`changed cycle and quarter to: C${currentCycle} Q${currentQuarter}`)
 }
 
 function cycleQuarterChanged(cycle: number, quarter: number) {
