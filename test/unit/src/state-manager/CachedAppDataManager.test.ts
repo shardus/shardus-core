@@ -950,10 +950,10 @@ describe('CachedAppDataManager', () => {
       }).toThrow('factSendCorrespondingCachedAppData: dataId == null')
     })
 
-    it('should return early when no execution group', () => {
+    it('should return early when no executionShardKey', () => {
       const mockQueueEntry = {
-        executionShardKey: 'exec-key',
-        executionGroup: null,
+        executionShardKey: null,
+        executionGroup: ['node1', 'node2', 'node3'],
         txKeys: { allKeys: ['key1'] },
       }
       ;(mockStateManager.transactionQueue.getQueueEntry as jest.Mock).mockReturnValue(mockQueueEntry)
