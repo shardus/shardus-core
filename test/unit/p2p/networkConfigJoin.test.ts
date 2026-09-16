@@ -1,5 +1,6 @@
 import {
   evaluateNetworkConfigJoin,
+  refreshNetworkConfigReference,
   hasNetworkConfigMismatchMajority,
   NetworkConfigMismatchTracker,
 } from '../../../src/p2p/Join/networkConfig'
@@ -91,5 +92,24 @@ describe('network configuration join enforcement', () => {
     expect(tracker.record(OTHER_HASH)).toBe(1)
     tracker.reset()
     expect(tracker.record(OTHER_HASH)).toBe(1)
+  })
+})
+
+describe('refreshing config references on subsequent join requests', () => {
+  const oldReference = { networkConfigHash: HASH, networkConfigCycleMarker: OTHER_HASH, cycleCounter: 1 }
+  test('refreshes an expired reference when the accepted config hash is unchanged', () => {
+    const cycle = { counter: 20, networkConfigHash: HASH }
+    const fresh = refreshNetworkConfigReference(oldReference, HASH, cycle, () => MARKER)
+    expect(fresh.cycleCounter).toBe(20)
+    expect(evaluateNetworkConfigJoin(fresh, true, { [MARKER]: cycle }, 20).response).toBeNull()
+    expect(oldReference.cycleCounter).toBe(1)
+  })
+  test('a new marker cannot permit a changed configuration hash', () => {
+    expect(() =>
+      refreshNetworkConfigReference(oldReference, HASH, { counter: 20, networkConfigHash: OTHER_HASH }, () => MARKER)
+    ).toThrow('restart required')
+  })
+  test('preserves the genesis reference before an accepted cycle exists', () => {
+    expect(refreshNetworkConfigReference(oldReference, HASH, {}, () => MARKER)).toEqual(oldReference)
   })
 })
