@@ -469,6 +469,7 @@ class Shardus extends EventEmitter {
   // }
 
   async start() {
+    let bootstrapHandshake: Self.BootstrapHandshake | undefined
     // Check network up & time synced
     await Network.init()
 
