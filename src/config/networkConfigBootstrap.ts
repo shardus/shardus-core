@@ -60,7 +60,7 @@ export async function adoptNetworkConfig(
       const result = await robustQueryForCycleRecordHash(nodes as P2P.SyncTypes.ActiveNode[])
       if (result.isErr()) throw result.error
       return {
-        marker: result.value.value.currentCycleHash,
+        marker: result.value.value?.currentCycleHash,
         winningNodes: result.value.winningNodes,
       }
     })
