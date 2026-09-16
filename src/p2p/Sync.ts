@@ -500,6 +500,7 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
   const digestedCycleMarker = CycleChain.computeCycleMarker(cycle)
   if (config.p2p.netConfigV2) {
     const localNetworkConfigHash = hashNetworkConfig(config)
+    /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] drift-check', { cycle: cycle.counter, marker: digestedCycleMarker, source, localHash: localNetworkConfigHash, expectedHash: cycle.networkConfigHash, matched: localNetworkConfigHash === cycle.networkConfigHash })
     if (localNetworkConfigHash !== cycle.networkConfigHash) {
       nestedCountersInstance.countEvent('p2p', 'network-config-drift: mismatch')
       const message =
