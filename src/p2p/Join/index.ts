@@ -1179,6 +1179,7 @@ export async function submitJoinV2(
     if (res?.code) nestedCountersInstance.countEvent('p2p', `submitJoin: ${res.code}`)
   }
 
+  /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] join-responses', { netConfigV2: config.p2p.netConfigV2, validators: selectedNodes.length, accepted: goodCount, mismatches: networkConfigMismatches, hash: (joinRequest as NetworkConfigJoinRequest).networkConfigHash })
   if (hasNetworkConfigMismatchMajority(selectedNodes.length, responses)) {
     nestedCountersInstance.countEvent('p2p', 'submitJoin: network config hash mismatch majority')
     const submittedHash = (joinRequest as NetworkConfigJoinRequest).networkConfigHash ?? ''
@@ -1400,6 +1401,7 @@ export function validateNetworkConfigHash(joinRequest: NetworkConfigJoinRequest)
     CycleChain.newest?.counter,
     DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE
   )
+  /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] join-validation', { publicKey: joinRequest.nodeInfo.publicKey, enforcement: config.p2p.networkConfigHashEnforcement, diagnostic: result.diagnostic, decision: result.response ? "rejected" : result.diagnostic ? "allowed-without-enforcement" : "validated", hash: joinRequest.networkConfigHash, marker: joinRequest.networkConfigCycleMarker, cycle: CycleChain.newest?.counter })
   if (result.diagnostic) nestedCountersInstance.countEvent('p2p', `join-network-config: ${result.diagnostic}`)
   return result.response
 }

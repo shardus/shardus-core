@@ -971,6 +971,7 @@ export async function contactArchiver(dbgContex: string): Promise<P2P.P2PTypes.N
         dataRequestCycle: activeNodesSigned.dataRequestCycle as number,
       }
       Archivers.addDataRecipient(joinRequest.nodeInfo, firstNodeDataRequest)
+      /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] handshake-processed', { archiver: archiver.ip + ':' + archiver.port, joinRequest: true, restartCycleRecord: false })
       // Using this flag due to isFirst check is not working as expected yet in the first consensor-archiver connection establishment
       allowConnectionToFirstNode = true
       /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `contactArchiver: got valid nodelist ${dbgContex} joinRequest count:${activeNodesSigned.nodeList.length}`, 1)
