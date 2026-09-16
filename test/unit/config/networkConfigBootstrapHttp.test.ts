@@ -44,6 +44,8 @@ describe('bootstrap before P2P initialization with real HTTP helpers', () => {
     target.p2p.netConfigV2 = true
     const accepted = JSON.parse(JSON.stringify(target))
     accepted.p2p.cycleDuration = 91
+    accepted.p2p.rotationCountMultiply = 0.5
+    accepted.p2p.extraCyclesToKeepMultiplier = 1.5
     const expectedHash = hashNetworkConfig(accepted)
     const cycle: any = {
       networkId: 'f'.repeat(64),
@@ -110,6 +112,9 @@ describe('bootstrap before P2P initialization with real HTTP helpers', () => {
     const applied = await adoptNetworkConfig(target, [{ ip: '127.0.0.1', port }], { makeCycleMarker: hash }, 1)
     expect(applied.networkConfigHash).toBe(expectedHash)
     expect(target.p2p.cycleDuration).toBe(91)
+    expect(target.p2p.rotationCountMultiply).toBe(0.5)
+    expect(target.p2p.extraCyclesToKeepMultiplier).toBe(1.5)
+    expect(hashNetworkConfig(target)).toBe(expectedHash)
     expect(requests).toEqual(['/current-cycle-hash', '/cycle-by-marker?marker=' + marker, '/netconfig'])
   })
 
