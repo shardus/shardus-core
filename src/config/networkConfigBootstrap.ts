@@ -1,4 +1,7 @@
 import { P2P } from '@shardus/lib-types'
+import { setTimeout as sleep } from 'timers/promises'
+import { NETWORK_CONFIG_HASH_PATTERN } from './networkConfigConstants'
+import { logFlags } from '../logger'
 import * as http from '../http'
 import { StrictServerConfiguration } from '../shardus/shardus-types'
 import {
@@ -35,6 +38,7 @@ function validateCycleRecord(cycle: P2P.CycleCreatorTypes.CycleRecord): void {
 }
 
 export interface NetworkConfigBootstrapDependencies {
+  signal?: AbortSignal
   queryCycleMarker?: (nodes: ActiveNode[]) => Promise<CycleMarkerQueryResult>
   fetchCycleByMarker?: (node: ActiveNode, marker: string) => Promise<P2P.CycleCreatorTypes.CycleRecord>
   makeCycleMarker(cycle: P2P.CycleCreatorTypes.CycleRecord): string
@@ -125,19 +129,43 @@ export async function adoptNetworkConfig(
         if (actualPayloadHash !== response.networkConfigHash || actualPayloadHash !== expectedHash) {
           throw new Error('network configuration hash mismatch')
         }
+        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] payload-verified', { peer: ip + ":" + port, hash: actualPayloadHash, cycle: cycle.counter })
+        const candidate = JSON.parse(JSON.stringify(target)) as StrictServerConfiguration
+        applyNetworkConfig(candidate, verified)
+        if (hash(candidate) !== expectedHash) throw new Error('applied network configuration hash mismatch')
+        dependencies.signal?.throwIfAborted()
         applyNetworkConfig(target, verified)
-        if (hash(target) !== expectedHash) throw new Error('applied network configuration hash mismatch')
         const applied = {
           networkConfigHash: expectedHash,
           networkConfigCycleMarker: agreedMarker,
           cycleCounter: cycle.counter,
         }
         setAppliedNetworkConfig(applied)
+        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] config-applied', { ...applied, peer: ip + ":" + port })
         return applied
       } catch (error) {
+        dependencies.signal?.throwIfAborted()
         lastError = error instanceof Error ? error : new Error(String(error))
+        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] config-peer-failed', { peer: ip + ":" + port, attempt: attempt + 1, reason: lastError.message })
       }
     }
   }
   throw new Error(`Unable to adopt accepted network configuration after ${attempts} attempts: ${lastError.message}`)
+}
+
+/** Retry a complete discovery/adoption round until ready or shutdown is requested. */
+export async function waitForNetworkConfig<T>(attempt: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  const started = Date.now()
+  for (let round = 1; ; round++) {
+    signal.throwIfAborted()
+    try {
+      const result = await attempt()
+      signal.throwIfAborted()
+      return result
+    } catch (error) {
+      signal.throwIfAborted()
+      /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] bootstrap-waiting', { attempt: round, elapsedMs: Date.now() - started, retryDelayMs: 5000, reason: error instanceof Error ? error.message : String(error) })
+      await sleep(5000, undefined, { signal })
+    }
+  }
 }
