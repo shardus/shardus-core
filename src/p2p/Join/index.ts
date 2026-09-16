@@ -2,6 +2,7 @@ import deepmerge from 'deepmerge'
 import { version } from '../../../package.json'
 import * as http from '../../http'
 import { logFlags } from '../../logger'
+import { refreshNetworkConfigReference } from './networkConfig'
 import { hexstring, P2P } from '@shardus/lib-types'
 import * as utils from '../../utils'
 import { validateTypes } from '../../utils'
@@ -914,21 +915,12 @@ export async function createJoinRequest(
   if (config.p2p.netConfigV2) {
     const applied = getAppliedNetworkConfig()
     const appliedHash = applied?.networkConfigHash ?? hashNetworkConfig(config)
-    if (cycleRecord.networkConfigHash && cycleRecord.networkConfigHash !== appliedHash) {
-      throw new Error(
-        `Fatal: Network configuration changed after subsystem construction; restart required (applied=${appliedHash}, accepted=${cycleRecord.networkConfigHash})`
-      )
-    }
-    const cycleMarkerForConfig = applied?.networkConfigCycleMarker ?? CycleCreator.makeCycleMarker(cycleRecord)
-    if (!applied) {
-      setAppliedNetworkConfig({
-        networkConfigHash: appliedHash,
-        networkConfigCycleMarker: cycleMarkerForConfig,
-        cycleCounter: cycleRecord.counter ?? 0,
-      })
-    }
+    const reference = refreshNetworkConfigReference(applied, appliedHash, cycleRecord, CycleCreator.makeCycleMarker)
+    setAppliedNetworkConfig(reference)
+    const cycleMarkerForConfig = reference.networkConfigCycleMarker
     joinReq.networkConfigHash = appliedHash
     joinReq.networkConfigCycleMarker = cycleMarkerForConfig
+    /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] join-fields-prepared', { publicKey: nodeInfo.publicKey, hash: appliedHash, marker: cycleMarkerForConfig, cycle: cycleRecord.counter })
   }
   if (typeof shardus.app.getJoinData === 'function') {
     try {
