@@ -322,19 +322,22 @@ class MemoryReporting {
   systemProcessReport(): void {
     this.addToReport('Process', 'CPU', 'cpuPercent', this.roundTo3decimals(this.cpuPercent() * 100))
 
-    const avgCPU = this.shardus.statistics.getAverage('cpuPercent')
-    this.addToReport('Process', 'CPU', 'cpuAVGPercent', this.roundTo3decimals(avgCPU * 100))
-    const multiStats = this.shardus.statistics.getMultiStatReport('cpuPercent')
+    // Bootstrap can shut down before statistics are initialized.
+    if (this.shardus.statistics) {
+      const avgCPU = this.shardus.statistics.getAverage('cpuPercent')
+      this.addToReport('Process', 'CPU', 'cpuAVGPercent', this.roundTo3decimals(avgCPU * 100))
+      const multiStats = this.shardus.statistics.getMultiStatReport('cpuPercent')
 
-    multiStats.allVals.forEach((val, index) => {
-      // eslint-disable-next-line security/detect-object-injection
-      multiStats.allVals[index] = Math.round(val * 100)
-    })
-    multiStats.min = this.roundTo3decimals(multiStats.min * 100)
-    multiStats.max = this.roundTo3decimals(multiStats.max * 100)
-    multiStats.avg = this.roundTo3decimals(multiStats.avg * 100)
+      multiStats.allVals.forEach((val, index) => {
+        // eslint-disable-next-line security/detect-object-injection
+        multiStats.allVals[index] = Math.round(val * 100)
+      })
+      multiStats.min = this.roundTo3decimals(multiStats.min * 100)
+      multiStats.max = this.roundTo3decimals(multiStats.max * 100)
+      multiStats.avg = this.roundTo3decimals(multiStats.avg * 100)
 
-    this.addToReport('Process', 'CPU', `cpu: ${Utils.safeStringify(multiStats)}`, 1)
+      this.addToReport('Process', 'CPU', `cpu: ${Utils.safeStringify(multiStats)}`, 1)
+    }
 
     const report = resourceUsage()
     for (const [key, value] of Object.entries(report)) {
