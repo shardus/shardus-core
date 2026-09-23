@@ -31,7 +31,6 @@ import path from 'path'
 import { Utils } from '@shardus/lib-types'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
-import { hashNetworkConfig } from '../config/networkConfig'
 
 /** STATE */
 
@@ -498,20 +497,6 @@ export function digestCycle(cycle: P2P.CycleCreatorTypes.CycleRecord, source: st
 
   CycleChain.append(cycle)
   const digestedCycleMarker = CycleChain.computeCycleMarker(cycle)
-  if (config.p2p.netConfigV2) {
-    const localNetworkConfigHash = hashNetworkConfig(config)
-    /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] drift-check', { cycle: cycle.counter, marker: digestedCycleMarker, source, localHash: localNetworkConfigHash, expectedHash: cycle.networkConfigHash, matched: localNetworkConfigHash === cycle.networkConfigHash })
-    if (localNetworkConfigHash !== cycle.networkConfigHash) {
-      nestedCountersInstance.countEvent('p2p', 'network-config-drift: mismatch')
-      const message =
-        `network config drift localHash=${localNetworkConfigHash} expectedHash=${cycle.networkConfigHash} ` +
-        `cycle=${cycle.counter} marker=${digestedCycleMarker} source=${source} status=${
-          Self.getPublicNodeInfo(true).status
-        }`
-      warn(message)
-      throw new Error(`Fatal: ${message}`)
-    }
-  }
   info(`digestCycle: marker of cycle${cycle.counter} from ${source} after digest is ${digestedCycleMarker}`)
 
   // Update problematic node cache in shadow mode

@@ -86,7 +86,7 @@ import { TypeIdentifierEnum } from '../types/enum/TypeIdentifierEnum'
 import { SignAppDataReq, deserializeSignAppDataReq, serializeSignAppDataReq } from '../types/SignAppDataReq'
 import { SignAppDataResp, deserializeSignAppDataResp, serializeSignAppDataResp } from '../types/SignAppDataResp'
 import { Utils } from '@shardus/lib-types'
-import { getOurNodeIndex, isNodeInRotationBounds } from '../p2p/Utils'
+import { getActiveNodesFromArchiver, getOurNodeIndex, isNodeInRotationBounds } from '../p2p/Utils'
 import ShardFunctions from '../state-manager/shardFunctions'
 import SocketIO from 'socket.io'
 import { nodeListFromStates, queueFinishedSyncingRequest } from '../p2p/Join'
@@ -469,7 +469,6 @@ class Shardus extends EventEmitter {
   // }
 
   async start() {
-    let bootstrapHandshake: Self.BootstrapHandshake | undefined
     // Check network up & time synced
     await Network.init()
 
@@ -501,13 +500,7 @@ class Shardus extends EventEmitter {
           for (const archiver of this.config.p2p.existingArchivers) {
             signal.throwIfAborted()
             try {
-              const nodeInfo = Self.getPublicNodeInfo(true)
-              const result = await Archivers.postToArchiver<any, P2P.P2PTypes.SignedObject<any>>(
-                archiver,
-                'nodelist',
-                this.crypto.sign({ nodeInfo }),
-                10000
-              )
+              const result = await getActiveNodesFromArchiver(archiver)
               signal.throwIfAborted()
               if (result.isErr()) throw result.error
               const signedList = result.value
@@ -518,14 +511,6 @@ class Shardus extends EventEmitter {
                 throw new Error('Archiver returned an empty active-node list')
               }
               /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] archiver-list-verified', { archiver: archiver.ip + ':' + archiver.port, peers: signedList.nodeList.length })
-              if (
-                signedList.nodeList.length === 1 &&
-                signedList.nodeList[0].ip === Network.ipInfo.externalIp &&
-                signedList.nodeList[0].port === Network.ipInfo.externalPort
-              ) {
-                bootstrapHandshake = { archiver, response: signedList }
-                /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] handshake-preserved', { archiver: archiver.ip + ':' + archiver.port, joinRequest: !!signedList.joinRequest, restartCycleRecord: !!signedList.restartCycleRecord })
-              }
               activeNodes = signedList.nodeList
               break
             } catch (error) {
@@ -1108,7 +1093,7 @@ class Shardus extends EventEmitter {
 
     // Start P2P
     this.joinStarted = true
-    await Self.startupV2(this, bootstrapHandshake)
+    await Self.startupV2(this)
 
     // handle config queue changes and debug logic updates
     this._registerListener(this.p2p.state, 'cycle_q1_start', async () => {
