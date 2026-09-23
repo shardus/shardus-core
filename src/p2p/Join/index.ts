@@ -40,7 +40,7 @@ import rfdc from 'rfdc'
 import { Utils } from '@shardus/lib-types'
 import { neverGoActive } from '../Active'
 import { fireAndForget } from '../../utils/functions/promises'
-import { getAppliedNetworkConfig, hashNetworkConfig, setAppliedNetworkConfig } from '../../config/networkConfig'
+import { getAppliedNetworkConfigMetadata, hashLocalNetworkConfig, setAppliedNetworkConfigMetadata } from '../../config/networkConfig'
 import {
   evaluateNetworkConfigJoin,
   DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE,
@@ -913,10 +913,10 @@ export async function createJoinRequest(
     selectionNum: undefined,
   }
   if (config.p2p.netConfigV2) {
-    const applied = getAppliedNetworkConfig()
-    const appliedHash = applied?.networkConfigHash ?? hashNetworkConfig(config)
+    const applied = getAppliedNetworkConfigMetadata()
+    const appliedHash = applied?.networkConfigHash ?? hashLocalNetworkConfig(config)
     const reference = refreshNetworkConfigReference(applied, appliedHash, cycleRecord, CycleCreator.makeCycleMarker)
-    setAppliedNetworkConfig(reference)
+    setAppliedNetworkConfigMetadata(reference)
     const cycleMarkerForConfig = reference.networkConfigCycleMarker
     joinReq.networkConfigHash = appliedHash
     joinReq.networkConfigCycleMarker = cycleMarkerForConfig
