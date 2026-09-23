@@ -1,5 +1,5 @@
 import SERVER_CONFIG from '../../../src/config/server'
-import { buildNetworkConfig, getAppliedNetworkConfig, setAppliedNetworkConfig } from '../../../src/config/networkConfig'
+import { buildNetworkConfig, getAppliedNetworkConfigMetadata, setAppliedNetworkConfigMetadata } from '../../../src/config/networkConfig'
 import { adoptNetworkConfig } from '../../../src/config/networkConfigBootstrap'
 import { StrictServerConfiguration } from '../../../src/shardus/shardus-types'
 
@@ -9,7 +9,7 @@ const copyConfig = (): StrictServerConfiguration => JSON.parse(JSON.stringify(SE
 const cycle = { counter: 12, networkConfigHash: HASH } as any
 
 describe('network configuration bootstrap', () => {
-  beforeEach(() => setAppliedNetworkConfig(null))
+  beforeEach(() => setAppliedNetworkConfigMetadata(null))
 
   test('tries another active node after a malformed response and applies a verified payload', async () => {
     const target = copyConfig()
@@ -47,7 +47,7 @@ describe('network configuration bootstrap', () => {
       networkConfigCycleMarker: MARKER,
       cycleCounter: 12,
     })
-    expect(getAppliedNetworkConfig()).toEqual(applied)
+    expect(getAppliedNetworkConfigMetadata()).toEqual(applied)
   })
 
   test('rejects response and cycle hash disagreement without applying it', async () => {

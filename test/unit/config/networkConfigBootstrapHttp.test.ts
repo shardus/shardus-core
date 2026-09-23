@@ -7,7 +7,7 @@ import { logFlags } from '../../../src/logger'
 import { initLogger } from '../../../src/p2p/SyncV2/queries'
 import MemoryReporting from '../../../src/utils/memoryReporting'
 import { shutdown } from '../../../src/p2p/CycleCreator'
-import { buildNetworkConfig, hashNetworkConfig, setAppliedNetworkConfig } from '../../../src/config/networkConfig'
+import { buildNetworkConfig, hashLocalNetworkConfig, setAppliedNetworkConfigMetadata } from '../../../src/config/networkConfig'
 import { adoptNetworkConfig, waitForNetworkConfig } from '../../../src/config/networkConfigBootstrap'
 import { initCycleRecords } from '../../../src/types/ajv/CycleRecordSchema'
 
@@ -31,7 +31,7 @@ describe('bootstrap before P2P initialization with real HTTP helpers', () => {
     Context.setCryptoContext({ hash })
     Context.setLoggerContext({ getLogger: () => ({ info() {}, warn() {}, error() {} }) })
     initLogger() // Deliberately do not call Self.init() or CycleCreator.init().
-    setAppliedNetworkConfig(null)
+    setAppliedNetworkConfigMetadata(null)
   })
   afterEach(async () => {
     logFlags.verbose = verbose
@@ -46,7 +46,7 @@ describe('bootstrap before P2P initialization with real HTTP helpers', () => {
     accepted.p2p.cycleDuration = 91
     accepted.p2p.rotationCountMultiply = 0.5
     accepted.p2p.extraCyclesToKeepMultiplier = 1.5
-    const expectedHash = hashNetworkConfig(accepted)
+    const expectedHash = hashLocalNetworkConfig(accepted)
     const cycle: any = {
       networkId: 'f'.repeat(64),
       counter: 1,
@@ -114,7 +114,7 @@ describe('bootstrap before P2P initialization with real HTTP helpers', () => {
     expect(target.p2p.cycleDuration).toBe(91)
     expect(target.p2p.rotationCountMultiply).toBe(0.5)
     expect(target.p2p.extraCyclesToKeepMultiplier).toBe(1.5)
-    expect(hashNetworkConfig(target)).toBe(expectedHash)
+    expect(hashLocalNetworkConfig(target)).toBe(expectedHash)
     expect(requests).toEqual(['/current-cycle-hash', '/cycle-by-marker?marker=' + marker, '/netconfig'])
   })
 
