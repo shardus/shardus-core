@@ -1,6 +1,6 @@
 import SERVER_CONFIG from '../../../src/config/server'
 import { logFlags } from '../../../src/logger'
-import { buildNetworkConfig, getAppliedNetworkConfig, setAppliedNetworkConfig } from '../../../src/config/networkConfig'
+import { buildNetworkConfig, getAppliedNetworkConfigMetadata, setAppliedNetworkConfigMetadata } from '../../../src/config/networkConfig'
 import { adoptNetworkConfig, waitForNetworkConfig } from '../../../src/config/networkConfigBootstrap'
 import { setTimeout as sleep } from 'timers/promises'
 
@@ -30,7 +30,7 @@ describe('network config readiness and cancellation', () => {
   beforeEach(() => {
     verbose = logFlags.verbose
     logFlags.verbose = false
-    setAppliedNetworkConfig(null)
+    setAppliedNetworkConfigMetadata(null)
     ;(sleep as jest.Mock).mockResolvedValue(undefined)
   })
   afterEach(() => {
@@ -63,7 +63,7 @@ describe('network config readiness and cancellation', () => {
     expect(get).toHaveBeenCalledTimes(1)
     expect(get).toHaveBeenCalledWith('127.0.0.1:1005/netconfig')
     expect(target.p2p.cycleDuration).toBe(91)
-    expect(getAppliedNetworkConfig()?.networkConfigHash).toBe(HASH)
+    expect(getAppliedNetworkConfigMetadata()?.networkConfigHash).toBe(HASH)
   })
 
   test('retries discovery errors and logs only behind verbose', async () => {
@@ -101,7 +101,7 @@ describe('network config readiness and cancellation', () => {
       )
     ).rejects.toThrow('applied network configuration hash mismatch')
     expect(JSON.stringify(target)).toBe(before)
-    expect(getAppliedNetworkConfig()).toBeNull()
+    expect(getAppliedNetworkConfigMetadata()).toBeNull()
   })
 
   test.each(['marker', 'cycle', 'config'])(
@@ -143,7 +143,7 @@ describe('network config readiness and cancellation', () => {
       )
       await rejected
       expect(JSON.stringify(target)).toBe(before)
-      expect(getAppliedNetworkConfig()).toBeNull()
+      expect(getAppliedNetworkConfigMetadata()).toBeNull()
     }
   )
 

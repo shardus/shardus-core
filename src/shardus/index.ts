@@ -37,9 +37,9 @@ import * as CycleCreator from '../p2p/CycleCreator'
 import {
   buildLegacyNetworkConfig,
   buildNetworkConfig,
-  hashNetworkConfig,
-  hashNetworkConfigPayload,
-  setAppliedNetworkConfig,
+  hashLocalNetworkConfig,
+  hashNetConfig,
+  setAppliedNetworkConfigMetadata,
 } from '../config/networkConfig'
 import { adoptNetworkConfig, waitForNetworkConfig } from '../config/networkConfigBootstrap'
 import { initLogger as initBootstrapQueryLogger } from '../p2p/SyncV2/queries'
@@ -527,11 +527,11 @@ class Shardus extends EventEmitter {
           if (isGenesis) {
             signal.throwIfAborted()
             const applied = {
-              networkConfigHash: hashNetworkConfig(this.config),
+              networkConfigHash: hashLocalNetworkConfig(this.config),
               networkConfigCycleMarker: '0'.repeat(64),
               cycleCounter: 0,
             }
-            setAppliedNetworkConfig(applied)
+            setAppliedNetworkConfigMetadata(applied)
             /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] genesis-config', applied)
           } else {
             await adoptNetworkConfig(
@@ -556,7 +556,7 @@ class Shardus extends EventEmitter {
         const adoptedTimeIsValid = await Network.checkAndUpdateTimeSyncedOffset(this.config.p2p.timeServers)
         if (signal.aborted) return
         if (!adoptedTimeIsValid) throw new Error('Time is not in sync using the adopted network configuration')
-        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] bootstrap-complete', { hash: hashNetworkConfig(this.config), timeSynced: adoptedTimeIsValid })
+        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] bootstrap-complete', { hash: hashLocalNetworkConfig(this.config), timeSynced: adoptedTimeIsValid })
       }
     }
 
@@ -3183,7 +3183,7 @@ class Shardus extends EventEmitter {
       const networkConfig = this.config.p2p.netConfigV2
         ? buildNetworkConfig(this.config)
         : buildLegacyNetworkConfig(this.config)
-      res.json({ config: networkConfig, networkConfigHash: hashNetworkConfigPayload(networkConfig) })
+      res.json({ config: networkConfig, networkConfigHash: hashNetConfig(networkConfig) })
     })
 
     this.network.registerExternalGet('nodeInfo', async (req, res) => {

@@ -4,8 +4,8 @@ import {
   applyNetworkConfig,
   buildLegacyNetworkConfig,
   buildNetworkConfig,
-  hashNetworkConfig,
-  hashNetworkConfigPayload,
+  hashLocalNetworkConfig,
+  hashNetConfig,
   validateNetworkConfig,
 } from '../../../src/config/networkConfig'
 import { StrictServerConfiguration } from '../../../src/shardus/shardus-types'
@@ -85,24 +85,24 @@ describe('network configuration v2', () => {
     expect(payload.p2p as Record<string, unknown>).not.toHaveProperty('existingArchivers')
     expect(payload.p2p as Record<string, unknown>).not.toHaveProperty('netConfigV2')
     expect(payload.p2p as Record<string, unknown>).not.toHaveProperty('networkConfigHashEnforcement')
-    expect(hashNetworkConfig(config)).toBe(hashNetworkConfigPayload(payload))
+    expect(hashLocalNetworkConfig(config)).toBe(hashNetConfig(payload))
   })
 
   test('selector flag changes do not alter legacy or v2 hashes', () => {
     const legacy = copyConfig()
     legacy.p2p.netConfigV2 = false
-    const legacyHash = hashNetworkConfig(legacy)
+    const legacyHash = hashLocalNetworkConfig(legacy)
     legacy.p2p.networkConfigHashEnforcement = !legacy.p2p.networkConfigHashEnforcement
     legacy.p2p.existingArchivers = []
-    expect(hashNetworkConfig(legacy)).toBe(legacyHash)
+    expect(hashLocalNetworkConfig(legacy)).toBe(legacyHash)
 
     const v2 = copyConfig()
     v2.p2p.netConfigV2 = true
-    const v2Hash = hashNetworkConfig(v2)
+    const v2Hash = hashLocalNetworkConfig(v2)
     v2.p2p.networkConfigHashEnforcement = !v2.p2p.networkConfigHashEnforcement
     v2.p2p.existingArchivers = []
     v2.p2p.netConfigV2 = false
-    expect(hashNetworkConfigPayload(buildNetworkConfig(v2))).toBe(v2Hash)
+    expect(hashNetConfig(buildNetworkConfig(v2))).toBe(v2Hash)
   })
 
   test('omits absent optional fields without throwing', () => {
@@ -116,6 +116,6 @@ describe('network configuration v2', () => {
   test('payload hash and full-config hash agree for active v2 values', () => {
     const config = copyConfig()
     config.p2p.netConfigV2 = true
-    expect(hashNetworkConfigPayload(buildNetworkConfig(config))).toBe(hashNetworkConfig(config))
+    expect(hashNetConfig(buildNetworkConfig(config))).toBe(hashLocalNetworkConfig(config))
   })
 })

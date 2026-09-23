@@ -49,7 +49,7 @@ import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import { log } from 'console'
 import { Utils as UtilsTypes } from '@shardus/lib-types'
 import { fireAndForget } from '../utils/functions/promises'
-import { hashNetworkConfig } from '../config/networkConfig'
+import { hashLocalNetworkConfig } from '../config/networkConfig'
 
 /** CONSTANTS */
 
@@ -743,7 +743,7 @@ function makeCycleRecord(
     previous: prevRecord ? makeCycleMarker(prevRecord) : '0'.repeat(64),
     start: prevRecord && prevRecord.mode !== 'shutdown' ? prevRecord.start + prevRecord.duration : utils.getTime('s'),
     duration: prevRecord ? prevRecord.duration : config.p2p.cycleDuration,
-    networkConfigHash: hashNetworkConfig(config),
+    networkConfigHash: hashLocalNetworkConfig(config),
   }
 
   currentStart = baseRecord.start
