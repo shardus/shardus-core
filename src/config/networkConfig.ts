@@ -259,11 +259,11 @@ export function buildNetworkConfig(config: StrictServerConfiguration): NetworkCo
   return projected as unknown as NetworkConfig
 }
 
-export function hashNetworkConfig(config: StrictServerConfiguration): string {
+export function hashLocalNetworkConfig(config: StrictServerConfiguration): string {
   return crypto.hash(config.p2p.netConfigV2 === false ? buildLegacyNetworkConfig(config) : buildNetworkConfig(config))
 }
 
-export function hashNetworkConfigPayload(payload: NetworkConfig | Record<string, unknown>): string {
+export function hashNetConfig(payload: NetworkConfig | Record<string, unknown>): string {
   return crypto.hash(payload)
 }
 
@@ -329,11 +329,11 @@ export function applyNetworkConfig(target: StrictServerConfiguration, verifiedCo
   target.debug.multisigKeys = clone(safeConfig.debug.multisigKeys)
 }
 
-export function setAppliedNetworkConfig(value: AppliedNetworkConfig | null): void {
+export function setAppliedNetworkConfigMetadata(value: AppliedNetworkConfig | null): void {
   appliedNetworkConfig = value ? { ...value } : null
 }
 
-export function getAppliedNetworkConfig(): AppliedNetworkConfig | null {
+export function getAppliedNetworkConfigMetadata(): AppliedNetworkConfig | null {
   return appliedNetworkConfig ? { ...appliedNetworkConfig } : null
 }
 

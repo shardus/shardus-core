@@ -7,9 +7,9 @@ import { StrictServerConfiguration } from '../shardus/shardus-types'
 import {
   AppliedNetworkConfig,
   applyNetworkConfig,
-  hashNetworkConfig,
-  hashNetworkConfigPayload,
-  setAppliedNetworkConfig,
+  hashLocalNetworkConfig,
+  hashNetConfig,
+  setAppliedNetworkConfigMetadata,
   validateNetworkConfig,
 } from './networkConfig'
 import { robustQueryForCycleRecordHash, getCycleDataFromNode } from '../p2p/SyncV2/queries'
@@ -56,8 +56,8 @@ export async function adoptNetworkConfig(
   attempts = 3
 ): Promise<AppliedNetworkConfig> {
   const get = dependencies.get ?? ((url: string) => http.get(url) as Promise<NetConfigResponse>)
-  const hash = dependencies.hash ?? hashNetworkConfig
-  const payloadHash = dependencies.payloadHash ?? hashNetworkConfigPayload
+  const hash = dependencies.hash ?? hashLocalNetworkConfig
+  const payloadHash = dependencies.payloadHash ?? hashNetConfig
   const queryCycleMarker =
     dependencies.queryCycleMarker ??
     (async (nodes: ActiveNode[]): Promise<CycleMarkerQueryResult> => {
@@ -140,7 +140,7 @@ export async function adoptNetworkConfig(
           networkConfigCycleMarker: agreedMarker,
           cycleCounter: cycle.counter,
         }
-        setAppliedNetworkConfig(applied)
+        setAppliedNetworkConfigMetadata(applied)
         /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] config-applied', { ...applied, peer: ip + ":" + port })
         return applied
       } catch (error) {
