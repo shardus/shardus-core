@@ -1,5 +1,6 @@
 // JoinRequest.ts
 import { addSchema } from '../../utils/serialization/SchemaHelpers'
+import { NETWORK_CONFIG_HASH_PATTERN } from '../../config/networkConfigConstants'
 
 // Define the regex for IPv4 validation, taken from https://github.com/ajv-validator/ajv-formats/blob/master/src/formats.ts
 const ipv4Regex = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/
@@ -52,6 +53,8 @@ const schemaJoinRequest = {
     version: { type: 'string' },
     sign: schemaSignature,
     appJoinData: { type: 'object', additionalProperties: true }, // Optional and allows any properties
+    networkConfigHash: { type: 'string', pattern: NETWORK_CONFIG_HASH_PATTERN },
+    networkConfigCycleMarker: { type: 'string', pattern: NETWORK_CONFIG_HASH_PATTERN },
   },
   required: ['nodeInfo', 'cycleMarker', 'proofOfWork', 'version', 'sign'],
 }
