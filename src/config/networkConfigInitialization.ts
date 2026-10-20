@@ -133,6 +133,7 @@ export async function adoptNetworkConfig(
           downloadedNetConfigComputedHash !== netConfigResponseReportedHash ||
           downloadedNetConfigComputedHash !== verifiedCycleRecordNetConfigHash
         ) {
+          /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] config-hash-mismatch', { peer: ip + ':' + port, verifiedCycleRecordNetConfigHash, netConfigResponseReportedHash, downloadedNetConfigComputedHash })
           throw new Error('network configuration hash mismatch')
         }
         /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] payload-verified', { peer: ip + ":" + port, hash: downloadedNetConfigComputedHash, cycle: cycle.counter })
