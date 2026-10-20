@@ -40,7 +40,11 @@ import rfdc from 'rfdc'
 import { Utils } from '@shardus/lib-types'
 import { neverGoActive } from '../Active'
 import { fireAndForget } from '../../utils/functions/promises'
-import { getAppliedNetworkConfigMetadata, hashLocalNetworkConfig, setAppliedNetworkConfigMetadata } from '../../config/networkConfig'
+import {
+  getAppliedNetworkConfigMetadata,
+  hashLocalNetworkConfig,
+  setAppliedNetworkConfigMetadata,
+} from '../../config/networkConfig'
 import {
   evaluateNetworkConfigJoin,
   DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE,
@@ -1191,8 +1195,8 @@ export async function submitJoinV2(
   //it is important to check that we go one good response.  this was the past cause of nodes giving up
   if (goodCount === 0) {
     nestedCountersInstance.countEvent('p2p', `submitJoin: no join success repsonses`)
-    /* prettier-ignore */ if (logFlags.important_as_fatal) info(`submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`)
-    //throw new Error(`submitJoin: no join success repsonses: ${responses.map((e) => e.reason).join(', ')}`)
+    /* prettier-ignore */ if (logFlags.important_as_fatal) info(`submitJoin: no join success repsonses: ${responses.map((e) => e?.reason ?? 'No join response received').join(', ')}`)
+    //throw new Error(`submitJoin: no join success repsonses: ${responses.map((e) => e?.reason ?? 'No join response received').join(', ')}`)
   }
   //does not seem to chekc the join response. assumes fatal
 }

@@ -41,8 +41,8 @@ import {
   hashNetConfig,
   setAppliedNetworkConfigMetadata,
 } from '../config/networkConfig'
-import { adoptNetworkConfig, waitForNetworkConfig } from '../config/networkConfigBootstrap'
-import { initLogger as initBootstrapQueryLogger } from '../p2p/SyncV2/queries'
+import { adoptNetworkConfig, waitForNetworkConfig } from '../config/networkConfigInitialization'
+import { initLogger as initInitializationQueryLogger } from '../p2p/SyncV2/queries'
 import * as GlobalAccounts from '../p2p/GlobalAccounts'
 import * as ServiceQueue from '../p2p/ServiceQueue'
 import { scheduleLostReport, removeNodeWithCertificiate } from '../p2p/Lost'
@@ -163,7 +163,7 @@ interface Shardus {
  * The main module that is used by the app developer to interact with the shardus api
  */
 class Shardus extends EventEmitter {
-  private readonly bootstrapController = new AbortController()
+  private readonly networkConfigInitializationController = new AbortController()
   private joinStarted = false
   constructor({ server: config, logs: logsConfig, storage: storageConfig }: ShardusTypes.StrictShardusConfiguration) {
     super()
@@ -282,7 +282,9 @@ class Shardus extends EventEmitter {
     }
 
     this.exitHandler.addSigListeners()
-    this.exitHandler.registerSync('networkConfigBootstrap', () => this.bootstrapController.abort())
+    this.exitHandler.registerSync('networkConfigInitialization', () =>
+      this.networkConfigInitializationController.abort()
+    )
     this.exitHandler.registerSync('reporter', () => {
       if (this.reporter) {
         this.mainLogger.info('Stopping reporter...')
@@ -469,6 +471,7 @@ class Shardus extends EventEmitter {
   // }
 
   async start() {
+    let initialArchiverHandshake: Self.InitialArchiverHandshake | undefined
     // Check network up & time synced
     await Network.init()
 
@@ -487,16 +490,17 @@ class Shardus extends EventEmitter {
     // Setup crypto
     await this.crypto.init()
 
-    /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] bootstrap-gates', { netConfigV2: this.config.p2p.netConfigV2, enforcement: this.config.p2p.networkConfigHashEnforcement, serviceMode: isServiceMode() })
+    /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] initialization-gates', { netConfigV2: this.config.p2p.netConfigV2, enforcement: this.config.p2p.networkConfigHashEnforcement, serviceMode: isServiceMode() })
     if (this.config.p2p.netConfigV2 && !isServiceMode()) {
       // Query helpers need a logger, but P2P initialization must follow adoption.
-      initBootstrapQueryLogger()
-      const signal = this.bootstrapController.signal
+      initInitializationQueryLogger()
+      const signal = this.networkConfigInitializationController.signal
       let genesis: boolean
       try {
         genesis = await waitForNetworkConfig(async () => {
           let activeNodes: P2P.P2PTypes.Node[] | null = null
-          let lastBootstrapError = new Error('No configured archiver supplied an active-node list')
+          let archiverHandshake: Self.InitialArchiverHandshake | undefined
+          let lastInitializationError = new Error('No configured archiver supplied an active-node list')
           for (const archiver of this.config.p2p.existingArchivers) {
             signal.throwIfAborted()
             try {
@@ -511,15 +515,16 @@ class Shardus extends EventEmitter {
                 throw new Error('Archiver returned an empty active-node list')
               }
               /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] archiver-list-verified', { archiver: archiver.ip + ':' + archiver.port, peers: signedList.nodeList.length })
+              archiverHandshake = { archiver, response: signedList }
               activeNodes = signedList.nodeList
               break
             } catch (error) {
               signal.throwIfAborted()
-              lastBootstrapError = error instanceof Error ? error : new Error(String(error))
-              /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] archiver-list-failed', { archiver: archiver.ip + ':' + archiver.port, reason: lastBootstrapError.message })
+              lastInitializationError = error instanceof Error ? error : new Error(String(error))
+              /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] archiver-list-failed', { archiver: archiver.ip + ':' + archiver.port, reason: lastInitializationError.message })
             }
           }
-          if (!activeNodes) throw lastBootstrapError
+          if (!activeNodes) throw lastInitializationError
           const isGenesis =
             activeNodes.length === 1 &&
             activeNodes[0].ip === Network.ipInfo.externalIp &&
@@ -544,11 +549,12 @@ class Shardus extends EventEmitter {
               1
             )
           }
+          initialArchiverHandshake = archiverHandshake
           return isGenesis
         }, signal)
       } catch (error) {
         if (!signal.aborted) throw error
-        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] bootstrap-cancelled')
+        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] initialization-cancelled')
         return
       }
       if (!genesis) {
@@ -556,7 +562,7 @@ class Shardus extends EventEmitter {
         const adoptedTimeIsValid = await Network.checkAndUpdateTimeSyncedOffset(this.config.p2p.timeServers)
         if (signal.aborted) return
         if (!adoptedTimeIsValid) throw new Error('Time is not in sync using the adopted network configuration')
-        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] bootstrap-complete', { hash: hashLocalNetworkConfig(this.config), timeSynced: adoptedTimeIsValid })
+        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] initialization-complete', { hash: hashLocalNetworkConfig(this.config), timeSynced: adoptedTimeIsValid })
       }
     }
 
@@ -1093,7 +1099,7 @@ class Shardus extends EventEmitter {
 
     // Start P2P
     this.joinStarted = true
-    await Self.startupV2(this)
+    await Self.startupV2(this, initialArchiverHandshake)
 
     // handle config queue changes and debug logic updates
     this._registerListener(this.p2p.state, 'cycle_q1_start', async () => {
