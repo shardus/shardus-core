@@ -1,5 +1,11 @@
 import Ajv, { ValidateFunction } from 'ajv'
-import { DevSecurityLevel, StrictServerConfiguration } from '../shardus/shardus-types'
+import {
+  baseNetworkConfigOmissions,
+  networkConfigOmissionsByVersion,
+  NetworkConfig,
+  DevSecurityLevel,
+  StrictServerConfiguration,
+} from '../shardus/shardus-types'
 import SERVER_CONFIG from './server'
 import { crypto } from '../p2p/Context'
 import { NETWORK_CONFIG_HASH_PATTERN } from './networkConfigConstants'
@@ -18,19 +24,8 @@ const LEGACY_TOP_LEVEL_FIELDS = [
   'debug',
 ] as const
 
-/** The fields committed to by networkConfigHash version 2. Keep this manifest explicit. */
-const TOP_LEVEL_FIELDS = [
-  'globalAccount',
-  'nonceMode',
-  'heartbeatInterval',
-  'transactionExpireTime',
-  'p2p',
-  'sharding',
-  'stateManager',
-  'features',
-] as const
-
-const P2P_FIELDS = [
+/** Legacy selection remains independent of v2 omissions. */
+const LEGACY_P2P_FIELDS = [
   'ipServers',
   'timeServers',
   'syncLimit',
@@ -68,6 +63,7 @@ const P2P_FIELDS = [
   'maxRotatedPerCycle',
   'flexibleRotationDelta',
   'flexibleRotationEnabled',
+  // { field: addNode, required: deprecated}
   'enableDangerousProblematicNodeRemoval',
   'enableProblematicNodeRemoval',
   'enableProblematicNodeRemovalOnCycle',
@@ -192,32 +188,9 @@ const P2P_FIELDS = [
   'fixApplyReceiptType',
   'syncV2HistoricalCyclesCount',
 ] as const
-const SHARDING_FIELDS = ['nodesPerConsensusGroup', 'nodesPerEdge', 'executeInOneShard'] as const
-const STATE_MANAGER_FIELDS = Object.freeze(Object.keys(SERVER_CONFIG.stateManager))
-const FEATURES_FIELDS = [
-  'dappFeature1enabled',
-  'fixHomeNodeCheckForTXGroupChanges',
-  'archiverDataSubscriptionsUpdate',
-  'startInServiceMode',
-  'enableRIAccountsCache',
-  'tickets',
-] as const
 const OPTIONAL_P2P_FIELDS = new Set(['factv2', 'getTxTimestampTimeoutOffset', 'patchNetworkAccountSyncFixes'])
 
-export interface NetworkConfig {
-  globalAccount: StrictServerConfiguration['globalAccount']
-  nonceMode: StrictServerConfiguration['nonceMode']
-  heartbeatInterval: StrictServerConfiguration['heartbeatInterval']
-  transactionExpireTime: StrictServerConfiguration['transactionExpireTime']
-  p2p: Partial<StrictServerConfiguration['p2p']>
-  sharding: StrictServerConfiguration['sharding']
-  stateManager: StrictServerConfiguration['stateManager']
-  features: StrictServerConfiguration['features']
-  debug: {
-    devPublicKeys: Record<string, DevSecurityLevel>
-    multisigKeys: Record<string, DevSecurityLevel>
-  }
-}
+export type { NetworkConfig } from '../shardus/shardus-types'
 
 export interface AppliedNetworkConfig {
   networkConfigHash: string
@@ -242,21 +215,32 @@ function project(source: Record<string, unknown>, fields: readonly string[]): Re
 
 export function buildLegacyNetworkConfig(config: StrictServerConfiguration): Record<string, unknown> {
   const projected = project(config as unknown as Record<string, unknown>, LEGACY_TOP_LEVEL_FIELDS)
-  projected.p2p = project(config.p2p as unknown as Record<string, unknown>, P2P_FIELDS)
+  projected.p2p = project(config.p2p as unknown as Record<string, unknown>, LEGACY_P2P_FIELDS)
   return projected
 }
 
 export function buildNetworkConfig(config: StrictServerConfiguration): NetworkConfig {
-  const projected = project(config as unknown as Record<string, unknown>, TOP_LEVEL_FIELDS)
-  projected.p2p = project(config.p2p as unknown as Record<string, unknown>, P2P_FIELDS)
-  projected.sharding = project(config.sharding as unknown as Record<string, unknown>, SHARDING_FIELDS)
-  projected.stateManager = project(config.stateManager as unknown as Record<string, unknown>, STATE_MANAGER_FIELDS)
-  projected.features = project(config.features as unknown as Record<string, unknown>, FEATURES_FIELDS)
-  projected.debug = {
-    devPublicKeys: clone(config.debug.devPublicKeys),
-    multisigKeys: clone(config.debug.multisigKeys),
+  const networkConfigPayload = clone(config)
+  for (const omittedFieldName of baseNetworkConfigOmissions.server) {
+    Reflect.deleteProperty(networkConfigPayload, omittedFieldName)
   }
-  return projected as unknown as NetworkConfig
+  for (const configSection of ['p2p', 'debug'] as const) {
+    for (const omittedFieldName of baseNetworkConfigOmissions[configSection]) {
+      Reflect.deleteProperty(networkConfigPayload[configSection], omittedFieldName)
+    }
+  }
+  // Existing v2 is version 2, independent of package versions; no new wire field.
+  const networkConfigVersion = 2
+  for (const [versionKey, omittedFieldsBySection] of Object.entries(networkConfigOmissionsByVersion)) {
+    const omissionsEffectiveFromVersion = Number(versionKey)
+    if (omissionsEffectiveFromVersion > networkConfigVersion) continue
+    for (const [configSection, omittedFieldNames] of Object.entries(omittedFieldsBySection)) {
+      for (const omittedFieldName of omittedFieldNames) {
+        Reflect.deleteProperty(networkConfigPayload[configSection], omittedFieldName)
+      }
+    }
+  }
+  return networkConfigPayload as NetworkConfig
 }
 
 export function hashLocalNetworkConfig(config: StrictServerConfiguration): string {
@@ -315,18 +299,13 @@ export function validateNetworkConfig(value: unknown): NetworkConfig {
 
 export function applyNetworkConfig(target: StrictServerConfiguration, verifiedConfig: NetworkConfig): void {
   const safeConfig = validateNetworkConfig(verifiedConfig)
-  for (const field of TOP_LEVEL_FIELDS) {
-    if (field === 'p2p' || field === 'sharding' || field === 'stateManager' || field === 'features') continue
-    ;(target as unknown as Record<string, unknown>)[field] = clone(
-      (safeConfig as unknown as Record<string, unknown>)[field]
-    )
+  for (const [configSection, value] of Object.entries(safeConfig)) {
+    if (value !== null && typeof value === 'object') {
+      Object.assign(target[configSection], value)
+    } else {
+      target[configSection] = value
+    }
   }
-  Object.assign(target.p2p, clone(safeConfig.p2p))
-  Object.assign(target.sharding, clone(safeConfig.sharding))
-  Object.assign(target.stateManager, clone(safeConfig.stateManager))
-  Object.assign(target.features, clone(safeConfig.features))
-  target.debug.devPublicKeys = clone(safeConfig.debug.devPublicKeys)
-  target.debug.multisigKeys = clone(safeConfig.debug.multisigKeys)
 }
 
 export function setAppliedNetworkConfigMetadata(value: AppliedNetworkConfig | null): void {
