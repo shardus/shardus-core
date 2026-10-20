@@ -1,3 +1,5 @@
+import * as cryptoUtils from '@shardus/lib-crypto-utils'
+import oldFields from './networkConfigV2Fields.json'
 import SERVER_CONFIG from '../../../src/config/server'
 import * as Context from '../../../src/p2p/Context'
 import {
@@ -8,7 +10,11 @@ import {
   hashNetConfig,
   validateNetworkConfig,
 } from '../../../src/config/networkConfig'
-import { StrictServerConfiguration } from '../../../src/shardus/shardus-types'
+import {
+  baseNetworkConfigOmissions,
+  networkConfigOmissionsByVersion,
+  StrictServerConfiguration,
+} from '../../../src/shardus/shardus-types'
 
 const copyConfig = (): StrictServerConfiguration => JSON.parse(JSON.stringify(SERVER_CONFIG))
 
@@ -16,6 +22,70 @@ describe('network configuration v2', () => {
   beforeEach(() => {
     ;(Context as any).crypto = {
       hash: (value: unknown) => JSON.stringify(value),
+    }
+  })
+
+  test('matches the previous v2 payload and production hash', () => {
+    cryptoUtils.init(SERVER_CONFIG.crypto.hashKey)
+    const config = copyConfig()
+    const project = (source: any, fields: readonly string[]): any =>
+      Object.fromEntries(fields.filter((field) => source[field] !== undefined).map((field) => [field, source[field]]))
+    for (const optionalFieldsPresent of [true, false]) {
+      if (!optionalFieldsPresent) {
+        delete config.p2p.factv2
+        delete config.p2p.getTxTimestampTimeoutOffset
+        delete config.p2p.patchNetworkAccountSyncFixes
+      }
+      const previous = project(config, oldFields.TOP_LEVEL_FIELDS)
+      previous.p2p = project(config.p2p, oldFields.P2P_FIELDS)
+      previous.sharding = project(config.sharding, oldFields.SHARDING_FIELDS)
+      previous.stateManager = project(config.stateManager, Object.keys(SERVER_CONFIG.stateManager))
+      previous.features = project(config.features, oldFields.FEATURES_FIELDS)
+      previous.debug = { devPublicKeys: config.debug.devPublicKeys, multisigKeys: config.debug.multisigKeys }
+      const payload = buildNetworkConfig(config)
+      expect(payload).toEqual(previous)
+      expect(cryptoUtils.hashObj(payload)).toBe(cryptoUtils.hashObj(previous))
+      expect(validateNetworkConfig(payload)).toEqual(payload)
+    }
+  })
+
+  test('preserves every omitted local setting when applying detached values', () => {
+    const target = copyConfig()
+    const before = copyConfig()
+    const payload = buildNetworkConfig(target)
+    payload.debug.devPublicKeys.test = 1
+    payload.features.tickets.ticketTypes.push({ type: 'test', enabled: true })
+    expect(target.debug.devPublicKeys).toEqual(before.debug.devPublicKeys)
+    expect(target.features.tickets.ticketTypes).toEqual(before.features.tickets.ticketTypes)
+    applyNetworkConfig(target, payload)
+    for (const field of baseNetworkConfigOmissions.server) expect(target[field]).toEqual(before[field])
+    for (const section of ['p2p', 'debug'] as const) {
+      for (const field of baseNetworkConfigOmissions[section]) {
+        expect(target[section][field]).toEqual(before[section][field])
+      }
+    }
+    payload.debug.devPublicKeys.test = 2
+    expect(target.debug.devPublicKeys.test).toBe(1)
+  })
+
+  test('applies cumulative version omissions through v2 using synthetic entries', () => {
+    expect(networkConfigOmissionsByVersion).toEqual({})
+    Object.assign(networkConfigOmissionsByVersion, {
+      1: { p2p: ['cycleDuration'] },
+      2: { debug: ['devPublicKeys'] },
+      3: { p2p: ['minNodes'] },
+    })
+    try {
+      const config = copyConfig()
+      const payload = buildNetworkConfig(config)
+      expect(payload.p2p).not.toHaveProperty('cycleDuration')
+      expect(payload.debug).not.toHaveProperty('devPublicKeys')
+      expect(payload.p2p.minNodes).toBe(config.p2p.minNodes)
+      expect(payload.p2p).not.toHaveProperty('existingArchivers')
+      expect(config.p2p.cycleDuration).toBe(SERVER_CONFIG.p2p.cycleDuration)
+    } finally {
+      for (const version of Object.keys(networkConfigOmissionsByVersion))
+        delete networkConfigOmissionsByVersion[version]
     }
   })
 
@@ -41,6 +111,33 @@ describe('network configuration v2', () => {
     ;(first.p2p as any).cycleDuration = 999
     expect(second.p2p.cycleDuration).toBe(SERVER_CONFIG.p2p.cycleDuration)
     expect(config.p2p.cycleDuration).toBe(SERVER_CONFIG.p2p.cycleDuration)
+  })
+
+  test('rejects excluded fields at every boundary', () => {
+    for (const field of baseNetworkConfigOmissions.server) {
+      const payload = buildNetworkConfig(copyConfig()) as any
+      payload[field] = SERVER_CONFIG[field]
+      expect(() => validateNetworkConfig(payload)).toThrow('Invalid network configuration')
+    }
+    for (const section of ['p2p', 'debug'] as const) {
+      for (const field of baseNetworkConfigOmissions[section]) {
+        const payload = buildNetworkConfig(copyConfig()) as any
+        payload[section][field] = SERVER_CONFIG[section][field] ?? true
+        expect(() => validateNetworkConfig(payload)).toThrow('Invalid network configuration')
+      }
+    }
+  })
+
+  test('preserves local optional P2P values when the payload omits them', () => {
+    const target = copyConfig()
+    const payload = buildNetworkConfig(target)
+    for (const field of ['factv2', 'getTxTimestampTimeoutOffset', 'patchNetworkAccountSyncFixes'] as const) {
+      delete payload.p2p[field]
+    }
+    applyNetworkConfig(target, payload)
+    for (const field of ['factv2', 'getTxTimestampTimeoutOffset', 'patchNetworkAccountSyncFixes'] as const) {
+      expect(target.p2p[field]).toEqual(SERVER_CONFIG.p2p[field])
+    }
   })
 
   test('rejects missing and unknown fields', () => {
