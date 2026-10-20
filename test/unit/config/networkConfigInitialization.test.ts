@@ -1,6 +1,10 @@
 import SERVER_CONFIG from '../../../src/config/server'
-import { buildNetworkConfig, getAppliedNetworkConfigMetadata, setAppliedNetworkConfigMetadata } from '../../../src/config/networkConfig'
-import { adoptNetworkConfig } from '../../../src/config/networkConfigBootstrap'
+import {
+  buildNetworkConfig,
+  getAppliedNetworkConfigMetadata,
+  setAppliedNetworkConfigMetadata,
+} from '../../../src/config/networkConfig'
+import { adoptNetworkConfig } from '../../../src/config/networkConfigInitialization'
 import { StrictServerConfiguration } from '../../../src/shardus/shardus-types'
 
 const HASH = 'a'.repeat(64)
@@ -8,7 +12,7 @@ const MARKER = 'b'.repeat(64)
 const copyConfig = (): StrictServerConfiguration => JSON.parse(JSON.stringify(SERVER_CONFIG))
 const cycle = { counter: 12, networkConfigHash: HASH } as any
 
-describe('network configuration bootstrap', () => {
+describe('network configuration initialization', () => {
   beforeEach(() => setAppliedNetworkConfigMetadata(null))
 
   test('tries another active node after a malformed response and applies a verified payload', async () => {
