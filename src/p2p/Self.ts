@@ -129,7 +129,12 @@ export function init(): void {
   updateNodeState(P2P.P2PTypes.NodeStatus.INITIALIZING) // requires p2pLogger through warn()
 }
 
-export function startupV2(shardus: Shardus): Promise<boolean> {
+export interface InitialArchiverHandshake {
+  archiver: ActiveNode
+  response: P2P.P2PTypes.SignedObject<SeedNodesList>
+}
+
+export function startupV2(shardus: Shardus, initialArchiverHandshake?: InitialArchiverHandshake): Promise<boolean> {
   const promise = new Promise<boolean>((resolve, reject) => {
     if (isServiceMode()) {
       info('p2p/Self/startup disabled: Starting in service mode.')
@@ -248,7 +253,9 @@ export function startupV2(shardus: Shardus): Promise<boolean> {
 
         info(`startupV2: attemptJoining enter`)
         // this name is confusing, as the node is not actually active yet
-        const activeNodes = await contactArchiver('startupV2:attemptJoining')
+        const handshake = initialArchiverHandshake
+        initialArchiverHandshake = undefined // Consume once, even if processing fails.
+        const activeNodes = await contactArchiver('startupV2:attemptJoining', handshake)
 
         info(`startupV2: got active nodes: ${activeNodes.length}`)
 
@@ -900,7 +907,11 @@ async function checkNodeId(nodeMatch: (node: any) => boolean, selfId: string): P
   if (logFlags.p2pNonFatal) info('Node passed id check')
 }
 
-export async function contactArchiver(dbgContex: string): Promise<P2P.P2PTypes.Node[]> {
+export async function contactArchiver(
+  dbgContex: string,
+  initialHandshake?: InitialArchiverHandshake
+): Promise<P2P.P2PTypes.Node[]> {
+  if (initialHandshake) return processArchiverResponse(dbgContex, initialHandshake.archiver, initialHandshake.response)
   const maxRetries = 10
   let retry = maxRetries
   const failArchivers: string[] = []
@@ -952,6 +963,20 @@ export async function contactArchiver(dbgContex: string): Promise<P2P.P2PTypes.N
 
   info(`contactArchiver: passed ${archiver.ip} retry:${retry}`)
 
+  return processArchiverResponse(dbgContex, archiver, activeNodesSigned)
+}
+
+function processArchiverResponse(
+  dbgContex: string,
+  archiver: ActiveNode,
+  activeNodesSigned: P2P.P2PTypes.SignedObject<SeedNodesList>
+): P2P.P2PTypes.Node[] {
+  if (!activeNodesSigned || !Array.isArray(activeNodesSigned.nodeList) || activeNodesSigned.nodeList.length === 0) {
+    throw new Error('Archiver returned an empty active-node list')
+  }
+  if (!Context.crypto.verify(activeNodesSigned, archiver.publicKey)) {
+    throw new Error('Archiver response signature is invalid')
+  }
   info(
     `contactArchiver: activeNodesSigned:${Utils.safeStringify(
       activeNodesSigned?.joinRequest

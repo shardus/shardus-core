@@ -322,7 +322,7 @@ class MemoryReporting {
   systemProcessReport(): void {
     this.addToReport('Process', 'CPU', 'cpuPercent', this.roundTo3decimals(this.cpuPercent() * 100))
 
-    // Bootstrap can shut down before statistics are initialized.
+    // Initialization can shut down before statistics are initialized.
     if (this.shardus.statistics) {
       const avgCPU = this.shardus.statistics.getAverage('cpuPercent')
       this.addToReport('Process', 'CPU', 'cpuAVGPercent', this.roundTo3decimals(avgCPU * 100))

@@ -1,7 +1,11 @@
 import SERVER_CONFIG from '../../../src/config/server'
 import { logFlags } from '../../../src/logger'
-import { buildNetworkConfig, getAppliedNetworkConfigMetadata, setAppliedNetworkConfigMetadata } from '../../../src/config/networkConfig'
-import { adoptNetworkConfig, waitForNetworkConfig } from '../../../src/config/networkConfigBootstrap'
+import {
+  buildNetworkConfig,
+  getAppliedNetworkConfigMetadata,
+  setAppliedNetworkConfigMetadata,
+} from '../../../src/config/networkConfig'
+import { adoptNetworkConfig, waitForNetworkConfig } from '../../../src/config/networkConfigInitialization'
 import { setTimeout as sleep } from 'timers/promises'
 
 jest.mock('timers/promises', () => ({ setTimeout: jest.fn() }))
@@ -75,7 +79,7 @@ describe('network config readiness and cancellation', () => {
     attempt.mockRejectedValueOnce(new Error('signature rejected'))
     await waitForNetworkConfig(attempt, new AbortController().signal)
     expect(logs).toHaveBeenCalledWith(
-      '[config-enforced] bootstrap-waiting',
+      '[config-enforced] initialization-waiting',
       expect.objectContaining({
         retryDelayMs: 5000,
         reason: 'signature rejected',
