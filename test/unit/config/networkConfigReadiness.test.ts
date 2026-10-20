@@ -87,6 +87,33 @@ describe('network config readiness and cancellation', () => {
     )
   })
 
+  test('logs all three hashes on mismatch only when verbose is enabled', async () => {
+    const logs = jest.spyOn(console, 'log').mockImplementation(() => {})
+    for (const verbose of [false, true]) {
+      logFlags.verbose = verbose
+      logs.mockClear()
+      await expect(
+        adoptNetworkConfig(
+          copyConfig(),
+          [peer],
+          {
+            ...dependencies(),
+            get: async () => ({ config: buildNetworkConfig(copyConfig()), networkConfigHash: 'c'.repeat(64) }),
+          },
+          1
+        )
+      ).rejects.toThrow('network configuration hash mismatch')
+      if (verbose) {
+        expect(logs).toHaveBeenCalledWith('[config-enforced] config-hash-mismatch', {
+          peer: '127.0.0.1:1001',
+          verifiedCycleRecordNetConfigHash: HASH,
+          netConfigResponseReportedHash: 'c'.repeat(64),
+          downloadedNetConfigComputedHash: HASH,
+        })
+      } else expect(logs).not.toHaveBeenCalled()
+    }
+  })
+
   test('failed applied hash leaves the original config and metadata intact', async () => {
     const target = copyConfig()
     const before = JSON.stringify(target)

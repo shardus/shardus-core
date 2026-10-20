@@ -1,3 +1,4 @@
+import { logFlags } from '../../../../src/logger'
 import { P2P } from '@shardus/lib-types'
 import * as Context from '../../../../src/p2p/Context'
 import * as network from '../../../../src/network'
@@ -149,6 +150,26 @@ describe('Self', () => {
       await expect(Self.contactArchiver('test', { archiver, response })).resolves.toBe(response.nodeList)
       expect(Context.crypto.verify).toHaveBeenCalledWith(response, archiver.publicKey)
       expect(Archivers.postToArchiver).not.toHaveBeenCalled()
+    })
+
+    it('logs successful saved-handshake reuse when verbose is enabled', async () => {
+      const logs = jest.spyOn(console, 'log').mockImplementation(() => {})
+      const verbose = logFlags.verbose
+      try {
+        logFlags.verbose = true
+        ;(Context.crypto.verify as jest.Mock).mockReturnValue(true)
+        await Self.contactArchiver('test', {
+          archiver: { ip: '127.0.0.1', port: 4000, publicKey: 'archiver' } as any,
+          response: { nodeList: [{}], sign: {} } as any,
+        })
+        expect(logs).toHaveBeenCalledWith('[config-enforced] archiver-handshake-reused', {
+          archiver: '127.0.0.1:4000',
+          peers: 1,
+        })
+      } finally {
+        logFlags.verbose = verbose
+        logs.mockRestore()
+      }
     })
 
     it.each([false, true])('rejects an invalid saved response (empty=%s)', async (empty) => {
