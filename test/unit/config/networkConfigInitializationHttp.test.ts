@@ -7,11 +7,15 @@ import { logFlags } from '../../../src/logger'
 import { initLogger } from '../../../src/p2p/SyncV2/queries'
 import MemoryReporting from '../../../src/utils/memoryReporting'
 import { shutdown } from '../../../src/p2p/CycleCreator'
-import { buildNetworkConfig, hashLocalNetworkConfig, setAppliedNetworkConfigMetadata } from '../../../src/config/networkConfig'
-import { adoptNetworkConfig, waitForNetworkConfig } from '../../../src/config/networkConfigBootstrap'
+import {
+  buildNetworkConfig,
+  hashLocalNetworkConfig,
+  setAppliedNetworkConfigMetadata,
+} from '../../../src/config/networkConfig'
+import { adoptNetworkConfig, waitForNetworkConfig } from '../../../src/config/networkConfigInitialization'
 import { initCycleRecords } from '../../../src/types/ajv/CycleRecordSchema'
 
-describe('bootstrap before P2P initialization with real HTTP helpers', () => {
+describe('initialization before P2P initialization with real HTTP helpers', () => {
   let server: Server
   let verbose: boolean
   let consoleFlag: boolean

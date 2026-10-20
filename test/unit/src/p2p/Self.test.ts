@@ -142,6 +142,25 @@ describe('Self', () => {
   })
 
   describe('contactArchiver()', () => {
+    it('uses the saved signed response without another archiver request', async () => {
+      const archiver = { ip: '127.0.0.1', port: 4000, publicKey: 'archiver' } as any
+      const response = { nodeList: [{ ip: '127.0.0.1', port: 9001 }], sign: {} } as any
+      ;(Context.crypto.verify as jest.Mock).mockReturnValue(true)
+      await expect(Self.contactArchiver('test', { archiver, response })).resolves.toBe(response.nodeList)
+      expect(Context.crypto.verify).toHaveBeenCalledWith(response, archiver.publicKey)
+      expect(Archivers.postToArchiver).not.toHaveBeenCalled()
+    })
+
+    it.each([false, true])('rejects an invalid saved response (empty=%s)', async (empty) => {
+      const archiver = { publicKey: 'archiver' } as any
+      const response = { nodeList: empty ? [] : [{}], sign: {} } as any
+      ;(Context.crypto.verify as jest.Mock).mockReturnValue(false)
+      await expect(Self.contactArchiver('test', { archiver, response })).rejects.toThrow()
+      expect(Archivers.addArchiverJoinRequest).not.toHaveBeenCalled()
+      expect(Archivers.addDataRecipient).not.toHaveBeenCalled()
+      expect(CycleChain.prepend).not.toHaveBeenCalled()
+    })
+
     it('should throw error if no seed nodes are returned', async () => {
       ;(Archivers.postToArchiver as jest.Mock).mockResolvedValue({
         isErr: () => false,

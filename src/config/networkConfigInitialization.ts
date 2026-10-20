@@ -37,7 +37,7 @@ function validateCycleRecord(cycle: P2P.CycleCreatorTypes.CycleRecord): void {
   }
 }
 
-export interface NetworkConfigBootstrapDependencies {
+export interface NetworkConfigInitializationDependencies {
   signal?: AbortSignal
   queryCycleMarker?: (nodes: ActiveNode[]) => Promise<CycleMarkerQueryResult>
   fetchCycleByMarker?: (node: ActiveNode, marker: string) => Promise<P2P.CycleCreatorTypes.CycleRecord>
@@ -52,7 +52,7 @@ export interface NetworkConfigBootstrapDependencies {
 export async function adoptNetworkConfig(
   target: StrictServerConfiguration,
   activeNodes: ActiveNode[],
-  dependencies: NetworkConfigBootstrapDependencies,
+  dependencies: NetworkConfigInitializationDependencies,
   attempts = 3
 ): Promise<AppliedNetworkConfig> {
   const get = dependencies.get ?? ((url: string) => http.get(url) as Promise<NetConfigResponse>)
@@ -78,36 +78,38 @@ export async function adoptNetworkConfig(
   let lastError: Error = new Error('No active node supplied a network configuration')
 
   for (let attempt = 0; attempt < attempts; attempt++) {
-    /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] bootstrap-attempt', { attempt: attempt + 1, attempts, peers: activeNodes.length })
+    /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] initialization-attempt', { attempt: attempt + 1, attempts, peers: activeNodes.length })
     dependencies.signal?.throwIfAborted()
     let cycle: P2P.CycleCreatorTypes.CycleRecord
-    let agreedMarker: string
+    let robustQueryCycleMarker: string
     let markerNodes: ActiveNode[]
     try {
       const markerResult = await queryCycleMarker(activeNodes)
       dependencies.signal?.throwIfAborted()
-      agreedMarker = markerResult.marker
+      robustQueryCycleMarker = markerResult.marker
       markerNodes = markerResult.winningNodes
-      if (!agreedMarker) throw new Error('initial cycle marker is not available yet')
-      if (!new RegExp(NETWORK_CONFIG_HASH_PATTERN).test(agreedMarker)) throw new Error('cycle marker is malformed')
+      if (!robustQueryCycleMarker) throw new Error('initial cycle marker is not available yet')
+      if (!new RegExp(NETWORK_CONFIG_HASH_PATTERN).test(robustQueryCycleMarker))
+        throw new Error('cycle marker is malformed')
       if (!Array.isArray(markerNodes) || markerNodes.length === 0) {
         throw new Error('no robust cycle marker agreement')
       }
-      cycle = await fetchCycleByMarker(markerNodes[0], agreedMarker)
+      cycle = await fetchCycleByMarker(markerNodes[0], robustQueryCycleMarker)
       dependencies.signal?.throwIfAborted()
-      const actualMarker = dependencies.makeCycleMarker(cycle)
-      if (actualMarker !== agreedMarker) {
-        throw new Error(`cycle marker mismatch: expected ${agreedMarker}, got ${actualMarker}`)
+      const computedCycleRecordHash = dependencies.makeCycleMarker(cycle)
+      if (computedCycleRecordHash !== robustQueryCycleMarker) {
+        throw new Error(`cycle marker mismatch: expected ${robustQueryCycleMarker}, got ${computedCycleRecordHash}`)
       }
       validateCycleRecord(cycle)
-      /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] cycle-verified', { cycle: cycle.counter, marker: agreedMarker, expectedHash: cycle.networkConfigHash })
+      /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] cycle-verified', { cycle: cycle.counter, marker: robustQueryCycleMarker, verifiedCycleRecordNetConfigHash: cycle.networkConfigHash })
     } catch (error) {
       dependencies.signal?.throwIfAborted()
       lastError = error instanceof Error ? error : new Error(String(error))
       /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] cycle-query-failed', { attempt: attempt + 1, reason: lastError.message })
       continue
     }
-    const expectedHash = cycle.networkConfigHash
+    const verifiedCycleMarker = robustQueryCycleMarker
+    const verifiedCycleRecordNetConfigHash = cycle.networkConfigHash
     const nodes = dependencies.shuffle
       ? dependencies.shuffle([...activeNodes])
       : [...activeNodes].sort(() => Math.random() - 0.5)
@@ -118,26 +120,32 @@ export async function adoptNetworkConfig(
       const port = node.port ?? node.externalPort
       if (!ip || !port) continue
       try {
-        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] config-fetch', { peer: ip + ":" + port, expectedHash })
+        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] config-fetch', { peer: ip + ":" + port, verifiedCycleRecordNetConfigHash })
         const response = await get(`${ip}:${port}/netconfig`)
         dependencies.signal?.throwIfAborted()
         if (!response || !response.config || typeof response.networkConfigHash !== 'string') {
           throw new Error('empty or malformed response')
         }
+        const netConfigResponseReportedHash = response.networkConfigHash
         const verified = validateNetworkConfig(response.config)
-        const actualPayloadHash = payloadHash(verified)
-        if (actualPayloadHash !== response.networkConfigHash || actualPayloadHash !== expectedHash) {
+        const downloadedNetConfigComputedHash = payloadHash(verified)
+        if (
+          downloadedNetConfigComputedHash !== netConfigResponseReportedHash ||
+          downloadedNetConfigComputedHash !== verifiedCycleRecordNetConfigHash
+        ) {
           throw new Error('network configuration hash mismatch')
         }
-        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] payload-verified', { peer: ip + ":" + port, hash: actualPayloadHash, cycle: cycle.counter })
+        /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] payload-verified', { peer: ip + ":" + port, hash: downloadedNetConfigComputedHash, cycle: cycle.counter })
         const candidate = JSON.parse(JSON.stringify(target)) as StrictServerConfiguration
         applyNetworkConfig(candidate, verified)
-        if (hash(candidate) !== expectedHash) throw new Error('applied network configuration hash mismatch')
+        const appliedConfigComputedHash = hash(candidate)
+        if (appliedConfigComputedHash !== verifiedCycleRecordNetConfigHash)
+          throw new Error('applied network configuration hash mismatch')
         dependencies.signal?.throwIfAborted()
         applyNetworkConfig(target, verified)
         const applied = {
-          networkConfigHash: expectedHash,
-          networkConfigCycleMarker: agreedMarker,
+          networkConfigHash: verifiedCycleRecordNetConfigHash,
+          networkConfigCycleMarker: verifiedCycleMarker,
           cycleCounter: cycle.counter,
         }
         setAppliedNetworkConfigMetadata(applied)
@@ -164,7 +172,7 @@ export async function waitForNetworkConfig<T>(attempt: () => Promise<T>, signal:
       return result
     } catch (error) {
       signal.throwIfAborted()
-      /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] bootstrap-waiting', { attempt: round, elapsedMs: Date.now() - started, retryDelayMs: 5000, reason: error instanceof Error ? error.message : String(error) })
+      /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] initialization-waiting', { attempt: round, elapsedMs: Date.now() - started, retryDelayMs: 5000, reason: error instanceof Error ? error.message : String(error) })
       await sleep(5000, undefined, { signal })
     }
   }
