@@ -911,7 +911,11 @@ export async function contactArchiver(
   dbgContex: string,
   initialHandshake?: InitialArchiverHandshake
 ): Promise<P2P.P2PTypes.Node[]> {
-  if (initialHandshake) return processArchiverResponse(dbgContex, initialHandshake.archiver, initialHandshake.response)
+  if (initialHandshake) {
+    const nodes = processArchiverResponse(dbgContex, initialHandshake.archiver, initialHandshake.response)
+    /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] archiver-handshake-reused', { archiver: initialHandshake.archiver.ip + ':' + initialHandshake.archiver.port, peers: nodes.length })
+    return nodes
+  }
   const maxRetries = 10
   let retry = maxRetries
   const failArchivers: string[] = []
