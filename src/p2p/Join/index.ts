@@ -1176,7 +1176,7 @@ export async function submitJoinV2(
   }
 
   /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] join-responses', { netConfigV2: config.p2p.netConfigV2, validators: selectedNodes.length, accepted: goodCount, mismatches: networkConfigMismatches, hash: (joinRequest as NetworkConfigJoinRequest).networkConfigHash })
-  if (hasNetworkConfigMismatchMajority(selectedNodes.length, responses)) {
+  if (config.p2p.netConfigV2 && hasNetworkConfigMismatchMajority(selectedNodes.length, responses)) {
     nestedCountersInstance.countEvent('p2p', 'submitJoin: network config hash mismatch majority')
     const submittedHash = (joinRequest as NetworkConfigJoinRequest).networkConfigHash ?? ''
     throw new Error(
@@ -1390,6 +1390,7 @@ export function verifyJoinRequestTypes(joinRequest: P2P.JoinTypes.JoinRequest): 
 }
 
 export function validateNetworkConfigHash(joinRequest: NetworkConfigJoinRequest): JoinRequestResponse | null {
+  if (!config.p2p.netConfigV2) return null
   const result = evaluateNetworkConfigJoin(
     joinRequest,
     config.p2p.networkConfigHashEnforcement,
