@@ -49,6 +49,7 @@ import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import { log } from 'console'
 import { Utils as UtilsTypes } from '@shardus/lib-types'
 import { fireAndForget } from '../utils/functions/promises'
+import { hashLocalNetworkConfig } from '../config/networkConfig'
 
 /** CONSTANTS */
 
@@ -108,8 +109,6 @@ export let q1SendRequests = false // if we are in q1 this lets us know if we can
 
 export let scaleFactor: number = 1
 export let scaleFactorSyncBoost: number = 1
-
-export let netConfig: any = {}
 
 let createCycleTag = 0
 
@@ -744,7 +743,7 @@ function makeCycleRecord(
     previous: prevRecord ? makeCycleMarker(prevRecord) : '0'.repeat(64),
     start: prevRecord && prevRecord.mode !== 'shutdown' ? prevRecord.start + prevRecord.duration : utils.getTime('s'),
     duration: prevRecord ? prevRecord.duration : config.p2p.cycleDuration,
-    networkConfigHash: makeNetworkConfigHash(),
+    networkConfigHash: hashLocalNetworkConfig(config),
   }
 
   currentStart = baseRecord.start
@@ -786,23 +785,6 @@ function makeCycleCert(marker: P2P.CycleCreatorTypes.CycleMarker): P2P.CycleCrea
   const cert = crypto.sign({ marker })
   console.log(`makeCycleCert:  ${Utils.safeStringify(cert)}`)
   return cert
-}
-
-function makeNetworkConfigHash() {
-  netConfig = {
-    crypto: config.crypto,
-    heartbeatInterval: config.heartbeatInterval,
-    loadDetection: config.loadDetection,
-    network: config.network,
-    rateLimiting: config.rateLimiting,
-    sharding: config.sharding,
-    transactionExpireTime: config.transactionExpireTime,
-    p2p: { ...config.p2p },
-    stateManager: config.stateManager,
-    debug: config.debug,
-  }
-  delete netConfig.p2p.existingArchivers
-  return crypto.hash(netConfig)
 }
 
 function unseenTxs(ours: P2P.CycleCreatorTypes.CycleTxs, theirs: P2P.CycleCreatorTypes.CycleTxs) {
@@ -965,15 +947,18 @@ export function schedule<T, U extends unknown[]>(
 }
 
 export function shutdown() {
-  warn('Cycle creator shutdown')
+  // Startup may stop before init() creates this module's logger.
+  if (p2pLogger) warn('Cycle creator shutdown')
   for (const timer of Object.keys(timers)) {
-    warn(`clearing timer ${timer}`)
+    if (p2pLogger) warn(`clearing timer ${timer}`)
     clearTimeout(timers[timer])
+    delete timers[timer]
   }
-  warn(`current cycle and quarter is: C${currentCycle} Q${currentQuarter}`)
-  currentCycle += 1
-  currentQuarter = 0 // to stop functions which check if we are in the same quarter
-  warn(`changed cycle and quarter to: C${currentCycle} Q${currentQuarter}`)
+  if (currentQuarter !== 0) {
+    currentCycle += 1
+    currentQuarter = 0 // stop functions which check if we are in the same quarter
+  }
+  if (p2pLogger) warn(`changed cycle and quarter to: C${currentCycle} Q${currentQuarter}`)
 }
 
 function cycleQuarterChanged(cycle: number, quarter: number) {

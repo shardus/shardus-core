@@ -1,5 +1,6 @@
 import { addSchema, addSchemaDependency } from '../../utils/serialization/SchemaHelpers'
 import { AJVSchemaEnum } from '../enum/AJVSchemaEnum'
+import { NETWORK_CONFIG_HASH_PATTERN } from '../../config/networkConfigConstants'
 
 // AJV Schema for CycleRecord
 const schemaCycleRecord: object | undefined = {
@@ -7,10 +8,10 @@ const schemaCycleRecord: object | undefined = {
   properties: {
     networkId: { type: 'string' },
     counter: { type: 'number' },
-    previous: { type: 'string' },
+    previous: { type: 'string', pattern: NETWORK_CONFIG_HASH_PATTERN },
     start: { type: 'number' },
     duration: { type: 'number' },
-    networkConfigHash: { type: 'string' },
+    networkConfigHash: { type: 'string', pattern: NETWORK_CONFIG_HASH_PATTERN },
     mode: {
       type: 'string',
       enum: ['forming', 'processing', 'safety', 'recovery', 'restart', 'restore', 'shutdown'],

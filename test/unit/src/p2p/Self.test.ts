@@ -1,3 +1,4 @@
+import { logFlags } from '../../../../src/logger'
 import { P2P } from '@shardus/lib-types'
 import * as Context from '../../../../src/p2p/Context'
 import * as network from '../../../../src/network'
@@ -142,6 +143,45 @@ describe('Self', () => {
   })
 
   describe('contactArchiver()', () => {
+    it('uses the saved signed response without another archiver request', async () => {
+      const archiver = { ip: '127.0.0.1', port: 4000, publicKey: 'archiver' } as any
+      const response = { nodeList: [{ ip: '127.0.0.1', port: 9001 }], sign: {} } as any
+      ;(Context.crypto.verify as jest.Mock).mockReturnValue(true)
+      await expect(Self.contactArchiver('test', { archiver, response })).resolves.toBe(response.nodeList)
+      expect(Context.crypto.verify).toHaveBeenCalledWith(response, archiver.publicKey)
+      expect(Archivers.postToArchiver).not.toHaveBeenCalled()
+    })
+
+    it('logs successful saved-handshake reuse when verbose is enabled', async () => {
+      const logs = jest.spyOn(console, 'log').mockImplementation(() => {})
+      const verbose = logFlags.verbose
+      try {
+        logFlags.verbose = true
+        ;(Context.crypto.verify as jest.Mock).mockReturnValue(true)
+        await Self.contactArchiver('test', {
+          archiver: { ip: '127.0.0.1', port: 4000, publicKey: 'archiver' } as any,
+          response: { nodeList: [{}], sign: {} } as any,
+        })
+        expect(logs).toHaveBeenCalledWith('[config-enforced] archiver-handshake-reused', {
+          archiver: '127.0.0.1:4000',
+          peers: 1,
+        })
+      } finally {
+        logFlags.verbose = verbose
+        logs.mockRestore()
+      }
+    })
+
+    it.each([false, true])('rejects an invalid saved response (empty=%s)', async (empty) => {
+      const archiver = { publicKey: 'archiver' } as any
+      const response = { nodeList: empty ? [] : [{}], sign: {} } as any
+      ;(Context.crypto.verify as jest.Mock).mockReturnValue(false)
+      await expect(Self.contactArchiver('test', { archiver, response })).rejects.toThrow()
+      expect(Archivers.addArchiverJoinRequest).not.toHaveBeenCalled()
+      expect(Archivers.addDataRecipient).not.toHaveBeenCalled()
+      expect(CycleChain.prepend).not.toHaveBeenCalled()
+    })
+
     it('should throw error if no seed nodes are returned', async () => {
       ;(Archivers.postToArchiver as jest.Mock).mockResolvedValue({
         isErr: () => false,

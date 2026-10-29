@@ -1034,6 +1034,10 @@ export interface ServerConfiguration {
     fixApplyReceiptType: boolean
     // Number of historical cycles to sync when joining the network
     syncV2HistoricalCyclesCount: number
+    /** Adopt the configuration committed to by the accepted cycle. */
+    netConfigV2: boolean
+    /** Reject join requests that do not reference the accepted network configuration. */
+    networkConfigHashEnforcement: boolean
   }
   /** Server IP configuration */
   ip?: {
@@ -1709,6 +1713,109 @@ export interface ShardusConfiguration {
 }
 
 export type StrictServerConfiguration = DeepRequired<ServerConfiguration>
+
+/** Shared v2 exclusions; review new fields for public exposure and hash compatibility. */
+export const baseNetworkConfigOmissions = {
+  server: ['baseDir', 'crypto', 'ip', 'network', 'reporting', 'mode', 'statistics', 'loadDetection', 'rateLimiting'],
+  p2p: ['existingArchivers', 'netConfigV2', 'networkConfigHashEnforcement'],
+  debug: [
+    'ignoreScaleGossipSelfCheck',
+    'loseReceiptChance',
+    'loseTxChance',
+    'canDataRepair',
+    'debugNoTxVoting',
+    'ignoreRecieptChance',
+    'ignoreVoteChance',
+    'failReceiptChance',
+    'voteFlipChance',
+    'skipPatcherRepair',
+    'failNoRepairTxChance',
+    'useNewParitionReport',
+    'oldPartitionSystem',
+    'dumpAccountReportFromSQL',
+    'profiler',
+    'startInFatalsLogMode',
+    'startInErrorLogMode',
+    'verboseNestedCounters',
+    'fakeNetworkDelay',
+    'disableSnapshots',
+    'disableTxCoverageReport',
+    'disableLostNodeReports',
+    'haltOnDataOOS',
+    'countEndpointStart',
+    'countEndpointStop',
+    'hashedDevAuth',
+    'minMultiSigRequiredForEndpoints',
+    'minMultiSigRequiredForGlobalTxs',
+    'minSigRequiredForArchiverWhitelist',
+    'robustQueryDebug',
+    'forwardTXToSyncingNeighbors',
+    'recordAcceptedTx',
+    'recordAccountStates',
+    'useShardusMemoryPatterns',
+    'sanitizeInput',
+    'checkTxGroupChanges',
+    'ignoreTimeCheck',
+    'checkAddressFormat',
+    'produceBadVote',
+    'produceBadChallenge',
+    'debugNTPErrorWindowMs',
+    'enableScopedProfiling',
+    'enableBasicProfiling',
+    'enableCycleRecordDebugTool',
+    'forcedExpiration',
+    'ignoreStandbyRefreshChance',
+    'localEnableCycleRecordDebugTool',
+    'enableTestMode',
+    'highResolutionProfiling',
+    'randomCycleData',
+    'debugStatListMaxSize',
+    'ignoreDataTellChance',
+    'debugNTPBogusDecrements',
+    'startedSyncingDelay',
+    'finishedSyncingDelay',
+    'readyNodeDelay',
+    'qaTestBoolean',
+    'qaTestNumber',
+    'qaTestString',
+    'beforeStateFailChance',
+    'logCSVPerfEvents',
+    'numOfPerfEventsNeededForLogging',
+    'enableDebugFlags',
+    'missConsensusChance',
+    'dropMessageChance',
+    'slowResponseChance',
+    'slowResponseDelay',
+  ],
+} as const satisfies {
+  server: readonly (keyof StrictServerConfiguration)[]
+  p2p: readonly (keyof StrictServerConfiguration['p2p'])[]
+  debug: readonly (keyof StrictServerConfiguration['debug'])[]
+}
+
+type OptionalNetworkP2PFields = 'factv2' | 'getTxTimestampTimeoutOffset' | 'patchNetworkAccountSyncFixes'
+export type NetworkConfig = Omit<
+  StrictServerConfiguration,
+  typeof baseNetworkConfigOmissions.server[number] | 'p2p' | 'debug'
+> & {
+  p2p: Omit<
+    StrictServerConfiguration['p2p'],
+    typeof baseNetworkConfigOmissions.p2p[number] | OptionalNetworkP2PFields
+  > &
+    Partial<Pick<StrictServerConfiguration['p2p'], OptionalNetworkP2PFields>>
+  debug: Omit<StrictServerConfiguration['debug'], typeof baseNetworkConfigOmissions.debug[number]>
+}
+export type NetworkConfigVersionOmissions = {
+  [Section in keyof NetworkConfig as NetworkConfig[Section] extends object
+    ? Section
+    : never]?: readonly (keyof NetworkConfig[Section])[]
+}
+// Future activation needs a network-agreed version mechanism and schema/type compatibility work.
+export const networkConfigOmissionsByVersion: Record<number, NetworkConfigVersionOmissions> = {
+  // Example only: omit a field starting at network config version 3.
+  // 3: { p2p: ['fieldToRemove'] },
+}
+
 export type StrictLogsConfiguration = DeepRequired<LogsConfiguration>
 export type StrictStorageConfiguration = DeepRequired<StorageConfiguration>
 
