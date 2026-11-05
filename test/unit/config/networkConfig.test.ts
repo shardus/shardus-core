@@ -8,11 +8,11 @@ import {
   buildNetworkConfig,
   hashLocalNetworkConfig,
   hashNetConfig,
+  selectNetworkConfigField,
   validateNetworkConfig,
 } from '../../../src/config/networkConfig'
 import {
   baseNetworkConfigOmissions,
-  networkConfigOmissionsByVersion,
   StrictServerConfiguration,
 } from '../../../src/shardus/shardus-types'
 
@@ -68,25 +68,37 @@ describe('network configuration v2', () => {
     expect(target.debug.devPublicKeys.test).toBe(1)
   })
 
-  test('applies cumulative version omissions through v2 using synthetic entries', () => {
-    expect(networkConfigOmissionsByVersion).toEqual({})
-    Object.assign(networkConfigOmissionsByVersion, {
-      1: { p2p: ['cycleDuration'] },
-      2: { debug: ['devPublicKeys'] },
-      3: { p2p: ['minNodes'] },
-    })
-    try {
-      const config = copyConfig()
-      const payload = buildNetworkConfig(config)
-      expect(payload.p2p).not.toHaveProperty('cycleDuration')
-      expect(payload.debug).not.toHaveProperty('devPublicKeys')
-      expect(payload.p2p.minNodes).toBe(config.p2p.minNodes)
-      expect(payload.p2p).not.toHaveProperty('existingArchivers')
-      expect(config.p2p.cycleDuration).toBe(SERVER_CONFIG.p2p.cycleDuration)
-    } finally {
-      for (const version of Object.keys(networkConfigOmissionsByVersion))
-        delete networkConfigOmissionsByVersion[version]
-    }
+  test('selects fields in migration order and updates validation', () => {
+    const config = copyConfig()
+    const originalHash = hashNetConfig(buildNetworkConfig(config))
+    selectNetworkConfigField(config, 'p2p.cycleDuration', 'exclude')
+    const excluded = buildNetworkConfig(config)
+    expect(excluded.p2p).not.toHaveProperty('cycleDuration')
+    expect(validateNetworkConfig(excluded)).toEqual(excluded)
+    expect(() => validateNetworkConfig({ ...excluded, p2p: { ...excluded.p2p, cycleDuration: 30 } })).toThrow()
+    selectNetworkConfigField(config, 'p2p.cycleDuration', 'include')
+    expect(hashNetConfig(buildNetworkConfig(config))).toBe(originalHash)
+    expect(() => selectNetworkConfigField(config, 'p2p.existingArchivers', 'include')).toThrow('Protected')
+    expect(() => selectNetworkConfigField(config, 'p2p.unknownField', 'include')).toThrow('Unknown')
+    selectNetworkConfigField(config, 'features.tickets', 'exclude')
+    expect(buildNetworkConfig(config).features).not.toHaveProperty('tickets')
+    selectNetworkConfigField(config, 'features.tickets', 'include')
+    selectNetworkConfigField(config, 'features.tickets.ticketTypes', 'exclude')
+    expect(buildNetworkConfig(config).features.tickets).not.toHaveProperty('ticketTypes')
+    selectNetworkConfigField(config, 'features.tickets.ticketTypes', 'include')
+  })
+
+  test('includes a new local P2P field only after its migration selects it', () => {
+    const config = copyConfig() as any
+    config.p2p.futureNetworkFlag = true
+    selectNetworkConfigField(config, 'p2p.futureNetworkFlag', 'exclude')
+    expect(buildNetworkConfig(config).p2p).not.toHaveProperty('futureNetworkFlag')
+    const oldLegacyHash = hashNetConfig(buildLegacyNetworkConfig(copyConfig()))
+    expect(hashNetConfig(buildLegacyNetworkConfig(config))).not.toBe(oldLegacyHash)
+    selectNetworkConfigField(config, 'p2p.futureNetworkFlag', 'include')
+    expect(buildNetworkConfig(config).p2p).toHaveProperty('futureNetworkFlag', true)
+    expect(validateNetworkConfig(buildNetworkConfig(config))).toHaveProperty('p2p.futureNetworkFlag', true)
+    selectNetworkConfigField(config, 'p2p.futureNetworkFlag', 'exclude')
   })
 
   test('projects approved fields and excludes bootstrap, local, and selector fields', () => {

@@ -349,6 +349,7 @@ export interface App {
    * If it is not the first node it could use getLocalOrRemote() to query data it needs.
    */
   sync?: () => any
+  prepareNetworkConfigMigrations?: (genesis: boolean) => Promise<void>
 
   dataSummaryInit?: (blob: any, accountData: any) => void
   dataSummaryUpdate?: (blob: any, accountDataBefore: any, accountDataAfter: any) => void
@@ -1798,22 +1799,12 @@ export type NetworkConfig = Omit<
   StrictServerConfiguration,
   typeof baseNetworkConfigOmissions.server[number] | 'p2p' | 'debug'
 > & {
-  p2p: Omit<
+  p2p: Partial<Omit<
     StrictServerConfiguration['p2p'],
     typeof baseNetworkConfigOmissions.p2p[number] | OptionalNetworkP2PFields
-  > &
+  >> &
     Partial<Pick<StrictServerConfiguration['p2p'], OptionalNetworkP2PFields>>
-  debug: Omit<StrictServerConfiguration['debug'], typeof baseNetworkConfigOmissions.debug[number]>
-}
-export type NetworkConfigVersionOmissions = {
-  [Section in keyof NetworkConfig as NetworkConfig[Section] extends object
-    ? Section
-    : never]?: readonly (keyof NetworkConfig[Section])[]
-}
-// Future activation needs a network-agreed version mechanism and schema/type compatibility work.
-export const networkConfigOmissionsByVersion: Record<number, NetworkConfigVersionOmissions> = {
-  // Example only: omit a field starting at network config version 3.
-  // 3: { p2p: ['fieldToRemove'] },
+  debug: Partial<Omit<StrictServerConfiguration['debug'], typeof baseNetworkConfigOmissions.debug[number]>>
 }
 
 export type StrictLogsConfiguration = DeepRequired<LogsConfiguration>

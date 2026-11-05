@@ -38,6 +38,7 @@ import {
   buildLegacyNetworkConfig,
   buildNetworkConfig,
   hashLocalNetworkConfig,
+  selectNetworkConfigField,
   hashNetConfig,
   setAppliedNetworkConfigMetadata,
 } from '../config/networkConfig'
@@ -359,6 +360,14 @@ class Shardus extends EventEmitter {
     return this
   }
 
+  includeNetworkConfigField(path: string): void {
+    selectNetworkConfigField(this.config, path, 'include')
+  }
+
+  excludeNetworkConfigField(path: string): void {
+    selectNetworkConfigField(this.config, path, 'exclude')
+  }
+
   /**
    * Calling this function will start the network
    * @param {*} exitProcOnFail Exit the process if an error occurs
@@ -531,6 +540,7 @@ class Shardus extends EventEmitter {
             activeNodes[0].port === Network.ipInfo.externalPort
           if (isGenesis) {
             signal.throwIfAborted()
+            await this.app.prepareNetworkConfigMigrations?.(true)
             const applied = {
               networkConfigHash: hashLocalNetworkConfig(this.config),
               networkConfigCycleMarker: '0'.repeat(64),
@@ -539,6 +549,7 @@ class Shardus extends EventEmitter {
             setAppliedNetworkConfigMetadata(applied)
             /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] genesis-config', applied)
           } else {
+            await this.app.prepareNetworkConfigMigrations?.(false)
             await adoptNetworkConfig(
               this.config,
               activeNodes,
@@ -3155,6 +3166,9 @@ class Shardus extends EventEmitter {
         applicationInterfaceImpl.getNetworkAccountFromArchiver = async () => {
           return null
         }
+      }
+      if (typeof application.prepareNetworkConfigMigrations === 'function') {
+        applicationInterfaceImpl.prepareNetworkConfigMigrations = (genesis) => application.prepareNetworkConfigMigrations(genesis)
       }
     } catch (ex) {
       this.shardus_fatal(`getAppInterface_ex`, `Required application interface not implemented. Exception: ${ex}`)
