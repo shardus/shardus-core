@@ -1,7 +1,6 @@
 import Ajv, { ValidateFunction } from 'ajv'
 import {
   baseNetworkConfigOmissions,
-  networkConfigOmissionsByVersion,
   NetworkConfig,
   DevSecurityLevel,
   StrictServerConfiguration,
@@ -21,6 +20,7 @@ export interface AppliedNetworkConfig {
 }
 
 let appliedNetworkConfig: AppliedNetworkConfig | null = null
+const selectedFields = new Map<string, 'include' | 'exclude'>()
 
 function clone<T>(value: T): T {
   if (value === undefined) return undefined
@@ -57,16 +57,19 @@ export function buildNetworkConfig(config: StrictServerConfiguration): NetworkCo
       Reflect.deleteProperty(networkConfigPayload[configSection], omittedFieldName)
     }
   }
-  // Existing v2 is version 2, independent of package versions; no new wire field.
-  const networkConfigVersion = 2
-  for (const [versionKey, omittedFieldsBySection] of Object.entries(networkConfigOmissionsByVersion)) {
-    const omissionsEffectiveFromVersion = Number(versionKey)
-    if (omissionsEffectiveFromVersion > networkConfigVersion) continue
-    for (const [configSection, omittedFieldNames] of Object.entries(omittedFieldsBySection)) {
-      for (const omittedFieldName of omittedFieldNames) {
-        Reflect.deleteProperty(networkConfigPayload[configSection], omittedFieldName)
-      }
+  for (const [path, action] of selectedFields) {
+    const parts = path.split('.')
+    const field = parts.pop() as string
+    let source: any = config
+    let target: any = networkConfigPayload
+    for (const part of parts) {
+      source = source[part]
+      if (!target) break
+      if (action === 'include' && !target[part]) target[part] = {}
+      target = target[part]
     }
+    if (action === 'include') target[field] = clone(source[field])
+    else if (target) delete target[field]
   }
   return networkConfigPayload as NetworkConfig
 }
@@ -93,29 +96,59 @@ function schemaFor(value: unknown): Record<string, unknown> {
   return { type: typeof value }
 }
 
-const referenceConfig = buildNetworkConfig(SERVER_CONFIG)
-const networkConfigSchema = schemaFor(referenceConfig)
-const schemaProperties = networkConfigSchema.properties as Record<string, Record<string, unknown>>
-const p2pSchema = schemaProperties.p2p as {
-  required?: string[]
-  properties: Record<string, Record<string, unknown>>
-}
-// Rotation and cycle retention support fractional multipliers despite integer defaults.
-p2pSchema.properties.rotationCountMultiply = { type: 'number' }
-p2pSchema.properties.extraCyclesToKeepMultiplier = { type: 'number' }
-if (Array.isArray(p2pSchema.required)) {
-  p2pSchema.required = p2pSchema.required.filter((field) => !OPTIONAL_P2P_FIELDS.has(field))
-}
-const securityLevelSchema = {
-  type: 'integer',
-  enum: Object.values(DevSecurityLevel).filter((value) => typeof value === 'number'),
-}
-for (const key of ['devPublicKeys', 'multisigKeys']) {
-  const debugSchema = schemaProperties.debug.properties as Record<string, Record<string, unknown>>
-  debugSchema[key] = { type: 'object', additionalProperties: securityLevelSchema }
+let validate: ValidateFunction
+
+function rebuildSchema(config: StrictServerConfiguration): void {
+  const networkConfigSchema = schemaFor(buildNetworkConfig(config))
+  const schemaProperties = networkConfigSchema.properties as Record<string, Record<string, unknown>>
+  const p2pSchema = schemaProperties.p2p as {
+    required?: string[]
+    properties: Record<string, Record<string, unknown>>
+  }
+  // Rotation and cycle retention support fractional multipliers despite integer defaults.
+  p2pSchema.properties.rotationCountMultiply = { type: 'number' }
+  p2pSchema.properties.extraCyclesToKeepMultiplier = { type: 'number' }
+  if (Array.isArray(p2pSchema.required)) {
+    p2pSchema.required = p2pSchema.required.filter((field) => !OPTIONAL_P2P_FIELDS.has(field))
+  }
+  const securityLevelSchema = {
+    type: 'integer',
+    enum: Object.values(DevSecurityLevel).filter((value) => typeof value === 'number'),
+  }
+  for (const key of ['devPublicKeys', 'multisigKeys']) {
+    const debugSchema = schemaProperties.debug.properties as Record<string, Record<string, unknown>>
+    if (debugSchema && key in debugSchema) debugSchema[key] = { type: 'object', additionalProperties: securityLevelSchema }
+  }
+  validate = new Ajv({ allErrors: true }).compile(networkConfigSchema)
 }
 
-const validate: ValidateFunction = new Ajv({ allErrors: true }).compile(networkConfigSchema)
+rebuildSchema(SERVER_CONFIG)
+
+export function selectNetworkConfigField(config: StrictServerConfiguration, path: string, action: 'include' | 'exclude'): void {
+  const parts = path.split('.')
+  if (parts.some((part) => !part || part === '__proto__' || part === 'constructor' || part === 'prototype'))
+    throw new Error(`Invalid network configuration field: ${path}`)
+  let source: any = config
+  for (const part of parts) {
+    if (source === null || typeof source !== 'object' || !Object.prototype.hasOwnProperty.call(source, part))
+      throw new Error(`Unknown network configuration field: ${path}`)
+    source = source[part]
+  }
+  const base = parts[0]
+  if (base === 'p2p' && parts.length === 1 || base === 'debug' && parts.length === 1 ||
+      baseNetworkConfigOmissions.server.includes(base as any) ||
+      (parts.length > 1 && (base === 'p2p' || base === 'debug') &&
+       (baseNetworkConfigOmissions[base] as readonly string[]).includes(parts[1])))
+    throw new Error(`Protected network configuration field: ${path}`)
+  const previous = selectedFields.get(path)
+  selectedFields.delete(path)
+  selectedFields.set(path, action)
+  try { rebuildSchema(config) } catch (error) {
+    if (previous) selectedFields.set(path, previous)
+    else selectedFields.delete(path)
+    throw error
+  }
+}
 
 export function validateNetworkConfig(value: unknown): NetworkConfig {
   if (!validate(value)) {
