@@ -1153,11 +1153,6 @@ export async function submitJoinV2(
   for (const res of responses) {
     /* prettier-ignore */ if (logFlags.important_as_fatal) info(`Join Request Response: ${Utils.safeStringify(res)}`)
     if (!res) {
-      errs.push({
-        success: false,
-        fatal: true,
-        reason: 'No join response received',
-      })
       continue
     }
     if (res && res.fatal) {
@@ -1188,6 +1183,9 @@ export async function submitJoinV2(
     throw new Error(`Fatal: submitJoin: our node was reported to not be reachable by 2 or more nodes ${unreachable}`)
   }
 
+  if (responses.every((response) => !response)) {
+    throw new Error('submitJoin: No validators responded; retry joining')
+  }
   if (errs.length >= responses.length) {
     throw new Error(`Fatal: submitJoin: All join requests failed: ${errs.map((e) => e.reason).join(', ')}`)
   }
