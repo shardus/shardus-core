@@ -48,16 +48,11 @@ export interface NetworkConfigInitializationDependencies {
   payloadHash?: (payload: unknown) => string
 }
 
-/** Fetch, validate, apply, and re-verify the configuration committed to by an accepted cycle. */
-export async function adoptNetworkConfig(
-  target: StrictServerConfiguration,
+/** Use the same cycle authority for adoption and subsequent V2 join references. */
+export async function getVerifiedNetworkConfigCycle(
   activeNodes: ActiveNode[],
-  dependencies: NetworkConfigInitializationDependencies,
-  attempts = 3
-): Promise<AppliedNetworkConfig> {
-  const get = dependencies.get ?? ((url: string) => http.get(url) as Promise<NetConfigResponse>)
-  const hash = dependencies.hash ?? hashLocalNetworkConfig
-  const payloadHash = dependencies.payloadHash ?? hashNetConfig
+  dependencies: NetworkConfigInitializationDependencies
+): Promise<P2P.CycleCreatorTypes.CycleRecord> {
   const queryCycleMarker =
     dependencies.queryCycleMarker ??
     (async (nodes: ActiveNode[]): Promise<CycleMarkerQueryResult> => {
@@ -75,32 +70,45 @@ export async function adoptNetworkConfig(
       if (result.isErr()) throw result.error
       return result.value
     })
+  const markerResult = await queryCycleMarker(activeNodes)
+  dependencies.signal?.throwIfAborted()
+  const robustQueryCycleMarker = markerResult.marker
+  const markerNodes = markerResult.winningNodes
+  if (!robustQueryCycleMarker) throw new Error('initial cycle marker is not available yet')
+  if (!new RegExp(NETWORK_CONFIG_HASH_PATTERN).test(robustQueryCycleMarker))
+    throw new Error('cycle marker is malformed')
+  if (!Array.isArray(markerNodes) || markerNodes.length === 0) {
+    throw new Error('no robust cycle marker agreement')
+  }
+  const cycle = await fetchCycleByMarker(markerNodes[0], robustQueryCycleMarker)
+  dependencies.signal?.throwIfAborted()
+  const computedCycleRecordHash = dependencies.makeCycleMarker(cycle)
+  if (computedCycleRecordHash !== robustQueryCycleMarker) {
+    throw new Error(`cycle marker mismatch: expected ${robustQueryCycleMarker}, got ${computedCycleRecordHash}`)
+  }
+  validateCycleRecord(cycle)
+  return cycle
+}
+
+/** Fetch, validate, apply, and re-verify the configuration committed to by an accepted cycle. */
+export async function adoptNetworkConfig(
+  target: StrictServerConfiguration,
+  activeNodes: ActiveNode[],
+  dependencies: NetworkConfigInitializationDependencies,
+  attempts = 3
+): Promise<AppliedNetworkConfig> {
+  const get = dependencies.get ?? ((url: string) => http.get(url) as Promise<NetConfigResponse>)
+  const hash = dependencies.hash ?? hashLocalNetworkConfig
+  const payloadHash = dependencies.payloadHash ?? hashNetConfig
   let lastError: Error = new Error('No active node supplied a network configuration')
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] initialization-attempt', { attempt: attempt + 1, attempts, peers: activeNodes.length })
     dependencies.signal?.throwIfAborted()
     let cycle: P2P.CycleCreatorTypes.CycleRecord
-    let robustQueryCycleMarker: string
-    let markerNodes: ActiveNode[]
     try {
-      const markerResult = await queryCycleMarker(activeNodes)
-      dependencies.signal?.throwIfAborted()
-      robustQueryCycleMarker = markerResult.marker
-      markerNodes = markerResult.winningNodes
-      if (!robustQueryCycleMarker) throw new Error('initial cycle marker is not available yet')
-      if (!new RegExp(NETWORK_CONFIG_HASH_PATTERN).test(robustQueryCycleMarker))
-        throw new Error('cycle marker is malformed')
-      if (!Array.isArray(markerNodes) || markerNodes.length === 0) {
-        throw new Error('no robust cycle marker agreement')
-      }
-      cycle = await fetchCycleByMarker(markerNodes[0], robustQueryCycleMarker)
-      dependencies.signal?.throwIfAborted()
-      const computedCycleRecordHash = dependencies.makeCycleMarker(cycle)
-      if (computedCycleRecordHash !== robustQueryCycleMarker) {
-        throw new Error(`cycle marker mismatch: expected ${robustQueryCycleMarker}, got ${computedCycleRecordHash}`)
-      }
-      validateCycleRecord(cycle)
+      cycle = await getVerifiedNetworkConfigCycle(activeNodes, dependencies)
+      const robustQueryCycleMarker = dependencies.makeCycleMarker(cycle)
       /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] cycle-verified', { cycle: cycle.counter, marker: robustQueryCycleMarker, verifiedCycleRecordNetConfigHash: cycle.networkConfigHash })
     } catch (error) {
       dependencies.signal?.throwIfAborted()
@@ -108,7 +116,7 @@ export async function adoptNetworkConfig(
       /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] cycle-query-failed', { attempt: attempt + 1, reason: lastError.message })
       continue
     }
-    const verifiedCycleMarker = robustQueryCycleMarker
+    const verifiedCycleMarker = dependencies.makeCycleMarker(cycle)
     const verifiedCycleRecordNetConfigHash = cycle.networkConfigHash
     const nodes = dependencies.shuffle
       ? dependencies.shuffle([...activeNodes])

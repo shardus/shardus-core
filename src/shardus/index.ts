@@ -552,7 +552,9 @@ class Shardus extends EventEmitter {
             await this.app.prepareNetworkConfigMigrations?.(false)
             await adoptNetworkConfig(
               this.config,
-              activeNodes,
+              activeNodes.filter(
+                (node) => node.ip !== Network.ipInfo.externalIp || node.port !== Network.ipInfo.externalPort
+              ),
               {
                 makeCycleMarker: (record) => this.crypto.hash(record),
                 signal,
@@ -1110,7 +1112,7 @@ class Shardus extends EventEmitter {
 
     // Start P2P
     this.joinStarted = true
-    await Self.startupV2(this, initialArchiverHandshake)
+    if (!(await Self.startupV2(this, initialArchiverHandshake))) return
 
     // handle config queue changes and debug logic updates
     this._registerListener(this.p2p.state, 'cycle_q1_start', async () => {
@@ -3168,7 +3170,8 @@ class Shardus extends EventEmitter {
         }
       }
       if (typeof application.prepareNetworkConfigMigrations === 'function') {
-        applicationInterfaceImpl.prepareNetworkConfigMigrations = (genesis) => application.prepareNetworkConfigMigrations(genesis)
+        applicationInterfaceImpl.prepareNetworkConfigMigrations = (genesis) =>
+          application.prepareNetworkConfigMigrations(genesis)
       }
     } catch (ex) {
       this.shardus_fatal(`getAppInterface_ex`, `Required application interface not implemented. Exception: ${ex}`)

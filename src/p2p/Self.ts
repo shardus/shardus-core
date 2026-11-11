@@ -35,6 +35,7 @@ import { currentQuarter } from './CycleCreator'
 import { Utils } from '@shardus/lib-types'
 import * as ServiceQueue from './ServiceQueue'
 import Shardus from '../shardus'
+import { getVerifiedNetworkConfigCycle } from '../config/networkConfigInitialization'
 
 /** STATE */
 
@@ -282,7 +283,9 @@ export function startupV2(shardus: Shardus, initialArchiverHandshake?: InitialAr
         }
 
         // Get latest cycle record from active nodes
-        const latestCycle = await Sync.getNewestCycle(activeNodes)
+        const latestCycle = await (Context.config.p2p.netConfigV2
+          ? getVerifiedNetworkConfigCycle(activeNodes, { makeCycleMarker: CycleCreator.makeCycleMarker })
+          : Sync.getNewestCycle(activeNodes))
         cycleDuration = latestCycle.duration
         mode = latestCycle.mode || null
 
@@ -433,8 +436,17 @@ export function startupV2(shardus: Shardus, initialArchiverHandshake?: InitialAr
         // Abort startup if error is fatal
         if (err.message.startsWith('Fatal:')) {
           attemptJoiningRunning = false
-          /* prettier-ignore */ if (logFlags.fatal) warn(`Fatal error while joining network. re-throw to cause shutdown`)
-          throw err
+          /* prettier-ignore */ if (logFlags.fatal) warn(`Fatal error while joining network. Requesting shutdown`)
+          clearTimeout(attemptJoiningTimer)
+          emitter.emit(
+            'invoke-exit',
+            'startup failed',
+            getCallstack(),
+            err.message,
+            err.message.includes('restart required')
+          )
+          resolve(false)
+          return
         }
 
         // Schedule another attempt to join
@@ -629,7 +641,9 @@ async function joinNetworkV2(activeNodes): Promise<void> {
   info(`joinNetworkV2: enter`)
   /* prettier-ignore */ nestedCountersInstance.countEvent('p2p', `joinNetworkV2:enter`)
   // Get latest cycle record from active nodes
-  const latestCycle = await Sync.getNewestCycle(activeNodes)
+  const latestCycle = await (Context.config.p2p.netConfigV2
+    ? getVerifiedNetworkConfigCycle(activeNodes, { makeCycleMarker: CycleCreator.makeCycleMarker })
+    : Sync.getNewestCycle(activeNodes))
   mode = latestCycle.mode || null
 
   info(`joinNetworkV2: got latest cycle :${mode}`)
