@@ -4,7 +4,7 @@ import {
   getAppliedNetworkConfigMetadata,
   setAppliedNetworkConfigMetadata,
 } from '../../../src/config/networkConfig'
-import { adoptNetworkConfig } from '../../../src/config/networkConfigInitialization'
+import { adoptNetworkConfig, getVerifiedNetworkConfigCycle } from '../../../src/config/networkConfigInitialization'
 import { StrictServerConfiguration } from '../../../src/shardus/shardus-types'
 
 const HASH = 'a'.repeat(64)
@@ -122,4 +122,14 @@ describe('network configuration initialization', () => {
       )
     ).rejects.toThrow('cycle marker mismatch')
   })
+})
+
+test('verified cycle refresh rejects conflicting contents at the same counter', async () => {
+  await expect(
+    getVerifiedNetworkConfigCycle([{ ip: 'peer', port: 1001 }], {
+      queryCycleMarker: async () => ({ marker: MARKER, winningNodes: [{ ip: 'peer', port: 1001 }] }),
+      fetchCycleByMarker: async () => ({ ...cycle, networkConfigHash: 'c'.repeat(64) }),
+      makeCycleMarker: () => 'd'.repeat(64),
+    })
+  ).rejects.toThrow('cycle marker mismatch')
 })

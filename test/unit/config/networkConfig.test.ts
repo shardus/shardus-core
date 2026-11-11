@@ -1,3 +1,4 @@
+import Ajv from 'ajv'
 import * as cryptoUtils from '@shardus/lib-crypto-utils'
 import oldFields from './networkConfigV2Fields.json'
 import SERVER_CONFIG from '../../../src/config/server'
@@ -11,10 +12,7 @@ import {
   selectNetworkConfigField,
   validateNetworkConfig,
 } from '../../../src/config/networkConfig'
-import {
-  baseNetworkConfigOmissions,
-  StrictServerConfiguration,
-} from '../../../src/shardus/shardus-types'
+import { baseNetworkConfigOmissions, StrictServerConfiguration } from '../../../src/shardus/shardus-types'
 
 const copyConfig = (): StrictServerConfiguration => JSON.parse(JSON.stringify(SERVER_CONFIG))
 
@@ -88,6 +86,60 @@ describe('network configuration v2', () => {
     selectNetworkConfigField(config, 'features.tickets.ticketTypes', 'include')
   })
 
+  test('adopts nested exclusions and optional absence with production hash parity', () => {
+    cryptoUtils.init(SERVER_CONFIG.crypto.hashKey)
+    ;(Context as any).crypto = { hash: cryptoUtils.hashObj }
+    const target = copyConfig()
+    target.p2p.netConfigV2 = true
+    target.features.tickets.updateTicketListTimeInMs = 1234
+    target.debug.devPublicKeys.stale = 1
+    selectNetworkConfigField(target, 'features.tickets.updateTicketListTimeInMs', 'exclude')
+    try {
+      const peer = copyConfig()
+      delete peer.p2p.factv2
+      const payload = buildNetworkConfig(peer)
+      payload.features.tickets.ticketTypes = []
+      applyNetworkConfig(target, payload)
+      expect(target.features.tickets.updateTicketListTimeInMs).toBe(1234)
+      expect(target.features.tickets.ticketTypes).toEqual([])
+      expect(target.debug.devPublicKeys).toEqual({})
+      expect(target.p2p).not.toHaveProperty('factv2')
+      expect(hashLocalNetworkConfig(target)).toBe(hashNetConfig(payload))
+    } finally {
+      selectNetworkConfigField(copyConfig(), 'features.tickets.updateTicketListTimeInMs', 'include')
+    }
+  })
+
+  test('uses default types despite unrelated local overrides', () => {
+    const local = copyConfig()
+    local.p2p.scaleConsensusRequired = 1
+    selectNetworkConfigField(local, 'p2p.factv2', 'include')
+    expect(() => validateNetworkConfig(buildNetworkConfig(copyConfig()))).not.toThrow()
+    const invalid = buildNetworkConfig(copyConfig())
+    invalid.p2p.minNodes = 1.5
+    expect(() => validateNetworkConfig(invalid)).toThrow('integer')
+  })
+
+  test('restores ordered selections after compilation fails', () => {
+    const config = copyConfig()
+    selectNetworkConfigField(config, 'features.tickets.ticketTypes', 'exclude')
+    selectNetworkConfigField(config, 'features.tickets', 'include')
+    const before = buildNetworkConfig(config)
+    const compile = jest.spyOn(Ajv.prototype, 'compile').mockImplementationOnce(() => {
+      throw new Error('compile failed')
+    })
+    try {
+      expect(() => selectNetworkConfigField(config, 'features.tickets.ticketTypes', 'include')).toThrow(
+        'compile failed'
+      )
+      expect(buildNetworkConfig(config)).toEqual(before)
+      expect(validateNetworkConfig(before)).toEqual(before)
+    } finally {
+      compile.mockRestore()
+      selectNetworkConfigField(config, 'features.tickets.ticketTypes', 'include')
+    }
+  })
+
   test('includes a new local P2P field only after its migration selects it', () => {
     const config = copyConfig() as any
     config.p2p.futureNetworkFlag = true
@@ -140,7 +192,7 @@ describe('network configuration v2', () => {
     }
   })
 
-  test('preserves local optional P2P values when the payload omits them', () => {
+  test('removes governed optional P2P values when the payload omits them', () => {
     const target = copyConfig()
     const payload = buildNetworkConfig(target)
     for (const field of ['factv2', 'getTxTimestampTimeoutOffset', 'patchNetworkAccountSyncFixes'] as const) {
@@ -148,7 +200,7 @@ describe('network configuration v2', () => {
     }
     applyNetworkConfig(target, payload)
     for (const field of ['factv2', 'getTxTimestampTimeoutOffset', 'patchNetworkAccountSyncFixes'] as const) {
-      expect(target.p2p[field]).toEqual(SERVER_CONFIG.p2p[field])
+      expect(target.p2p).not.toHaveProperty(field)
     }
   })
 

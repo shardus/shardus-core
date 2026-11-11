@@ -23,12 +23,16 @@ const code = ts.transpileModule(handler.getText(source).replace('export ', ''), 
 function sender(responses: unknown[], netConfigV2 = true) {
   const info = jest.fn()
   const post = jest.fn()
-  for (const response of responses) post.mockResolvedValueOnce(response)
+  for (const response of responses) {
+    if (response instanceof Error) post.mockRejectedValueOnce(response)
+    else post.mockResolvedValueOnce(response)
+  }
   const context = {
     config: { p2p: { netConfigV2 } },
     logFlags: { important_as_fatal: true },
     info,
-    utils: { getRandom: (nodes: unknown[]) => nodes },
+    error: jest.fn(),
+    utils: { getRandom: (nodes: unknown[]) => nodes, formatErrorMessage: String },
     Utils: { safeStringify: JSON.stringify },
     nestedCountersInstance: { countEvent: jest.fn() },
     allowBogon: false,
@@ -47,9 +51,9 @@ test('logs missing and retryable join responses without crashing', async () => {
   expect(info).toHaveBeenCalledWith(expect.stringContaining('No join response received, Retry later'))
 })
 
-test('reports a useful error when every join response is missing', async () => {
+test('retries when every join response is missing', async () => {
   const { run } = sender([null, null])
-  await expect(run()).rejects.toThrow('All join requests failed: No join response received, No join response received')
+  await expect(run()).rejects.toThrow('submitJoin: No validators responded; retry joining')
 })
 
 test.each([false, true])('only v2 stops on majority config mismatches (netConfigV2=%s)', async (enabled) => {
@@ -94,4 +98,11 @@ test.each([
     else expect(response).toBeNull()
     expect(countEvent).toHaveBeenCalledTimes(1)
   }
+})
+
+test.each([false, true])('transport errors remain retryable with V2=%s', async (enabled) => {
+  await expect(sender([new Error('timeout'), new Error('timeout')], enabled).run()).rejects.not.toThrow('Fatal:')
+})
+test('explicit fatal validator responses remain fatal', async () => {
+  await expect(sender([{ fatal: true, reason: 'invalid request' }]).run()).rejects.toThrow('Fatal:')
 })

@@ -68,8 +68,9 @@ export function buildNetworkConfig(config: StrictServerConfiguration): NetworkCo
       if (action === 'include' && !target[part]) target[part] = {}
       target = target[part]
     }
-    if (action === 'include') target[field] = clone(source[field])
-    else if (target) delete target[field]
+    if (action === 'include') {
+      if (source[field] !== undefined) target[field] = clone(source[field])
+    } else if (target) delete target[field]
   }
   return networkConfigPayload as NetworkConfig
 }
@@ -82,24 +83,27 @@ export function hashNetConfig(payload: NetworkConfig | Record<string, unknown>):
   return crypto.hash(payload)
 }
 
-function schemaFor(value: unknown): Record<string, unknown> {
+function schemaFor(value: unknown, baseline: unknown = value): Record<string, unknown> {
   if (Array.isArray(value)) {
-    const itemSchema = value.length > 0 ? schemaFor(value[0]) : {}
+    const items = Array.isArray(baseline) ? baseline : value
+    const itemSchema = items.length > 0 ? schemaFor(items[0]) : {}
     return { type: 'array', items: itemSchema }
   }
   if (value !== null && typeof value === 'object') {
     const properties: Record<string, unknown> = {}
-    for (const [key, nestedValue] of Object.entries(value)) properties[key] = schemaFor(nestedValue)
+    for (const [key, nestedValue] of Object.entries(value)) {
+      properties[key] = schemaFor(nestedValue, baseline?.[key] ?? nestedValue)
+    }
     return { type: 'object', properties, required: Object.keys(properties), additionalProperties: false }
   }
-  if (typeof value === 'number') return { type: Number.isInteger(value) ? 'integer' : 'number' }
-  return { type: typeof value }
+  if (typeof baseline === 'number') return { type: Number.isInteger(baseline) ? 'integer' : 'number' }
+  return { type: typeof baseline }
 }
 
 let validate: ValidateFunction
 
 function rebuildSchema(config: StrictServerConfiguration): void {
-  const networkConfigSchema = schemaFor(buildNetworkConfig(config))
+  const networkConfigSchema = schemaFor(buildNetworkConfig(config), SERVER_CONFIG)
   const schemaProperties = networkConfigSchema.properties as Record<string, Record<string, unknown>>
   const p2pSchema = schemaProperties.p2p as {
     required?: string[]
@@ -117,14 +121,19 @@ function rebuildSchema(config: StrictServerConfiguration): void {
   }
   for (const key of ['devPublicKeys', 'multisigKeys']) {
     const debugSchema = schemaProperties.debug.properties as Record<string, Record<string, unknown>>
-    if (debugSchema && key in debugSchema) debugSchema[key] = { type: 'object', additionalProperties: securityLevelSchema }
+    if (debugSchema && key in debugSchema)
+      debugSchema[key] = { type: 'object', additionalProperties: securityLevelSchema }
   }
   validate = new Ajv({ allErrors: true }).compile(networkConfigSchema)
 }
 
 rebuildSchema(SERVER_CONFIG)
 
-export function selectNetworkConfigField(config: StrictServerConfiguration, path: string, action: 'include' | 'exclude'): void {
+export function selectNetworkConfigField(
+  config: StrictServerConfiguration,
+  path: string,
+  action: 'include' | 'exclude'
+): void {
   const parts = path.split('.')
   if (parts.some((part) => !part || part === '__proto__' || part === 'constructor' || part === 'prototype'))
     throw new Error(`Invalid network configuration field: ${path}`)
@@ -135,17 +144,23 @@ export function selectNetworkConfigField(config: StrictServerConfiguration, path
     source = source[part]
   }
   const base = parts[0]
-  if (base === 'p2p' && parts.length === 1 || base === 'debug' && parts.length === 1 ||
-      baseNetworkConfigOmissions.server.includes(base as any) ||
-      (parts.length > 1 && (base === 'p2p' || base === 'debug') &&
-       (baseNetworkConfigOmissions[base] as readonly string[]).includes(parts[1])))
+  if (
+    (base === 'p2p' && parts.length === 1) ||
+    (base === 'debug' && parts.length === 1) ||
+    baseNetworkConfigOmissions.server.includes(base as any) ||
+    (parts.length > 1 &&
+      (base === 'p2p' || base === 'debug') &&
+      (baseNetworkConfigOmissions[base] as readonly string[]).includes(parts[1]))
+  )
     throw new Error(`Protected network configuration field: ${path}`)
-  const previous = selectedFields.get(path)
+  const previous = [...selectedFields]
   selectedFields.delete(path)
   selectedFields.set(path, action)
-  try { rebuildSchema(config) } catch (error) {
-    if (previous) selectedFields.set(path, previous)
-    else selectedFields.delete(path)
+  try {
+    rebuildSchema(config)
+  } catch (error) {
+    selectedFields.clear()
+    for (const [field, selection] of previous) selectedFields.set(field, selection)
     throw error
   }
 }
@@ -160,13 +175,19 @@ export function validateNetworkConfig(value: unknown): NetworkConfig {
 
 export function applyNetworkConfig(target: StrictServerConfiguration, verifiedConfig: NetworkConfig): void {
   const safeConfig = validateNetworkConfig(verifiedConfig)
-  for (const [configSection, value] of Object.entries(safeConfig)) {
-    if (value !== null && typeof value === 'object') {
-      Object.assign(target[configSection], value)
-    } else {
-      target[configSection] = value
+  const apply = (destination: any, governed: any, incoming: any): void => {
+    for (const key of new Set([...Object.keys(governed), ...Object.keys(incoming)])) {
+      if (!Object.prototype.hasOwnProperty.call(incoming, key)) {
+        delete destination[key]
+      } else if (incoming[key] !== null && typeof incoming[key] === 'object' && !Array.isArray(incoming[key])) {
+        if (!destination[key] || typeof destination[key] !== 'object') destination[key] = {}
+        apply(destination[key], governed[key] ?? {}, incoming[key])
+      } else {
+        destination[key] = incoming[key]
+      }
     }
   }
+  apply(target, buildNetworkConfig(target), safeConfig)
 }
 
 export function setAppliedNetworkConfigMetadata(value: AppliedNetworkConfig | null): void {
