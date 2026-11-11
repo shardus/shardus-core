@@ -46,7 +46,17 @@ describe('initialization before P2P initialization with real HTTP helpers', () =
   test('queries, verifies, and applies through actual HTTP and cycle helpers', async () => {
     const target = JSON.parse(JSON.stringify(SERVER_CONFIG))
     target.p2p.netConfigV2 = true
+    target.p2p.networkConfigHashEnforcement = false
+    target.baseDir = 'local-node'
+    target.ip.externalPort = 9007
     const accepted = JSON.parse(JSON.stringify(target))
+    accepted.baseDir = 'peer-node'
+    accepted.ip.externalPort = 9001
+    accepted.p2p.existingArchivers = []
+    accepted.p2p.networkConfigHashEnforcement = true
+    accepted.loadDetection.queueLimit = 150
+    accepted.reporting.recipient = 'http://monitor.example/api'
+    accepted.debug.loseTxChance = 0.25
     accepted.p2p.cycleDuration = 91
     accepted.p2p.rotationCountMultiply = 0.5
     accepted.p2p.extraCyclesToKeepMultiplier = 1.5
@@ -118,6 +128,13 @@ describe('initialization before P2P initialization with real HTTP helpers', () =
     expect(target.p2p.cycleDuration).toBe(91)
     expect(target.p2p.rotationCountMultiply).toBe(0.5)
     expect(target.p2p.extraCyclesToKeepMultiplier).toBe(1.5)
+    expect(target.p2p.networkConfigHashEnforcement).toBe(true)
+    expect(target.loadDetection.queueLimit).toBe(150)
+    expect(target.reporting.recipient).toBe(accepted.reporting.recipient)
+    expect(target.debug.loseTxChance).toBe(0.25)
+    expect(target.baseDir).toBe('local-node')
+    expect(target.ip.externalPort).toBe(9007)
+    expect(target.p2p.existingArchivers).toEqual(SERVER_CONFIG.p2p.existingArchivers)
     expect(hashLocalNetworkConfig(target)).toBe(expectedHash)
     expect(requests).toEqual(['/current-cycle-hash', '/cycle-by-marker?marker=' + marker, '/netconfig'])
   })

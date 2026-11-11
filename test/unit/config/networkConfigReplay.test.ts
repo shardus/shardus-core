@@ -29,6 +29,8 @@ test('normal listOfChanges replay converges to the adopted snapshot', async () =
   const target = JSON.parse(JSON.stringify(SERVER_CONFIG))
   const peer = JSON.parse(JSON.stringify(SERVER_CONFIG))
   peer.p2p.cycleDuration = 91
+  peer.p2p.netConfigV2 = true
+  peer.p2p.networkConfigHashEnforcement = false
   applyNetworkConfig(target, buildNetworkConfig(peer))
   const updated = jest.fn()
   Object.assign(context.result, {
@@ -46,17 +48,20 @@ test('normal listOfChanges replay converges to the adopted snapshot', async () =
   const account = {
     data: {
       listOfChanges: [
-        { cycle: 90, change: { p2p: { cycleDuration: 30 } } },
-        { cycle: 100, change: { p2p: { cycleDuration: 91 } } },
-        { cycle: 101, change: { p2p: { cycleDuration: 120 } } },
+        { cycle: 90, change: { p2p: { cycleDuration: 30, netConfigV2: false } } },
+        { cycle: 100, change: { p2p: { cycleDuration: 91, netConfigV2: true } } },
+        { cycle: 101, change: { p2p: { cycleDuration: 120, networkConfigHashEnforcement: true } } },
       ],
     },
   }
   await context.result.updateConfigChangeQueue(account, 100, false)
   expect(target.p2p.cycleDuration).toBe(91)
+  expect(target.p2p.netConfigV2).toBe(true)
+  expect(target.p2p.networkConfigHashEnforcement).toBe(false)
   expect(buildNetworkConfig(target)).toEqual(buildNetworkConfig(peer))
   await context.result.updateConfigChangeQueue(account, 101, false)
   expect(target.p2p.cycleDuration).toBe(120)
+  expect(target.p2p.networkConfigHashEnforcement).toBe(true)
 })
 
 test('initialization filters self without mutating the signed handshake', () => {

@@ -1717,77 +1717,9 @@ export type StrictServerConfiguration = DeepRequired<ServerConfiguration>
 
 /** Shared v2 exclusions; review new fields for public exposure and hash compatibility. */
 export const baseNetworkConfigOmissions = {
-  server: ['baseDir', 'crypto', 'ip', 'network', 'reporting', 'mode', 'statistics', 'loadDetection', 'rateLimiting'],
-  p2p: ['existingArchivers', 'netConfigV2', 'networkConfigHashEnforcement'],
-  debug: [
-    'ignoreScaleGossipSelfCheck',
-    'loseReceiptChance',
-    'loseTxChance',
-    'canDataRepair',
-    'debugNoTxVoting',
-    'ignoreRecieptChance',
-    'ignoreVoteChance',
-    'failReceiptChance',
-    'voteFlipChance',
-    'skipPatcherRepair',
-    'failNoRepairTxChance',
-    'useNewParitionReport',
-    'oldPartitionSystem',
-    'dumpAccountReportFromSQL',
-    'profiler',
-    'startInFatalsLogMode',
-    'startInErrorLogMode',
-    'verboseNestedCounters',
-    'fakeNetworkDelay',
-    'disableSnapshots',
-    'disableTxCoverageReport',
-    'disableLostNodeReports',
-    'haltOnDataOOS',
-    'countEndpointStart',
-    'countEndpointStop',
-    'hashedDevAuth',
-    'minMultiSigRequiredForEndpoints',
-    'minMultiSigRequiredForGlobalTxs',
-    'minSigRequiredForArchiverWhitelist',
-    'robustQueryDebug',
-    'forwardTXToSyncingNeighbors',
-    'recordAcceptedTx',
-    'recordAccountStates',
-    'useShardusMemoryPatterns',
-    'sanitizeInput',
-    'checkTxGroupChanges',
-    'ignoreTimeCheck',
-    'checkAddressFormat',
-    'produceBadVote',
-    'produceBadChallenge',
-    'debugNTPErrorWindowMs',
-    'enableScopedProfiling',
-    'enableBasicProfiling',
-    'enableCycleRecordDebugTool',
-    'forcedExpiration',
-    'ignoreStandbyRefreshChance',
-    'localEnableCycleRecordDebugTool',
-    'enableTestMode',
-    'highResolutionProfiling',
-    'randomCycleData',
-    'debugStatListMaxSize',
-    'ignoreDataTellChance',
-    'debugNTPBogusDecrements',
-    'startedSyncingDelay',
-    'finishedSyncingDelay',
-    'readyNodeDelay',
-    'qaTestBoolean',
-    'qaTestNumber',
-    'qaTestString',
-    'beforeStateFailChance',
-    'logCSVPerfEvents',
-    'numOfPerfEventsNeededForLogging',
-    'enableDebugFlags',
-    'missConsensusChance',
-    'dropMessageChance',
-    'slowResponseChance',
-    'slowResponseDelay',
-  ],
+  server: ['baseDir', 'ip'],
+  p2p: ['existingArchivers'],
+  debug: [],
 } as const satisfies {
   server: readonly (keyof StrictServerConfiguration)[]
   p2p: readonly (keyof StrictServerConfiguration['p2p'])[]
@@ -1799,10 +1731,9 @@ export type NetworkConfig = Omit<
   StrictServerConfiguration,
   typeof baseNetworkConfigOmissions.server[number] | 'p2p' | 'debug'
 > & {
-  p2p: Partial<Omit<
-    StrictServerConfiguration['p2p'],
-    typeof baseNetworkConfigOmissions.p2p[number] | OptionalNetworkP2PFields
-  >> &
+  p2p: Partial<
+    Omit<StrictServerConfiguration['p2p'], typeof baseNetworkConfigOmissions.p2p[number] | OptionalNetworkP2PFields>
+  > &
     Partial<Pick<StrictServerConfiguration['p2p'], OptionalNetworkP2PFields>>
   debug: Partial<Omit<StrictServerConfiguration['debug'], typeof baseNetworkConfigOmissions.debug[number]>>
 }

@@ -119,8 +119,26 @@ function rebuildSchema(config: StrictServerConfiguration): void {
     type: 'integer',
     enum: Object.values(DevSecurityLevel).filter((value) => typeof value === 'number'),
   }
+  const debugSchema = schemaProperties.debug.properties as Record<string, Record<string, unknown>>
+  // Debug probabilities allow fractions even though their defaults are zero.
+  for (const key of [
+    'loseReceiptChance',
+    'loseTxChance',
+    'ignoreRecieptChance',
+    'ignoreVoteChance',
+    'failReceiptChance',
+    'voteFlipChance',
+    'failNoRepairTxChance',
+    'ignoreStandbyRefreshChance',
+    'ignoreDataTellChance',
+    'beforeStateFailChance',
+    'missConsensusChance',
+    'dropMessageChance',
+    'slowResponseChance',
+  ]) {
+    if (debugSchema && key in debugSchema) debugSchema[key] = { type: 'number' }
+  }
   for (const key of ['devPublicKeys', 'multisigKeys']) {
-    const debugSchema = schemaProperties.debug.properties as Record<string, Record<string, unknown>>
     if (debugSchema && key in debugSchema)
       debugSchema[key] = { type: 'object', additionalProperties: securityLevelSchema }
   }
