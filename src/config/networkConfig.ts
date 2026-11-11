@@ -110,8 +110,10 @@ function rebuildSchema(config: StrictServerConfiguration): void {
     properties: Record<string, Record<string, unknown>>
   }
   // Rotation and cycle retention support fractional multipliers despite integer defaults.
-  p2pSchema.properties.rotationCountMultiply = { type: 'number' }
-  p2pSchema.properties.extraCyclesToKeepMultiplier = { type: 'number' }
+  // Override selected fields only, so migrations can still exclude them.
+  for (const key of ['rotationCountMultiply', 'extraCyclesToKeepMultiplier']) {
+    if (key in p2pSchema.properties) p2pSchema.properties[key] = { type: 'number' }
+  }
   if (Array.isArray(p2pSchema.required)) {
     p2pSchema.required = p2pSchema.required.filter((field) => !OPTIONAL_P2P_FIELDS.has(field))
   }

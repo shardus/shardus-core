@@ -309,6 +309,27 @@ describe('network configuration v2', () => {
     expect(() => validateNetworkConfig(payload)).toThrow('should be integer')
   })
 
+  test.each(['rotationCountMultiply', 'extraCyclesToKeepMultiplier'] as const)(
+    '%s stays excluded until re-inclusion restores fractional validation',
+    (field) => {
+      const config = copyConfig()
+      selectNetworkConfigField(config, `p2p.${field}`, 'exclude')
+      try {
+        const excluded = buildNetworkConfig(config)
+        expect(validateNetworkConfig(excluded).p2p).not.toHaveProperty(field)
+        excluded.p2p[field] = 0.5
+        expect(() => validateNetworkConfig(excluded)).toThrow('additional properties')
+      } finally {
+        selectNetworkConfigField(config, `p2p.${field}`, 'include')
+      }
+      const included = buildNetworkConfig(config)
+      included.p2p[field] = 0.5
+      expect(validateNetworkConfig(included).p2p[field]).toBe(0.5)
+      included.p2p[field] = '0.5' as any
+      expect(() => validateNetworkConfig(included)).toThrow('should be number')
+    }
+  )
+
   test.each([true, false])('matches original selection and previous hashes (optional fields present=%s)', (present) => {
     cryptoUtils.init(SERVER_CONFIG.crypto.hashKey)
     const config = copyConfig()
