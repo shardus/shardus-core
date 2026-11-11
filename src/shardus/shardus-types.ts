@@ -1717,25 +1717,18 @@ export type StrictServerConfiguration = DeepRequired<ServerConfiguration>
 
 /** Shared v2 exclusions; review new fields for public exposure and hash compatibility. */
 export const baseNetworkConfigOmissions = {
-  server: ['baseDir', 'ip'],
+  server: ['baseDir', 'ip', 'debug'],
   p2p: ['existingArchivers'],
-  debug: [],
 } as const satisfies {
   server: readonly (keyof StrictServerConfiguration)[]
   p2p: readonly (keyof StrictServerConfiguration['p2p'])[]
-  debug: readonly (keyof StrictServerConfiguration['debug'])[]
 }
 
-type OptionalNetworkP2PFields = 'factv2' | 'getTxTimestampTimeoutOffset' | 'patchNetworkAccountSyncFixes'
 export type NetworkConfig = Omit<
   StrictServerConfiguration,
-  typeof baseNetworkConfigOmissions.server[number] | 'p2p' | 'debug'
+  typeof baseNetworkConfigOmissions.server[number] | 'p2p'
 > & {
-  p2p: Partial<
-    Omit<StrictServerConfiguration['p2p'], typeof baseNetworkConfigOmissions.p2p[number] | OptionalNetworkP2PFields>
-  > &
-    Partial<Pick<StrictServerConfiguration['p2p'], OptionalNetworkP2PFields>>
-  debug: Partial<Omit<StrictServerConfiguration['debug'], typeof baseNetworkConfigOmissions.debug[number]>>
+  p2p: Partial<Omit<StrictServerConfiguration['p2p'], typeof baseNetworkConfigOmissions.p2p[number]>>
 }
 
 export type StrictLogsConfiguration = DeepRequired<LogsConfiguration>

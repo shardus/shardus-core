@@ -23,7 +23,7 @@ describe('network configuration v2', () => {
     }
   })
 
-  test('includes every server field except node-local paths, addresses and archivers', () => {
+  test('includes every server field except node-local paths, addresses, debug and archivers', () => {
     cryptoUtils.init(SERVER_CONFIG.crypto.hashKey)
     const config = copyConfig()
     for (const optionalFieldsPresent of [true, false]) {
@@ -35,6 +35,7 @@ describe('network configuration v2', () => {
       const expected = JSON.parse(JSON.stringify(config))
       delete expected.baseDir
       delete expected.ip
+      delete expected.debug
       delete expected.p2p.existingArchivers
       const payload = buildNetworkConfig(config)
       expect(payload).toEqual(expected)
@@ -47,19 +48,16 @@ describe('network configuration v2', () => {
     const target = copyConfig()
     const before = copyConfig()
     const payload = buildNetworkConfig(target)
-    payload.debug.devPublicKeys.test = 1
-    payload.features.tickets.ticketTypes.push({ type: 'test', enabled: true })
+    payload.features.tickets.ticketTypes = [{ type: 'test', enabled: true }]
     expect(target.debug.devPublicKeys).toEqual(before.debug.devPublicKeys)
     expect(target.features.tickets.ticketTypes).toEqual(before.features.tickets.ticketTypes)
     applyNetworkConfig(target, payload)
     for (const field of baseNetworkConfigOmissions.server) expect(target[field]).toEqual(before[field])
-    for (const section of ['p2p', 'debug'] as const) {
-      for (const field of baseNetworkConfigOmissions[section]) {
-        expect(target[section][field]).toEqual(before[section][field])
-      }
+    for (const field of baseNetworkConfigOmissions.p2p) {
+      expect(target.p2p[field]).toEqual(before.p2p[field])
     }
-    payload.debug.devPublicKeys.test = 2
-    expect(target.debug.devPublicKeys.test).toBe(1)
+    payload.features.tickets.ticketTypes[0].enabled = false
+    expect(target.features.tickets.ticketTypes[0].enabled).toBe(true)
   })
 
   test('selects fields in migration order and updates validation', () => {
@@ -99,7 +97,7 @@ describe('network configuration v2', () => {
       applyNetworkConfig(target, payload)
       expect(target.features.tickets.updateTicketListTimeInMs).toBe(1234)
       expect(target.features.tickets.ticketTypes).toEqual([])
-      expect(target.debug.devPublicKeys).toEqual({})
+      expect(target.debug.devPublicKeys).toEqual({ stale: 1 })
       expect(target.p2p).not.toHaveProperty('factv2')
       expect(hashLocalNetworkConfig(target)).toBe(hashNetConfig(payload))
     } finally {
@@ -156,6 +154,7 @@ describe('network configuration v2', () => {
     expect(projected.p2p).not.toHaveProperty('existingArchivers')
     expect(projected).not.toHaveProperty('ip')
     expect(projected).not.toHaveProperty('baseDir')
+    expect(projected).not.toHaveProperty('debug')
     for (const section of [
       'crypto',
       'network',
@@ -164,13 +163,12 @@ describe('network configuration v2', () => {
       'statistics',
       'loadDetection',
       'rateLimiting',
-      'debug',
     ] as const) {
       expect(projected[section]).toEqual(SERVER_CONFIG[section])
     }
     expect(projected.p2p.netConfigV2).toBe(SERVER_CONFIG.p2p.netConfigV2)
     expect(projected.p2p.networkConfigHashEnforcement).toBe(SERVER_CONFIG.p2p.networkConfigHashEnforcement)
-    for (const field of ['baseDir', 'ip', 'ip.externalPort', 'p2p.existingArchivers']) {
+    for (const field of ['baseDir', 'ip', 'ip.externalPort', 'debug', 'debug.loseTxChance', 'p2p.existingArchivers']) {
       expect(() => selectNetworkConfigField(copyConfig(), field, 'include')).toThrow('Protected')
     }
   })
@@ -203,7 +201,6 @@ describe('network configuration v2', () => {
       'statistics',
       'loadDetection',
       'rateLimiting',
-      'debug',
     ] as const) {
       expect(target[section]).toEqual(peer[section])
     }
@@ -212,31 +209,21 @@ describe('network configuration v2', () => {
     expect(target.baseDir).toBe('/local/node')
     expect(target.ip.externalPort).toBe(9999)
     expect(target.p2p.existingArchivers).toEqual([])
+    expect(target.debug).toEqual(SERVER_CONFIG.debug)
     expect(hashLocalNetworkConfig(target)).toBe(hashNetConfig(payload))
   })
 
-  test('accepts fractional debug probabilities while rejecting wrong types and fractional counters', () => {
-    const payload = buildNetworkConfig(copyConfig())
-    const chances = Object.keys(SERVER_CONFIG.debug).filter((key) => key.endsWith('Chance'))
-    for (const key of chances) payload.debug[key] = 0.25
-    expect(() => validateNetworkConfig(payload)).not.toThrow()
-    payload.debug.loseTxChance = '0.25' as any
-    expect(() => validateNetworkConfig(payload)).toThrow('number')
-    payload.debug.loseTxChance = 0.25
-    payload.debug.debugStatListMaxSize = 1.5
-    expect(() => validateNetworkConfig(payload)).toThrow('integer')
-  })
-
-  test('keeps explicitly excluded debug probabilities out of validation', () => {
+  test('keeps all debug settings local and rejects attempts to include them', () => {
     const config = copyConfig()
-    selectNetworkConfigField(config, 'debug.loseTxChance', 'exclude')
-    try {
-      const payload = buildNetworkConfig(config)
-      expect(validateNetworkConfig(payload).debug).not.toHaveProperty('loseTxChance')
-      payload.debug.loseTxChance = 0.25
-      expect(() => validateNetworkConfig(payload)).toThrow('additional properties')
-    } finally {
-      selectNetworkConfigField(config, 'debug.loseTxChance', 'include')
+    config.p2p.netConfigV2 = true
+    const before = hashLocalNetworkConfig(config)
+    config.debug.loseTxChance = 0.25
+    config.debug.devPublicKeys.local = 1
+    config.debug.multisigKeys.local = 2
+    expect(hashLocalNetworkConfig(config)).toBe(before)
+    expect(validateNetworkConfig(buildNetworkConfig(config))).not.toHaveProperty('debug')
+    for (const field of ['debug', 'debug.loseTxChance', 'debug.devPublicKeys', 'debug.multisigKeys']) {
+      expect(() => selectNetworkConfigField(config, field, 'include')).toThrow('Protected')
     }
   })
 
@@ -257,12 +244,10 @@ describe('network configuration v2', () => {
       payload[field] = SERVER_CONFIG[field]
       expect(() => validateNetworkConfig(payload)).toThrow('Invalid network configuration')
     }
-    for (const section of ['p2p', 'debug'] as const) {
-      for (const field of baseNetworkConfigOmissions[section]) {
-        const payload = buildNetworkConfig(copyConfig()) as any
-        payload[section][field] = SERVER_CONFIG[section][field] ?? true
-        expect(() => validateNetworkConfig(payload)).toThrow('Invalid network configuration')
-      }
+    for (const field of baseNetworkConfigOmissions.p2p) {
+      const payload = buildNetworkConfig(copyConfig()) as any
+      payload.p2p[field] = SERVER_CONFIG.p2p[field] ?? true
+      expect(() => validateNetworkConfig(payload)).toThrow('Invalid network configuration')
     }
   })
 

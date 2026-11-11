@@ -1,10 +1,5 @@
 import Ajv, { ValidateFunction } from 'ajv'
-import {
-  baseNetworkConfigOmissions,
-  NetworkConfig,
-  DevSecurityLevel,
-  StrictServerConfiguration,
-} from '../shardus/shardus-types'
+import { baseNetworkConfigOmissions, NetworkConfig, StrictServerConfiguration } from '../shardus/shardus-types'
 import SERVER_CONFIG from './server'
 import { crypto } from '../p2p/Context'
 import { NETWORK_CONFIG_HASH_PATTERN } from './networkConfigConstants'
@@ -52,10 +47,8 @@ export function buildNetworkConfig(config: StrictServerConfiguration): NetworkCo
   for (const omittedFieldName of baseNetworkConfigOmissions.server) {
     Reflect.deleteProperty(networkConfigPayload, omittedFieldName)
   }
-  for (const configSection of ['p2p', 'debug'] as const) {
-    for (const omittedFieldName of baseNetworkConfigOmissions[configSection]) {
-      Reflect.deleteProperty(networkConfigPayload[configSection], omittedFieldName)
-    }
+  for (const omittedFieldName of baseNetworkConfigOmissions.p2p) {
+    Reflect.deleteProperty(networkConfigPayload.p2p, omittedFieldName)
   }
   for (const [path, action] of selectedFields) {
     const parts = path.split('.')
@@ -117,33 +110,6 @@ function rebuildSchema(config: StrictServerConfiguration): void {
   if (Array.isArray(p2pSchema.required)) {
     p2pSchema.required = p2pSchema.required.filter((field) => !OPTIONAL_P2P_FIELDS.has(field))
   }
-  const securityLevelSchema = {
-    type: 'integer',
-    enum: Object.values(DevSecurityLevel).filter((value) => typeof value === 'number'),
-  }
-  const debugSchema = schemaProperties.debug.properties as Record<string, Record<string, unknown>>
-  // Debug probabilities allow fractions even though their defaults are zero.
-  for (const key of [
-    'loseReceiptChance',
-    'loseTxChance',
-    'ignoreRecieptChance',
-    'ignoreVoteChance',
-    'failReceiptChance',
-    'voteFlipChance',
-    'failNoRepairTxChance',
-    'ignoreStandbyRefreshChance',
-    'ignoreDataTellChance',
-    'beforeStateFailChance',
-    'missConsensusChance',
-    'dropMessageChance',
-    'slowResponseChance',
-  ]) {
-    if (debugSchema && key in debugSchema) debugSchema[key] = { type: 'number' }
-  }
-  for (const key of ['devPublicKeys', 'multisigKeys']) {
-    if (debugSchema && key in debugSchema)
-      debugSchema[key] = { type: 'object', additionalProperties: securityLevelSchema }
-  }
   validate = new Ajv({ allErrors: true }).compile(networkConfigSchema)
 }
 
@@ -166,11 +132,8 @@ export function selectNetworkConfigField(
   const base = parts[0]
   if (
     (base === 'p2p' && parts.length === 1) ||
-    (base === 'debug' && parts.length === 1) ||
     baseNetworkConfigOmissions.server.includes(base as any) ||
-    (parts.length > 1 &&
-      (base === 'p2p' || base === 'debug') &&
-      (baseNetworkConfigOmissions[base] as readonly string[]).includes(parts[1]))
+    (parts.length > 1 && base === 'p2p' && (baseNetworkConfigOmissions.p2p as readonly string[]).includes(parts[1]))
   )
     throw new Error(`Protected network configuration field: ${path}`)
   const previous = [...selectedFields]

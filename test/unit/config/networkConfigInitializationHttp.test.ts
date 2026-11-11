@@ -14,6 +14,7 @@ import {
 } from '../../../src/config/networkConfig'
 import { adoptNetworkConfig, waitForNetworkConfig } from '../../../src/config/networkConfigInitialization'
 import { initCycleRecords } from '../../../src/types/ajv/CycleRecordSchema'
+import cycleFixture from './networkConfigCycle.json'
 
 describe('initialization before P2P initialization with real HTTP helpers', () => {
   let server: Server
@@ -61,47 +62,7 @@ describe('initialization before P2P initialization with real HTTP helpers', () =
     accepted.p2p.rotationCountMultiply = 0.5
     accepted.p2p.extraCyclesToKeepMultiplier = 1.5
     const expectedHash = hashLocalNetworkConfig(accepted)
-    const cycle: any = {
-      networkId: 'f'.repeat(64),
-      counter: 1,
-      previous: '0'.repeat(64),
-      start: 1,
-      duration: 60,
-      networkConfigHash: expectedHash,
-      mode: 'forming',
-      refreshedArchivers: [],
-      refreshedConsensors: [],
-      activated: [],
-      activatedPublicKeys: [],
-      active: 1,
-      apoptosized: [],
-      appRemoved: [],
-      archiverListHash: '',
-      expired: 0,
-      joined: [],
-      joinedArchivers: [],
-      joinedConsensors: [],
-      leavingArchivers: [],
-      lost: [],
-      lostArchivers: [],
-      lostSyncing: [],
-      maxSyncTime: 1200,
-      nodeListHash: '',
-      refuted: [],
-      refutedArchivers: [],
-      removed: [],
-      removedArchivers: [],
-      returned: [],
-      standby: 0,
-      standbyNodeListHash: '',
-      syncing: 0,
-      target: 10,
-      desired: 10,
-      random: 0,
-      txadd: [],
-      txremove: [],
-      txlisthash: '',
-    }
+    const cycle = { ...cycleFixture, counter: 1, networkConfigHash: expectedHash }
     const marker = hash(cycle)
     const requests: string[] = []
     server = createServer((req, res) => {
@@ -131,7 +92,7 @@ describe('initialization before P2P initialization with real HTTP helpers', () =
     expect(target.p2p.networkConfigHashEnforcement).toBe(true)
     expect(target.loadDetection.queueLimit).toBe(150)
     expect(target.reporting.recipient).toBe(accepted.reporting.recipient)
-    expect(target.debug.loseTxChance).toBe(0.25)
+    expect(target.debug).toEqual(SERVER_CONFIG.debug)
     expect(target.baseDir).toBe('local-node')
     expect(target.ip.externalPort).toBe(9007)
     expect(target.p2p.existingArchivers).toEqual(SERVER_CONFIG.p2p.existingArchivers)

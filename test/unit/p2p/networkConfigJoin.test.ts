@@ -2,7 +2,6 @@ import {
   evaluateNetworkConfigJoin,
   refreshNetworkConfigReference,
   hasNetworkConfigMismatchMajority,
-  NetworkConfigMismatchTracker,
 } from '../../../src/p2p/Join/networkConfig'
 
 const HASH = 'a'.repeat(64)
@@ -80,18 +79,10 @@ describe('network configuration join enforcement', () => {
     ).toMatchObject({ code: 'NETWORK_CONFIG_CYCLE_IN_FUTURE' })
   })
 
-  test('requires a strict majority and bounds repeated mismatches per hash', () => {
+  test('requires a strict majority of mismatches', () => {
     const mismatch = { code: 'NETWORK_CONFIG_HASH_MISMATCH' }
     expect(hasNetworkConfigMismatchMajority(5, [mismatch, mismatch])).toBe(false)
     expect(hasNetworkConfigMismatchMajority(5, [mismatch, mismatch, mismatch])).toBe(true)
-
-    const tracker = new NetworkConfigMismatchTracker()
-    expect(tracker.record(HASH)).toBe(1)
-    expect(tracker.record(HASH)).toBe(2)
-    expect(tracker.record(HASH)).toBe(3)
-    expect(tracker.record(OTHER_HASH)).toBe(1)
-    tracker.reset()
-    expect(tracker.record(OTHER_HASH)).toBe(1)
   })
 })
 

@@ -61,12 +61,6 @@ test.each<[string, (config: StrictServerConfiguration) => void]>([
     },
   ],
   [
-    'debug',
-    (config) => {
-      config.debug.profiler = !config.debug.profiler
-    },
-  ],
-  [
     'netConfigV2',
     (config) => {
       config.p2p.netConfigV2 = false
@@ -125,9 +119,9 @@ test.each<[string, (payload: NetworkConfig) => void]>([
     },
   ],
   [
-    'non-numeric debug probability',
+    'node-local debug section',
     (payload) => {
-      payload.debug.loseTxChance = '0.25' as any
+      ;(payload as any).debug = SERVER_CONFIG.debug
     },
   ],
 ])('rejects %s before applying any shared settings', (_name, invalidate) => {

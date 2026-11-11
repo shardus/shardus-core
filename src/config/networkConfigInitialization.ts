@@ -26,14 +26,9 @@ function validateCycleRecord(cycle: P2P.CycleCreatorTypes.CycleRecord): void {
   if (typeof cycle.networkConfigHash !== 'string') {
     throw new Error('cycle record networkConfigHash is missing or malformed')
   }
-  try {
-    const cycleErrors = verifyPayload(AJVSchemaEnum.CycleRecords, [cycle])
-    if (cycleErrors && cycleErrors.length > 0) {
-      throw new Error(`cycle record schema validation failed: ${cycleErrors.join('; ')}`)
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith('error missing schema')) return
-    throw error
+  const cycleErrors = verifyPayload(AJVSchemaEnum.CycleRecords, [cycle])
+  if (cycleErrors && cycleErrors.length > 0) {
+    throw new Error(`cycle record schema validation failed: ${cycleErrors.join('; ')}`)
   }
 }
 

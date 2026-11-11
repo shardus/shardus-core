@@ -110,26 +110,6 @@ export function evaluateNetworkConfigJoin(
   return { diagnostic: null, response: null }
 }
 
-/** Tracks bounded majority rejections without treating validator-provided hashes as authority. */
-export class NetworkConfigMismatchTracker {
-  private hash: string | null = null
-  private count = 0
-
-  record(hash: string): number {
-    if (hash === this.hash) this.count++
-    else {
-      this.hash = hash
-      this.count = 1
-    }
-    return this.count
-  }
-
-  reset(): void {
-    this.hash = null
-    this.count = 0
-  }
-}
-
 export function hasNetworkConfigMismatchMajority(
   selectedNodeCount: number,
   responses: Array<{ code?: string } | null | undefined>

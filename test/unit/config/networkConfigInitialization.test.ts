@@ -6,11 +6,16 @@ import {
 } from '../../../src/config/networkConfig'
 import { adoptNetworkConfig, getVerifiedNetworkConfigCycle } from '../../../src/config/networkConfigInitialization'
 import { StrictServerConfiguration } from '../../../src/shardus/shardus-types'
+import { initCycleRecords } from '../../../src/types/ajv/CycleRecordSchema'
+import * as schemaHelpers from '../../../src/utils/serialization/SchemaHelpers'
+import cycleFixture from './networkConfigCycle.json'
 
 const HASH = 'a'.repeat(64)
 const MARKER = 'b'.repeat(64)
 const copyConfig = (): StrictServerConfiguration => JSON.parse(JSON.stringify(SERVER_CONFIG))
-const cycle = { counter: 12, networkConfigHash: HASH } as any
+const cycle = { ...cycleFixture, mode: 'forming' as const }
+
+beforeAll(() => initCycleRecords())
 
 describe('network configuration initialization', () => {
   beforeEach(() => setAppliedNetworkConfigMetadata(null))
@@ -121,6 +126,33 @@ describe('network configuration initialization', () => {
         1
       )
     ).rejects.toThrow('cycle marker mismatch')
+  })
+
+  test('rejects a cycle with malformed contents even when its marker agrees', async () => {
+    await expect(
+      getVerifiedNetworkConfigCycle([{ ip: 'peer', port: 1001 }], {
+        queryCycleMarker: async () => ({ marker: MARKER, winningNodes: [{ ip: 'peer', port: 1001 }] }),
+        fetchCycleByMarker: async () => ({ ...cycle, duration: 'invalid' } as any),
+        makeCycleMarker: () => MARKER,
+      })
+    ).rejects.toThrow('cycle record schema validation failed')
+  })
+
+  test('fails closed when the cycle schema is unavailable', async () => {
+    const lookup = jest.spyOn(schemaHelpers, 'getVerifyFunction').mockImplementationOnce(() => {
+      throw new Error('error missing schema CycleRecords')
+    })
+    try {
+      await expect(
+        getVerifiedNetworkConfigCycle([{ ip: 'peer', port: 1001 }], {
+          queryCycleMarker: async () => ({ marker: MARKER, winningNodes: [{ ip: 'peer', port: 1001 }] }),
+          fetchCycleByMarker: async () => cycle,
+          makeCycleMarker: () => MARKER,
+        })
+      ).rejects.toThrow('error missing schema CycleRecords')
+    } finally {
+      lookup.mockRestore()
+    }
   })
 })
 

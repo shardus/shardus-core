@@ -7,6 +7,8 @@ import {
 } from '../../../src/config/networkConfig'
 import { adoptNetworkConfig, waitForNetworkConfig } from '../../../src/config/networkConfigInitialization'
 import { setTimeout as sleep } from 'timers/promises'
+import { initCycleRecords } from '../../../src/types/ajv/CycleRecordSchema'
+import cycle from './networkConfigCycle.json'
 
 jest.mock('timers/promises', () => ({ setTimeout: jest.fn() }))
 
@@ -14,9 +16,11 @@ const HASH = 'a'.repeat(64)
 const MARKER = 'b'.repeat(64)
 const peer = { ip: '127.0.0.1', port: 1001 }
 const copyConfig = () => JSON.parse(JSON.stringify(SERVER_CONFIG))
+beforeAll(() => initCycleRecords())
+
 const dependencies = () => ({
   queryCycleMarker: jest.fn().mockResolvedValue({ marker: MARKER, winningNodes: [peer] }),
-  fetchCycleByMarker: jest.fn().mockResolvedValue({ counter: 12, networkConfigHash: HASH }),
+  fetchCycleByMarker: jest.fn().mockResolvedValue(cycle),
   makeCycleMarker: () => MARKER,
   payloadHash: () => HASH,
   hash: () => HASH,
@@ -169,7 +173,7 @@ describe('network config readiness and cancellation', () => {
         stage === 'marker'
           ? { marker: MARKER, winningNodes: [peer] }
           : stage === 'cycle'
-          ? { counter: 12, networkConfigHash: HASH }
+          ? cycle
           : { config: payload, networkConfigHash: HASH }
       )
       await rejected

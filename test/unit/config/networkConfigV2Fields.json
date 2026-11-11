@@ -1,14 +1,4 @@
 {
-  "TOP_LEVEL_FIELDS": [
-    "globalAccount",
-    "nonceMode",
-    "heartbeatInterval",
-    "transactionExpireTime",
-    "p2p",
-    "sharding",
-    "stateManager",
-    "features"
-  ],
   "P2P_FIELDS": [
     "ipServers",
     "timeServers",
@@ -170,14 +160,5 @@
     "newCycleCertScoring",
     "fixApplyReceiptType",
     "syncV2HistoricalCyclesCount"
-  ],
-  "SHARDING_FIELDS": ["nodesPerConsensusGroup", "nodesPerEdge", "executeInOneShard"],
-  "FEATURES_FIELDS": [
-    "dappFeature1enabled",
-    "fixHomeNodeCheckForTXGroupChanges",
-    "archiverDataSubscriptionsUpdate",
-    "startInServiceMode",
-    "enableRIAccountsCache",
-    "tickets"
   ]
 }
