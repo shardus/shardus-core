@@ -33,6 +33,7 @@ function createConfigChangeQueue(config: StrictServerConfiguration) {
     crypto: { hash: cryptoUtils.hashObj },
     mainLogger: { info: jest.fn() },
     p2p: { configUpdated: jest.fn() },
+    network: { configUpdated: jest.fn() },
     loadDetection: { configUpdated: jest.fn() },
     rateLimiting: { configUpdated: jest.fn() },
     app: { updateNetworkChangeQueue: jest.fn() },
@@ -105,6 +106,21 @@ test('activates V2 and enforcement only at their scheduled cycles and skips alre
   expect(config.p2p.networkConfigHashEnforcement).toBe(true)
   expect(hashLocalNetworkConfig(config)).not.toBe(v2Hash)
   expect(queue.p2p.configUpdated).toHaveBeenCalledTimes(2)
+})
+
+test('listOfChanges refreshes networking after a scheduled timeout change', async () => {
+  cryptoUtils.init(SERVER_CONFIG.crypto.hashKey)
+  const config = JSON.parse(JSON.stringify(SERVER_CONFIG))
+  const queue = createConfigChangeQueue(config)
+  const account = { data: { listOfChanges: [{ cycle: 100, change: { network: { timeout: 17 } } }] } }
+  await queue.updateConfigChangeQueue(account, 99, false)
+  expect(queue.network.configUpdated).not.toHaveBeenCalled()
+  await queue.updateConfigChangeQueue(account, 100, false)
+  expect(config.network.timeout).toBe(17)
+  expect(queue.network.configUpdated).toHaveBeenCalledWith(config)
+  expect(queue.network.configUpdated).toHaveBeenCalledTimes(1)
+  await queue.updateConfigChangeQueue(account, 100, false)
+  expect(queue.network.configUpdated).toHaveBeenCalledTimes(1)
 })
 
 test('initialization filters self without mutating the signed handshake', () => {

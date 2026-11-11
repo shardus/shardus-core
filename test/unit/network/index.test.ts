@@ -330,6 +330,20 @@ describe('NetworkClass', () => {
     })
   })
 
+  describe('configUpdated', () => {
+    it('refreshes the request timeout while preserving local debug delay', () => {
+      network.setDebugNetworkDelay(125)
+      const adopted = {
+        ...config,
+        network: { ...config.network, timeout: 17 },
+        debug: { ...config.debug, fakeNetworkDelay: 0 },
+      }
+      network.configUpdated(adopted as Shardus.StrictServerConfiguration)
+      expect(network.timeout).toBe(17000)
+      expect(network.debugNetworkDelay).toBe(125)
+    })
+  })
+
   describe('setDebugNetworkDelay', () => {
     it('should set the debug network delay', () => {
       network.setDebugNetworkDelay(200)

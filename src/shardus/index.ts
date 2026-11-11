@@ -3498,6 +3498,7 @@ class Shardus extends EventEmitter {
 
       //safe for early path
       this.p2p.configUpdated()
+      this.network.configUpdated(this.config)
       //safe for early path
       this.loadDetection.configUpdated()
       //safe for early path
