@@ -23,26 +23,23 @@ describe('network configuration v2', () => {
     }
   })
 
-  test('matches the previous v2 payload and production hash', () => {
+  test('governs the whole server config except node-local fields, with production hash parity', () => {
     cryptoUtils.init(SERVER_CONFIG.crypto.hashKey)
     const config = copyConfig()
-    const project = (source: any, fields: readonly string[]): any =>
-      Object.fromEntries(fields.filter((field) => source[field] !== undefined).map((field) => [field, source[field]]))
     for (const optionalFieldsPresent of [true, false]) {
       if (!optionalFieldsPresent) {
         delete config.p2p.factv2
         delete config.p2p.getTxTimestampTimeoutOffset
         delete config.p2p.patchNetworkAccountSyncFixes
       }
-      const previous = project(config, oldFields.TOP_LEVEL_FIELDS)
-      previous.p2p = project(config.p2p, oldFields.P2P_FIELDS)
-      previous.sharding = project(config.sharding, oldFields.SHARDING_FIELDS)
-      previous.stateManager = project(config.stateManager, Object.keys(SERVER_CONFIG.stateManager))
-      previous.features = project(config.features, oldFields.FEATURES_FIELDS)
-      previous.debug = { devPublicKeys: config.debug.devPublicKeys, multisigKeys: config.debug.multisigKeys }
+      const expected = JSON.parse(JSON.stringify(config))
+      delete expected.baseDir
+      delete expected.crypto
+      delete expected.ip
+      delete expected.p2p.existingArchivers
       const payload = buildNetworkConfig(config)
-      expect(payload).toEqual(previous)
-      expect(cryptoUtils.hashObj(payload)).toBe(cryptoUtils.hashObj(previous))
+      expect(payload).toEqual(expected)
+      expect(cryptoUtils.hashObj(payload)).toBe(cryptoUtils.hashObj(expected))
       expect(validateNetworkConfig(payload)).toEqual(payload)
     }
   })
@@ -96,6 +93,7 @@ describe('network configuration v2', () => {
     selectNetworkConfigField(target, 'features.tickets.updateTicketListTimeInMs', 'exclude')
     try {
       const peer = copyConfig()
+      peer.p2p.netConfigV2 = true // only a V2 peer serves a V2 payload
       delete peer.p2p.factv2
       const payload = buildNetworkConfig(peer)
       payload.features.tickets.ticketTypes = []
@@ -153,17 +151,64 @@ describe('network configuration v2', () => {
     selectNetworkConfigField(config, 'p2p.futureNetworkFlag', 'exclude')
   })
 
-  test('projects approved fields and excludes bootstrap, local, and selector fields', () => {
-    const projected = buildNetworkConfig(copyConfig())
-    expect(projected.globalAccount).toBe(SERVER_CONFIG.globalAccount)
-    expect(projected.p2p).not.toHaveProperty('existingArchivers')
-    expect(projected.p2p).not.toHaveProperty('netConfigV2')
-    expect(projected.p2p).not.toHaveProperty('networkConfigHashEnforcement')
+  test('excludes only node-local fields and governs everything else', () => {
+    const projected = buildNetworkConfig(copyConfig()) as any
+    expect(projected).not.toHaveProperty('baseDir')
     expect(projected).not.toHaveProperty('crypto')
-    expect(projected).not.toHaveProperty('network')
-    expect(projected).not.toHaveProperty('loadDetection')
-    expect(projected).not.toHaveProperty('rateLimiting')
-    expect(projected.debug).toEqual({ devPublicKeys: {}, multisigKeys: {} })
+    expect(projected).not.toHaveProperty('ip')
+    expect(projected.p2p).not.toHaveProperty('existingArchivers')
+    expect(projected.globalAccount).toBe(SERVER_CONFIG.globalAccount)
+    expect(projected.p2p.netConfigV2).toBe(SERVER_CONFIG.p2p.netConfigV2)
+    expect(projected.p2p.networkConfigHashEnforcement).toBe(SERVER_CONFIG.p2p.networkConfigHashEnforcement)
+    for (const section of ['network', 'reporting', 'mode', 'statistics', 'loadDetection', 'rateLimiting']) {
+      expect(projected[section]).toEqual(SERVER_CONFIG[section])
+    }
+    expect(projected.debug).toEqual(SERVER_CONFIG.debug)
+  })
+
+  test.each<[string, (config: any) => void]>([
+    ['debug', (config) => (config.debug.profiler = !config.debug.profiler)],
+    ['debug governance keys', (config) => (config.debug.multisigKeys.someKey = 1)],
+    ['network', (config) => (config.network.timeout += 1)],
+    ['reporting', (config) => (config.reporting.recipient = 'http://other-monitor/api')],
+    ['mode', (config) => (config.mode = config.mode === 'debug' ? 'release' : 'debug')],
+    ['statistics', (config) => (config.statistics.save = !config.statistics.save)],
+    ['loadDetection', (config) => (config.loadDetection.queueLimit += 1)],
+    ['rateLimiting', (config) => (config.rateLimiting.limitRate = !config.rateLimiting.limitRate)],
+    [
+      'enforcement flag',
+      (config) => (config.p2p.networkConfigHashEnforcement = !config.p2p.networkConfigHashEnforcement),
+    ],
+  ])('changing %s changes the V2 hash', (_name, change) => {
+    const config = copyConfig()
+    config.p2p.netConfigV2 = true
+    const before = hashLocalNetworkConfig(config)
+    change(config)
+    expect(hashLocalNetworkConfig(config)).not.toBe(before)
+  })
+
+  test.each<[string, (config: any) => void]>([
+    ['baseDir', (config) => (config.baseDir = '/elsewhere')],
+    ['crypto', (config) => (config.crypto.keyPairConfig.keyPairJsonFile = 'other-secrets.json')],
+    ['ip', (config) => (config.ip.externalPort += 1)],
+    ['existingArchivers', (config) => (config.p2p.existingArchivers = [])],
+  ])('changing node-local %s does not change the V2 hash', (_name, change) => {
+    const config = copyConfig()
+    config.p2p.netConfigV2 = true
+    const before = hashLocalNetworkConfig(config)
+    change(config)
+    expect(hashLocalNetworkConfig(config)).toBe(before)
+  })
+
+  test('accepts fractional debug probabilities and protects node-local paths from selection', () => {
+    const payload = buildNetworkConfig(copyConfig()) as any
+    payload.debug.loseTxChance = 0.25
+    payload.debug.voteFlipChance = 0.5
+    expect(() => validateNetworkConfig(payload)).not.toThrow()
+    payload.debug.loseTxChance = '0.25'
+    expect(() => validateNetworkConfig(payload)).toThrow('Invalid network configuration')
+    expect(() => selectNetworkConfigField(copyConfig(), 'crypto.hashKey', 'exclude')).toThrow('Protected')
+    expect(() => selectNetworkConfigField(copyConfig(), 'ip.externalIp', 'include')).toThrow('Protected')
   })
 
   test('returns detached projections', () => {
@@ -317,7 +362,7 @@ describe('network configuration v2', () => {
     expect(hashLocalNetworkConfig(config)).toBe(hashNetConfig(payload))
   })
 
-  test('selector flag changes do not alter legacy or v2 hashes', () => {
+  test('selector flags stay out of the legacy hash but are governed in V2', () => {
     const legacy = copyConfig()
     legacy.p2p.netConfigV2 = false
     const legacyHash = hashLocalNetworkConfig(legacy)
@@ -328,10 +373,17 @@ describe('network configuration v2', () => {
     const v2 = copyConfig()
     v2.p2p.netConfigV2 = true
     const v2Hash = hashLocalNetworkConfig(v2)
-    v2.p2p.networkConfigHashEnforcement = !v2.p2p.networkConfigHashEnforcement
     v2.p2p.existingArchivers = []
-    v2.p2p.netConfigV2 = false
-    expect(hashNetConfig(buildNetworkConfig(v2))).toBe(v2Hash)
+    expect(hashLocalNetworkConfig(v2)).toBe(v2Hash)
+    v2.p2p.networkConfigHashEnforcement = !v2.p2p.networkConfigHashEnforcement
+    expect(hashLocalNetworkConfig(v2)).not.toBe(v2Hash)
+    // The selector itself is in the V2 payload. Hash the payload directly: setting the selector false
+    // would otherwise switch hashLocalNetworkConfig to legacy hashing.
+    const selector = copyConfig()
+    selector.p2p.netConfigV2 = true
+    const selectorOn = hashNetConfig(buildNetworkConfig(selector))
+    selector.p2p.netConfigV2 = false
+    expect(hashNetConfig(buildNetworkConfig(selector))).not.toBe(selectorOn)
   })
 
   test('omits absent optional fields without throwing', () => {

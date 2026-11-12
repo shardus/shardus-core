@@ -31,12 +31,14 @@ test('normal listOfChanges replay converges to the adopted snapshot', async () =
   peer.p2p.cycleDuration = 91
   applyNetworkConfig(target, buildNetworkConfig(peer))
   const updated = jest.fn()
+  const networkUpdated = jest.fn()
   Object.assign(context.result, {
     config: target,
     appliedConfigChanges: new Set(),
     crypto: { hash: cryptoUtils.hashObj },
     mainLogger: { info: jest.fn() },
     p2p: { configUpdated: updated },
+    network: { configUpdated: networkUpdated },
     loadDetection: { configUpdated: updated },
     rateLimiting: { configUpdated: updated },
     app: { updateNetworkChangeQueue: jest.fn() },
@@ -55,6 +57,8 @@ test('normal listOfChanges replay converges to the adopted snapshot', async () =
   await context.result.updateConfigChangeQueue(account, 100, false)
   expect(target.p2p.cycleDuration).toBe(91)
   expect(buildNetworkConfig(target)).toEqual(buildNetworkConfig(peer))
+  // Settings NetworkClass copied at construction (e.g. network.timeout) are refreshed on config changes.
+  expect(networkUpdated).toHaveBeenCalledWith(target)
   await context.result.updateConfigChangeQueue(account, 101, false)
   expect(target.p2p.cycleDuration).toBe(120)
 })
