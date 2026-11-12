@@ -10,21 +10,6 @@ import { crypto } from '../p2p/Context'
 import { NETWORK_CONFIG_HASH_PATTERN } from './networkConfigConstants'
 
 const OPTIONAL_P2P_FIELDS = new Set(['factv2', 'getTxTimestampTimeoutOffset', 'patchNetworkAccountSyncFixes'])
-const DEBUG_PROBABILITY_FIELDS = [
-  'loseReceiptChance',
-  'loseTxChance',
-  'ignoreRecieptChance',
-  'ignoreVoteChance',
-  'failReceiptChance',
-  'voteFlipChance',
-  'failNoRepairTxChance',
-  'ignoreStandbyRefreshChance',
-  'ignoreDataTellChance',
-  'beforeStateFailChance',
-  'missConsensusChance',
-  'dropMessageChance',
-  'slowResponseChance',
-] as const
 
 export type { NetworkConfig } from '../shardus/shardus-types'
 
@@ -111,8 +96,21 @@ function schemaFor(value: unknown, baseline: unknown = value): Record<string, un
     }
     return { type: 'object', properties, required: Object.keys(properties), additionalProperties: false }
   }
-  if (typeof baseline === 'number') return { type: Number.isInteger(baseline) ? 'integer' : 'number' }
+  // Numbers are not split into integer/fractional by their default value: the payload hash, not the
+  // adoption schema, decides which values the network runs. Semantic ranges belong where values are set.
+  if (typeof baseline === 'number') return { type: 'number' }
   return { type: typeof baseline }
+}
+
+/** JSON cannot carry non-finite numbers; reject them before cloning silently turns them into null. */
+function assertFiniteNumbers(value: unknown, path = ''): void {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error(`Invalid network configuration: ${path || '/'} is not finite`)
+  } else if (Array.isArray(value)) {
+    value.forEach((item, index) => assertFiniteNumbers(item, `${path}[${index}]`))
+  } else if (value !== null && typeof value === 'object') {
+    for (const [key, nested] of Object.entries(value)) assertFiniteNumbers(nested, `${path}.${key}`)
+  }
 }
 
 let validate: ValidateFunction
@@ -124,9 +122,6 @@ function rebuildSchema(config: StrictServerConfiguration): void {
     required?: string[]
     properties: Record<string, Record<string, unknown>>
   }
-  // Rotation and cycle retention support fractional multipliers despite integer defaults.
-  p2pSchema.properties.rotationCountMultiply = { type: 'number' }
-  p2pSchema.properties.extraCyclesToKeepMultiplier = { type: 'number' }
   if (Array.isArray(p2pSchema.required)) {
     p2pSchema.required = p2pSchema.required.filter((field) => !OPTIONAL_P2P_FIELDS.has(field))
   }
@@ -134,11 +129,8 @@ function rebuildSchema(config: StrictServerConfiguration): void {
     type: 'integer',
     enum: Object.values(DevSecurityLevel).filter((value) => typeof value === 'number'),
   }
+  // Explicit protocol type, not inferred from a default: security levels are DevSecurityLevel values.
   const debugSchema = schemaProperties.debug?.properties as Record<string, Record<string, unknown>>
-  // Debug probabilities are fractions in [0, 1] even though their defaults are 0.
-  for (const key of DEBUG_PROBABILITY_FIELDS) {
-    if (debugSchema && key in debugSchema) debugSchema[key] = { type: 'number' }
-  }
   for (const key of ['devPublicKeys', 'multisigKeys']) {
     if (debugSchema && key in debugSchema)
       debugSchema[key] = { type: 'object', additionalProperties: securityLevelSchema }
@@ -185,6 +177,7 @@ export function selectNetworkConfigField(
 }
 
 export function validateNetworkConfig(value: unknown): NetworkConfig {
+  assertFiniteNumbers(value)
   if (!validate(value)) {
     const detail = validate.errors?.map((error) => `${error.dataPath || '/'} ${error.message}`).join('; ')
     throw new Error(`Invalid network configuration: ${detail || 'schema validation failed'}`)
