@@ -38,6 +38,7 @@ import {
   buildLegacyNetworkConfig,
   buildNetworkConfig,
   hashLocalNetworkConfig,
+  hasNonFiniteNumber,
   refreshNetworkConfigSchema,
   selectNetworkConfigField,
   hashNetConfig,
@@ -577,11 +578,7 @@ class Shardus extends EventEmitter {
       // Values copied before this point (NetworkClass settings, the startup log mode) must follow the
       // adopted config, and genesis migrations can change them too.
       this.network.configUpdated(this.config)
-      const adoptedLogMode = startupLogMode(this.config)
-      if (adoptedLogMode !== this.startupLogMode) {
-        this.logger.setStartupLogMode(adoptedLogMode)
-        this.startupLogMode = adoptedLogMode
-      }
+      this.refreshStartupLogMode()
       if (!genesis) {
         const adoptedTimeIsValid = await Network.checkAndUpdateTimeSyncedOffset(this.config.p2p.timeServers)
         if (signal.aborted) return
@@ -3512,6 +3509,8 @@ class Shardus extends EventEmitter {
       //safe for early path
       this.network.configUpdated(this.config)
       //safe for early path
+      this.refreshStartupLogMode()
+      //safe for early path
       this.loadDetection.configUpdated()
       //safe for early path
       this.rateLimiting.configUpdated()
@@ -3526,8 +3525,30 @@ class Shardus extends EventEmitter {
     }
   }
 
+  /**
+   * Re-apply the log mode selected by debug.startInFatalsLogMode / startInErrorLogMode when the config
+   * selects a different one (after adoption or an approved config change). Comparing with the current mode
+   * leaves log flags set at runtime through the log-flag endpoints alone when an unrelated change arrives.
+   */
+  private refreshStartupLogMode(): void {
+    const configuredLogMode = startupLogMode(this.config)
+    if (configuredLogMode === this.startupLogMode) return
+    this.logger.setStartupLogMode(configuredLogMode)
+    this.startupLogMode = configuredLogMode
+  }
+
   patchObject(existingObject: any, changeObj: any, appData: any) {
     for (const [key, value] of Object.entries(changeObj)) {
+      // JSON such as 1e309 parses to Infinity. It is not representable in the network config (it would
+      // hash and publish as null), so every node skips that value the same way rather than applying it.
+      // Nested objects are recursed into below, so only values assigned as a whole are checked here.
+      const assignedWhole =
+        value === null || typeof value !== 'object' || key === 'devPublicKeys' || key === 'multisigKeys'
+      if (assignedWhole && hasNonFiniteNumber(value)) {
+        this.mainLogger.error(`patchObject: skipped ${key}: non-finite number in config change`)
+        nestedCountersInstance.countEvent('config', `skipped non-finite change to ${key}`)
+        continue
+      }
       if (existingObject[key] != null) {
         /* handle dev key rotation where both keys and values are required */
         if (key === 'devPublicKeys' || key === 'multisigKeys') {

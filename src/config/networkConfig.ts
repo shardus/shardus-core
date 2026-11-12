@@ -106,6 +106,14 @@ function schemaFor(value: unknown, baseline: unknown = value): Record<string, un
   return { type: typeof baseline }
 }
 
+/** True when a value is, or contains, a non-finite number (Infinity, -Infinity or NaN). */
+export function hasNonFiniteNumber(value: unknown): boolean {
+  if (typeof value === 'number') return !Number.isFinite(value)
+  if (Array.isArray(value)) return value.some(hasNonFiniteNumber)
+  if (value !== null && typeof value === 'object') return Object.values(value).some(hasNonFiniteNumber)
+  return false
+}
+
 /** JSON cannot carry non-finite numbers; reject them before cloning silently turns them into null. */
 function assertFiniteNumbers(value: unknown, path = ''): void {
   if (typeof value === 'number') {
