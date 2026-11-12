@@ -1095,12 +1095,18 @@ export async function firstJoin(): Promise<string> {
 //   }
 // }
 
-/** Set when a majority of validators required network config fields this node could not send. */
+/**
+ * Set when a majority of validators required network config fields this node could not send, and cleared
+ * only after the adoption that follows has fully succeeded (adoption, refreshes and the time check).
+ */
 let networkConfigAdoptionRequested = false
 
-/** True until a node asked for network config fields has adopted the network config. */
 export function isNetworkConfigAdoptionPending(): boolean {
-  return networkConfigAdoptionRequested && !getAppliedNetworkConfigMetadata()
+  return networkConfigAdoptionRequested
+}
+
+export function completeNetworkConfigAdoption(): void {
+  networkConfigAdoptionRequested = false
 }
 
 export async function submitJoinV2(

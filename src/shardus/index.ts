@@ -92,7 +92,7 @@ import { Utils } from '@shardus/lib-types'
 import { getActiveNodesFromArchiver, getOurNodeIndex, isNodeInRotationBounds } from '../p2p/Utils'
 import ShardFunctions from '../state-manager/shardFunctions'
 import SocketIO from 'socket.io'
-import { nodeListFromStates, queueFinishedSyncingRequest } from '../p2p/Join'
+import { completeNetworkConfigAdoption, nodeListFromStates, queueFinishedSyncingRequest } from '../p2p/Join'
 import * as NodeList from '../p2p/NodeList'
 import { P2P } from '@shardus/lib-types'
 import * as csvPerfEvents from './../logger/csvPerfEvents'
@@ -3527,15 +3527,18 @@ class Shardus extends EventEmitter {
 
   /**
    * Adopts the network config for a node that started with netConfigV2 off after the network turned it on,
-   * once validators reject its join requests with NETWORK_CONFIG_FIELDS_REQUIRED. The app hook replays the
-   * migrations for the network's active version, which turns netConfigV2 on; until the archivers report that
-   * version this returns and the join loop asks again. The subsystems already exist here, so they are
-   * refreshed the same way as for an approved config change.
+   * once validators reject its join requests with NETWORK_CONFIG_FIELDS_REQUIRED. Enforcing validators show
+   * the network runs v2, and the verified payload carries p2p.netConfigV2, so adoption does not wait for the
+   * local flag. The app hook runs on every attempt (applied migrations are skipped) so newer archiver data can
+   * correct the selection. The request stays pending until every step below succeeds.
+   *
+   * Consumers built from the config before this point (the lib-net transport, StateManager's copied debug
+   * settings, Reporter) are not rebuilt. They are refreshed only as far as an approved config change refreshes
+   * them, which is also what a joiner on dev gets from replaying listOfChanges.
    */
   async adoptNetworkConfigWhileJoining(activeNodes: P2P.P2PTypes.Node[]): Promise<void> {
-    if (!this.config.p2p.netConfigV2) await this.app.prepareNetworkConfigMigrations?.(false)
+    await this.app.prepareNetworkConfigMigrations?.(false)
     /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] join-adoption', { netConfigV2: this.config.p2p.netConfigV2 })
-    if (!this.config.p2p.netConfigV2) return
     refreshNetworkConfigSchema(this.config)
     await adoptNetworkConfig(
       this.config,
@@ -3554,6 +3557,7 @@ class Shardus extends EventEmitter {
     if (!(await Network.checkAndUpdateTimeSyncedOffset(this.config.p2p.timeServers))) {
       throw new Error('Time is not in sync using the adopted network configuration')
     }
+    completeNetworkConfigAdoption()
   }
 
   /**
