@@ -114,8 +114,8 @@ describe('network configuration v2', () => {
     selectNetworkConfigField(local, 'p2p.factv2', 'include')
     expect(() => validateNetworkConfig(buildNetworkConfig(copyConfig()))).not.toThrow()
     const invalid = buildNetworkConfig(copyConfig())
-    invalid.p2p.minNodes = 1.5
-    expect(() => validateNetworkConfig(invalid)).toThrow('integer')
+    ;(invalid.p2p as any).minNodes = '15'
+    expect(() => validateNetworkConfig(invalid)).toThrow('should be number')
   })
 
   test('restores ordered selections after compilation fails', () => {
@@ -200,15 +200,57 @@ describe('network configuration v2', () => {
     expect(hashLocalNetworkConfig(config)).toBe(before)
   })
 
-  test('accepts fractional debug probabilities and protects node-local paths from selection', () => {
+  test('accepts any finite number regardless of the default and protects node-local paths from selection', () => {
     const payload = buildNetworkConfig(copyConfig()) as any
+    // Integer defaults (0, 1, 15) do not make the schema reject fractions the network committed to.
     payload.debug.loseTxChance = 0.25
-    payload.debug.voteFlipChance = 0.5
+    payload.p2p.rotationCountMultiply = 0.5
+    payload.p2p.minNodes = 1.5
     expect(() => validateNetworkConfig(payload)).not.toThrow()
     payload.debug.loseTxChance = '0.25'
     expect(() => validateNetworkConfig(payload)).toThrow('Invalid network configuration')
     expect(() => selectNetworkConfigField(copyConfig(), 'crypto.hashKey', 'exclude')).toThrow('Protected')
     expect(() => selectNetworkConfigField(copyConfig(), 'ip.externalIp', 'include')).toThrow('Protected')
+  })
+
+  test.each([
+    ['Infinity', Infinity],
+    ['-Infinity', -Infinity],
+    ['NaN', NaN],
+  ])('rejects a non-finite number (%s) before cloning would turn it into null', (_name, value) => {
+    const payload = buildNetworkConfig(copyConfig()) as any
+    payload.p2p.cycleDuration = value
+    expect(() => validateNetworkConfig(payload)).toThrow('.p2p.cycleDuration is not finite')
+    // A JSON body such as {"timeout":1e309} parses to Infinity.
+    const parsed = JSON.parse(
+      JSON.stringify(buildNetworkConfig(copyConfig())).replace('"timeout":5', '"timeout":1e309')
+    )
+    expect(parsed.network.timeout).toBe(Infinity)
+    expect(() => validateNetworkConfig(parsed)).toThrow('.network.timeout is not finite')
+  })
+
+  test('keeps the explicit DevSecurityLevel schema for governance key maps', () => {
+    const payload = buildNetworkConfig(copyConfig()) as any
+    payload.debug.multisigKeys.someKey = 3
+    expect(() => validateNetworkConfig(payload)).not.toThrow()
+    payload.debug.multisigKeys.someKey = 2.5
+    expect(() => validateNetworkConfig(payload)).toThrow('Invalid network configuration')
+    payload.debug.multisigKeys.someKey = 999
+    expect(() => validateNetworkConfig(payload)).toThrow('Invalid network configuration')
+  })
+
+  test('an excluded fractional field stays out of the schema', () => {
+    const config = copyConfig()
+    selectNetworkConfigField(config, 'p2p.rotationCountMultiply', 'exclude')
+    try {
+      const payload = buildNetworkConfig(config) as any
+      expect(payload.p2p).not.toHaveProperty('rotationCountMultiply')
+      expect(() => validateNetworkConfig(payload)).not.toThrow()
+      payload.p2p.rotationCountMultiply = 0.5
+      expect(() => validateNetworkConfig(payload)).toThrow('should NOT have additional properties')
+    } finally {
+      selectNetworkConfigField(config, 'p2p.rotationCountMultiply', 'include')
+    }
   })
 
   test('returns detached projections', () => {
@@ -271,13 +313,13 @@ describe('network configuration v2', () => {
     expect(target.p2p.cycleDuration).toBe(77)
   })
 
-  test('preserves numeric type and integer count validation', () => {
+  test('checks basic types but not integer-ness inferred from defaults', () => {
     const payload = buildNetworkConfig(copyConfig())
     ;(payload.p2p as any).rotationCountMultiply = '0.5'
     expect(() => validateNetworkConfig(payload)).toThrow('should be number')
     payload.p2p.rotationCountMultiply = 0.5
     payload.p2p.minNodes = 1.5
-    expect(() => validateNetworkConfig(payload)).toThrow('should be integer')
+    expect(() => validateNetworkConfig(payload)).not.toThrow()
   })
 
   test.each([true, false])('matches original selection and previous hashes (optional fields present=%s)', (present) => {
