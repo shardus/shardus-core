@@ -10,6 +10,21 @@ import { crypto } from '../p2p/Context'
 import { NETWORK_CONFIG_HASH_PATTERN } from './networkConfigConstants'
 
 const OPTIONAL_P2P_FIELDS = new Set(['factv2', 'getTxTimestampTimeoutOffset', 'patchNetworkAccountSyncFixes'])
+const DEBUG_PROBABILITY_FIELDS = [
+  'loseReceiptChance',
+  'loseTxChance',
+  'ignoreRecieptChance',
+  'ignoreVoteChance',
+  'failReceiptChance',
+  'voteFlipChance',
+  'failNoRepairTxChance',
+  'ignoreStandbyRefreshChance',
+  'ignoreDataTellChance',
+  'beforeStateFailChance',
+  'missConsensusChance',
+  'dropMessageChance',
+  'slowResponseChance',
+] as const
 
 export type { NetworkConfig } from '../shardus/shardus-types'
 
@@ -119,8 +134,12 @@ function rebuildSchema(config: StrictServerConfiguration): void {
     type: 'integer',
     enum: Object.values(DevSecurityLevel).filter((value) => typeof value === 'number'),
   }
+  const debugSchema = schemaProperties.debug?.properties as Record<string, Record<string, unknown>>
+  // Debug probabilities are fractions in [0, 1] even though their defaults are 0.
+  for (const key of DEBUG_PROBABILITY_FIELDS) {
+    if (debugSchema && key in debugSchema) debugSchema[key] = { type: 'number' }
+  }
   for (const key of ['devPublicKeys', 'multisigKeys']) {
-    const debugSchema = schemaProperties.debug.properties as Record<string, Record<string, unknown>>
     if (debugSchema && key in debugSchema)
       debugSchema[key] = { type: 'object', additionalProperties: securityLevelSchema }
   }

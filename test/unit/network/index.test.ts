@@ -330,6 +330,28 @@ describe('NetworkClass', () => {
     })
   })
 
+  describe('configUpdated', () => {
+    it('refreshes settings copied by the constructor, including the network timeout', () => {
+      const updated = {
+        ...config,
+        network: { ...config.network, timeout: 7 },
+        p2p: {
+          ...config.p2p,
+          useLruCacheForSocketMgmt: false,
+          lruCacheSizeForSocketMgmt: 50,
+          payloadSizeLimitInBytes: 1234,
+          headerSizeLimitInBytes: 56,
+        },
+      }
+      network.configUpdated(updated as Shardus.StrictServerConfiguration)
+      expect(network.timeout).toBe(7000)
+      expect(network.useLruCacheForSocketMgmt).toBe(false)
+      expect(network.lruCacheSizeForSocketMgmt).toBe(50)
+      expect(network.payloadSizeLimitInBytes).toBe(1234)
+      expect(network.headerSizeLimitInBytes).toBe(56)
+    })
+  })
+
   describe('setDebugNetworkDelay', () => {
     it('should set the debug network delay', () => {
       network.setDebugNetworkDelay(200)
