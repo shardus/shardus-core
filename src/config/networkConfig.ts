@@ -60,17 +60,21 @@ export function buildNetworkConfig(config: StrictServerConfiguration): NetworkCo
   for (const [path, action] of selectedFields) {
     const parts = path.split('.')
     const field = parts.pop() as string
-    let source: any = config
-    let target: any = networkConfigPayload
-    for (const part of parts) {
-      source = source[part]
-      if (!target) break
-      if (action === 'include' && !target[part]) target[part] = {}
-      target = target[part]
-    }
     if (action === 'include') {
-      if (source[field] !== undefined) target[field] = clone(source[field])
-    } else if (target) delete target[field]
+      // A selected path can be absent from a config built elsewhere; include only values that exist,
+      // without creating empty parents.
+      const value = parts.reduce<any>((node, part) => node?.[part], config)?.[field]
+      if (value === undefined) continue
+      let target: any = networkConfigPayload
+      for (const part of parts) {
+        if (target[part] === null || typeof target[part] !== 'object') target[part] = {}
+        target = target[part]
+      }
+      target[field] = clone(value)
+    } else {
+      const parent = parts.reduce<any>((node, part) => node?.[part], networkConfigPayload)
+      if (parent !== null && typeof parent === 'object') delete parent[field]
+    }
   }
   return networkConfigPayload as NetworkConfig
 }
@@ -140,6 +144,14 @@ function rebuildSchema(config: StrictServerConfiguration): void {
 
 rebuildSchema(SERVER_CONFIG)
 
+/**
+ * Rebuild the adoption schema from the live config, e.g. after app migrations have assigned values or
+ * changed selections, so the expected payload shape matches this node's migrated config.
+ */
+export function refreshNetworkConfigSchema(config: StrictServerConfiguration): void {
+  rebuildSchema(config)
+}
+
 export function selectNetworkConfigField(
   config: StrictServerConfiguration,
   path: string,
@@ -150,6 +162,8 @@ export function selectNetworkConfigField(
     throw new Error(`Invalid network configuration field: ${path}`)
   let source: any = config
   for (const part of parts) {
+    // Arrays are selected as a whole; the schema has no way to describe a single excluded element.
+    if (Array.isArray(source)) throw new Error(`Array elements cannot be selected: ${path}`)
     if (source === null || typeof source !== 'object' || !Object.prototype.hasOwnProperty.call(source, part))
       throw new Error(`Unknown network configuration field: ${path}`)
     source = source[part]
