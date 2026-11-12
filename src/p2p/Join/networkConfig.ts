@@ -130,12 +130,20 @@ export class NetworkConfigMismatchTracker {
   }
 }
 
+export function hasNetworkConfigResponseMajority(
+  selectedNodeCount: number,
+  responses: Array<{ code?: string } | null | undefined>,
+  code: NetworkConfigJoinResponseCode
+): boolean {
+  const matches = responses.filter((response) => response?.code === code).length
+  return matches >= Math.floor(selectedNodeCount / 2) + 1
+}
+
 export function hasNetworkConfigMismatchMajority(
   selectedNodeCount: number,
   responses: Array<{ code?: string } | null | undefined>
 ): boolean {
-  const mismatches = responses.filter((response) => response?.code === 'NETWORK_CONFIG_HASH_MISMATCH').length
-  return mismatches >= Math.floor(selectedNodeCount / 2) + 1
+  return hasNetworkConfigResponseMajority(selectedNodeCount, responses, 'NETWORK_CONFIG_HASH_MISMATCH')
 }
 
 /** Refresh the cycle reference without changing the configuration already applied. */

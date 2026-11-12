@@ -49,6 +49,7 @@ import {
   evaluateNetworkConfigJoin,
   DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE,
   hasNetworkConfigMismatchMajority,
+  hasNetworkConfigResponseMajority,
   NetworkConfigJoinResponseCode,
 } from './networkConfig'
 
@@ -1094,6 +1095,14 @@ export async function firstJoin(): Promise<string> {
 //   }
 // }
 
+/** Set when a majority of validators required network config fields this node could not send. */
+let networkConfigAdoptionRequested = false
+
+/** True until a node asked for network config fields has adopted the network config. */
+export function isNetworkConfigAdoptionPending(): boolean {
+  return networkConfigAdoptionRequested && !getAppliedNetworkConfigMetadata()
+}
+
 export async function submitJoinV2(
   nodes: P2P.P2PTypes.Node[],
   joinRequest: P2P.JoinTypes.JoinRequest & P2P.P2PTypes.SignedObject
@@ -1177,6 +1186,15 @@ export async function submitJoinV2(
     throw new Error(
       `Fatal: Network configuration conformance failed: ${networkConfigMismatches}/${selectedNodes.length} validators rejected the applied hash ${submittedHash}`
     )
+  }
+
+  if (
+    !getAppliedNetworkConfigMetadata() &&
+    hasNetworkConfigResponseMajority(selectedNodes.length, responses, 'NETWORK_CONFIG_FIELDS_REQUIRED')
+  ) {
+    // This node started before the network enabled netConfigV2; the next join attempt adopts it first.
+    nestedCountersInstance.countEvent('p2p', 'submitJoin: network config fields required majority')
+    networkConfigAdoptionRequested = true
   }
 
   if (unreachable >= 2) {

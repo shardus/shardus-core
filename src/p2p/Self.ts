@@ -282,6 +282,9 @@ export function startupV2(shardus: Shardus, initialArchiverHandshake?: InitialAr
           activeNodes.splice(ourIdx, 1)
         }
 
+        // Validators required network config fields: adopt the network config before the next request.
+        if (Join.isNetworkConfigAdoptionPending()) await shardus.adoptNetworkConfigWhileJoining(activeNodes)
+
         // Get latest cycle record from active nodes
         const latestCycle = await (Context.config.p2p.netConfigV2
           ? getVerifiedNetworkConfigCycle(activeNodes, { makeCycleMarker: CycleCreator.makeCycleMarker })

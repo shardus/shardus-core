@@ -132,7 +132,9 @@ test('a config change carrying a non-finite number skips that value and applies 
 test('initialization filters self without mutating the signed handshake', () => {
   let peers: ts.Expression
   const visit = (node: ts.Node) => {
-    if (ts.isCallExpression(node) && node.expression.getText(source) === 'adoptNetworkConfig') peers = node.arguments[1]
+    // The startup call; the join loop passes a list that Self.ts has already filtered.
+    if (!peers && ts.isCallExpression(node) && node.expression.getText(source) === 'adoptNetworkConfig')
+      peers = node.arguments[1]
     ts.forEachChild(node, visit)
   }
   visit(source)
