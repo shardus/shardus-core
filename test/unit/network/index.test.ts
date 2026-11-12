@@ -345,10 +345,20 @@ describe('NetworkClass', () => {
       }
       network.configUpdated(updated as Shardus.StrictServerConfiguration)
       expect(network.timeout).toBe(7000)
+      expect(network.debugNetworkDelay).toBe(0)
       expect(network.useLruCacheForSocketMgmt).toBe(false)
       expect(network.lruCacheSizeForSocketMgmt).toBe(50)
       expect(network.payloadSizeLimitInBytes).toBe(1234)
       expect(network.headerSizeLimitInBytes).toBe(56)
+    })
+
+    it('follows the governed debug.fakeNetworkDelay', () => {
+      const withDelay = { ...config, debug: { ...config.debug, fakeNetworkDelay: 250 } }
+      network.configUpdated(withDelay as Shardus.StrictServerConfiguration)
+      expect(network.debugNetworkDelay).toBe(250)
+      const withoutDelay = { ...config, debug: { ...config.debug, fakeNetworkDelay: 0 } }
+      network.configUpdated(withoutDelay as Shardus.StrictServerConfiguration)
+      expect(network.debugNetworkDelay).toBe(0)
     })
   })
 

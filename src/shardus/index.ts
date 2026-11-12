@@ -164,9 +164,17 @@ interface Shardus {
 /**
  * The main module that is used by the app developer to interact with the shardus api
  */
+/** Log mode selected by the startup debug flags: 'fatal', 'error', or '' for the default flags. */
+function startupLogMode(config: ShardusTypes.StrictServerConfiguration): string {
+  if (config?.debug?.startInFatalsLogMode) return 'fatal'
+  if (config?.debug?.startInErrorLogMode) return 'error'
+  return ''
+}
+
 class Shardus extends EventEmitter {
   private readonly networkConfigInitializationController = new AbortController()
   private joinStarted = false
+  private startupLogMode = ''
   constructor({ server: config, logs: logsConfig, storage: storageConfig }: ShardusTypes.StrictShardusConfiguration) {
     super()
     this.debugForeverLoopsEnabled = true
@@ -178,18 +186,10 @@ class Shardus extends EventEmitter {
     this.profiler = new Profiler()
     logFlags.verbose = false
 
-    let startInFatalsLogMode = config && config.debug && config.debug.startInFatalsLogMode ? true : false
-    let startInErrorsLogMode = config && config.debug && config.debug.startInErrorLogMode ? true : false
-
-    let dynamicLogMode = ''
-    if (startInFatalsLogMode === true) {
-      dynamicLogMode = 'fatal'
-    } else if (startInErrorsLogMode === true) {
-      dynamicLogMode = 'error'
-    }
+    this.startupLogMode = startupLogMode(config)
 
     initAjvSchemas()
-    this.logger = new Logger(config.baseDir, logsConfig, dynamicLogMode)
+    this.logger = new Logger(config.baseDir, logsConfig, this.startupLogMode)
     Context.setLoggerContext(this.logger)
     Snapshot.initLogger()
 
@@ -574,8 +574,15 @@ class Shardus extends EventEmitter {
         /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] initialization-cancelled')
         return
       }
+      // Values copied before this point (NetworkClass settings, the startup log mode) must follow the
+      // adopted config, and genesis migrations can change them too.
+      this.network.configUpdated(this.config)
+      const adoptedLogMode = startupLogMode(this.config)
+      if (adoptedLogMode !== this.startupLogMode) {
+        this.logger.setStartupLogMode(adoptedLogMode)
+        this.startupLogMode = adoptedLogMode
+      }
       if (!genesis) {
-        this.network.configUpdated(this.config)
         const adoptedTimeIsValid = await Network.checkAndUpdateTimeSyncedOffset(this.config.p2p.timeServers)
         if (signal.aborted) return
         if (!adoptedTimeIsValid) throw new Error('Time is not in sync using the adopted network configuration')
