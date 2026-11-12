@@ -1719,6 +1719,13 @@ export type StrictServerConfiguration = DeepRequired<ServerConfiguration>
  * Shared v2 exclusions: node-local fields only. Every other config field is hashed into
  * networkConfigHash, published on /netconfig, and adopted by joining nodes, so it must match
  * across the network. Review new fields for public exposure and hash compatibility.
+ *
+ * Staged activation of a new config field: the dapp excludes it network-wide with
+ * excludeNetworkConfigField() in the migration for the current active version, and includes it with
+ * includeNetworkConfigField() in the migration for the activating version. Excluding a field only
+ * keeps it out of the hash; its code still runs. Until activation, the field's default must reproduce
+ * the previous behavior (or its code must be gated on activation), so nodes on old and new binaries
+ * behave the same.
  */
 export const baseNetworkConfigOmissions = {
   server: ['baseDir', 'crypto', 'ip'],

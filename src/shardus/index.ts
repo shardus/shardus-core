@@ -38,6 +38,7 @@ import {
   buildLegacyNetworkConfig,
   buildNetworkConfig,
   hashLocalNetworkConfig,
+  refreshNetworkConfigSchema,
   selectNetworkConfigField,
   hashNetConfig,
   setAppliedNetworkConfigMetadata,
@@ -541,6 +542,7 @@ class Shardus extends EventEmitter {
           if (isGenesis) {
             signal.throwIfAborted()
             await this.app.prepareNetworkConfigMigrations?.(true)
+            refreshNetworkConfigSchema(this.config)
             const applied = {
               networkConfigHash: hashLocalNetworkConfig(this.config),
               networkConfigCycleMarker: '0'.repeat(64),
@@ -550,6 +552,8 @@ class Shardus extends EventEmitter {
             /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] genesis-config', applied)
           } else {
             await this.app.prepareNetworkConfigMigrations?.(false)
+            // The joiner's schema must reflect its migrated config before it validates peer payloads.
+            refreshNetworkConfigSchema(this.config)
             await adoptNetworkConfig(
               this.config,
               activeNodes.filter(

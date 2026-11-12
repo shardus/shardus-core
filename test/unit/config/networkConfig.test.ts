@@ -9,6 +9,7 @@ import {
   buildNetworkConfig,
   hashLocalNetworkConfig,
   hashNetConfig,
+  refreshNetworkConfigSchema,
   selectNetworkConfigField,
   validateNetworkConfig,
 } from '../../../src/config/networkConfig'
@@ -149,6 +150,56 @@ describe('network configuration v2', () => {
     expect(buildNetworkConfig(config).p2p).toHaveProperty('futureNetworkFlag', true)
     expect(validateNetworkConfig(buildNetworkConfig(config))).toHaveProperty('p2p.futureNetworkFlag', true)
     selectNetworkConfigField(config, 'p2p.futureNetworkFlag', 'exclude')
+  })
+
+  test('rejects selecting inside an array but allows selecting the array as a whole', () => {
+    const config = copyConfig()
+    expect(() => selectNetworkConfigField(config, 'features.tickets.ticketTypes.0.enabled', 'exclude')).toThrow(
+      'Array elements cannot be selected'
+    )
+    expect(() => selectNetworkConfigField(config, 'features.tickets.ticketTypes.0', 'exclude')).toThrow(
+      'Array elements cannot be selected'
+    )
+    selectNetworkConfigField(config, 'features.tickets.ticketTypes', 'exclude')
+    try {
+      const payload = buildNetworkConfig(config)
+      expect(payload.features.tickets).not.toHaveProperty('ticketTypes')
+      expect(() => validateNetworkConfig(payload)).not.toThrow()
+    } finally {
+      selectNetworkConfigField(config, 'features.tickets.ticketTypes', 'include')
+    }
+  })
+
+  test('a selected path whose parent is missing neither throws nor creates empty parents', () => {
+    const config = copyConfig()
+    selectNetworkConfigField(config, 'features.tickets.ticketTypes', 'include')
+    selectNetworkConfigField(config, 'features.tickets.updateTicketListTimeInMs', 'exclude')
+    try {
+      const withoutTickets = copyConfig() as any
+      delete withoutTickets.features.tickets
+      let payload: any
+      expect(() => (payload = buildNetworkConfig(withoutTickets))).not.toThrow()
+      expect(payload.features).not.toHaveProperty('tickets')
+      const withoutFeatures = copyConfig() as any
+      delete withoutFeatures.features
+      expect(() => (payload = buildNetworkConfig(withoutFeatures))).not.toThrow()
+      expect(payload).not.toHaveProperty('features')
+    } finally {
+      selectNetworkConfigField(config, 'features.tickets.updateTicketListTimeInMs', 'include')
+    }
+  })
+
+  test('refreshes the schema from the migrated config, so migrated values are expected from peers', () => {
+    const migrated = copyConfig() as any
+    migrated.p2p.migratedFlag = true // e.g. assigned by an app migration, with no selection call
+    expect(() => validateNetworkConfig(buildNetworkConfig(migrated))).toThrow('should NOT have additional properties')
+    refreshNetworkConfigSchema(migrated)
+    try {
+      expect(() => validateNetworkConfig(buildNetworkConfig(migrated))).not.toThrow()
+    } finally {
+      refreshNetworkConfigSchema(copyConfig())
+    }
+    expect(() => validateNetworkConfig(buildNetworkConfig(copyConfig()))).not.toThrow()
   })
 
   test('excludes only node-local fields and governs everything else', () => {
