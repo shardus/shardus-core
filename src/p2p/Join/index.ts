@@ -50,6 +50,7 @@ import {
   DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE,
   hasNetworkConfigMismatchMajority,
   hasNetworkConfigResponseMajority,
+  requestNetworkConfigAdoption,
   NetworkConfigJoinResponseCode,
 } from './networkConfig'
 
@@ -1095,20 +1096,6 @@ export async function firstJoin(): Promise<string> {
 //   }
 // }
 
-/**
- * Set when a majority of validators required network config fields this node could not send, and cleared
- * only after the adoption that follows has fully succeeded (adoption, refreshes and the time check).
- */
-let networkConfigAdoptionRequested = false
-
-export function isNetworkConfigAdoptionPending(): boolean {
-  return networkConfigAdoptionRequested
-}
-
-export function completeNetworkConfigAdoption(): void {
-  networkConfigAdoptionRequested = false
-}
-
 export async function submitJoinV2(
   nodes: P2P.P2PTypes.Node[],
   joinRequest: P2P.JoinTypes.JoinRequest & P2P.P2PTypes.SignedObject
@@ -1200,7 +1187,7 @@ export async function submitJoinV2(
   ) {
     // This node started before the network enabled netConfigV2; the next join attempt adopts it first.
     nestedCountersInstance.countEvent('p2p', 'submitJoin: network config fields required majority')
-    networkConfigAdoptionRequested = true
+    requestNetworkConfigAdoption()
   }
 
   if (unreachable >= 2) {

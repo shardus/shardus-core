@@ -2,6 +2,12 @@ import { readFileSync } from 'fs'
 import path from 'path'
 import vm from 'vm'
 import ts from 'typescript'
+import { getAppliedNetworkConfigMetadata, setAppliedNetworkConfigMetadata } from '../../../src/config/networkConfig'
+import {
+  completeNetworkConfigAdoption,
+  isNetworkConfigAdoptionPending,
+  requestNetworkConfigAdoption,
+} from '../../../src/p2p/Join/networkConfig'
 
 // Runs the real Shardus.adoptNetworkConfigWhileJoining source against stubbed module helpers.
 const source = ts.createSourceFile(
@@ -36,7 +42,9 @@ function load(options: {
   hookEnables?: boolean
   hook?: boolean
   adoptFails?: boolean
-  timeSynced?: boolean
+  timeSynced?: boolean | (() => boolean)
+  onAdopt?: () => void
+  complete?: () => void
 }): Loaded {
   const config = { p2p: { netConfigV2: options.netConfigV2, timeServers: ['time'] } }
   const calls: string[] = []
@@ -44,8 +52,12 @@ function load(options: {
     calls.push('adopt')
     if (options.adoptFails) throw new Error('Unable to adopt accepted network configuration')
     config.p2p.netConfigV2 = true // the verified payload carries the network's flag
+    options.onAdopt?.()
   })
-  const complete = jest.fn(() => calls.push('complete'))
+  const complete = jest.fn(() => {
+    calls.push('complete')
+    options.complete?.()
+  })
   const context: Record<string, any> = {
     logFlags: {},
     refreshNetworkConfigSchema: jest.fn(() => calls.push('schema')),
@@ -54,7 +66,7 @@ function load(options: {
     Network: {
       checkAndUpdateTimeSyncedOffset: jest.fn(async () => {
         calls.push('time')
-        return options.timeSynced ?? true
+        return typeof options.timeSynced === 'function' ? options.timeSynced() : options.timeSynced ?? true
       }),
     },
     result: null,
@@ -124,4 +136,27 @@ test('stays pending when the time is not in sync with the adopted time servers',
   const { shardus, complete } = load({ netConfigV2: false, hookEnables: true, timeSynced: false })
   await expect(shardus.adoptNetworkConfigWhileJoining(peers)).rejects.toThrow('Time is not in sync')
   expect(complete).not.toHaveBeenCalled()
+})
+
+test('a failed time check after the metadata is saved stays pending until a later attempt succeeds', async () => {
+  const applied = { networkConfigHash: 'a'.repeat(64), networkConfigCycleMarker: 'b'.repeat(64), cycleCounter: 7 }
+  let timeSynced = false
+  const { shardus, hook, adoptNetworkConfig } = load({
+    netConfigV2: false,
+    hookEnables: true,
+    timeSynced: () => timeSynced,
+    onAdopt: () => setAppliedNetworkConfigMetadata(applied),
+    complete: completeNetworkConfigAdoption,
+  })
+  requestNetworkConfigAdoption()
+
+  await expect(shardus.adoptNetworkConfigWhileJoining(peers)).rejects.toThrow('Time is not in sync')
+  expect(getAppliedNetworkConfigMetadata()).toEqual(applied)
+  expect(isNetworkConfigAdoptionPending()).toBe(true)
+
+  timeSynced = true
+  await shardus.adoptNetworkConfigWhileJoining(peers)
+  expect(hook).toHaveBeenCalledTimes(2)
+  expect(adoptNetworkConfig).toHaveBeenCalledTimes(2)
+  expect(isNetworkConfigAdoptionPending()).toBe(false)
 })

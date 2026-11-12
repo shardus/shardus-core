@@ -21,7 +21,13 @@ const handler = source.statements.find(
 )
 const code = ts.transpileModule(handler.getText(source).replace('export ', ''), {}).outputText
 
-function sender(responses: unknown[], netConfigV2 = true, applied: unknown = null) {
+interface Sender {
+  info: jest.Mock
+  adoptionRequested: () => boolean
+  run: () => Promise<void>
+}
+
+function sender(responses: unknown[], netConfigV2 = true, applied: unknown = null): Sender {
   const info = jest.fn()
   const post = jest.fn()
   for (const response of responses) {
@@ -41,13 +47,14 @@ function sender(responses: unknown[], netConfigV2 = true, applied: unknown = nul
     hasNetworkConfigMismatchMajority,
     hasNetworkConfigResponseMajority,
     getAppliedNetworkConfigMetadata: () => applied,
+    requestNetworkConfigAdoption: jest.fn(),
   }
   vm.createContext(context)
   vm.runInContext(code, context)
   const nodes = responses.map((_, index) => ({ ip: '127.0.0.1', port: 9000 + index }))
   return {
     info,
-    adoptionRequested: () => (context as any).networkConfigAdoptionRequested === true,
+    adoptionRequested: () => context.requestNetworkConfigAdoption.mock.calls.length > 0,
     run: () => (context as any).submitJoinV2(nodes, { nodeInfo: { externalIp: '127.0.0.1' } }),
   }
 }

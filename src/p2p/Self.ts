@@ -14,6 +14,7 @@ import * as CycleCreator from './CycleCreator'
 import { calcIncomingTimes, q1SendRequests } from './CycleCreator'
 import * as GlobalAccounts from './GlobalAccounts'
 import * as Join from './Join'
+import { isNetworkConfigAdoptionPending } from './Join/networkConfig'
 import * as JoinV2 from './Join/v2'
 import * as Acceptance from './Join/v2/acceptance'
 import * as NodeList from './NodeList'
@@ -283,7 +284,7 @@ export function startupV2(shardus: Shardus, initialArchiverHandshake?: InitialAr
         }
 
         // Validators required network config fields: adopt the network config before the next request.
-        if (Join.isNetworkConfigAdoptionPending()) await shardus.adoptNetworkConfigWhileJoining(activeNodes)
+        if (isNetworkConfigAdoptionPending()) await shardus.adoptNetworkConfigWhileJoining(activeNodes)
 
         // Get latest cycle record from active nodes
         const latestCycle = await (Context.config.p2p.netConfigV2
