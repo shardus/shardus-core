@@ -130,6 +130,24 @@ export class NetworkConfigMismatchTracker {
   }
 }
 
+/**
+ * Set when a majority of validators required network config fields this node could not send, and cleared
+ * only after the adoption that follows has fully succeeded (adoption, refreshes and the time check).
+ */
+let networkConfigAdoptionRequested = false
+
+export function requestNetworkConfigAdoption(): void {
+  networkConfigAdoptionRequested = true
+}
+
+export function isNetworkConfigAdoptionPending(): boolean {
+  return networkConfigAdoptionRequested
+}
+
+export function completeNetworkConfigAdoption(): void {
+  networkConfigAdoptionRequested = false
+}
+
 export function hasNetworkConfigResponseMajority(
   selectedNodeCount: number,
   responses: Array<{ code?: string } | null | undefined>,
