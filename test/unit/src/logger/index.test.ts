@@ -320,6 +320,26 @@ describe('Logger', () => {
     })
   })
 
+  describe('setStartupLogMode', () => {
+    it('switches to the log mode chosen by an adopted config', () => {
+      logger = new Logger('/base/dir', mockConfig, 'fatal')
+      const fatal = jest.spyOn(logger, 'setFatalFlags')
+      const error = jest.spyOn(logger, 'setErrorFlags')
+      const defaults = jest.spyOn(logger, 'setDefaultFlags')
+
+      logger.setStartupLogMode('error')
+      expect(error).toHaveBeenCalledTimes(1)
+      expect(logFlags.error).toBe(true)
+
+      logger.setStartupLogMode('FATAL')
+      expect(fatal).toHaveBeenCalledTimes(1)
+      expect(logFlags.error).toBe(false)
+
+      logger.setStartupLogMode('')
+      expect(defaults).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('_checkValidConfig', () => {
     beforeEach(() => {
       logger = new Logger('/base/dir', mockConfig, 'info')

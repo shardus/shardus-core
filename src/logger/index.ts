@@ -436,6 +436,14 @@ class Logger {
     //logFlags.rotation = true
   }
 
+  /** Apply a startup log mode ('fatal', 'error', or '' for the default flags), e.g. after network config adoption. */
+  setStartupLogMode(mode: string): void {
+    const normalized = mode.toLowerCase()
+    if (normalized === 'fatal' || normalized === 'fatals') this.setFatalFlags()
+    else if (normalized === 'error' || normalized === 'errors') this.setErrorFlags()
+    else this.setDefaultFlags()
+  }
+
   setFlagByName(name: string, value: boolean) {
     logFlags[name] = value
   }

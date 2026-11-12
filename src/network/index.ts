@@ -105,6 +105,7 @@ export class NetworkClass extends EventEmitter {
   /** Refresh settings copied by the constructor after an approved network config is adopted. */
   configUpdated(config: Shardus.StrictServerConfiguration): void {
     this.timeout = config.network.timeout * 1000
+    this.debugNetworkDelay = config.debug?.fakeNetworkDelay || 0
     this.useLruCacheForSocketMgmt = config.p2p.useLruCacheForSocketMgmt
     this.lruCacheSizeForSocketMgmt = config.p2p.lruCacheSizeForSocketMgmt
     this.payloadSizeLimitInBytes = config.p2p.payloadSizeLimitInBytes
