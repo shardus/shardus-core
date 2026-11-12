@@ -6,6 +6,7 @@ import {
   evaluateNetworkConfigJoin,
   DEFAULT_MAX_NETWORK_CONFIG_REFERENCE_AGE,
   hasNetworkConfigMismatchMajority,
+  hasNetworkConfigResponseMajority,
 } from '../../../src/p2p/Join/networkConfig'
 
 // Exercise the real sender without loading the node's networking stack.
@@ -20,7 +21,7 @@ const handler = source.statements.find(
 )
 const code = ts.transpileModule(handler.getText(source).replace('export ', ''), {}).outputText
 
-function sender(responses: unknown[], netConfigV2 = true) {
+function sender(responses: unknown[], netConfigV2 = true, applied: unknown = null) {
   const info = jest.fn()
   const post = jest.fn()
   for (const response of responses) {
@@ -38,11 +39,17 @@ function sender(responses: unknown[], netConfigV2 = true) {
     allowBogon: false,
     http: { post },
     hasNetworkConfigMismatchMajority,
+    hasNetworkConfigResponseMajority,
+    getAppliedNetworkConfigMetadata: () => applied,
   }
   vm.createContext(context)
   vm.runInContext(code, context)
   const nodes = responses.map((_, index) => ({ ip: '127.0.0.1', port: 9000 + index }))
-  return { info, run: () => (context as any).submitJoinV2(nodes, { nodeInfo: { externalIp: '127.0.0.1' } }) }
+  return {
+    info,
+    adoptionRequested: () => (context as any).networkConfigAdoptionRequested === true,
+    run: () => (context as any).submitJoinV2(nodes, { nodeInfo: { externalIp: '127.0.0.1' } }),
+  }
 }
 
 test('logs missing and retryable join responses without crashing', async () => {
@@ -61,6 +68,28 @@ test.each([false, true])('only v2 stops on majority config mismatches (netConfig
   const { run } = sender([response, response, response], enabled)
   if (enabled) await expect(run()).rejects.toThrow('Network configuration conformance failed')
   else await expect(run()).resolves.toBeUndefined()
+})
+
+test('a majority requiring network config fields requests adoption without failing the attempt', async () => {
+  const required = { success: false, fatal: false, code: 'NETWORK_CONFIG_FIELDS_REQUIRED' }
+  const { run, adoptionRequested } = sender([required, required, null], false)
+  await expect(run()).resolves.toBeUndefined()
+  expect(adoptionRequested()).toBe(true)
+})
+
+test('a minority requiring network config fields does not request adoption', async () => {
+  const required = { success: false, fatal: false, code: 'NETWORK_CONFIG_FIELDS_REQUIRED' }
+  const { run, adoptionRequested } = sender([required, null, null], false)
+  await run().catch(() => undefined)
+  expect(adoptionRequested()).toBe(false)
+})
+
+test('a node that already adopted the network config does not request adoption again', async () => {
+  const required = { success: false, fatal: false, code: 'NETWORK_CONFIG_FIELDS_REQUIRED' }
+  const applied = { networkConfigHash: 'a'.repeat(64), networkConfigCycleMarker: 'b'.repeat(64), cycleCounter: 1 }
+  const { run, adoptionRequested } = sender([required, required], true, applied)
+  await expect(run()).resolves.toBeUndefined()
+  expect(adoptionRequested()).toBe(false)
 })
 
 const validator = source.statements.find(

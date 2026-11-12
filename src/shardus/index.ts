@@ -3526,6 +3526,37 @@ class Shardus extends EventEmitter {
   }
 
   /**
+   * Adopts the network config for a node that started with netConfigV2 off after the network turned it on,
+   * once validators reject its join requests with NETWORK_CONFIG_FIELDS_REQUIRED. The app hook replays the
+   * migrations for the network's active version, which turns netConfigV2 on; until the archivers report that
+   * version this returns and the join loop asks again. The subsystems already exist here, so they are
+   * refreshed the same way as for an approved config change.
+   */
+  async adoptNetworkConfigWhileJoining(activeNodes: P2P.P2PTypes.Node[]): Promise<void> {
+    if (!this.config.p2p.netConfigV2) await this.app.prepareNetworkConfigMigrations?.(false)
+    /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] join-adoption', { netConfigV2: this.config.p2p.netConfigV2 })
+    if (!this.config.p2p.netConfigV2) return
+    refreshNetworkConfigSchema(this.config)
+    await adoptNetworkConfig(
+      this.config,
+      activeNodes,
+      {
+        makeCycleMarker: (record) => this.crypto.hash(record),
+        signal: this.networkConfigInitializationController.signal,
+      },
+      1
+    )
+    this.p2p.configUpdated()
+    this.network.configUpdated(this.config)
+    this.refreshStartupLogMode()
+    this.loadDetection.configUpdated()
+    this.rateLimiting.configUpdated()
+    if (!(await Network.checkAndUpdateTimeSyncedOffset(this.config.p2p.timeServers))) {
+      throw new Error('Time is not in sync using the adopted network configuration')
+    }
+  }
+
+  /**
    * Re-apply the log mode selected by debug.startInFatalsLogMode / startInErrorLogMode when the config
    * selects a different one (after adoption or an approved config change). Comparing with the current mode
    * leaves log flags set at runtime through the log-flag endpoints alone when an unrelated change arrives.
