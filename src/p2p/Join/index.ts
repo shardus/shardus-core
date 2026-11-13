@@ -1130,14 +1130,20 @@ export async function submitJoinV2(
 
   for (const node of selectedNodes) {
     const postPromise = http.post(`${node.ip}:${node.port}/join`, joinRequest, false, 5000).catch((err) => {
-      const responseBody = err?.response?.body
-      if (responseBody && typeof responseBody === 'object') return responseBody as JoinRequestResponse
+      // Validators send network config rejections as HTTP 400, so the body is read for its response code. As on
+      // dev, its own fatal flag never stops joining: the catch-all 500 and app validation exceptions claim fatal
+      // for temporary failures. Only the network config checks below can still stop the node, e.g. a majority
+      // of NETWORK_CONFIG_HASH_MISMATCH responses.
+      let responseBody = err?.response?.body
       if (typeof responseBody === 'string') {
         try {
-          return Utils.safeJsonParse(responseBody) as JoinRequestResponse
+          responseBody = Utils.safeJsonParse(responseBody)
         } catch {
-          // fall through to logging below
+          responseBody = undefined
         }
+      }
+      if (responseBody && typeof responseBody === 'object') {
+        return { ...(responseBody as JoinRequestResponse), fatal: false }
       }
       /* prettier-ignore */ if (logFlags.important_as_fatal) error(`submitJoin: Error posting join request to ${node.ip}:${node.port}: Error: ${utils.formatErrorMessage(err)}`)
       return null

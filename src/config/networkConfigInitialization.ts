@@ -2,6 +2,7 @@ import { P2P } from '@shardus/lib-types'
 import { setTimeout as sleep } from 'timers/promises'
 import { NETWORK_CONFIG_HASH_PATTERN } from './networkConfigConstants'
 import { logFlags } from '../logger'
+import { nestedCountersInstance } from '../utils/nestedCounters'
 import * as http from '../http'
 import { StrictServerConfiguration } from '../shardus/shardus-types'
 import {
@@ -19,6 +20,12 @@ import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 type ActiveNode = Partial<P2P.SyncTypes.ActiveNode> & Partial<P2P.NodeListTypes.Node>
 type NetConfigResponse = { config: unknown; networkConfigHash: string }
 type CycleMarkerQueryResult = { marker: string; winningNodes: ActiveNode[] }
+
+/** The response carries the whole network config, so allow more than http.get's 1s default. */
+const NETWORK_CONFIG_FETCH_TIMEOUT_MS = 5000
+const RETRY_DELAY_MS = 5000
+/** While the failure reason stays the same, log it again at most this often. */
+const REPEATED_FAILURE_LOG_INTERVAL_MS = 60_000
 
 function validateCycleRecord(cycle: P2P.CycleCreatorTypes.CycleRecord): void {
   if (!cycle || typeof cycle !== 'object') throw new Error('cycle record is empty or malformed')
@@ -97,7 +104,9 @@ export async function adoptNetworkConfig(
   dependencies: NetworkConfigInitializationDependencies,
   attempts = 3
 ): Promise<AppliedNetworkConfig> {
-  const get = dependencies.get ?? ((url: string) => http.get(url) as Promise<NetConfigResponse>)
+  const get =
+    dependencies.get ??
+    ((url: string) => http.get(url, false, NETWORK_CONFIG_FETCH_TIMEOUT_MS) as Promise<NetConfigResponse>)
   const hash = dependencies.hash ?? hashLocalNetworkConfig
   const payloadHash = dependencies.payloadHash ?? hashNetConfig
   let lastError: Error = new Error('No active node supplied a network configuration')
@@ -171,8 +180,14 @@ export async function adoptNetworkConfig(
 }
 
 /** Retry a complete discovery/adoption round until ready or shutdown is requested. */
-export async function waitForNetworkConfig<T>(attempt: () => Promise<T>, signal: AbortSignal): Promise<T> {
+export async function waitForNetworkConfig<T>(
+  attempt: () => Promise<T>,
+  signal: AbortSignal,
+  retryDelayMs = RETRY_DELAY_MS
+): Promise<T> {
   const started = Date.now()
+  let lastReason: string | undefined
+  let lastLoggedAt = 0
   for (let round = 1; ; round++) {
     signal.throwIfAborted()
     try {
@@ -181,8 +196,17 @@ export async function waitForNetworkConfig<T>(attempt: () => Promise<T>, signal:
       return result
     } catch (error) {
       signal.throwIfAborted()
-      /* prettier-ignore */ if (logFlags.verbose) console.log('[config-enforced] initialization-waiting', { attempt: round, elapsedMs: Date.now() - started, retryDelayMs: 5000, reason: error instanceof Error ? error.message : String(error) })
-      await sleep(5000, undefined, { signal })
+      const reason = error instanceof Error ? error.message : String(error)
+      nestedCountersInstance.countEvent('config', 'network config initialization waiting')
+      // Shown outside verbose mode so a node stuck here says why: a new reason right away, a repeated one at
+      // most once a minute.
+      const now = Date.now()
+      if (reason !== lastReason || now - lastLoggedAt >= REPEATED_FAILURE_LOG_INTERVAL_MS) {
+        /* prettier-ignore */ if (logFlags.important_as_fatal) console.error('[config-enforced] network config initialization waiting', { attempt: round, elapsedMs: now - started, retryDelayMs, reason })
+        lastLoggedAt = now
+      }
+      lastReason = reason
+      await sleep(retryDelayMs, undefined, { signal })
     }
   }
 }

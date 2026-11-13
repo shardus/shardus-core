@@ -84,6 +84,28 @@ test('a majority requiring network config fields requests adoption without faili
   expect(adoptionRequested()).toBe(true)
 })
 
+test('fatal bodies in HTTP error responses do not stop joining, as on dev', async () => {
+  const httpError = (body: unknown): Error => Object.assign(new Error('Response code 500'), { response: { body } })
+  const fatal = { success: false, fatal: true, reason: 'An error occurred while processing the join request' }
+  const { run } = sender([httpError(fatal), httpError(JSON.stringify(fatal)), httpError(fatal)], false)
+  await expect(run()).resolves.toBeUndefined()
+})
+
+test('network config codes in HTTP error responses still request adoption', async () => {
+  const required = { success: false, fatal: false, code: 'NETWORK_CONFIG_FIELDS_REQUIRED' }
+  const httpError = Object.assign(new Error('Response code 400'), { response: { body: required } })
+  const { run, adoptionRequested } = sender([httpError, httpError, null], false)
+  await expect(run()).resolves.toBeUndefined()
+  expect(adoptionRequested()).toBe(true)
+})
+
+test('a majority of hash mismatches in HTTP error responses still stops a V2 joiner', async () => {
+  const mismatch = { success: false, fatal: false, code: 'NETWORK_CONFIG_HASH_MISMATCH' }
+  const httpError = (): Error => Object.assign(new Error('Response code 400'), { response: { body: mismatch } })
+  const { run } = sender([httpError(), httpError(), httpError()], true)
+  await expect(run()).rejects.toThrow('Fatal: Network configuration conformance failed')
+})
+
 test('a minority requiring network config fields does not request adoption', async () => {
   const required = { success: false, fatal: false, code: 'NETWORK_CONFIG_FIELDS_REQUIRED' }
   const { run, adoptionRequested } = sender([required, null, null], false)

@@ -70,21 +70,58 @@ describe('network config readiness and cancellation', () => {
     expect(getAppliedNetworkConfigMetadata()?.networkConfigHash).toBe(HASH)
   })
 
-  test('retries discovery errors and logs only behind verbose', async () => {
-    const logs = jest.spyOn(console, 'log').mockImplementation(() => {})
-    const attempt = jest.fn().mockRejectedValueOnce(new Error('empty signed list')).mockResolvedValue('ready')
-    await waitForNetworkConfig(attempt, new AbortController().signal)
-    expect(logs).not.toHaveBeenCalled()
-    logFlags.verbose = true
-    attempt.mockRejectedValueOnce(new Error('signature rejected'))
-    await waitForNetworkConfig(attempt, new AbortController().signal)
-    expect(logs).toHaveBeenCalledWith(
-      '[config-enforced] initialization-waiting',
-      expect.objectContaining({
-        retryDelayMs: 5000,
-        reason: 'signature rejected',
+  test('retries discovery errors and logs each distinct reason outside verbose mode', async () => {
+    const important = logFlags.important_as_fatal
+    logFlags.verbose = false
+    logFlags.important_as_fatal = true
+    const errors = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      const attempt = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('empty signed list'))
+        .mockRejectedValueOnce(new Error('empty signed list'))
+        .mockRejectedValueOnce(new Error('signature rejected'))
+        .mockResolvedValue('ready')
+      await expect(waitForNetworkConfig(attempt, new AbortController().signal, 0)).resolves.toBe('ready')
+      expect(attempt).toHaveBeenCalledTimes(4)
+      // A repeated reason is not logged again within the same minute.
+      expect(errors.mock.calls).toEqual([
+        [
+          '[config-enforced] network config initialization waiting',
+          expect.objectContaining({ attempt: 1, retryDelayMs: 0, reason: 'empty signed list' }),
+        ],
+        [
+          '[config-enforced] network config initialization waiting',
+          expect.objectContaining({ attempt: 3, reason: 'signature rejected' }),
+        ],
+      ])
+    } finally {
+      errors.mockRestore()
+      logFlags.important_as_fatal = important
+    }
+  })
+
+  test('logs a repeated reason again once a minute has passed since the last log', async () => {
+    const important = logFlags.important_as_fatal
+    logFlags.important_as_fatal = true
+    const errors = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    // Rounds 1-4 fail with the same reason; the clock advances 30s per round.
+    let clock = 1_000_000
+    const now = jest.spyOn(Date, 'now').mockImplementation(() => clock)
+    try {
+      const attempt = jest.fn(async () => {
+        clock += 30_000
+        if (attempt.mock.calls.length <= 4) throw new Error('archiver unavailable')
+        return 'ready'
       })
-    )
+      await expect(waitForNetworkConfig(attempt, new AbortController().signal, 0)).resolves.toBe('ready')
+      // Logged at round 1, skipped at round 2 (30s later), logged again at round 3 (60s), skipped at round 4.
+      expect(errors.mock.calls.map(([, details]) => (details as { attempt: number }).attempt)).toEqual([1, 3])
+    } finally {
+      now.mockRestore()
+      errors.mockRestore()
+      logFlags.important_as_fatal = important
+    }
   })
 
   test('logs all three hashes on mismatch only when verbose is enabled', async () => {
