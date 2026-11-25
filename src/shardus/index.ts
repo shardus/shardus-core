@@ -1379,7 +1379,7 @@ class Shardus extends EventEmitter {
       this.statistics.incrementCounter('txInjected')
     }
     this.logger.playbackLogNote('tx_injected', `${txId}`, `Transaction: ${utils.stringifyReduce(timestampedTx)}`)
-    let added = this.stateManager.transactionQueue.routeAndQueueAcceptedTransaction(
+    const added = this.stateManager.transactionQueue.routeAndQueueAcceptedTransaction(
       acceptedTX,
       /*send gossip*/ true,
       null,
@@ -1390,12 +1390,29 @@ class Shardus extends EventEmitter {
       this.mainLogger.debug(`End of injectTransaction ${utils.stringifyReduce(tx)}, added: ${added}`)
     }
 
-    return {
-      success: true,
-      reason: 'Transaction queued, poll for results.',
-      status: 200, // 200 status code means transaction is generally successful
-      txId,
+    // Only report success when the tx entered a queue, ours or the tx group's, so clients
+    // don't poll for a receipt that this submission cannot produce.
+    // 'out of range': we are not in the tx group, but the tx was already gossiped to it.
+    // 'lost': debug-only drop that simulates a lost message.
+    if (added === true || added === 'out of range' || added === 'lost') {
+      return {
+        success: true,
+        reason: 'Transaction queued, poll for results.',
+        status: 200, // 200 status code means transaction is generally successful
+        txId,
+      }
     }
+
+    nestedCountersInstance.countEvent('rejected', `enqueue failed: ${added}-${loggingContext}`)
+    let queueFailReason = 'Transaction could not be queued.'
+    if (added === 'already in queue') {
+      queueFailReason = 'Transaction is already in queue.' // same outcome as the duplicate check at the start of put()
+    } else if (added === 'no cycle shard data') {
+      queueFailReason = 'Routing data for the transaction cycle is not available. Retry later.'
+    } else if (added === 'notReady') {
+      queueFailReason = 'Node is not ready to queue transactions. Retry later.'
+    }
+    return { success: false, reason: queueFailReason, status: 500, txId }
   }
 
   /**

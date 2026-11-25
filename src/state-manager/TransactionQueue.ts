@@ -2047,7 +2047,7 @@ class TransactionQueue {
       // todo faster hash lookup for this maybe?
       const entry = this.getQueueEntrySafe(acceptedTx.txId) // , acceptedTx.timestamp)
       if (entry) {
-        return false // already in our queue, or temp queue
+        return 'already in queue' // already in our queue, or temp queue
       }
 
       // logID is now set at queue entry creation time to ensure it's always available
@@ -2130,7 +2130,7 @@ class TransactionQueue {
         if (cycleShardData == null) {
           /* prettier-ignore */ if (logFlags.error) this.mainLogger.error(`routeAndQueueAcceptedTransaction logID:${txQueueEntry.logID} cycleShardData == null cycle:${cycleNumber} not putting tx in queue.`)
           nestedCountersInstance.countEvent('stateManager', 'routeAndQueueAcceptedTransaction cycleShardData == null')
-          return false
+          return 'no cycle shard data'
         }
 
         this.updateHomeInformation(txQueueEntry)
